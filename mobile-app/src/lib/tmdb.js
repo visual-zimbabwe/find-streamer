@@ -116,6 +116,24 @@ async function getCredits(mediaType, tmdbId) {
   };
 }
 
+
+async function getSimilar(mediaType, tmdbId) {
+  const data = await tmdbGet(`/${mediaType}/${tmdbId}/similar`);
+  return (data.results || [])
+    .slice(0, 4)
+    .map((item) => {
+      const dateValue = item.release_date || item.first_air_date || '';
+      return {
+        mediaType: item.media_type,
+        tmdbId: item.id,
+        title: item.title || item.name || '(Untitled)',
+        year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+        posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+      };
+    });
+}
+
 async function getProviderCountries(mediaType, tmdbId) {
   const data = await tmdbGet(`/${mediaType}/${tmdbId}/watch/providers`);
   const results = data.results || {};
@@ -182,9 +200,10 @@ function buildProviderSummary(rows) {
 }
 
 export async function resolveMatch(query, match) {
-  const [metadata, credits, availability, countryNames] = await Promise.all([
+  const [metadata, credits, similar, availability, countryNames] = await Promise.all([
     getTitleMetadata(match.mediaType, match.tmdbId),
-    getCredits(match.mediaType, match.tmdbId),
+    getCredits(match.a, match.tmdbId),
+    getSimilar(match.mediaType, match.tmdbId),
     getProviderCountries(match.mediaType, match.tmdbId),
     getCountryNames(),
   ]);
@@ -196,6 +215,7 @@ export async function resolveMatch(query, match) {
     ...match,
     ...metadata,
     ...credits,
+    similar,
     rows,
     providerSummary: buildProviderSummary(rows),
   };
