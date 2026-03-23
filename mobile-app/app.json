@@ -28,6 +28,9 @@
         "backgroundColor": "#000000"
       },
       "package": "kkadogo.findstreamer.com"
-    }
+    },
+    "plugins": [
+      "expo-asset"
+    ]
   }
 }
