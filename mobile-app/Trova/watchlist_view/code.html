@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Trova - Your Watchlist</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "inverse-surface": "#f8f9ff",
+              "on-error": "#490013",
+              "secondary-fixed-dim": "#c9d6de",
+              "on-background": "#f1f3fc",
+              "inverse-primary": "#4958ac",
+              "on-secondary-container": "#c5d2da",
+              "surface-dim": "#0a0e14",
+              "surface-bright": "#262c36",
+              "surface-container-low": "#0f141a",
+              "tertiary-dim": "#f088d4",
+              "secondary-dim": "#c9d6de",
+              "on-primary-fixed-variant": "#1b2c7f",
+              "on-secondary-fixed-variant": "#515d64",
+              "surface": "#0a0e14",
+              "outline": "#72757d",
+              "on-secondary": "#47545a",
+              "surface-container-lowest": "#000000",
+              "on-primary-container": "#00156d",
+              "on-primary-fixed": "#00083f",
+              "surface-container-high": "#1b2028",
+              "outline-variant": "#44484f",
+              "tertiary-fixed-dim": "#f088d4",
+              "background": "#0a0e14",
+              "on-surface-variant": "#a8abb3",
+              "tertiary": "#ffade6",
+              "error": "#ff6e84",
+              "secondary-fixed": "#d7e4ec",
+              "on-tertiary-container": "#650d58",
+              "surface-container-highest": "#20262f",
+              "tertiary-container": "#ff95e3",
+              "secondary": "#d7e4ec",
+              "primary-fixed": "#96a5ff",
+              "surface-tint": "#9aa8ff",
+              "on-tertiary": "#711a62",
+              "primary-dim": "#8998f0",
+              "secondary-container": "#3c494f",
+              "on-tertiary-fixed": "#430039",
+              "on-error-container": "#ffb2b9",
+              "inverse-on-surface": "#51555c",
+              "tertiary-fixed": "#ff95e3",
+              "surface-variant": "#20262f",
+              "primary-fixed-dim": "#8998f0",
+              "on-surface": "#f1f3fc",
+              "error-dim": "#d73357",
+              "on-primary": "#122479",
+              "surface-container": "#151a21",
+              "primary-container": "#8c9bf3",
+              "on-tertiary-fixed-variant": "#701961",
+              "primary": "#9aa8ff",
+              "on-secondary-fixed": "#354147",
+              "error-container": "#a70138"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-effect {
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<nav class="fixed top-0 w-full z-50 bg-[#0a0e14] dark:bg-[#0a0e14] opacity-90 backdrop-blur-xl flex justify-between items-center px-6 h-16 w-full">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#9aa8ff] text-2xl" data-icon="movie_filter">movie_filter</span>
+<h1 class="font-['Manrope'] font-bold tracking-tight text-xl text-[#9aa8ff]">Discovery</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-[#a8abb3] hover:bg-[#20262f] transition-colors duration-300 active:scale-95 active:duration-150">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</nav>
+<main class="pt-24 pb-32 px-6 max-w-7xl mx-auto">
+<header class="mb-10">
+<h2 class="font-headline font-extrabold text-4xl tracking-tighter mb-2">My Watchlist</h2>
+<p class="font-body text-on-surface-variant text-sm">You have 12 titles saved to watch later.</p>
+</header>
+<section class="space-y-12">
+<article class="group relative flex flex-col md:flex-row gap-8 items-start">
+<div class="relative w-full md:w-72 flex-shrink-0 aspect-[2/3] overflow-hidden rounded-xl shadow-2xl">
+<img alt="Cinematic Poster" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="dramatic cinematic film poster featuring a solitary figure standing on a neon-lit futuristic street at night with rain and fog" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4he-S4F1hPIl1aMHI4oKIq999FeNxz6ZkzQchZxAIvWu65rUapSvcKuk9HNPDNz0fk5aW7EueoFGa4WGLGLsZhWfK8nOLKpDFFkUCG4dx7eqMSDc-kr_L57Pq0YeQEzaQEHrHbYtbm2-_yO-2mGymIdV-7-1ZiEPBOiA6eMNF7gatJEvWbDVXyU0U8HPzgxmBuPbbEEuj2G9rz1C5_3Ba2SUVeTHaWRlMV9lH-nBhEHiKSxNPDvw1-pyyQlypDZa0gPXWFLJBcrDq"/>
+<button class="absolute top-4 right-4 w-10 h-10 glass-effect bg-surface/40 rounded-full flex items-center justify-center text-on-surface hover:bg-error transition-all duration-300">
+<span class="material-symbols-outlined text-xl" data-icon="delete">delete</span>
+</button>
+</div>
+<div class="flex-1 space-y-4 pt-2">
+<div class="flex flex-wrap items-center gap-3">
+<h3 class="font-headline font-bold text-3xl tracking-tight">Neon Horizons</h3>
+<span class="px-3 py-1 bg-surface-container-highest text-on-surface-variant text-xs font-semibold rounded-full uppercase tracking-wider">Sci-Fi</span>
+</div>
+<div class="flex items-center gap-4 text-on-surface-variant font-label text-sm">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-primary text-lg" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span> 8.4</span>
+<span>•</span>
+<span>2024</span>
+<span>•</span>
+<span>2h 14m</span>
+</div>
+<p class="text-on-surface-variant leading-relaxed max-w-2xl">
+                        In a decaying metropolis where memories are traded as currency, a freelance data-runner discovers a hidden file that could rewrite the history of humanity’s last bastion.
+                    </p>
+<div class="pt-4">
+<button class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold rounded-md hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                            Watch Now
+                        </button>
+</div>
+</div>
+</article>
+<article class="group relative flex flex-col md:flex-row gap-8 items-start">
+<div class="relative w-full md:w-72 flex-shrink-0 aspect-[2/3] overflow-hidden rounded-xl shadow-2xl">
+<img alt="Cinematic Poster" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="atmospheric movie poster of an ancient stone castle perched on a snowy mountain peak under a dark moonlit sky" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsj8ZdzKyL393xFBHs-Fr8GQLRfgsOLkMfzPrFGSrJrA1U52OODZI34dv2hiCTueyv2J7UT1ssrn7pOZZTESug9IEPLqX43_t83HfPmJrAMUsbF2-lbSp4X0LW9B1cuHGCrmZPtXbn2xo8Yosp3fyUssIZx7TM2B-Pkr44GlSI-RQaxnMTrUlP5GKwIliIQC4IsQkjVyz5SIcfWtbBajnXkUeVbsiSfLUFO6spq6uWh1aDF5zGqWY4--ku_BXjpLS6ST52eIaDt0uV"/>
+<button class="absolute top-4 right-4 w-10 h-10 glass-effect bg-surface/40 rounded-full flex items-center justify-center text-on-surface hover:bg-error transition-all duration-300">
+<span class="material-symbols-outlined text-xl" data-icon="delete">delete</span>
+</button>
+</div>
+<div class="flex-1 space-y-4 pt-2">
+<div class="flex flex-wrap items-center gap-3">
+<h3 class="font-headline font-bold text-3xl tracking-tight">The Silent Kingdom</h3>
+<span class="px-3 py-1 bg-surface-container-highest text-on-surface-variant text-xs font-semibold rounded-full uppercase tracking-wider">Fantasy</span>
+</div>
+<div class="flex items-center gap-4 text-on-surface-variant font-label text-sm">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-primary text-lg" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span> 7.9</span>
+<span>•</span>
+<span>2023</span>
+<span>•</span>
+<span>1h 56m</span>
+</div>
+<p class="text-on-surface-variant leading-relaxed max-w-2xl">
+                        A young cartographer ventures into a forgotten realm where sound is forbidden, searching for the truth behind her family's mysterious disappearance centuries ago.
+                    </p>
+<div class="pt-4">
+<button class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold rounded-md hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                            Watch Now
+                        </button>
+</div>
+</div>
+</article>
+<article class="group relative flex flex-col md:flex-row gap-8 items-start">
+<div class="relative w-full md:w-72 flex-shrink-0 aspect-[2/3] overflow-hidden rounded-xl shadow-2xl">
+<img alt="Cinematic Poster" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="black and white film noir poster showing a silhouette of a detective in a trench coat standing under a street lamp" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCe4Y7ekNWXxu87sCMCQqhE6C1ddM7mviiFODadUCHbZYv3YTvtMCKQvpkVMKgw2l72OAGQN9ibQpOOsDk4Q0mlIJB-lP4QxDeN1zNAX9ZunLD-iVWVVh6qLPnLXLPu4zABrwOOjMVU6Mdy0lmKBLS8GWpH22XSwGxhGYZ6eZLHXn40_vOM4okZZEbh8m9CE1PumsGlNoEm7bNnb8MrBgE-8UVcgRyd8-1DAvn3BzsSaO-y_eUE97uPA418EeM46t8x4IwxCWD8Fwg4"/>
+<button class="absolute top-4 right-4 w-10 h-10 glass-effect bg-surface/40 rounded-full flex items-center justify-center text-on-surface hover:bg-error transition-all duration-300">
+<span class="material-symbols-outlined text-xl" data-icon="delete">delete</span>
+</button>
+</div>
+<div class="flex-1 space-y-4 pt-2">
+<div class="flex flex-wrap items-center gap-3">
+<h3 class="font-headline font-bold text-3xl tracking-tight">Midnight Protocol</h3>
+<span class="px-3 py-1 bg-surface-container-highest text-on-surface-variant text-xs font-semibold rounded-full uppercase tracking-wider">Thriller</span>
+</div>
+<div class="flex items-center gap-4 text-on-surface-variant font-label text-sm">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-primary text-lg" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span> 9.1</span>
+<span>•</span>
+<span>2024</span>
+<span>•</span>
+<span>2h 05m</span>
+</div>
+<p class="text-on-surface-variant leading-relaxed max-w-2xl">
+                        When a high-stakes heist goes wrong, a team of professional thieves must navigate a web of betrayal and corporate espionage to survive the longest night of their lives.
+                    </p>
+<div class="pt-4">
+<button class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold rounded-md hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                            Watch Now
+                        </button>
+</div>
+</div>
+</article>
+</section>
+</main>
+<nav class="fixed bottom-0 left-0 w-full h-20 flex justify-around items-center px-8 pb-4 bg-[#0a0e14]/80 dark:bg-[#0a0e14]/80 backdrop-blur-3xl rounded-t-3xl border-t border-[#44484f]/15 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] z-50">
+<a class="flex flex-col items-center justify-center text-[#a8abb3] opacity-60 px-6 py-2 hover:text-[#9aa8ff] transition-all duration-300 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="search">search</span>
+<span class="font-['Inter'] font-medium text-[11px] uppercase tracking-widest">Search</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#9aa8ff] bg-[#9aa8ff]/10 rounded-full px-6 py-2 hover:text-[#9aa8ff] transition-all duration-300 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="bookmarks" style="font-variation-settings: 'FILL' 1;">bookmarks</span>
+<span class="font-['Inter'] font-medium text-[11px] uppercase tracking-widest">Watchlist</span>
+</a>
+</nav>
+</body></html>

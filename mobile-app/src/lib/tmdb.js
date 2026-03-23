@@ -103,6 +103,19 @@ async function getTitleMetadata(mediaType, tmdbId) {
   };
 }
 
+
+async function getCredits(mediaType, tmdbId) {
+  const data = await tmdbGet(`/${mediaType}/${tmdbId}/credits`);
+
+  const director = (data.crew || []).find((person) => person.job === 'Director' || person.department === 'Directing');
+  const starring = (data.cast || []).sort((a, b) => (a.order || 9999) - (b.order || 9999)).slice(0, 4);
+
+  return {
+    director: director ? director.name : 'N/A',
+    starring: starring.map((person) => person.name).join(', ') || 'N/A',
+  };
+}
+
 async function getProviderCountries(mediaType, tmdbId) {
   const data = await tmdbGet(`/${mediaType}/${tmdbId}/watch/providers`);
   const results = data.results || {};
@@ -169,8 +182,9 @@ function buildProviderSummary(rows) {
 }
 
 export async function resolveMatch(query, match) {
-  const [metadata, availability, countryNames] = await Promise.all([
+  const [metadata, credits, availability, countryNames] = await Promise.all([
     getTitleMetadata(match.mediaType, match.tmdbId),
+    getCredits(match.mediaType, match.tmdbId),
     getProviderCountries(match.mediaType, match.tmdbId),
     getCountryNames(),
   ]);
@@ -181,6 +195,7 @@ export async function resolveMatch(query, match) {
     query,
     ...match,
     ...metadata,
+    ...credits,
     rows,
     providerSummary: buildProviderSummary(rows),
   };
