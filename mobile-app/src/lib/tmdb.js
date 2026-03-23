@@ -202,7 +202,7 @@ function buildProviderSummary(rows) {
 export async function resolveMatch(query, match) {
   const [metadata, credits, similar, availability, countryNames] = await Promise.all([
     getTitleMetadata(match.mediaType, match.tmdbId),
-    getCredits(match.a, match.tmdbId),
+    getCredits(match.mediaType, match.tmdbId),
     getSimilar(match.mediaType, match.tmdbId),
     getProviderCountries(match.mediaType, match.tmdbId),
     getCountryNames(),
