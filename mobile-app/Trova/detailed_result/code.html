@@ -86,6 +86,13 @@
             backdrop-filter: blur(24px);
             background: rgba(21, 26, 33, 0.7);
         }
+        .scrim-gradient-bottom {
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
+        }
+        .glass-panel-heavy {
+            backdrop-filter: blur(40px);
+            background: rgba(38, 44, 54, 0.7); /* surface-bright at 70% opacity */
+        }
     </style>
 <style>
     body {
@@ -206,6 +213,16 @@
 </div>
 </div>
 </div>
+<!-- Discovery Chips -->
+<section class="mt-12 px-6 md:px-12">
+    <div class="flex flex-wrap gap-3">
+        <button class="px-5 py-2 rounded-full bg-primary text-on-primary font-semibold text-sm">Action</button>
+        <button class="px-5 py-2 rounded-full border border-outline-variant/10 text-on-surface-variant font-semibold text-sm hover:bg-surface-container transition-colors">Adventure</button>
+        <button class="px-5 py-2 rounded-full border border-outline-variant/10 text-on-surface-variant font-semibold text-sm hover:bg-surface-container transition-colors">Sci-Fi</button>
+        <button class="px-5 py-2 rounded-full border border-outline-variant/10 text-on-surface-variant font-semibold text-sm hover:bg-surface-container transition-colors">Thriller</button>
+        <button class="px-5 py-2 rounded-full border border-outline-variant/10 text-on-surface-variant font-semibold text-sm hover:bg-surface-container transition-colors">Mystery</button>
+    </div>
+</section>
 <!-- More Like This Section (Editorial Layout) -->
 <section class="mt-24 px-6 md:px-12">
 <div class="flex items-end justify-between mb-8">
@@ -254,4 +271,27 @@
 <!-- Bottom Navigation Shell (Suppressed for focused detail view) -->
 <!-- The prompt implies a "Back" button focus, but system rules mandate shell for top destinations. 
          Since this is a sub-page (DetailView), we suppress it per 'Shell Visibility' rule. -->
+<!-- Now Playing Bar -->
+<div class="fixed bottom-0 left-0 right-0 z-50 glass-panel-heavy border-t border-outline-variant/10 p-4 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+        <div class="w-16 h-16 rounded-lg overflow-hidden">
+            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtAOkfgdaIZXzXOqdcZw80kwzrbJ1S15kOqh5SLfeGzXy6650HUBcONFuIHRLmcyORsupBx8F4v-69iVw9QYz2Dsu4XoBB302gtCT-2zauVIJX2LsmxVBGIkS9YVIu5rEtujxorSkjXAsH75ikaDXt2cLoM0-3zL-djy4SrZ84KucUvRE4kc7l4oympordlJOFaIS_fE79VXO8LXWCx6k3Yu2ph2-XGPPzf3HLvO5dlWtHcHS7iEIXCtewwRhFvFsDholSS73aBOhu" alt="Now Playing Thumbnail" class="w-full h-full object-cover">
+        </div>
+        <div>
+            <p class="text-on-surface font-semibold text-lg">Inception</p>
+            <p class="text-on-surface-variant text-sm">Christopher Nolan</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-4">
+        <button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container-highest transition-colors duration-200 active:scale-95 text-on-surface">
+            <span class="material-symbols-outlined">skip_previous</span>
+        </button>
+        <button class="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-on-primary hover:bg-primary-container transition-colors duration-200 active:scale-95">
+            <span class="material-symbols-outlined text-2xl">play_arrow</span>
+        </button>
+        <button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container-highest transition-colors duration-200 active:scale-95 text-on-surface">
+            <span class="material-symbols-outlined">skip_next</span>
+        </button>
+    </div>
+</div>
 </body></html>
