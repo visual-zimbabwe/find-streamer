@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+
+<html class="dark"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary": "#47545a",
+              "on-primary": "#122479",
+              "on-tertiary-container": "#650d58",
+              "on-primary-fixed": "#00083f",
+              "primary-fixed-dim": "#8998f0",
+              "surface-container": "#151a21",
+              "on-secondary-container": "#c5d2da",
+              "primary-dim": "#8998f0",
+              "tertiary": "#ffade6",
+              "on-tertiary": "#711a62",
+              "on-secondary-fixed-variant": "#515d64",
+              "on-tertiary-fixed-variant": "#701961",
+              "on-primary-container": "#00156d",
+              "inverse-surface": "#f8f9ff",
+              "surface-container-low": "#0f141a",
+              "error": "#ff6e84",
+              "background": "#0a0e14",
+              "secondary-fixed": "#d7e4ec",
+              "on-primary-fixed-variant": "#1b2c7f",
+              "on-surface-variant": "#a8abb3",
+              "secondary-fixed-dim": "#c9d6de",
+              "surface-variant": "#20262f",
+              "tertiary-dim": "#f088d4",
+              "outline": "#72757d",
+              "tertiary-fixed": "#ff95e3",
+              "primary-container": "#8c9bf3",
+              "surface-dim": "#0a0e14",
+              "secondary": "#d7e4ec",
+              "inverse-primary": "#4958ac",
+              "error-dim": "#d73357",
+              "inverse-on-surface": "#51555c",
+              "primary-fixed": "#96a5ff",
+              "tertiary-container": "#ff95e3",
+              "on-surface": "#f1f3fc",
+              "on-error": "#490013",
+              "outline-variant": "#44484f",
+              "surface-bright": "#262c36",
+              "on-error-container": "#ffb2b9",
+              "surface-tint": "#9aa8ff",
+              "surface": "#0a0e14",
+              "on-secondary-fixed": "#354147",
+              "on-background": "#f1f3fc",
+              "surface-container-lowest": "#000000",
+              "secondary-dim": "#c9d6de",
+              "error-container": "#a70138",
+              "on-tertiary-fixed": "#430039",
+              "secondary-container": "#3c494f",
+              "surface-container-highest": "#20262f",
+              "tertiary-fixed-dim": "#f088d4",
+              "surface-container-high": "#1b2028",
+              "primary": "#9aa8ff"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30 selection:text-primary min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-[#0a0e14] dark:bg-[#0a0e14]">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#9aa8ff]" data-icon="movie_filter">movie_filter</span>
+<h1 class="text-2xl font-black tracking-tighter text-[#9aa8ff] dark:text-[#9aa8ff] font-headline">Trova</h1>
+</div>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-[#a8abb3] hover:bg-[#20262f] transition-colors duration-200 active:scale-95 duration-150">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-5xl mx-auto">
+<!-- Search Panel -->
+<section class="mb-12">
+<div class="relative group">
+<div class="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-primary" data-icon="search">search</span>
+</div>
+<input class="w-full bg-surface-container-highest border-none rounded-xl py-4 pl-14 pr-6 text-lg font-medium text-on-surface focus:ring-2 focus:ring-primary transition-all placeholder:text-on-surface-variant" placeholder="Search movies, actors, directors..." type="text" value="Inception"/>
+</div>
+<div class="mt-6 flex flex-wrap gap-2">
+<span class="px-4 py-1.5 rounded-full bg-primary text-on-primary text-sm font-semibold">Movies</span>
+<span class="px-4 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/15 text-on-surface-variant text-sm font-medium hover:bg-surface-container-highest transition-colors cursor-pointer">Series</span>
+<span class="px-4 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/15 text-on-surface-variant text-sm font-medium hover:bg-surface-container-highest transition-colors cursor-pointer">Cast</span>
+<span class="px-4 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/15 text-on-surface-variant text-sm font-medium hover:bg-surface-container-highest transition-colors cursor-pointer">Directors</span>
+</div>
+</section>
+<!-- Results View -->
+<section>
+<div class="flex items-baseline justify-between mb-8">
+<h2 class="text-3xl font-bold tracking-tight font-headline text-on-surface">Top Matches</h2>
+<span class="text-sm font-medium font-label text-on-surface-variant">128 results found</span>
+</div>
+<!-- Asymmetric Bento Grid for Results -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+<!-- Main Result (Hero Card) -->
+<div class="md:col-span-2 group relative overflow-hidden rounded-xl bg-surface-container transition-all hover:translate-y-[-4px]">
+<div class="aspect-[16/9] w-full relative">
+<img alt="Inception movie scene" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Dream landscape from the movie Inception" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxO_fxAa9jBvFsBZxpPygKAMM6Znbfq_UAhl-UrOKOTM_ZHA259or5cGQPSv3X-jhkf2-hibj3YubGvmy1rCwxOJpglh7kbsS14JzQ9eRY4rLfxttYmpClZrKJPxIX9tExlMJbZ6gLRtOhLZg_VCfzW5OHt9P23OnsLRxsrxT4Nlgq_2n7IDX6imREHCMSbUtZR2YVn8SgXRkbc6U_hy0WvdjMTSVkg3nrM2TXo3INtml-5ppzv-tyc95_Eq2dRgEEX2_7B7Hfo4na"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface via-surface/20 to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-8 w-full">
+<div class="inline-flex items-center gap-2 bg-primary/90 backdrop-blur-md px-3 py-1 rounded-lg mb-4">
+<span class="material-symbols-outlined text-[16px] text-on-primary" data-icon="star" data-weight="fill" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-xs font-bold text-on-primary uppercase tracking-wider">Top Match</span>
+</div>
+<h3 class="text-4xl font-extrabold font-headline mb-2 text-white">Inception</h3>
+<p class="text-on-surface-variant text-lg max-w-xl">A thief who steals corporate secrets through the use of dream-sharing technology.</p>
+</div>
+</div>
+</div>
+<!-- Secondary Result -->
+<div class="group flex flex-col">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container relative mb-4">
+<img alt="Interstellar poster" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Cinematic space nebula and stars background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCby6BcXBuYXfeMJbS1ZZC2tNdjvfJS00Xz7olSUC9kowHHF9rid5Vk6IX4cyyPyyjUMvh9zXCh96h-dVhsGcMRgiCL-GkRS6fPsRPseZWk0D-6wzzbukI2dwjaRz5xta_DniuyMlj-kez2zrDY7GN34MrH8jlYyy6FaRp2zDcFBemYs0fuBlPOJ3za1QZLqiqkjDm3m7OboeC-mxn8a_k8YfFjMDkgOJtwUuokZNyK4q3EOThiqsNLP8tkUNfRGaXRrO9mOqaSCqKu"/>
+<div class="absolute top-4 right-4 h-10 w-10 bg-surface/60 backdrop-blur-md rounded-full flex items-center justify-center border border-outline-variant/15 text-white">
+<span class="material-symbols-outlined" data-icon="bookmark">bookmark</span>
+</div>
+</div>
+<div class="px-1">
+<h4 class="text-xl font-bold font-headline group-hover:text-primary transition-colors">Interstellar</h4>
+<p class="text-sm font-medium text-on-surface-variant font-label mt-1">Sci-Fi / Adventure • 2014</p>
+</div>
+</div>
+<!-- Regular Grid Items -->
+<div class="group flex flex-col">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container relative mb-4">
+<img alt="Tenet poster" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Action sequence with motion blur" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2lWrE-dQinv81rJySrni4Z5oZNu6kK3qOUM5lri8LLnM3nSjyIpt_vqb6QxIuOmFGiNvfIJlMwdH227ssMZEbjt5WpLv1m_hIMhcwoHXwwk2mG8bWL4p9Ccw6XZuvxrU9KuVgacPnREvf_3m6BwDlNsXPXAispTS3be8_KfSuusvH-1tEI-Zbk6cgdSe1QPskQbMBIGYYjEvEhzGvXFE7n6HD6Mxca_9BmNdq8lXoa8iDmJi5Mmdww-fF5yC8KDlbUUSQvPlacU9i"/>
+</div>
+<div class="px-1">
+<h4 class="text-xl font-bold font-headline group-hover:text-primary transition-colors">Tenet</h4>
+<p class="text-sm font-medium text-on-surface-variant font-label mt-1">Sci-Fi / Action • 2020</p>
+</div>
+</div>
+<div class="group flex flex-col">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container relative mb-4">
+<img alt="The Prestige poster" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Abstract theatrical stage lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLONGjkhDSKeYhsWwFj4ob7e_ey7T40Gj3LyXjcJlAuE4sDi_IBetgewI22hYHHr2SMweNWLQiO796_QLPMicR7mo8QtPKSgFD_3kLyYYOJIDEgeTJcTMdRFBS7r7rTqTnWZdurhrDPuQ2Npy2QmQXS0M_n3w09cQZHtGduAI_9eU_-xih0NR18-T_u9Z6aFV2ODIsWApAc73liVQJqnztXTUjsJGKiFFO6LrlT1MKsBGFJa4hO_aUgSke-cSYtoJumfoZj8ZkjVGj"/>
+</div>
+<div class="px-1">
+<h4 class="text-xl font-bold font-headline group-hover:text-primary transition-colors">The Prestige</h4>
+<p class="text-sm font-medium text-on-surface-variant font-label mt-1">Mystery / Drama • 2006</p>
+</div>
+</div>
+<div class="group flex flex-col">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container relative mb-4">
+<img alt="Dunkirk poster" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Dramatic beach landscape at dawn" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1e2u4DtwHAo_NNrsFs3lvt-ndpquwM0yw2ZvIbrP-nqfEwUfaPd0JrUnIOpBh38DBBD1yYm9HiiC6ZVQv9NHaWlmeG969VvdcjbIv18U338Oj_D6tFtCqlGHSQlIFnZ2snJhe-jxIpRPxlpYR974cz0AxBod_HlP1q-I8N8i3TBrovs9_imTG0VQ4aFApni73hzWEE-RM5FDfbrGVgUTZYg8KFkwXOtAbiVR9pl_OWtk7xfbEkaLjGqXIjCBg2RntJ_SBFqoEDAqW"/>
+</div>
+<div class="px-1">
+<h4 class="text-xl font-bold font-headline group-hover:text-primary transition-colors">Dunkirk</h4>
+<p class="text-sm font-medium text-on-surface-variant font-label mt-1">War / Action • 2017</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 h-20 pb-safe bg-[#0a0e14]/80 backdrop-blur-xl dark:bg-[#0a0e14]/80 border-t border-[#44484f]/15 shadow-2xl dark:shadow-none">
+<a class="flex flex-col items-center justify-center text-[#9aa8ff] bg-[#151a21] rounded-xl px-4 py-1 transition-transform duration-200 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+<span class="text-[11px] font-semibold font-[Inter] tracking-wide mt-0.5">Search</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#a8abb3] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="bookmarks">bookmarks</span>
+<span class="text-[11px] font-semibold font-[Inter] tracking-wide mt-0.5">Watchlist</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#a8abb3] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[11px] font-semibold font-[Inter] tracking-wide mt-0.5">Profile</span>
+</a>
+</nav>
+</body></html>

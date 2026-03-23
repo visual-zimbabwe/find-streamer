@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Trova",
+    "slug": "find-streamer-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./icon.png",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0f1726"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f816c0b1-ed9b-4c59-931a-6efeb1c9e7ab"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./icon.png",
+        "backgroundColor": "#000000"
+      },
+      "package": "kkadogo.findstreamer.com"
+    }
+  }
+}

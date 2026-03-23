@@ -1,0 +1,14 @@
+# Node
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+.venv/
+
+# Electron
+electron-app/dist/
+
+# Mobile
+mobile-app/node_modules/
+mobile-app/package-lock.json

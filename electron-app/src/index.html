@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Find Streamer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Literata:opsz,wght@7..72,400;7..72,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <main class="app-shell">
+      <header class="hero">
+        <p class="kicker">WORLDWIDE STREAMING MAP</p>
+        <h1>Find Streamer</h1>
+        <p class="sub">Type a movie or TV show title and get global platform availability by country.</p>
+      </header>
+
+      <section class="search-card">
+        <form id="search-form" autocomplete="off">
+          <label for="title-input">Title</label>
+          <div class="input-row">
+            <input id="title-input" name="title" type="text" placeholder="Inception" required />
+            <button id="search-btn" type="submit">Search</button>
+          </div>
+        </form>
+        <p id="status" class="status"></p>
+      </section>
+
+      <section id="match-picker" class="picker hidden" aria-live="polite">
+        <div class="picker-head">
+          <h2>Choose a match</h2>
+          <p>Search results are sorted by exact title match, then TMDB popularity.</p>
+        </div>
+        <div id="matches-list" class="matches-list"></div>
+      </section>
+
+      <section id="result" class="result hidden" aria-live="polite">
+        <div class="meta-grid">
+          <article class="meta-card meta-main">
+            <h2 id="matched-title">-</h2>
+            <p id="synopsis">-</p>
+          </article>
+          <article class="meta-card">
+            <h3>Year</h3>
+            <p id="year">-</p>
+          </article>
+          <article class="meta-card">
+            <h3>Genres</h3>
+            <p id="genres">-</p>
+          </article>
+          <article class="meta-card">
+            <h3>TMDB Rating</h3>
+            <p id="rating">-</p>
+          </article>
+          <article class="meta-card">
+            <h3>Trailer</h3>
+            <p><a id="trailer" href="#" target="_blank" rel="noopener">-</a></p>
+          </article>
+        </div>
+
+        <div class="table-wrap">
+          <table id="availability-table">
+            <thead>
+              <tr>
+                <th>Country</th>
+                <th>Code</th>
+                <th>Netflix</th>
+                <th>Amazon Prime Video</th>
+                <th>Max</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>

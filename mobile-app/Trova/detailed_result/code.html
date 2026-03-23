@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary": "#47545a",
+              "on-primary": "#122479",
+              "on-tertiary-container": "#650d58",
+              "on-primary-fixed": "#00083f",
+              "primary-fixed-dim": "#8998f0",
+              "surface-container": "#151a21",
+              "on-secondary-container": "#c5d2da",
+              "primary-dim": "#8998f0",
+              "tertiary": "#ffade6",
+              "on-tertiary": "#711a62",
+              "on-secondary-fixed-variant": "#515d64",
+              "on-tertiary-fixed-variant": "#701961",
+              "on-primary-container": "#00156d",
+              "inverse-surface": "#f8f9ff",
+              "surface-container-low": "#0f141a",
+              "error": "#ff6e84",
+              "background": "#0a0e14",
+              "secondary-fixed": "#d7e4ec",
+              "on-primary-fixed-variant": "#1b2c7f",
+              "on-surface-variant": "#a8abb3",
+              "secondary-fixed-dim": "#c9d6de",
+              "surface-variant": "#20262f",
+              "tertiary-dim": "#f088d4",
+              "outline": "#72757d",
+              "tertiary-fixed": "#ff95e3",
+              "primary-container": "#8c9bf3",
+              "surface-dim": "#0a0e14",
+              "secondary": "#d7e4ec",
+              "inverse-primary": "#4958ac",
+              "error-dim": "#d73357",
+              "inverse-on-surface": "#51555c",
+              "primary-fixed": "#96a5ff",
+              "tertiary-container": "#ff95e3",
+              "on-surface": "#f1f3fc",
+              "on-error": "#490013",
+              "outline-variant": "#44484f",
+              "surface-bright": "#262c36",
+              "on-error-container": "#ffb2b9",
+              "surface-tint": "#9aa8ff",
+              "surface": "#0a0e14",
+              "on-secondary-fixed": "#354147",
+              "on-background": "#f1f3fc",
+              "surface-container-lowest": "#000000",
+              "secondary-dim": "#c9d6de",
+              "error-container": "#a70138",
+              "on-tertiary-fixed": "#430039",
+              "secondary-container": "#3c494f",
+              "surface-container-highest": "#20262f",
+              "tertiary-fixed-dim": "#f088d4",
+              "surface-container-high": "#1b2028",
+              "primary": "#9aa8ff"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .scrim-gradient {
+            background: linear-gradient(to top, #0a0e14 0%, #0a0e14 20%, transparent 100%);
+        }
+        .glass-panel {
+            backdrop-filter: blur(24px);
+            background: rgba(21, 26, 33, 0.7);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body selection:bg-primary/30">
+<!-- Top Navigation Anchor -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-[#0a0e14] transition-colors duration-200">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#20262f] transition-colors duration-200 active:scale-95 text-[#a8abb3]">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<span class="text-2xl font-black tracking-tighter text-[#9aa8ff]">Trova</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#20262f] transition-colors duration-200 text-[#a8abb3]">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</header>
+<main class="relative pb-32">
+<!-- Hero Banner Section -->
+<section class="relative h-[618px] w-full overflow-hidden">
+<img alt="Inception Movie Visual" class="w-full h-full object-cover" data-alt="Cinematic abstract dream layers with architectural motifs" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtAOkfgdaIZXzXOqdcZw80kwzrbJ1S15kOqh5SLfeGzXy6650HUBcONFuIHRLmcyORsupBx8F4v-69iVw9QYz2Dsu4XoBB302gtCT-2zauVIJX2LsmxVBGIkS9YVIu5rEtujxorSkjXAsH75ikaDXt2cLoM0-3zL-djy4SrZ84KucUvRE4kc7l4oympordlJOFaIS_fE79VXO8LXWCx6k3Yu2ph2-XGPPzf3HLvO5dlWtHcHS7iEIXCtewwRhFvFsDholSS73aBOhu"/>
+<div class="absolute inset-0 scrim-gradient"></div>
+<!-- Floating Metadata Overlap -->
+<div class="absolute bottom-12 left-6 md:left-12 max-w-4xl">
+<div class="flex items-center gap-3 mb-4">
+<span class="bg-primary/20 text-primary px-3 py-1 rounded-full text-xs font-bold tracking-widest uppercase font-label">Sci-Fi / Thriller</span>
+<div class="flex items-center gap-1 text-tertiary">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-sm font-bold font-label tracking-tighter">8.8/10</span>
+</div>
+</div>
+<h1 class="text-6xl md:text-8xl font-headline font-extrabold tracking-tighter text-on-surface leading-tight mb-2">
+                    Inception
+                </h1>
+<div class="flex items-center gap-4 text-on-surface-variant font-label text-sm">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">calendar_today</span> 2010</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">schedule</span> 2h 28m</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">subtitles</span> CC, AD</span>
+</div>
+</div>
+</section>
+<!-- Content Content Layout -->
+<div class="px-6 md:px-12 grid grid-cols-1 md:grid-cols-12 gap-12 mt-4">
+<!-- Left Column: Synopsis & Details -->
+<div class="md:col-span-8 space-y-10">
+<div class="space-y-4">
+<h2 class="text-on-surface-variant text-xs font-bold tracking-widest uppercase font-label">Synopsis</h2>
+<p class="text-xl md:text-2xl text-on-surface/90 font-light leading-relaxed max-w-3xl">
+                        A thief who steals corporate secrets through the use of dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O.
+                    </p>
+</div>
+<!-- Bento Style Details Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="p-6 rounded-xl bg-surface-container border border-outline-variant/15 flex flex-col justify-between">
+<span class="text-on-surface-variant text-[11px] font-bold tracking-widest uppercase mb-4">Director</span>
+<span class="text-lg font-semibold text-on-surface">Christopher Nolan</span>
+</div>
+<div class="p-6 rounded-xl bg-surface-container border border-outline-variant/15 flex flex-col justify-between">
+<span class="text-on-surface-variant text-[11px] font-bold tracking-widest uppercase mb-4">Starring</span>
+<span class="text-lg font-semibold text-on-surface leading-tight">Leonardo DiCaprio, Joseph Gordon-Levitt, Elliot Page</span>
+</div>
+</div>
+</div>
+<!-- Right Column: Streaming & Actions -->
+<div class="md:col-span-4 space-y-8">
+<!-- Streaming Glass Card -->
+<div class="glass-panel p-8 rounded-2xl border border-outline-variant/10 shadow-2xl">
+<h3 class="text-on-surface text-sm font-bold tracking-widest uppercase font-label mb-6">Where to Stream</h3>
+<div class="space-y-6">
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">movie</span>
+</div>
+<span class="font-semibold text-on-surface group-hover:text-primary transition-colors">Netflix</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">open_in_new</span>
+</div>
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">video_library</span>
+</div>
+<span class="font-semibold text-on-surface group-hover:text-primary transition-colors">Amazon Prime</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">open_in_new</span>
+</div>
+<div class="flex items-center justify-between group cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">live_tv</span>
+</div>
+<span class="font-semibold text-on-surface group-hover:text-primary transition-colors">Max</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">open_in_new</span>
+</div>
+</div>
+<button class="w-full mt-8 py-4 px-6 rounded-xl bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold text-sm flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                        Watch Now
+                    </button>
+</div>
+<!-- Secondary Actions -->
+<div class="flex flex-col gap-3">
+<button class="w-full py-4 px-6 rounded-xl bg-surface-container-highest/50 border border-outline-variant/15 text-on-surface font-semibold text-sm flex items-center justify-center gap-2 hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-lg">add</span>
+                        Add to Watchlist
+                    </button>
+<button class="w-full py-4 px-6 rounded-xl bg-transparent border border-outline-variant/15 text-on-surface font-semibold text-sm flex items-center justify-center gap-2 hover:bg-surface-container/50 transition-colors">
+<span class="material-symbols-outlined text-lg">share</span>
+                        Share Movie
+                    </button>
+</div>
+</div>
+</div>
+<!-- More Like This Section (Editorial Layout) -->
+<section class="mt-24 px-6 md:px-12">
+<div class="flex items-end justify-between mb-8">
+<div>
+<h2 class="text-4xl font-headline font-bold text-on-surface tracking-tight">More Like This</h2>
+<p class="text-on-surface-variant mt-2 font-body">Deeply layered psychological thrillers.</p>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+<!-- Related Card 1 -->
+<div class="group cursor-pointer">
+<div class="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-surface-container relative mb-4">
+<img alt="Interstellar" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Astronaut floating in deep space near a wormhole" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbVr3O6yyHDPwyBr9UPhZ8bjjX6bb1l-sgajz1zBNXOTnhfv-57AW20iTgrC6RT6kNCShGfi3QWCjQlxJ1pEvGgqTMWon7_gKHs8Q_0slZtsjyHgQspPpDS7HJ5cNlyRS73sQ6K2S1UY_4MQA1urqxqN0iIFDlYzh-ExfgIfe8tNVPs61fhYSgzOVv2sMOsoE0eaPR7mQuwqLT1ejQVWrkPz8CSkGtGh_TNaJFqPyB8boNHueQT3_PfEx_dHxQFond9iR11NiGt_gU"/>
+<div class="absolute top-3 right-3 glass-panel px-2 py-1 rounded-lg text-[10px] font-bold text-on-surface uppercase tracking-widest">4K</div>
+</div>
+<h4 class="font-bold text-on-surface leading-tight">Interstellar</h4>
+<p class="text-xs text-on-surface-variant font-label mt-1">2014 • 8.7/10</p>
+</div>
+<!-- Related Card 2 -->
+<div class="group cursor-pointer">
+<div class="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-surface-container relative mb-4">
+<img alt="The Prestige" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Old theatre stage with dramatic spotlighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqpM-nxZHIbPi1Ypgb3AJPI5Ss10kJrTsNqLS6IAmSk7TqTvwgUGad-XXn-7kCclO1K3vOQY5LGmjkKl-BCiZBQi7QW9lJn_g32fuymczRonjwBmzVAwVzDqib7Q8QkKbl7LpkydcgGzsQ9ZAc-SRbSQgbowdkyiqkIXULihsthr1QP1umweaSC7AtfYkVnA0NOFons7ZIkqJ-WtgH5ZNaQdyeW_cnKXzo6x6px5Nb1zAuJeyfb3Uv0q4HAD0UbhwviOWhMFWN3nhW"/>
+</div>
+<h4 class="font-bold text-on-surface leading-tight">The Prestige</h4>
+<p class="text-xs text-on-surface-variant font-label mt-1">2006 • 8.5/10</p>
+</div>
+<!-- Related Card 3 -->
+<div class="group cursor-pointer">
+<div class="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-surface-container relative mb-4">
+<img alt="Tenet" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Abstract symmetric architecture with blue and orange tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2tbXibyDpCkSK8n0aaDEor1tHrcTH5rEN8rdJabb1mNH6TlN01whXWWIP3b9nS-zs8TBc7HW1cucMD460RGbo1Dziuhuo5sVzwNzUniRugTu2-OvP212Wsrg6alzUCJDNdLHjEiaxl1EPQgKkDDXhQ3WyhPOok9sSqywbtwv9B0WgM1KLcanykldFtLXpjp5I0Ol1uRIVZH2LKHLONznFemfpVgZxWb_eUiF4Q6FO7Ud3c1dUcsOCk0yjp8-vutNHVyWMmDe3ezFd"/>
+</div>
+<h4 class="font-bold text-on-surface leading-tight">Tenet</h4>
+<p class="text-xs text-on-surface-variant font-label mt-1">2020 • 7.3/10</p>
+</div>
+<!-- Related Card 4 -->
+<div class="group cursor-pointer">
+<div class="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-surface-container relative mb-4">
+<img alt="Shutter Island" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Lighthouse in a stormy dark sea" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6pFZqsTtA5ieCfeVhFk5g5QVeHGRcmsCxuAEOuFJkOSJ5JJqF1tlgq_alMu_dIds0YQK9AK1bYXByPSKQCYxPTNJLIz5vXVKaDH2mhecP_oL6k0SGbYaGBYcLk2w3HtfPLATVoJJUwNzd4FwMY40DSkt0p_-Xu-JgJWq4sgc7RJGn7M4BSYq4rZQXCGPxto--vUTT0u8jH3itT2vHJ1ZmDL0zcKQO7jPneeLM2PJMsFW8z-mnyekB9Xxe7RbpexbuWM_870875Acd"/>
+</div>
+<h4 class="font-bold text-on-surface leading-tight">Shutter Island</h4>
+<p class="text-xs text-on-surface-variant font-label mt-1">2010 • 8.2/10</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Shell (Suppressed for focused detail view) -->
+<!-- The prompt implies a "Back" button focus, but system rules mandate shell for top destinations. 
+         Since this is a sub-page (DetailView), we suppress it per 'Shell Visibility' rule. -->
+</body></html>

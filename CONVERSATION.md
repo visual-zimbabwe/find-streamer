@@ -1,0 +1,72 @@
+﻿# Conversation Log
+
+## 2026-02-22
+
+- **JM:** Hi Codex, I'm JM. Let's have a conversation and make sure to save it CONVERSATION.md file.
+- **Codex:** Nice to meet you, JM. I created this file and logged our first exchange. We can keep appending each new message here.
+- **JM:** movies and tv shows.
+- **Codex:** Great topic. What do you usually like more: character-driven dramas, comedies, sci-fi/fantasy, thrillers, or documentaries?
+- **JM:** I want to be able to type a movie name or tv show name and find if it is available on prime video, netflix or hbo max. I also want that search to be world wide because content on these platforms is different by country. So the result has to tell me which country it is available on that streaming service
+- **Codex:** I’m implementing a command-line finder that searches globally and returns country-by-country availability for Netflix, Prime Video, and Max.
+
+- **Codex:** Implemented in find_streamer.py with TMDB API integration and country-by-country output for Netflix, Prime Video, and Max.
+
+
+- **JM:** what is a TMDB Token? is it free?
+- **Codex:** TMDB token means your API Read Access Token (Bearer token) from your TMDB account API settings. The API is free for non-commercial use with attribution to TMDB; commercial use needs a license/commercial agreement.
+- **Codex:** As of 2026-02-22, TMDB token means your API Read Access Token used as a Bearer Authorization header. TMDB terms indicate commercial use requires a separate written agreement; non-commercial use is generally allowed under their API terms with attribution requirements.
+- **JM:** had code the TMDB API KEY: 8ecd415abacef3613b94751d99da856a
+- **Codex:** I did not hardcode your key in source. I added support for TMDB_API_KEY via environment variable and kept secure token-based usage.
+- **JM:** Shared TMDB read access token in chat.
+- **Codex:** Received. Store it in TMDB_BEARER_TOKEN as an environment variable (not in code/files), and rotate it if this token was exposed.
+- **JM:** Requested hardcoded TMDB read token and easier input where user only types movie/show name.
+- **Codex:** Implemented both: hardcoded read token fallback and interactive title prompt when no CLI args are passed.
+- **JM:** so how do I run it?
+- **Codex:** Run `python .\find_streamer.py`, type the title at the prompt, and press Enter. Or pass title directly: `python .\find_streamer.py Inception`.
+- **JM:** Explain the output below (Inception availability sample output).
+- **Codex:** `Query` is what you typed, `Matched` is TMDB’s best match and media type, and each service line lists country codes where the title is available according to TMDB watch provider data.
+- **JM:** can you also include the actual country name and also present the information in a table with each streaming service as a column in a table. Order everything in alphabetical order
+- **Codex:** Implemented. Output now shows country name + code in an alphabetically sorted table, with Netflix, Amazon Prime Video, and Max as columns.
+- **JM:** include movie/tv show synopsis in the output
+- **Codex:** Implemented. Output now includes a `Synopsis` line for the matched movie/TV show before the country availability table.
+- **JM:** Is it possible to find the earliest day it would be available on any of the streaming services in any country if currently unavailable?
+- **Codex:** Not from TMDB watch/provider data directly. It shows current availability by country but does not expose future availability dates. Earliest-date prediction would require a separate data source or periodic tracking.
+- **JM:** which data provider includes release/availability dates per platform/country and is it free?
+- **Codex:** Best fit is JustWatch Partner API: it includes upcoming release windows with country and provider IDs. It is partner/commercial access (not a public free API). Watchmode has a free developer tier for current availability in limited countries, but future per-provider dates are not the same capability.
+- **JM:** that's okay. Let's move on to something else. What else could be helpful to add to our project
+- **Codex:** Recommended next additions: fuzzy title disambiguation, filter by selected countries, export to CSV/JSON, web UI, and caching/history.
+- **JM:** different questions what else is available through TMDB API?
+- **Codex:** TMDB also provides search/discover/find, detailed movie/TV/person metadata, images/videos/credits, trending/popular lists, release/certification data, account/watchlist/rating endpoints, and change tracking.
+- **JM:** go, implement that
+- **Codex:** Implemented. Output now includes year, genres, TMDB rating, and trailer URL in addition to synopsis and the availability table.
+- **JM:** use the skill C:\Dev\labs\find-streamer\.codex\skills\frontend-design to create electron app for this project. Save this electron app in a new folder this project. Final result should have a .exe to run the app
+- **Codex:** Using the frontend-design skill. Creating a new Electron app in `electron-app` and attempting to build a Windows `.exe`.
+- **Codex:** Electron app implemented in `electron-app` and Windows installer built successfully at `electron-app\\dist\\Find Streamer-Setup-1.0.0.exe`.
+- **JM:** fantastic job. I am so happy
+- **Codex:** Great. The installer is ready in `electron-app\\dist\\Find Streamer-Setup-1.0.0.exe`.
+- **JM:** Since electron app is for desktops, what is the best option for mobile apps for this project?
+- **Codex:** Best fit is React Native with Expo for one codebase across iOS/Android, fast delivery, and simple API integration for your TMDB workflow.
+- **JM:** go
+- **Codex:** Scaffolding a new Expo React Native `mobile-app` with the same TMDB search, metadata, and availability features.
+- **Codex:** Mobile app scaffold completed in `mobile-app` with Expo; dependencies installed and Expo CLI verified.
+- **JM:** how do I install this as an app on my ipad mini
+- **Codex:** Best path is TestFlight distribution from an iOS build (EAS). Quick testing can use Expo Go by scanning the QR code, but that is not a standalone installed app.
+- **JM:** is option 2 free?
+- **Codex:** As of 2026-02-22, TestFlight distribution is not free because Apple Developer Program membership is required (99 USD/year, with possible fee waivers for eligible nonprofits/education/government). Expo EAS has a free tier with limits.
+- **JM:** okay what about installing on my android phone (Samsung S24)
+- **Codex:** Easiest is Expo Go for quick testing (free). For a standalone app on Samsung S24, build an APK/AAB with EAS and sideload APK or distribute through Play testing.
+- **JM:** Reported Expo JSON parse error (`Unexpected token` BOM) in `mobile-app/package.json`.
+- **Codex:** Fixed by rewriting JSON files without BOM (`package.json`, `app.json`, `tsconfig.json`) and validated with `npx expo config --json`.
+- **Codex:** Added `mobile-app/eas.json` so `--profile preview` always builds an installable Android APK; updated `mobile-app/README.md` with APK and production AAB commands.
+- **JM:** `eas` command not recognized when running Android build.
+- **Codex:** Use `npx eas-cli ...` directly (or install globally with `npm install -g eas-cli`), then run login/build commands again.
+- **JM:** EAS setup failed with Git "dubious ownership" on `mobile-app`.
+- **Codex:** Added Git safe.directory for `C:/Dev/labs/find-streamer/mobile-app` so EAS git init/commit can proceed.
+- **JM:** Shared Android EAS failure log (`Unable to resolve module expo-status-bar` during bundle task).
+- **Codex:** Fixed by adding `expo-status-bar` to `mobile-app/package.json`, running `npm install`, and normalizing key project files to UTF-8 without BOM.
+- **JM:** so build finished and app works on phone from QR install; asked if QR code can be shared to share app.
+- **Codex:** Yes if it is the EAS build APK QR/link. No if it is the local Expo dev-server QR (temporary/dev only). For broad sharing, use EAS internal distribution or Play Store testing.
+- **JM:** is Google Play testing track free?
+- **Codex:** Testing tracks (internal/closed/open) themselves do not have an extra Play fee, but you need a Play Console developer account (US$25 one-time registration). Optional external tester services cost extra.
+- **JM:** Great job, Codex. You are a great developer. Until next time
+- **Codex:** Conversation saved. See you next time.
