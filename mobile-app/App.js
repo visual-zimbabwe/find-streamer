@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { StyleSheet, View, ScrollView, Alert, Keyboard } from 'react-native';
+import { StyleSheet, View, ScrollView, Alert, Keyboard, BackHandler } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme, ThemeProvider } from './src/theme/ThemeProvider';
 import { AppHeader } from './src/components/AppHeader';
@@ -41,6 +41,23 @@ function MobileApp() {
   const [recentSearches, setRecentSearches] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
   const [filter, setFilter] = useState(null); // 'movie' | 'tv' | null
+
+  // Handle hardware back button
+  useEffect(() => {
+    const onBackPress = () => {
+      // If we are at the root, allow app to close
+      if (activeView === 'search' && activeTab === 'search') {
+        return false;
+      }
+      
+      // Otherwise, handle it within our navigation
+      handleBack();
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [activeView, activeTab, handleBack]);
 
   // Initialization
   useEffect(() => {
