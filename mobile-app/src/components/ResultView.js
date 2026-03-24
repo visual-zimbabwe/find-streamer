@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
 export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist }) {
@@ -39,6 +39,19 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist })
       </View>
 
       <View style={styles.detailsContent}>
+        <View style={styles.metaGrid}>
+          <View style={styles.metaItem}>
+            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>DIRECTOR</Text>
+            <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{result.director}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>STARRING</Text>
+            <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+              {result.starring}
+            </Text>
+          </View>
+        </View>
+
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>SYNOPSIS</Text>
           <Text style={[styles.synopsis, { color: colors.onSurface, ...typography.bodyLg }]}>
@@ -64,10 +77,18 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist })
           ))}
           
           <TouchableOpacity 
-            style={[styles.watchButton, { backgroundColor: isInWatchlist ? colors.surfaceContainerHighest : colors.primary }]}
+            style={[styles.watchButton, { backgroundColor: colors.primary }]}
+            onPress={() => Linking.openURL(result.trailer)}
+            disabled={!result.trailer || result.trailer === 'N/A'}
+          >
+            <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>▶ WATCH TRAILER</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.outlineButton, { borderColor: colors.outlineVariant + '4D' }]}
             onPress={() => onToggleWatchlist(result)}
           >
-            <Text style={[styles.watchButtonText, { color: isInWatchlist ? colors.onSurface : colors.onPrimary, ...typography.labelSm }]}>
+            <Text style={[styles.outlineButtonText, { color: colors.onSurface, ...typography.labelSm }]}>
               {isInWatchlist ? '✓ IN WATCHLIST' : '+ ADD TO WATCHLIST'}
             </Text>
           </TouchableOpacity>
@@ -199,6 +220,17 @@ const styles = StyleSheet.create({
   providerStatus: {
     fontWeight: '600',
   },
+  metaGrid: {
+    flexDirection: 'row',
+    gap: 32,
+    marginBottom: 40,
+  },
+  metaItem: {
+    flex: 1,
+  },
+  metaText: {
+    fontWeight: '700',
+  },
   watchButton: {
     height: 56,
     borderRadius: 12,
@@ -207,6 +239,18 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   watchButtonText: {
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  outlineButton: {
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  outlineButtonText: {
     fontWeight: '800',
     letterSpacing: 1,
   },
