@@ -97,9 +97,6 @@
 <span class="material-symbols-outlined text-[#9aa8ff] text-2xl" data-icon="movie_filter">movie_filter</span>
 <h1 class="text-2xl font-black tracking-tighter text-[#9aa8ff] dark:text-[#9aa8ff] font-headline">Trova</h1>
 </div>
-<a href="../../settings.html" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#20262f] transition-colors duration-200 active:scale-95 text-[#a8abb3]">
-<span class="material-symbols-outlined" data-icon="settings">settings</span>
-</a>
 </header>
 <main class="pt-24 pb-32 px-6 max-w-4xl mx-auto min-h-screen flex flex-col">
 <!-- Search Panel -->
@@ -108,7 +105,7 @@
 <div class="absolute inset-y-0 left-5 flex items-center pointer-events-none text-on-surface-variant">
 <span class="material-symbols-outlined text-xl" data-icon="search">search</span>
 </div>
-<input class="w-full h-16 pl-14 pr-6 bg-surface-container-highest rounded-xl border-none focus:ring-2 focus:ring-primary text-lg font-medium placeholder:text-on-surface-variant transition-all" placeholder="Search for a movie, show" type="text"/>
+<input id="searchInput" class="w-full h-16 pl-14 pr-6 bg-surface-container-highest rounded-xl border-none focus:ring-2 focus:ring-primary text-lg font-medium placeholder:text-on-surface-variant transition-all" placeholder="Search for a movie, show" type="text"/>
 </div>
 <!-- Filter Toggles -->
 <div class="flex gap-3 mt-6">
@@ -138,17 +135,8 @@
                 </p>
 </div>
 <!-- Recent Searches -->
-<div class="mt-12 flex flex-wrap justify-center gap-3">
-<span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant w-full mb-2">Recent Searches</span>
-<button class="px-4 py-2 rounded-full bg-surface-container-low border border-outline-variant/15 text-sm text-on-surface hover:border-primary/50 transition-all">
-                    Inception
-                </button>
-<button class="px-4 py-2 rounded-full bg-surface-container-low border border-outline-variant/15 text-sm text-on-surface hover:border-primary/50 transition-all">
-                    The Matrix
-                </button>
-<button class="px-4 py-2 rounded-full bg-surface-container-low border border-outline-variant/15 text-sm text-on-surface hover:border-primary/50 transition-all">
-                    Band of Brothers
-                </button>
+<div id="recentSearchesContainer" class="mt-12 flex flex-wrap justify-center gap-3">
+<!-- Recent searches will be injected here -->
 </div>
 </section>
 <!-- Subtle Editorial Section Background -->
@@ -158,11 +146,11 @@
 </main>
 <!-- BottomNavBar -->
 <nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 h-20 pb-safe bg-[#0a0e14]/80 backdrop-blur-xl dark:bg-[#0a0e14]/80 border-t border-[#44484f]/15">
-<a class="flex flex-col items-center justify-center text-[#9aa8ff] bg-[#151a21] rounded-xl px-4 py-1 transition-transform duration-200 ease-out" href="mobile-app/Trova/main_search/code.html">
+<a class="flex flex-col items-center justify-center text-[#9aa8ff] bg-[#151a21] rounded-xl px-4 py-1 transition-transform duration-200 ease-out" href="main_search.html">
 <span class="material-symbols-outlined" data-icon="search" style="font-variation-settings: 'FILL' 1;">search</span>
 <span class="text-[11px] font-semibold font-[Inter] tracking-wide">Search</span>
 </a>
-<a class="flex flex-col items-center justify-center text-[#a8abb3] hover:text-white transition-all" href="mobile-app/watchlist.html">
+<a class="flex flex-col items-center justify-center text-[#a8abb3] hover:text-white transition-all" href="../watchlist_view/code.html">
 <span class="material-symbols-outlined" data-icon="bookmarks">bookmarks</span>
 <span class="text-[11px] font-semibold font-[Inter] tracking-wide">Watchlist</span>
 </a>
@@ -171,6 +159,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         const movieButton = document.querySelector('.flex.gap-3 button:nth-child(1)');
         const tvShowButton = document.querySelector('.flex.gap-3 button:nth-child(2)');
+        const searchInput = document.getElementById('searchInput');
+        const recentSearchesContainer = document.getElementById('recentSearchesContainer');
         let currentFilter = 'movie'; // Default filter
 
         function updateFilterButtons() {
@@ -185,8 +175,42 @@
                 movieButton.classList.remove('bg-primary', 'text-on-primary');
                 movieButton.classList.add('bg-surface-container', 'border', 'border-outline-variant/15', 'text-on-surface-variant', 'hover:bg-surface-variant');
             }
-            console.log('Current filter:', currentFilter);
-            // Here you would typically trigger a search with the new filter
+        }
+
+        function getRecentSearches() {
+            const searches = localStorage.getItem('recentSearches');
+            return searches ? JSON.parse(searches) : [];
+        }
+
+        function saveSearch(term) {
+            if (!term || !term.trim()) return;
+            let searches = getRecentSearches();
+            searches = [term.trim(), ...searches.filter(s => s !== term.trim())].slice(0, 3);
+            localStorage.setItem('recentSearches', JSON.stringify(searches));
+            renderRecentSearches();
+        }
+
+        function renderRecentSearches() {
+            const searches = getRecentSearches();
+            recentSearchesContainer.innerHTML = '';
+            if (searches.length > 0) {
+                const title = document.createElement('span');
+                title.className = 'text-xs font-bold uppercase tracking-widest text-on-surface-variant w-full mb-2';
+                title.textContent = 'Recent Searches';
+                recentSearchesContainer.appendChild(title);
+                
+                searches.forEach(term => {
+                    const btn = document.createElement('button');
+                    btn.className = 'px-4 py-2 rounded-full bg-surface-container-low border border-outline-variant/15 text-sm text-on-surface hover:border-primary/50 transition-all';
+                    btn.textContent = term;
+                    btn.onclick = () => {
+                        searchInput.value = term;
+                        // Trigger search logic here
+                        window.location.href = '../search_results/code.html?q=' + encodeURIComponent(term);
+                    };
+                    recentSearchesContainer.appendChild(btn);
+                });
+            }
         }
 
         movieButton.addEventListener('click', () => {
@@ -199,8 +223,16 @@
             updateFilterButtons();
         });
 
-        // Initialize button states
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                saveSearch(searchInput.value);
+                window.location.href = '../search_results/code.html?q=' + encodeURIComponent(searchInput.value);
+            }
+        });
+
+        // Initialize
         updateFilterButtons();
+        renderRecentSearches();
     });
 </script>
 </body></html>

@@ -104,15 +104,10 @@
 <!-- Top Navigation Anchor -->
 <header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-[#0a0e14] transition-colors duration-200">
 <div class="flex items-center gap-4">
-<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#20262f] transition-colors duration-200 active:scale-95 text-[#a8abb3]">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#20262f] transition-colors duration-200 active:scale-95 text-[#a8abb3]" onclick="history.back()">
 <span class="material-symbols-outlined">arrow_back</span>
 </button>
 <span class="text-2xl font-black tracking-tighter text-[#9aa8ff]">Trova</span>
-</div>
-<div class="flex items-center gap-2">
-<a href="settings.html" class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#20262f] transition-colors duration-200 text-[#a8abb3]">
-<span class="material-symbols-outlined">settings</span>
-</a>
 </div>
 </header>
 <main class="relative pb-32">
@@ -202,7 +197,7 @@
 </div>
 <!-- Secondary Actions -->
 <div class="flex flex-col gap-3">
-<a href="watchlist.html" class="w-full py-4 px-6 rounded-xl bg-surface-container-highest/50 border border-outline-variant/15 text-on-surface font-semibold text-sm flex items-center justify-center gap-2 hover:bg-surface-container-highest transition-colors">
+<a href="../watchlist_view/code.html" class="w-full py-4 px-6 rounded-xl bg-surface-container-highest/50 border border-outline-variant/15 text-on-surface font-semibold text-sm flex items-center justify-center gap-2 hover:bg-surface-container-highest transition-colors">
 <span class="material-symbols-outlined text-lg">add</span>
                         Add to Watchlist
                     </a>
@@ -245,11 +240,11 @@
 </main>
 <!-- Bottom Navigation -->
 <nav class="fixed bottom-0 left-0 w-full h-20 flex justify-around items-center px-8 pb-4 bg-[#0a0e14]/80 dark:bg-[#0a0e14]/80 backdrop-blur-3xl rounded-t-3xl border-t border-[#44484f]/15 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] z-50">
-    <a class="flex flex-col items-center justify-center text-[#a8abb3] opacity-60 px-6 py-2 hover:text-[#9aa8ff] transition-all duration-300 active:scale-90 transition-transform" href="mobile-app/Trova/main_search/code.html">
+    <a class="flex flex-col items-center justify-center text-[#a8abb3] opacity-60 px-6 py-2 hover:text-[#9aa8ff] transition-all duration-300 active:scale-90 transition-transform" href="../main_search/code.html">
         <span class="material-symbols-outlined mb-1" data-icon="search">search</span>
         <span class="font-['Inter'] font-medium text-[11px] uppercase tracking-widest">Search</span>
     </a>
-    <a class="flex flex-col items-center justify-center text-[#a8abb3] opacity-60 px-6 py-2 hover:text-[#9aa8ff] transition-all duration-300 active:scale-90 transition-transform" href="mobile-app/watchlist.html">
+    <a class="flex flex-col items-center justify-center text-[#a8abb3] opacity-60 px-6 py-2 hover:text-[#9aa8ff] transition-all duration-300 active:scale-90 transition-transform" href="../watchlist_view/code.html">
         <span class="material-symbols-outlined mb-1" data-icon="bookmarks">bookmarks</span>
         <span class="font-['Inter'] font-medium text-[11px] uppercase tracking-widest">Watchlist</span>
     </a>

@@ -143,22 +143,14 @@
 </div>
 </main>
 <!-- BottomNavBar -->
-<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#0a0e14]/80 backdrop-blur-2xl z-50 rounded-t-3xl shadow-[0_-8px_30px_rgb(0,0,0,0.12)]">
-<button class="flex flex-col items-center justify-center text-[#a8abb3] px-5 py-2 hover:text-white transition-all active:scale-90 duration-300 ease-out">
-<span class="material-symbols-outlined mb-1" data-icon="home">home</span>
-<span class="font-['Inter'] text-[11px] font-medium tracking-wide">Home</span>
-</button>
-<button class="flex flex-col items-center justify-center text-[#a8abb3] px-5 py-2 hover:text-white transition-all active:scale-90 duration-300 ease-out">
-<span class="material-symbols-outlined mb-1" data-icon="explore">explore</span>
-<span class="font-['Inter'] text-[11px] font-medium tracking-wide">Discovery</span>
-</button>
-<button class="flex flex-col items-center justify-center text-[#a8abb3] px-5 py-2 hover:text-white transition-all active:scale-90 duration-300 ease-out">
-<span class="material-symbols-outlined mb-1" data-icon="video_library">video_library</span>
-<span class="font-['Inter'] text-[11px] font-medium tracking-wide">Library</span>
-</button>
-<button class="flex flex-col items-center justify-center bg-gradient-to-br from-[#9aa8ff] to-[#8c9bf3] text-white rounded-2xl px-5 py-2 active:scale-90 duration-300 ease-out">
-<span class="material-symbols-outlined mb-1" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
-<span class="font-['Inter'] text-[11px] font-medium tracking-wide">Profile</span>
-</button>
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 h-20 pb-safe bg-[#0a0e14]/80 backdrop-blur-xl dark:bg-[#0a0e14]/80 border-t border-[#44484f]/15">
+<a class="flex flex-col items-center justify-center text-[#a8abb3] hover:text-white transition-all" href="../main_search/code.html">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+<span class="text-[11px] font-semibold font-[Inter] tracking-wide">Search</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#a8abb3] hover:text-white transition-all" href="../watchlist_view/code.html">
+<span class="material-symbols-outlined" data-icon="bookmarks">bookmarks</span>
+<span class="text-[11px] font-semibold font-[Inter] tracking-wide">Watchlist</span>
+</a>
 </nav>
 </body></html>

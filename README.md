@@ -1,63 +1,54 @@
 # Find Streamer
 
-A simple CLI to find where a movie or TV show is available on:
-- Netflix
-- Amazon Prime Video
-- Max (including HBO Max naming)
+Find Streamer is a tool set to find where a movie or TV show is available for streaming on Netflix, Amazon Prime Video, and Max. It includes a Python CLI for quick terminal lookups and an Expo-based Mobile App for a premium on-the-go experience.
 
-The output is global by country code (ISO-3166-1 alpha-2), using TMDB watch provider data.
+## Quick Start
 
-## Setup
+### CLI (Python)
+1. Create and activate a virtual environment.
+2. Run `python .\find_streamer.py`.
+3. Enter a movie or TV show title when prompted.
 
-1. Create and activate your virtual environment.
-2. No external Python dependencies are required.
-3. Credentials:
-- Script now includes a hardcoded TMDB v4 read token.
-- Optional override: set `TMDB_BEARER_TOKEN` or `TMDB_API_KEY` in your environment.
-
-```powershell
-$env:TMDB_BEARER_TOKEN="YOUR_V4_READ_TOKEN"
-# or
-$env:TMDB_API_KEY="YOUR_V3_API_KEY"
-```
+### Mobile App (Expo)
+1. Navigate to the `mobile-app` directory.
+2. Run `npm install`.
+3. Start the app with `npx npx expo start`.
+4. Open the app in the Expo Go app on your phone.
 
 ## Usage
 
-Interactive (type title only when prompted):
-
+### CLI
 ```powershell
-python .\find_streamer.py
+python .\find_streamer.py "Inception"
 ```
 
-Direct command form (quotes optional):
+### Mobile App
+- **Search**: Enter a title in the search bar. The app tracks your last 3 **Recent Searches** for quick access.
+- **Watchlist**: Save titles you want to watch later.
+- **Navigation**: Simple and focused bottom navigation with only Search and Watchlist.
 
-```powershell
-python .\find_streamer.py The Last of Us
-```
-
-If TMDB returns multiple movie/TV matches, the CLI now shows a numbered list and asks you to pick one before it fetches availability.
-
-Example output:
+## Project Structure
 
 ```text
-Multiple matches found for: One Life
-1. One Life (movie, 2023)
-2. One Life (tv, 2011)
-Pick a title [1-2]: 1
-
-Query: One Life
-Matched: One Life (movie)
-Year: 2023
-Genres: Drama, History
-TMDB Rating: 7.7/10
-Trailer: https://www.youtube.com/watch?v=example
-Synopsis: British stockbroker Nicholas Winton visits Czechoslovakia and helps rescue Jewish children before World War II.
+find-streamer/
+├── find_streamer.py      # Main CLI entry point
+├── requirements.txt      # CLI dependencies
+├── mobile-app/           # Expo Mobile Application
+│   ├── App.js            # Mobile entry point
+│   ├── Trova/            # Frontend assets and views
+│   │   ├── main_search/  # Search screen (Recent Searches)
+│   │   ├── watchlist_view/ # Watchlist screen
+│   │   └── search_results/ # Results display
+│   └── src/              # Expo components and theme
+└── README.md             # Project documentation
 ```
 
-## Notes
+## Features
 
-- Availability varies over time and by region.
-- Data source is TMDB watch/providers.
-- Output includes country names and country codes.
-- Countries are sorted alphabetically by country name.
-- Auth supports TMDB v4 bearer token or TMDB v3 API key.
+- **Multi-Platform Search**: Works for Movies and TV Shows.
+- **Recent Searches**: Keeps track of your last 3 searches locally for fast access.
+- **Focused Navigation**: Clean UI with only Search and Watchlist options.
+- **Rich Metadata**: Viewing year, rating, trailer, and synopsis.
+- **Fallback Logic**: Handles ambiguous titles with a selection list.
+- **Global Availability**: Shows streaming options across different countries.
+
