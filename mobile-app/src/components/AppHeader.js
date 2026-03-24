@@ -5,14 +5,14 @@ import { useTheme } from '../theme/ThemeProvider';
 
 export function AppHeader({ onBack, showBack, onSettingsPress }) {
   const { theme } = useTheme();
-  const { colors, spacing, typography } = theme;
+  const { colors, spacing, typography, radii } = theme;
 
   return (
     <View style={[styles.header, { backgroundColor: colors.background }]}>
       <View style={styles.brand}>
         {showBack && (
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.onSurfaceVariant} />
+          <TouchableOpacity onPress={onBack} style={[styles.backButton, { backgroundColor: colors.surfaceContainer, borderRadius: radii.full }]}>
+            <Ionicons name="chevron-back" size={24} color={colors.onSurface} />
           </TouchableOpacity>
         )}
         <View style={[styles.iconPlaceholder, { backgroundColor: colors.surfaceContainerHighest }]}>
