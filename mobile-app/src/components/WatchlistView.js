@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { StatePanel } from './StatePanel';
 
@@ -40,7 +41,7 @@ export function WatchlistView({ items, onRemove, onSelect }) {
                 style={[styles.removeButton, { backgroundColor: colors.surface + 'cc' }]}
                 onPress={() => onRemove(item.tmdbId)}
               >
-                <Text style={{ color: colors.error, fontSize: 18 }}>🗑️</Text>
+                <Ionicons name="trash-outline" size={18} color={colors.error} />
               </TouchableOpacity>
             </View>
             <View style={styles.info}>
@@ -53,7 +54,8 @@ export function WatchlistView({ items, onRemove, onSelect }) {
                 {item.title}
               </Text>
               <View style={styles.meta}>
-                <Text style={{ color: colors.primary }}>⭐ {item.rating}</Text>
+                <Ionicons name="star" size={14} color={colors.primary} />
+                <Text style={{ color: colors.primary }}>{item.rating}</Text>
                 <Text style={{ color: colors.onSurfaceVariant }}>• {item.year}</Text>
               </View>
               <Text style={[styles.synopsis, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
@@ -137,6 +139,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
   synopsis: {

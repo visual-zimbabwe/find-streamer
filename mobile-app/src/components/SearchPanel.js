@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 
 export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSearches, onPickSuggestion, filter, onFilterChange, hideHistory, hideHero }) {
@@ -19,7 +20,7 @@ export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSear
 
       <View style={[styles.searchWrapper, { backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.lg }]}>
         <View style={styles.iconWrapper}>
-          <Text style={{ color: colors.primary, fontSize: 20 }}>🔍</Text>
+          <Ionicons name="search-outline" size={20} color={colors.primary} />
         </View>
         <TextInput
           style={[styles.input, { color: colors.onSurface, ...typography.bodyLg }]}
@@ -29,7 +30,7 @@ export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSear
           onChangeText={onChangeText}
           onSubmitEditing={onSubmit}
           editable={!loading}
-          autoFocus={true}
+          autoFocus={!hideHero}
         />
       </View>
 

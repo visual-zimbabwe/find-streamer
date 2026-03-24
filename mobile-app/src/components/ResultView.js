@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 
 export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, onSelectSimilar }) {
@@ -24,7 +25,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               <Text style={[styles.genreText, { color: colors.primary, ...typography.labelSm }]}>{result.genres || 'Unknown Genre'}</Text>
             </View>
             <View style={styles.ratingRow}>
-              <Text style={{ color: colors.primary, fontSize: 14 }}>⭐</Text>
+              <Ionicons name="star" size={14} color={colors.primary} />
               <Text style={[styles.ratingText, { color: colors.onSurface, ...typography.labelSm }]}>{result.rating}</Text>
             </View>
           </View>
@@ -66,7 +67,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             <View key={provider.key} style={styles.providerRow}>
               <View style={styles.providerInfo}>
                 <View style={[styles.providerIcon, { backgroundColor: colors.surfaceContainerHighest }]}>
-                  <Text style={{ color: colors.primary, fontSize: 20 }}>🎬</Text>
+                  <Ionicons name="film-outline" size={20} color={colors.primary} />
                 </View>
                 <Text style={[styles.providerName, { color: colors.onSurface, ...typography.bodyLg }]}>{provider.label}</Text>
               </View>
@@ -89,9 +90,11 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               style={[styles.bookmarkButton, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '4D' }]}
               onPress={() => onToggleWatchlist(result)}
             >
-              <Text style={{ fontSize: 24, color: isInWatchlist ? colors.primary : colors.onSurfaceVariant }}>
-                {isInWatchlist ? '🔖' : '📑'}
-              </Text>
+              <Ionicons 
+                name={isInWatchlist ? "bookmark" : "bookmark-outline"} 
+                size={24} 
+                color={isInWatchlist ? colors.primary : colors.onSurfaceVariant} 
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -147,7 +150,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   <View style={[styles.similarPoster, { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}>
                     <Image source={{ uri: item.posterUrl }} style={styles.poster} />
                     <View style={styles.similarRating}>
-                      <Text style={{ color: colors.white, fontSize: 10, fontWeight: '800' }}>{item.rating}</Text>
+                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>{item.rating}</Text>
                     </View>
                   </View>
                   <Text style={[styles.similarTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
@@ -179,7 +182,6 @@ const styles = StyleSheet.create({
   scrim: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(10, 14, 20, 0.4)',
-    // In a real app we'd use a gradient here
   },
   heroContent: {
     position: 'absolute',

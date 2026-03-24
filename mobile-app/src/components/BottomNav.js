@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 
 export function BottomNav({ activeTab, onTabPress }) {
@@ -14,7 +15,11 @@ export function BottomNav({ activeTab, onTabPress }) {
         style={[styles.navItem, activeTab === 'search' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
         onPress={() => onTabPress('search')}
       >
-        <Text style={{ color: activeTab === 'search' ? colors.primary : colors.onSurfaceVariant, fontSize: 24 }}>🔍</Text>
+        <Ionicons 
+          name={activeTab === 'search' ? "search" : "search-outline"} 
+          size={24} 
+          color={activeTab === 'search' ? colors.primary : colors.onSurfaceVariant} 
+        />
         <Text style={[styles.navLabel, { color: activeTab === 'search' ? colors.primary : colors.onSurfaceVariant, ...typography.labelSm }]}>Search</Text>
       </TouchableOpacity>
       
@@ -22,7 +27,11 @@ export function BottomNav({ activeTab, onTabPress }) {
         style={[styles.navItem, activeTab === 'watchlist' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
         onPress={() => onTabPress('watchlist')}
       >
-        <Text style={{ color: activeTab === 'watchlist' ? colors.primary : colors.onSurfaceVariant, fontSize: 24 }}>🔖</Text>
+        <Ionicons 
+          name={activeTab === 'watchlist' ? "bookmark" : "bookmark-outline"} 
+          size={24} 
+          color={activeTab === 'watchlist' ? colors.primary : colors.onSurfaceVariant} 
+        />
         <Text style={[styles.navLabel, { color: activeTab === 'watchlist' ? colors.primary : colors.onSurfaceVariant, ...typography.labelSm }]}>Watchlist</Text>
       </TouchableOpacity>
     </View>
@@ -46,8 +55,8 @@ const styles = StyleSheet.create({
   navItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
   },
   navLabel: {
     fontWeight: '600',

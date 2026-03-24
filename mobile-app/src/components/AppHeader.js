@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 
 export function AppHeader({ onBack, showBack, onSettingsPress }) {
@@ -11,11 +12,11 @@ export function AppHeader({ onBack, showBack, onSettingsPress }) {
       <View style={styles.brand}>
         {showBack && (
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Text style={{ color: colors.onSurfaceVariant, fontSize: 24 }}>←</Text>
+            <Ionicons name="arrow-back" size={24} color={colors.onSurfaceVariant} />
           </TouchableOpacity>
         )}
         <View style={[styles.iconPlaceholder, { backgroundColor: colors.surfaceContainerHighest }]}>
-          <Text style={{ color: colors.primary, fontSize: 18 }}>🎬</Text>
+          <Ionicons name="film" size={18} color={colors.primary} />
         </View>
         <Text style={[styles.logo, { color: colors.primary, ...typography.headlineMd }]}>Trova</Text>
       </View>
@@ -23,7 +24,7 @@ export function AppHeader({ onBack, showBack, onSettingsPress }) {
         style={[styles.button, { backgroundColor: 'transparent' }]}
         onPress={onSettingsPress}
       >
-        <Text style={{ color: colors.onSurfaceVariant, fontSize: 24 }}>⚙️</Text>
+        <Ionicons name="settings-outline" size={24} color={colors.onSurfaceVariant} />
       </TouchableOpacity>
     </View>
   );
