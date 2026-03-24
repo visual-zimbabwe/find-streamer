@@ -2,14 +2,14 @@ import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
-export function ResultView({ result, onBack }) {
+export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
 
   if (!result) return null;
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <View style={styles.heroSection}>
         <Image
           source={{ uri: result.backdropUrl || result.posterUrl }}
@@ -63,8 +63,13 @@ export function ResultView({ result, onBack }) {
             </View>
           ))}
           
-          <TouchableOpacity style={[styles.watchButton, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>▶ WATCH NOW</Text>
+          <TouchableOpacity 
+            style={[styles.watchButton, { backgroundColor: isInWatchlist ? colors.surfaceContainerHighest : colors.primary }]}
+            onPress={() => onToggleWatchlist(result)}
+          >
+            <Text style={[styles.watchButtonText, { color: isInWatchlist ? colors.onSurface : colors.onPrimary, ...typography.labelSm }]}>
+              {isInWatchlist ? '✓ IN WATCHLIST' : '+ ADD TO WATCHLIST'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -85,7 +90,7 @@ export function ResultView({ result, onBack }) {
           </View>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 

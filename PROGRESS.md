@@ -8,8 +8,11 @@ We have successfully migrated the mobile app from a hybrid WebView approach to a
 
 - **Pure React Native Frontend**:
   - Replaced the `WebView` entirely. This natively resolves the `ERR_CLEARTEXT_NOT_PERMITTED` error on Android.
-  - Wired `App.js` with `SearchPanel`, `MatchResults`, `ResultView`, `AppHeader`, and `BottomNav`.
+  - Wired `App.js` with all components: `SearchPanel`, `MatchResults`, `ResultView`, `WatchlistView`, and `SettingsView`.
 - **User Interface Refinements**:
+  - Added "Find your next favourite movie or tv show" hero text to Search.
+  - Implemented a functional "Settings" view for theme switching (Light/Dark/System).
+  - Implemented a functional "Watchlist" view with Add/Remove support using TMDB data.
   - Removed "Profile" from the navigation.
   - Implemented "Recent Searches" (last 3) using `@react-native-async-storage/async-storage`.
 - **Dynamic Navigation**:

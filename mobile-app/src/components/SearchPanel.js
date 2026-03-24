@@ -8,6 +8,13 @@ export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSear
 
   return (
     <View style={styles.container}>
+      <View style={styles.hero}>
+        <Text style={[styles.heroTitle, { color: colors.onSurface, ...typography.headlineLg }]}>Find your next favourite movie or tv show</Text>
+        <Text style={[styles.heroSubtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+          Explore movies, TV shows and more with Trova's smart search engine.
+        </Text>
+      </View>
+
       <View style={[styles.searchWrapper, { backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.lg }]}>
         <View style={styles.iconWrapper}>
           <Text style={{ color: colors.primary, fontSize: 20 }}>🔍</Text>
@@ -56,7 +63,23 @@ export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSear
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 24,
+    paddingTop: 60,
     marginBottom: 40,
+  },
+  hero: {
+    alignItems: 'center',
+    marginBottom: 48,
+  },
+  heroTitle: {
+    textAlign: 'center',
+    fontWeight: '900',
+    letterSpacing: -1,
+    marginBottom: 16,
+  },
+  heroSubtitle: {
+    textAlign: 'center',
+    maxWidth: 280,
+    lineHeight: 22,
   },
   searchWrapper: {
     height: 64,

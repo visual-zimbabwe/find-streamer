@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
-export function AppHeader({ onBack, showBack }) {
+export function AppHeader({ onBack, showBack, onSettingsPress }) {
   const { theme } = useTheme();
   const { colors, spacing, typography } = theme;
 
@@ -19,7 +19,10 @@ export function AppHeader({ onBack, showBack }) {
         </View>
         <Text style={[styles.logo, { color: colors.primary, ...typography.headlineMd }]}>Trova</Text>
       </View>
-      <TouchableOpacity style={[styles.button, { backgroundColor: 'transparent' }]}>
+      <TouchableOpacity 
+        style={[styles.button, { backgroundColor: 'transparent' }]}
+        onPress={onSettingsPress}
+      >
         <Text style={{ color: colors.onSurfaceVariant, fontSize: 24 }}>⚙️</Text>
       </TouchableOpacity>
     </View>

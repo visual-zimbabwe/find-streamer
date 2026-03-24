@@ -8,6 +8,8 @@ import { BottomNav } from './src/components/BottomNav';
 import { SearchPanel } from './src/components/SearchPanel';
 import { MatchResults } from './src/components/MatchResults';
 import { ResultView } from './src/components/ResultView';
+import { SettingsView } from './src/components/SettingsView';
+import { WatchlistView } from './src/components/WatchlistView';
 import { StatePanel } from './src/components/StatePanel';
 import { searchTitleCandidates, resolveMatch } from './src/lib/tmdb';
 import { loadRecentSearches, saveRecentSearches, loadWatchlist, saveWatchlist } from './src/lib/storage';
@@ -26,7 +28,7 @@ function MobileApp() {
   const { theme, resolvedMode } = useTheme();
   const { colors } = theme;
 
-  // View state: 'search' | 'results' | 'detail' | 'watchlist'
+  // View state: 'search' | 'results' | 'detail' | 'watchlist' | 'settings'
   const [activeView, setActiveView] = useState('search');
   // Tab state: 'search' | 'watchlist'
   const [activeTab, setActiveTab] = useState('search');
@@ -64,6 +66,7 @@ function MobileApp() {
       const candidates = await searchTitleCandidates(searchQuery);
       setResults(candidates);
       setActiveView('results');
+      setActiveTab('search');
       
       // Update history
       const newHistory = [searchQuery, ...recentSearches.filter(q => q !== searchQuery)].slice(0, 3);
@@ -90,9 +93,23 @@ function MobileApp() {
     }
   }, [query]);
 
+  const handleToggleWatchlist = async (result) => {
+    const isAdded = watchlist.some(item => item.tmdbId === result.tmdbId);
+    let newWatchlist;
+    if (isAdded) {
+      newWatchlist = watchlist.filter(item => item.tmdbId !== result.tmdbId);
+    } else {
+      newWatchlist = [result, ...watchlist];
+    }
+    setWatchlist(newWatchlist);
+    await saveWatchlist(newWatchlist);
+  };
+
   const handleBack = () => {
-    if (activeView === 'detail') {
-      setActiveView('results');
+    if (activeView === 'settings') {
+      setActiveView(activeTab === 'watchlist' ? 'watchlist' : 'search');
+    } else if (activeView === 'detail') {
+      setActiveView(activeTab === 'watchlist' ? 'watchlist' : 'results');
     } else if (activeView === 'results') {
       setActiveView('search');
     } else if (activeTab === 'watchlist') {
@@ -104,27 +121,24 @@ function MobileApp() {
   const handleTabPress = (tab) => {
     setActiveTab(tab);
     if (tab === 'search') {
-      // If we were on detail or results, stay there unless explicitly resetting?
-      // For now, let's reset to search if they re-click search tab when already in search results?
-      // Actually, standard behavior: click tab = reset to its root view.
       setActiveView('search');
     } else if (tab === 'watchlist') {
       setActiveView('watchlist');
     }
   };
 
-  const isDetail = activeView === 'detail';
-  const showBack = activeView === 'results' || activeView === 'detail';
+  const showBack = activeView === 'results' || activeView === 'detail' || activeView === 'settings';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} />
-      <AppHeader showBack={showBack} onBack={handleBack} />
+      <AppHeader 
+        showBack={showBack} 
+        onBack={handleBack} 
+        onSettingsPress={() => setActiveView('settings')}
+      />
       
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
+      <View style={styles.mainContent}>
         {loading && activeView !== 'detail' ? (
           <StatePanel type="loading" title="Searching..." description="Please wait while we find your movie." />
         ) : error ? (
@@ -132,40 +146,50 @@ function MobileApp() {
         ) : (
           <>
             {activeView === 'search' && (
-              <SearchPanel 
-                value={query} 
-                onChangeText={setQuery} 
-                onSubmit={() => handleSearch()} 
-                loading={loading}
-                recentSearches={recentSearches}
-                onPickSuggestion={handleSearch}
-              />
+              <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
+                <SearchPanel 
+                  value={query} 
+                  onChangeText={setQuery} 
+                  onSubmit={() => handleSearch()} 
+                  loading={loading}
+                  recentSearches={recentSearches}
+                  onPickSuggestion={handleSearch}
+                />
+              </ScrollView>
             )}
             
             {activeView === 'results' && (
-              <MatchResults 
-                matches={results} 
-                onSelect={handleSelectMatch} 
-              />
+              <ScrollView contentContainerStyle={styles.scrollContent}>
+                <MatchResults 
+                  matches={results} 
+                  onSelect={handleSelectMatch} 
+                />
+              </ScrollView>
             )}
             
             {activeView === 'detail' && (
               <ResultView 
                 result={selectedResult} 
                 onBack={handleBack} 
+                onToggleWatchlist={handleToggleWatchlist}
+                isInWatchlist={watchlist.some(item => item.tmdbId === selectedResult?.tmdbId)}
               />
             )}
             
             {activeView === 'watchlist' && (
-              <StatePanel 
-                type="empty" 
-                title="Your Watchlist" 
-                description="This feature is coming soon! You'll be able to save your favorite movies here."
+              <WatchlistView 
+                items={watchlist} 
+                onRemove={(id) => handleToggleWatchlist({ tmdbId: id })}
+                onSelect={handleSelectMatch}
               />
+            )}
+
+            {activeView === 'settings' && (
+              <SettingsView />
             )}
           </>
         )}
-      </ScrollView>
+      </View>
 
       <BottomNav activeTab={activeTab} onTabPress={handleTabPress} />
     </SafeAreaView>
@@ -174,6 +198,9 @@ function MobileApp() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  mainContent: {
     flex: 1,
   },
   scrollContent: {
