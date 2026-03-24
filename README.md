@@ -35,11 +35,12 @@ find-streamer/
 ├── requirements.txt      # CLI dependencies
 ├── mobile-app/           # Expo Mobile Application
 │   ├── App.js            # Mobile entry point
-│   ├── Trova/            # Frontend assets and views
-│   │   ├── main_search/  # Search screen (Recent Searches)
-│   │   ├── watchlist_view/ # Watchlist screen
-│   │   └── search_results/ # Results display
-│   └── src/              # Expo components and theme
+│   ├── Trova/            # Stitchbygoogle UI assets (Design Reference)
+│   ├── src/              # Source code for React Native components
+│   │   ├── components/   # UI Components (SearchPanel, ResultView, etc.)
+│   │   ├── lib/          # Logic (TMDB API client, Storage)
+│   │   └── theme/        # Theme tokens and provider
+│   └── App.js            # Main React Native Application root
 └── README.md             # Project documentation
 ```
 

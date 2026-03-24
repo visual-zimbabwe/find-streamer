@@ -1,30 +1,27 @@
 # Progress Tracking - Find Streamer
 
-## Current Phase: Frontend Refinement (Mobile App)
+## Current Phase: React Native Integration (Pure Component UI)
 
-We are currently refining the user interface of the mobile application (Trova) to align with a more focused and cleaner design.
+We have successfully migrated the mobile app from a hybrid WebView approach to a pure React Native architecture using the components in `src/components`.
 
 ## Completed Tasks
 
-- **UI Streamlining**:
-  - Removed the "Profile" icon and extra navigation options from the bottom navigation bar across all screens.
-  - Removed the "Settings" icon from the headers to simplify the interface.
-  - Standardized the navigation to strictly include "Search" and "Watchlist".
-- **Recent Searches Feature**:
-  - Replaced the static "Popular Searches" placeholder with a dynamic "Recent Searches" system.
-  - Implemented local storage logic to track and display the last 3 unique searches performed by the user.
-- **Project Structure Alignment**:
-  - Renamed the search entry point to `code.html` to maintain consistency across views and ensure `App.js` compatibility.
+- **Pure React Native Frontend**:
+  - Replaced the `WebView` entirely. This natively resolves the `ERR_CLEARTEXT_NOT_PERMITTED` error on Android.
+  - Wired `App.js` with `SearchPanel`, `MatchResults`, `ResultView`, `AppHeader`, and `BottomNav`.
+- **User Interface Refinements**:
+  - Removed "Profile" from the navigation.
+  - Implemented "Recent Searches" (last 3) using `@react-native-async-storage/async-storage`.
+- **Dynamic Navigation**:
+  - Implemented a state-based navigation system in `App.js` (Search -> Results -> Detail).
+- **Backend Stability**:
+  - Kept all TMDB logic in `src/lib/tmdb.js` intact and fully integrated.
 - **Documentation**:
-  - Updated the root `README.md` to reflect the current state of both CLI and Mobile App projects.
+  - Updated `README.md` to reflect the pure React Native component structure.
 
 ## Technical Decisions
 
-- **Navigation**: Decision made to keep only Search and Watchlist for a core focused user experience.
-- **Storage**: Used `localStorage` for tracking recent searches on the frontend without requiring backend changes, ensuring persistence across sessions within the same environment.
-- **File Naming**: Unified screen filenames to `code.html` within their respective module folders to simplify the `WebView` routing in `App.js`.
-
-## Active Bugs / Pending Improvements
-
-- **Navigation Logic**: Ensure all internal links between `code.html` files use correct relative paths after renaming.
-- **Search Integration**: The search button on "Recent Searches" buttons currently attempts a redirect to `../search_results/code.html?q=...`. This needs verification that the search results page correctly parses the `q` parameter.
+- **Navigation**: Decided on state-based view switching for simplicity and speed.
+- **Storage**: Standardized on `@react-native-async-storage/async-storage` for history and watchlist persistence.
+- **Android Support**: Enabled `usesCleartextTraffic` in `app.json` (as a safety measure, though no longer needed for local HTML).
+- **Design Reference**: Used the `Trova` folder (outputs from stitchbygoogle) as a layout reference for the React Native screens.

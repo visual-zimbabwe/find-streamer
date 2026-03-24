@@ -3,26 +3,27 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 
-export function BottomNav() {
+export function BottomNav({ activeTab, onTabPress }) {
   const { theme } = useTheme();
-  const { colors, typography } = theme;
+  const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.glass, paddingBottom: insets.bottom + 8, borderTopColor: colors.outlineVariant + '26' }]}>
-      <TouchableOpacity style={[styles.navItem, { backgroundColor: colors.surfaceContainer, borderRadius: 12 }]}>
-        <Text style={{ color: colors.primary, fontSize: 24 }}>🔍</Text>
-        <Text style={[styles.navLabel, { color: colors.primary, ...typography.labelSm }]}>Search</Text>
+    <View style={[styles.container, { backgroundColor: colors.background + 'cc', paddingBottom: insets.bottom + 8, borderTopColor: colors.outlineVariant + '26' }]}>
+      <TouchableOpacity 
+        style={[styles.navItem, activeTab === 'search' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
+        onPress={() => onTabPress('search')}
+      >
+        <Text style={{ color: activeTab === 'search' ? colors.primary : colors.onSurfaceVariant, fontSize: 24 }}>🔍</Text>
+        <Text style={[styles.navLabel, { color: activeTab === 'search' ? colors.primary : colors.onSurfaceVariant, ...typography.labelSm }]}>Search</Text>
       </TouchableOpacity>
       
-      <TouchableOpacity style={styles.navItem}>
-        <Text style={{ color: colors.onSurfaceVariant, fontSize: 24 }}>🔖</Text>
-        <Text style={[styles.navLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Watchlist</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.navItem}>
-        <Text style={{ color: colors.onSurfaceVariant, fontSize: 24 }}>👤</Text>
-        <Text style={[styles.navLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Profile</Text>
+      <TouchableOpacity 
+        style={[styles.navItem, activeTab === 'watchlist' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
+        onPress={() => onTabPress('watchlist')}
+      >
+        <Text style={{ color: activeTab === 'watchlist' ? colors.primary : colors.onSurfaceVariant, fontSize: 24 }}>🔖</Text>
+        <Text style={[styles.navLabel, { color: activeTab === 'watchlist' ? colors.primary : colors.onSurfaceVariant, ...typography.labelSm }]}>Watchlist</Text>
       </TouchableOpacity>
     </View>
   );

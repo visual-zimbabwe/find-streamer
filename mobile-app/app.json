@@ -27,7 +27,8 @@
         "foregroundImage": "./icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "kkadogo.findstreamer.com"
+      "package": "kkadogo.findstreamer.com",
+      "usesCleartextTraffic": true
     },
     "plugins": [
       "expo-asset"

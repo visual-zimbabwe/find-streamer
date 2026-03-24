@@ -2,9 +2,19 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
-export function StatePanel({ variant, title, message }) {
+export function StatePanel({ type, title, description }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
+
+  const getIcon = () => {
+    switch(type) {
+      case 'loading': return '📡';
+      case 'empty': return '✨';
+      case 'error': return '⚠️';
+      case 'no-results': return '🔍';
+      default: return '🎬';
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -12,11 +22,11 @@ export function StatePanel({ variant, title, message }) {
         <View style={styles.iconContainer}>
           <View style={[styles.glow, { backgroundColor: colors.primary + '1A' }]} />
           <View style={[styles.iconBox, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '1A' }]}>
-            <Text style={{ fontSize: 60 }}>{variant === 'empty' ? '✨' : variant === 'no-results' ? '🔍' : '⚠️'}</Text>
+            <Text style={{ fontSize: 60 }}>{getIcon()}</Text>
           </View>
         </View>
         <Text style={[styles.title, { color: colors.onSurface, ...typography.headlineLg }]}>{title}</Text>
-        <Text style={[styles.message, { color: colors.onSurfaceVariant, ...typography.bodyLg }]}>{message}</Text>
+        {description && <Text style={[styles.message, { color: colors.onSurfaceVariant, ...typography.bodyLg }]}>{description}</Text>}
       </View>
     </View>
   );

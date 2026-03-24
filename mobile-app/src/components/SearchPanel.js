@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
-export function SearchPanel({ value, onChangeText, onSubmit, loading, suggestions, onPickSuggestion }) {
+export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSearches, onPickSuggestion }) {
   const { theme } = useTheme();
   const { colors, spacing, typography, radii } = theme;
 
@@ -20,6 +20,7 @@ export function SearchPanel({ value, onChangeText, onSubmit, loading, suggestion
           onChangeText={onChangeText}
           onSubmitEditing={onSubmit}
           editable={!loading}
+          autoFocus={true}
         />
       </View>
 
@@ -32,11 +33,11 @@ export function SearchPanel({ value, onChangeText, onSubmit, loading, suggestion
         </TouchableOpacity>
       </View>
 
-      {suggestions && suggestions.length > 0 && (
+      {recentSearches && recentSearches.length > 0 && (
         <View style={styles.suggestionsWrapper}>
-          <Text style={[styles.suggestionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>POPULAR SEARCHES</Text>
+          <Text style={[styles.suggestionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>RECENT SEARCHES</Text>
           <View style={styles.suggestionChips}>
-            {suggestions.map((item) => (
+            {recentSearches.map((item) => (
               <TouchableOpacity
                 key={item}
                 style={[styles.suggestionChip, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant + '26' }]}
