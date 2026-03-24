@@ -2,7 +2,7 @@ import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
-export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist }) {
+export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, onSelectSimilar }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
 
@@ -76,22 +76,24 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist })
             </View>
           ))}
           
-          <TouchableOpacity 
-            style={[styles.watchButton, { backgroundColor: colors.primary }]}
-            onPress={() => Linking.openURL(result.trailer)}
-            disabled={!result.trailer || result.trailer === 'N/A'}
-          >
-            <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>▶ WATCH TRAILER</Text>
-          </TouchableOpacity>
+          <View style={styles.actionRow}>
+            <TouchableOpacity 
+              style={[styles.watchButton, { backgroundColor: colors.primary }]}
+              onPress={() => Linking.openURL(result.trailer)}
+              disabled={!result.trailer || result.trailer === 'N/A'}
+            >
+              <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>▶ WATCH TRAILER</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.outlineButton, { borderColor: colors.outlineVariant + '4D' }]}
-            onPress={() => onToggleWatchlist(result)}
-          >
-            <Text style={[styles.outlineButtonText, { color: colors.onSurface, ...typography.labelSm }]}>
-              {isInWatchlist ? '✓ IN WATCHLIST' : '+ ADD TO WATCHLIST'}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.bookmarkButton, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '4D' }]}
+              onPress={() => onToggleWatchlist(result)}
+            >
+              <Text style={{ fontSize: 24, color: isInWatchlist ? colors.primary : colors.onSurfaceVariant }}>
+                {isInWatchlist ? '🔖' : '📑'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Detailed Country View */}
@@ -126,6 +128,36 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist })
             ))}
           </View>
         </View>
+
+        {/* More Like This */}
+        {result.similar && result.similar.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>MORE LIKE THIS</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.similarScroll}
+            >
+              {result.similar.map((item) => (
+                <TouchableOpacity 
+                  key={item.tmdbId} 
+                  style={styles.similarItem}
+                  onPress={() => onSelectSimilar(item)}
+                >
+                  <View style={[styles.similarPoster, { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}>
+                    <Image source={{ uri: item.posterUrl }} style={styles.poster} />
+                    <View style={styles.similarRating}>
+                      <Text style={{ color: colors.white, fontSize: 10, fontWeight: '800' }}>{item.rating}</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.similarTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -261,28 +293,59 @@ const styles = StyleSheet.create({
   metaText: {
     fontWeight: '700',
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
   watchButton: {
+    flex: 1,
     height: 56,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
   },
   watchButtonText: {
     fontWeight: '800',
     letterSpacing: 1,
   },
-  outlineButton: {
+  bookmarkButton: {
+    width: 56,
     height: 56,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
   },
-  outlineButtonText: {
-    fontWeight: '800',
-    letterSpacing: 1,
+  similarScroll: {
+    gap: 16,
+    paddingRight: 40,
+  },
+  similarItem: {
+    width: 120,
+  },
+  similarPoster: {
+    width: 120,
+    aspectRatio: 2 / 3,
+    overflow: 'hidden',
+    position: 'relative',
+    marginBottom: 8,
+  },
+  poster: {
+    width: '100%',
+    height: '100%',
+  },
+  similarRating: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  similarTitle: {
+    fontWeight: '700',
   },
   table: {
     borderWidth: 1,

@@ -173,6 +173,7 @@ function MobileApp() {
                 onBack={handleBack} 
                 onToggleWatchlist={handleToggleWatchlist}
                 isInWatchlist={watchlist.some(item => item.tmdbId === selectedResult?.tmdbId)}
+                onSelectSimilar={handleSelectMatch}
               />
             )}
             

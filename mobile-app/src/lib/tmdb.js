@@ -119,19 +119,23 @@ async function getCredits(mediaType, tmdbId) {
 
 async function getSimilar(mediaType, tmdbId) {
   const data = await tmdbGet(`/${mediaType}/${tmdbId}/similar`);
-  return (data.results || [])
-    .slice(0, 4)
-    .map((item) => {
-      const dateValue = item.release_date || item.first_air_date || '';
-      return {
-        mediaType: item.media_type,
-        tmdbId: item.id,
-        title: item.title || item.name || '(Untitled)',
-        year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
-        posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
-      };
-    });
+  const results = (data.results || []).map((item) => {
+    const dateValue = item.release_date || item.first_air_date || '';
+    return {
+      mediaType: item.media_type || mediaType, // media_type might be missing in similar results
+      tmdbId: item.id,
+      title: item.title || item.name || '(Untitled)',
+      year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+      posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+      ratingValue: item.vote_average || 0,
+      rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+    };
+  });
+
+  // Sort by rating desc and take top 5
+  return results
+    .sort((a, b) => b.ratingValue - a.ratingValue)
+    .slice(0, 5);
 }
 
 async function getProviderCountries(mediaType, tmdbId) {
