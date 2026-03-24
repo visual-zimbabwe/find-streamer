@@ -97,14 +97,30 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist })
         {/* Detailed Country View */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>GLOBAL AVAILABILITY</Text>
+          
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.dot, { backgroundColor: '#E50914' }]} />
+              <Text style={[styles.legendText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Netflix</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.dot, { backgroundColor: '#00A8E1' }]} />
+              <Text style={[styles.legendText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Prime</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.dot, { backgroundColor: '#002BE7' }]} />
+              <Text style={[styles.legendText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Max</Text>
+            </View>
+          </View>
+
           <View style={[styles.table, { borderColor: colors.outlineVariant + '26' }]}>
             {result.rows.map((row, index) => (
               <View key={row.code} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: colors.surfaceContainerLow } : null]}>
                 <Text style={[styles.countryName, { color: colors.onSurface, ...typography.bodyMd }]}>{row.country}</Text>
                 <View style={styles.providerBadges}>
-                  {row.providers.netflix && <View style={[styles.dot, { backgroundColor: colors.primary }]} />}
-                  {row.providers.amazon_prime_video && <View style={[styles.dot, { backgroundColor: colors.primaryDim }]} />}
-                  {row.providers.max && <View style={[styles.dot, { backgroundColor: colors.primaryContainer }]} />}
+                  {row.providers.netflix && <View style={[styles.dot, { backgroundColor: '#E50914' }]} />}
+                  {row.providers.amazon_prime_video && <View style={[styles.dot, { backgroundColor: '#00A8E1' }]} />}
+                  {row.providers.max && <View style={[styles.dot, { backgroundColor: '#002BE7' }]} />}
                 </View>
               </View>
             ))}
@@ -219,6 +235,20 @@ const styles = StyleSheet.create({
   },
   providerStatus: {
     fontWeight: '600',
+  },
+  legend: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendText: {
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   metaGrid: {
     flexDirection: 'row',
