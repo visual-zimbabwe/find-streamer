@@ -47,3 +47,25 @@ For Play Store submission builds (AAB), use:
 ```powershell
 eas build --platform android --profile production
 ```
+
+## Project Structure
+
+```text
+mobile-app/
+├── .expo/
+├── Trova/
+│   ├── main_search/
+│   ├── search_results/
+│   └── watchlist_view/
+├── app.json
+├── App.js
+├── eas.json
+├── icon.png
+├── package.json
+├── README.md
+├── settings.html
+├── src/
+├── tsconfig.json
+└── watchlist.html
+```
+
