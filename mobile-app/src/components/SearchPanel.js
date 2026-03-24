@@ -2,18 +2,20 @@ import React from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
-export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSearches, onPickSuggestion }) {
+export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSearches, onPickSuggestion, filter, onFilterChange, hideHistory, hideHero }) {
   const { theme } = useTheme();
   const { colors, spacing, typography, radii } = theme;
 
   return (
     <View style={styles.container}>
-      <View style={styles.hero}>
-        <Text style={[styles.heroTitle, { color: colors.onSurface, ...typography.headlineLg }]}>Find your next favourite movie or tv show</Text>
-        <Text style={[styles.heroSubtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-          Explore movies, TV shows and more with Trova's smart search engine.
-        </Text>
-      </View>
+      {!hideHero && (
+        <View style={styles.hero}>
+          <Text style={[styles.heroTitle, { color: colors.onSurface, ...typography.headlineLg }]}>Find your next favourite movie or tv show</Text>
+          <Text style={[styles.heroSubtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+            Explore movies, TV shows and more with Trova's smart search engine.
+          </Text>
+        </View>
+      )}
 
       <View style={[styles.searchWrapper, { backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.lg }]}>
         <View style={styles.iconWrapper}>
@@ -32,15 +34,21 @@ export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSear
       </View>
 
       <View style={styles.filterToggles}>
-        <TouchableOpacity style={[styles.filterChip, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.filterLabel, { color: colors.onPrimary, ...typography.labelSm }]}>Movies</Text>
+        <TouchableOpacity 
+          style={[styles.filterChip, filter === 'movie' ? { backgroundColor: colors.primary } : { backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.outlineVariant + '26' }]}
+          onPress={() => onFilterChange(filter === 'movie' ? null : 'movie')}
+        >
+          <Text style={[styles.filterLabel, { color: filter === 'movie' ? colors.onPrimary : colors.onSurfaceVariant, ...typography.labelSm }]}>Movies</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterChip, { backgroundColor: colors.surfaceContainer, borderStyle: 'solid', borderWidth: 1, borderColor: colors.outlineVariant + '26' }]}>
-          <Text style={[styles.filterLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>TV Shows</Text>
+        <TouchableOpacity 
+          style={[styles.filterChip, filter === 'tv' ? { backgroundColor: colors.primary } : { backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.outlineVariant + '26' }]}
+          onPress={() => onFilterChange(filter === 'tv' ? null : 'tv')}
+        >
+          <Text style={[styles.filterLabel, { color: filter === 'tv' ? colors.onPrimary : colors.onSurfaceVariant, ...typography.labelSm }]}>TV Shows</Text>
         </TouchableOpacity>
       </View>
 
-      {recentSearches && recentSearches.length > 0 && (
+      {!hideHistory && recentSearches && recentSearches.length > 0 && (
         <View style={styles.suggestionsWrapper}>
           <Text style={[styles.suggestionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>RECENT SEARCHES</Text>
           <View style={styles.suggestionChips}>

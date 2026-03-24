@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, View, ScrollView, Alert, Keyboard } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme, ThemeProvider } from './src/theme/ThemeProvider';
@@ -40,6 +40,7 @@ function MobileApp() {
   const [selectedResult, setSelectedResult] = useState(null);
   const [recentSearches, setRecentSearches] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
+  const [filter, setFilter] = useState(null); // 'movie' | 'tv' | null
 
   // Initialization
   useEffect(() => {
@@ -67,6 +68,7 @@ function MobileApp() {
       setResults(candidates);
       setActiveView('results');
       setActiveTab('search');
+      setFilter(null); // Reset filter on new search
       
       // Update history
       const newHistory = [searchQuery, ...recentSearches.filter(q => q !== searchQuery)].slice(0, 3);
@@ -112,6 +114,7 @@ function MobileApp() {
       setActiveView(activeTab === 'watchlist' ? 'watchlist' : 'results');
     } else if (activeView === 'results') {
       setActiveView('search');
+      setQuery(''); // User wants search box in results, but if clicking back maybe clear?
     } else if (activeTab === 'watchlist') {
       setActiveTab('search');
       setActiveView('search');
@@ -126,6 +129,11 @@ function MobileApp() {
       setActiveView('watchlist');
     }
   };
+
+  const filteredResults = useMemo(() => {
+    if (!filter) return results;
+    return results.filter(item => item.mediaType === filter);
+  }, [results, filter]);
 
   const showBack = activeView === 'results' || activeView === 'detail' || activeView === 'settings';
 
@@ -154,14 +162,26 @@ function MobileApp() {
                   loading={loading}
                   recentSearches={recentSearches}
                   onPickSuggestion={handleSearch}
+                  filter={filter}
+                  onFilterChange={setFilter}
                 />
               </ScrollView>
             )}
             
             {activeView === 'results' && (
-              <ScrollView contentContainerStyle={styles.scrollContent}>
+              <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+                <SearchPanel 
+                  value={query} 
+                  onChangeText={setQuery} 
+                  onSubmit={() => handleSearch()} 
+                  loading={loading}
+                  hideHistory={true}
+                  hideHero={true}
+                  filter={filter}
+                  onFilterChange={setFilter}
+                />
                 <MatchResults 
-                  matches={results} 
+                  matches={filteredResults} 
                   onSelect={handleSelectMatch} 
                 />
               </ScrollView>
