@@ -1,10 +1,21 @@
 <!DOCTYPE html>
 
-<html class="dark" lang="en"><head>
+<html lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Trova - Search Loading</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const mode = urlParams.get('mode');
+        if (mode === 'dark' || (!mode && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    })();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
@@ -104,6 +115,9 @@
 <span class="material-symbols-outlined text-[#9aa8ff] dark:text-[#9aa8ff]" data-icon="movie_filter">movie_filter</span>
 <h1 class="text-2xl font-black tracking-tighter text-[#9aa8ff] dark:text-[#9aa8ff] font-headline">Trova</h1>
 </div>
+<a href="../../settings.html" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-[#20262f] transition-colors duration-200 active:scale-95 duration-150">
+<span class="material-symbols-outlined text-[#a8abb3]" data-icon="settings">settings</span>
+</a>
 </header>
 <main class="pt-24 pb-32 px-6 max-w-4xl mx-auto flex flex-col min-h-screen">
 <!-- Search Panel -->

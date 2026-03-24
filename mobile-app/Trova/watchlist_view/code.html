@@ -1,10 +1,21 @@
 <!DOCTYPE html>
 
-<html class="dark" lang="en"><head>
+<html lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Trova - Your Watchlist</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const mode = urlParams.get('mode');
+        if (mode === 'dark' || (!mode && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    })();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
@@ -104,6 +115,9 @@
 <span class="material-symbols-outlined text-[#9aa8ff] text-2xl" data-icon="movie_filter">movie_filter</span>
 <h1 class="font-['Manrope'] font-bold tracking-tight text-xl text-[#9aa8ff]">Discovery</h1>
 </div>
+<a href="../../settings.html" class="w-10 h-10 flex items-center justify-center rounded-full text-[#a8abb3] hover:bg-[#20262f] transition-colors duration-300 active:scale-95 active:duration-150">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</a>
 </nav>
 <main class="pt-24 pb-32 px-6 max-w-7xl mx-auto">
 <header class="mb-10">
