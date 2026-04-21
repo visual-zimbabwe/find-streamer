@@ -203,6 +203,106 @@ function buildProviderSummary(rows) {
   }));
 }
 
+// ─── Discover / Filter API ──────────────────────────────────────────────────
+
+// In-memory genre cache: { movie: [...], tv: [...] }
+const _genreCache = {};
+
+export async function fetchGenres(mediaType) {
+  if (_genreCache[mediaType]) return _genreCache[mediaType];
+
+  const endpoint = mediaType === 'tv' ? '/genre/tv/list' : '/genre/movie/list';
+  const data = await tmdbGet(endpoint, { language: 'en-US' });
+  const genres = (data.genres || []).map((g) => ({ id: g.id, name: g.name }));
+  _genreCache[mediaType] = genres;
+  return genres;
+}
+
+/**
+ * Call /3/discover/movie or /3/discover/tv with a filter object.
+ *
+ * filters = {
+ *   mediaType: 'movie' | 'tv',
+ *   genreIds: number[],
+ *   genreLogic: 'AND' | 'OR',
+ *   minRating: number | null,   // vote_average.gte
+ *   language: string | null,    // ISO 639-1, e.g. 'en'
+ *   fromYear: string | null,    // '2010'
+ *   toYear: string | null,      // '2024'
+ *   sortBy: string,             // 'popularity.desc' etc.
+ *   page: number,
+ * }
+ *
+ * Returns { results, totalResults, totalPages, page }
+ */
+export async function discoverTitles(filters = {}) {
+  const {
+    mediaType = 'movie',
+    genreIds = [],
+    genreLogic = 'AND',
+    minRating = null,
+    language = null,
+    fromYear = null,
+    toYear = null,
+    sortBy = 'popularity.desc',
+    page = 1,
+  } = filters;
+
+  const params = {
+    sort_by: sortBy,
+    'vote_count.gte': 50,
+    include_adult: false,
+    page,
+  };
+
+  if (genreIds.length > 0) {
+    const separator = genreLogic === 'OR' ? '|' : ',';
+    params.with_genres = genreIds.join(separator);
+  }
+
+  if (minRating != null && minRating > 0) {
+    params['vote_average.gte'] = minRating;
+  }
+
+  if (language) {
+    params.with_original_language = language;
+  }
+
+  if (mediaType === 'movie') {
+    if (fromYear) params['primary_release_date.gte'] = `${fromYear}-01-01`;
+    if (toYear)   params['primary_release_date.lte'] = `${toYear}-12-31`;
+  } else {
+    if (fromYear) params['first_air_date.gte'] = `${fromYear}-01-01`;
+    if (toYear)   params['first_air_date.lte'] = `${toYear}-12-31`;
+  }
+
+  const data = await tmdbGet(`/discover/${mediaType}`, params);
+
+  const results = (data.results || []).map((item) => {
+    const dateValue = item.release_date || item.first_air_date || '';
+    return {
+      mediaType,
+      tmdbId: item.id,
+      title: item.title || item.name || '(Untitled)',
+      year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+      synopsis: (item.overview || '').trim() || 'No synopsis available.',
+      posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+      backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+      ratingValue: item.vote_average || 0,
+      rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+    };
+  });
+
+  return {
+    results,
+    totalResults: data.total_results || 0,
+    totalPages: data.total_pages || 1,
+    page: data.page || 1,
+  };
+}
+
+// ─── Resolution ─────────────────────────────────────────────────────────────
+
 export async function resolveMatch(query, match) {
   const [metadata, credits, similar, availability, countryNames] = await Promise.all([
     getTitleMetadata(match.mediaType, match.tmdbId),

@@ -22,6 +22,18 @@ export function BottomNav({ activeTab, onTabPress }) {
         />
         <Text style={[styles.navLabel, { color: activeTab === 'search' ? colors.primary : colors.onSurfaceVariant, ...typography.labelSm }]}>Search</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={[styles.navItem, activeTab === 'discover' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
+        onPress={() => onTabPress('discover')}
+      >
+        <Ionicons 
+          name={activeTab === 'discover' ? "options" : "options-outline"} 
+          size={24} 
+          color={activeTab === 'discover' ? colors.primary : colors.onSurfaceVariant} 
+        />
+        <Text style={[styles.navLabel, { color: activeTab === 'discover' ? colors.primary : colors.onSurfaceVariant, ...typography.labelSm }]}>Discover</Text>
+      </TouchableOpacity>
       
       <TouchableOpacity 
         style={[styles.navItem, activeTab === 'watchlist' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}

@@ -10,6 +10,7 @@ import { MatchResults } from './src/components/MatchResults';
 import { ResultView } from './src/components/ResultView';
 import { SettingsView } from './src/components/SettingsView';
 import { WatchlistView } from './src/components/WatchlistView';
+import { DiscoverScreen } from './src/components/DiscoverScreen';
 import { StatePanel } from './src/components/StatePanel';
 import { searchTitleCandidates, resolveMatch } from './src/lib/tmdb';
 import { loadRecentSearches, saveRecentSearches, loadWatchlist, saveWatchlist } from './src/lib/storage';
@@ -28,10 +29,12 @@ function MobileApp() {
   const { theme, resolvedMode } = useTheme();
   const { colors } = theme;
 
-  // View state: 'search' | 'results' | 'detail' | 'watchlist' | 'settings'
+  // View state: 'search' | 'results' | 'detail' | 'watchlist' | 'settings' | 'discover'
   const [activeView, setActiveView] = useState('search');
-  // Tab state: 'search' | 'watchlist'
+  // Tab state: 'search' | 'discover' | 'watchlist'
   const [activeTab, setActiveTab] = useState('search');
+  // Tracks which view to return to after closing 'detail'
+  const [detailOrigin, setDetailOrigin] = useState('results');
   
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -101,6 +104,7 @@ function MobileApp() {
 
   const handleSelectMatch = useCallback(async (match) => {
     setLoading(true);
+    setDetailOrigin(activeTab === 'watchlist' ? 'watchlist' : 'results');
     try {
       const fullResult = await resolveMatch(query, match);
       setSelectedResult(fullResult);
@@ -110,7 +114,23 @@ function MobileApp() {
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, activeTab]);
+
+  // Called when a card in DiscoverScreen is tapped
+  const handleSelectDiscoverItem = useCallback(async (item) => {
+    setLoading(true);
+    setDetailOrigin('discover');
+    try {
+      // Pass empty string as query — detail screen uses item.title as fallback
+      const fullResult = await resolveMatch(item.title, item);
+      setSelectedResult(fullResult);
+      setActiveView('detail');
+    } catch (err) {
+      Alert.alert('Error', 'Unable to fetch details.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleToggleWatchlist = async (result) => {
     const isAdded = watchlist.some(item => item.tmdbId === result.tmdbId);
@@ -126,13 +146,24 @@ function MobileApp() {
 
   const handleBack = () => {
     if (activeView === 'settings') {
-      setActiveView(activeTab === 'watchlist' ? 'watchlist' : 'search');
+      setActiveView(activeTab === 'watchlist' ? 'watchlist' : activeTab === 'discover' ? 'discover' : 'search');
     } else if (activeView === 'detail') {
-      setActiveView(activeTab === 'watchlist' ? 'watchlist' : 'results');
+      // Return to wherever the user came from
+      if (detailOrigin === 'discover') {
+        setActiveView('discover');
+        setActiveTab('discover');
+      } else if (detailOrigin === 'watchlist') {
+        setActiveView('watchlist');
+      } else {
+        setActiveView('results');
+      }
     } else if (activeView === 'results') {
       setActiveView('search');
-      setQuery(''); // User wants search box in results, but if clicking back maybe clear?
+      setQuery('');
     } else if (activeTab === 'watchlist') {
+      setActiveTab('search');
+      setActiveView('search');
+    } else if (activeTab === 'discover') {
       setActiveTab('search');
       setActiveView('search');
     }
@@ -142,6 +173,8 @@ function MobileApp() {
     setActiveTab(tab);
     if (tab === 'search') {
       setActiveView('search');
+    } else if (tab === 'discover') {
+      setActiveView('discover');
     } else if (tab === 'watchlist') {
       setActiveView('watchlist');
     }
@@ -153,6 +186,7 @@ function MobileApp() {
   }, [results, filter]);
 
   const showBack = activeView === 'results' || activeView === 'detail' || activeView === 'settings';
+  const showLoading = loading && activeView !== 'detail' && activeView !== 'discover';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -164,7 +198,7 @@ function MobileApp() {
       />
       
       <View style={styles.mainContent}>
-        {loading && activeView !== 'detail' ? (
+        {showLoading ? (
           <StatePanel type="loading" title="Searching..." description="Please wait while we find your movie." />
         ) : error ? (
           <StatePanel type="error" title="Search Error" description={error} onRetry={() => handleSearch(query)} />
@@ -220,6 +254,10 @@ function MobileApp() {
                 onRemove={(id) => handleToggleWatchlist({ tmdbId: id })}
                 onSelect={handleSelectMatch}
               />
+            )}
+
+            {activeView === 'discover' && (
+              <DiscoverScreen onSelectItem={handleSelectDiscoverItem} />
             )}
 
             {activeView === 'settings' && (
