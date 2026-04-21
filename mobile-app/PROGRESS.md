@@ -13,12 +13,16 @@ Discover / Filter Feature — complete and wired into navigation.
   - `src/components/BottomNav.js` — Added "Discover" tab (3rd tab, `options-outline` icon).
   - `App.js` — Wired `discover` view/tab, `handleSelectDiscoverItem` handler, `detailOrigin` state for correct back-navigation from detail → discover.
 
+- [x] **EAS Build Fix** — Resolved "Install dependencies" failure by aligning project dependencies with Expo SDK 55 (updated React 19, RN 0.83, etc.) and adding `.npmrc` for `legacy-peer-deps`.
+
 ## Active Bugs
-- None known.
+- None (pending verification of the new build).
 
 ## Technical Decisions
 - **Profile:** Use `preview` in `eas.json` to generate installable APKs for direct testing.
 - **Project Link:** Re-linked to `juwimana` EAS account to resolve permission issues.
+- **Dependency Alignment:** Updated React and React Native versions to match Expo SDK 55 requirements using `npx expo install --fix`.
+- **NPM Configuration:** Added `.npmrc` with `legacy-peer-deps=true` to ensure stable installs on EAS despite minor peer dependency conflicts during the SDK 55 transition.
 - **Genre Cache:** In-memory (module-level `_genreCache` object in `tmdb.js`) — simple, avoids Room DB dependency.
 - **Genre Logic:** AND = comma-separated IDs, OR = pipe-separated IDs (TMDB convention).
 - **DiscoverScreen loading:** Does NOT block the global `loading` spinner — uses its own internal state so the filter form stays visible while results load.
