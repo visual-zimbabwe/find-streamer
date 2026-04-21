@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { fetchGenres, discoverTitles } from './tmdb';
+import { fetchGenres, discoverTitles, fetchLanguages, fetchDiscoverCountries } from './tmdb';
 
 const DEFAULT_FILTERS = {
   mediaType: 'movie',
@@ -7,6 +7,7 @@ const DEFAULT_FILTERS = {
   genreLogic: 'AND',
   minRating: 0,
   language: null,
+  originCountry: null,
   fromYear: '',
   toYear: '',
   sortBy: 'popularity.desc',
@@ -16,6 +17,12 @@ export function useDiscoverViewModel() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [genres, setGenres] = useState([]);
   const [genresLoading, setGenresLoading] = useState(false);
+
+  const [languages, setLanguages] = useState([]);
+  const [languagesLoading, setLanguagesLoading] = useState(false);
+
+  const [countries, setCountries] = useState([]);
+  const [countriesLoading, setCountriesLoading] = useState(false);
 
   const [results, setResults] = useState([]);
   const [totalResults, setTotalResults] = useState(0);
@@ -43,6 +50,36 @@ export function useDiscoverViewModel() {
       setGenresLoading(false);
     }
   }, []);
+
+  // ── Language Fetching ──────────────────────────────────────────────────────
+
+  const loadLanguages = useCallback(async () => {
+    if (languages.length > 0) return; // already loaded
+    setLanguagesLoading(true);
+    try {
+      const list = await fetchLanguages();
+      setLanguages(list);
+    } catch {
+      setLanguages([]);
+    } finally {
+      setLanguagesLoading(false);
+    }
+  }, [languages.length]);
+
+  // ── Country Fetching ───────────────────────────────────────────────────────
+
+  const loadCountries = useCallback(async () => {
+    if (countries.length > 0) return; // already loaded
+    setCountriesLoading(true);
+    try {
+      const list = await fetchDiscoverCountries();
+      setCountries(list);
+    } catch {
+      setCountries([]);
+    } finally {
+      setCountriesLoading(false);
+    }
+  }, [countries.length]);
 
   // ── Filter Helpers ─────────────────────────────────────────────────────────
 
@@ -144,6 +181,14 @@ export function useDiscoverViewModel() {
     genres,
     genresLoading,
     loadGenres,
+
+    languages,
+    languagesLoading,
+    loadLanguages,
+
+    countries,
+    countriesLoading,
+    loadCountries,
 
     results,
     totalResults,

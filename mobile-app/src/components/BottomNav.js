@@ -10,7 +10,7 @@ export function BottomNav({ activeTab, onTabPress }) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background + 'cc', paddingBottom: insets.bottom + 8, borderTopColor: colors.outlineVariant + '26' }]}>
+    <View style={[styles.container, { backgroundColor: colors.background + 'cc', paddingTop: 10, paddingBottom: insets.bottom + 8, borderTopColor: colors.outlineVariant + '26' }]}>
       <TouchableOpacity 
         style={[styles.navItem, activeTab === 'search' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
         onPress={() => onTabPress('search')}
@@ -56,7 +56,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 80,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',

@@ -1,57 +1,204 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   TextInput,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { useDiscoverViewModel } from '../lib/discoverViewModel';
 
-// ─── Language Options ──────────────────────────────────────────────────────────
-const LANGUAGES = [
-  { code: null,  label: 'Any language' },
-  { code: 'en',  label: 'English' },
-  { code: 'fr',  label: 'French' },
-  { code: 'ko',  label: 'Korean' },
-  { code: 'ja',  label: 'Japanese' },
-  { code: 'es',  label: 'Spanish' },
-  { code: 'hi',  label: 'Hindi' },
-  { code: 'de',  label: 'German' },
-  { code: 'zh',  label: 'Chinese' },
+// ─── Sort Options (media-type-aware) ──────────────────────────────────────────
+const SORT_OPTIONS_MOVIE = [
+  { value: 'popularity.desc',           label: 'Most Popular' },
+  { value: 'vote_average.desc',         label: 'Highest Rated' },
+  { value: 'primary_release_date.desc', label: 'Newest First' },
+  { value: 'primary_release_date.asc',  label: 'Oldest First' },
+  { value: 'revenue.desc',              label: 'Most Revenue' },
 ];
 
-// ─── Sort Options ──────────────────────────────────────────────────────────────
-const SORT_OPTIONS = [
-  { value: 'popularity.desc',        label: 'Popularity ↓' },
-  { value: 'vote_average.desc',      label: 'Rating ↓' },
-  { value: 'primary_release_date.desc', label: 'Newest first' },
-  { value: 'primary_release_date.asc',  label: 'Oldest first' },
-  { value: 'revenue.desc',           label: 'Revenue ↓' },
+const SORT_OPTIONS_TV = [
+  { value: 'popularity.desc',      label: 'Most Popular' },
+  { value: 'vote_average.desc',    label: 'Highest Rated' },
+  { value: 'first_air_date.desc',  label: 'Newest First' },
+  { value: 'first_air_date.asc',   label: 'Oldest First' },
 ];
 
 // ─── Rating Steps ──────────────────────────────────────────────────────────────
 const RATING_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
+// ─── Searchable Picker Modal ───────────────────────────────────────────────────
+function SearchablePickerModal({
+  visible,
+  onClose,
+  title,
+  items,          // [{ code, label }]
+  selectedCode,
+  onSelect,
+  loading,
+  colors,
+  typography,
+  radii,
+}) {
+  const [query, setQuery] = useState('');
+  const insets = useSafeAreaInsets();
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    if (!q) return items;
+    return items.filter((i) => i.label.toLowerCase().includes(q));
+  }, [items, query]);
+
+  const handleClose = () => {
+    setQuery('');
+    onClose();
+  };
+
+  const handleSelect = (item) => {
+    setQuery('');
+    onSelect(item.code);
+    onClose();
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={handleClose}
+    >
+      <View style={pickerStyles.overlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
+        >
+          <View style={[pickerStyles.sheet, { backgroundColor: colors.surface, borderRadius: radii.xl, paddingBottom: insets.bottom + 16 }]}>
+            {/* Header */}
+            <View style={pickerStyles.sheetHeader}>
+              <Text style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '700' }]}>{title}</Text>
+              <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close-circle" size={24} color={colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Search input */}
+            <View style={[pickerStyles.searchBox, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.md }]}>
+              <Ionicons name="search-outline" size={16} color={colors.onSurfaceVariant} style={{ marginRight: 8 }} />
+              <TextInput
+                style={[{ flex: 1, color: colors.onSurface, ...typography.bodyMd }]}
+                placeholder="Search…"
+                placeholderTextColor={colors.onSurfaceVariant}
+                value={query}
+                onChangeText={setQuery}
+                autoFocus
+                autoCorrect={false}
+              />
+              {query.length > 0 && (
+                <TouchableOpacity onPress={() => setQuery('')}>
+                  <Ionicons name="close-circle-outline" size={16} color={colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {loading ? (
+              <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
+            ) : (
+              <FlatList
+                data={filtered}
+                keyExtractor={(item) => String(item.code ?? '__any__')}
+                style={{ maxHeight: 380 }}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => {
+                  const active = item.code === selectedCode;
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        pickerStyles.pickerRow,
+                        active && { backgroundColor: colors.primary + '18' },
+                      ]}
+                      onPress={() => handleSelect(item)}
+                    >
+                      <Text style={[{ flex: 1, color: active ? colors.primary : colors.onSurface, ...typography.bodyMd, fontWeight: active ? '700' : '400' }]}>
+                        {item.label}
+                      </Text>
+                      {active && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  <Text style={[{ color: colors.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center', marginTop: 24 }]}>
+                    No matches found
+                  </Text>
+                }
+              />
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
+
 export function DiscoverScreen({ onSelectItem }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
+  const c = colors;
 
   const vm = useDiscoverViewModel();
 
-  // Load genres when mediaType changes
+  const [langModalVisible, setLangModalVisible] = useState(false);
+  const [countryModalVisible, setCountryModalVisible] = useState(false);
+
+  // Sort options depend on mediaType
+  const sortOptions = vm.filters.mediaType === 'movie' ? SORT_OPTIONS_MOVIE : SORT_OPTIONS_TV;
+
+  // Ensure current sortBy is valid for the current media type
+  const validSortValues = sortOptions.map((o) => o.value);
+  const displayedSortBy = validSortValues.includes(vm.filters.sortBy)
+    ? vm.filters.sortBy
+    : 'popularity.desc';
+
+  // Load genres when mediaType changes; reset genreIds that might not apply
   useEffect(() => {
     vm.loadGenres(vm.filters.mediaType);
+    vm.updateFilter('genreIds', []);
+    // Reset origin country when switching media types
+    if (vm.filters.mediaType === 'movie') {
+      vm.updateFilter('originCountry', null);
+    }
+    // Reset revenue sort that is movie-only
+    if (vm.filters.mediaType === 'tv' && vm.filters.sortBy === 'revenue.desc') {
+      vm.updateFilter('sortBy', 'popularity.desc');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vm.filters.mediaType]);
 
-  // ── helpers ────────────────────────────────────────────────────────────────
-  const c = colors;
+  // Preload languages & countries on mount
+  useEffect(() => {
+    vm.loadLanguages();
+    vm.loadCountries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Selected language display label
+  const selectedLang = vm.languages.find((l) => l.code === vm.filters.language);
+  const langLabel = selectedLang ? selectedLang.label : 'Any Language';
+
+  // Selected country display label (TV only)
+  const selectedCountry = vm.countries.find((c2) => c2.code === vm.filters.originCountry);
+  const countryLabel = selectedCountry ? selectedCountry.label : 'Any Country';
 
   return (
     <ScrollView
@@ -65,14 +212,14 @@ export function DiscoverScreen({ onSelectItem }) {
           Discover
         </Text>
         <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd }]}>
-          Filter movies & shows by criteria
+          Filter movies &amp; shows by criteria
         </Text>
       </View>
 
       {/* ── Filter Card ── */}
       <View style={[styles.card, { backgroundColor: c.surfaceContainer, borderRadius: radii.xl }]}>
 
-        {/* Content Type Toggle */}
+        {/* ── Content Type Toggle ── */}
         <SectionLabel label="Content Type" colors={c} typography={typography} />
         <View style={styles.toggleRow}>
           {['movie', 'tv'].map((type) => {
@@ -104,7 +251,7 @@ export function DiscoverScreen({ onSelectItem }) {
 
         <Divider color={c.outlineVariant} />
 
-        {/* Genre Multi-Select */}
+        {/* ── Genre Multi-Select ── */}
         <View style={styles.sectionRow}>
           <SectionLabel label="Genres" colors={c} typography={typography} />
           {/* AND / OR toggle */}
@@ -162,8 +309,12 @@ export function DiscoverScreen({ onSelectItem }) {
 
         <Divider color={c.outlineVariant} />
 
-        {/* Min Rating */}
-        <SectionLabel label={`Minimum Rating: ${vm.filters.minRating > 0 ? vm.filters.minRating.toFixed(1) : 'Any'}`} colors={c} typography={typography} />
+        {/* ── Minimum Rating ── */}
+        <SectionLabel
+          label={`Minimum Rating: ${vm.filters.minRating > 0 ? vm.filters.minRating.toFixed(1) : 'Any'}`}
+          colors={c}
+          typography={typography}
+        />
         <View style={styles.ratingRow}>
           {RATING_STEPS.map((step) => {
             const active = vm.filters.minRating === step;
@@ -187,37 +338,58 @@ export function DiscoverScreen({ onSelectItem }) {
 
         <Divider color={c.outlineVariant} />
 
-        {/* Language */}
-        <SectionLabel label="Language" colors={c} typography={typography} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-          <View style={styles.hChipRow}>
-            {LANGUAGES.map((lang) => {
-              const active = vm.filters.language === lang.code;
-              return (
+        {/* ── Original Language ── */}
+        <SectionLabel label="Original Language" colors={c} typography={typography} />
+        <TouchableOpacity
+          style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: c.outlineVariant + '40' }]}
+          onPress={() => setLangModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="language-outline" size={16} color={vm.filters.language ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
+          <Text style={[{ flex: 1, color: vm.filters.language ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]}>
+            {langLabel}
+          </Text>
+          {vm.filters.language && (
+            <TouchableOpacity
+              onPress={() => vm.updateFilter('language', null)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} />
+            </TouchableOpacity>
+          )}
+          <Ionicons name="chevron-down-outline" size={16} color={c.onSurfaceVariant} style={{ marginLeft: 4 }} />
+        </TouchableOpacity>
+
+        {/* ── Origin Country (TV only) ── */}
+        {vm.filters.mediaType === 'tv' && (
+          <>
+            <Divider color={c.outlineVariant} />
+            <SectionLabel label="Origin Country (TV)" colors={c} typography={typography} />
+            <TouchableOpacity
+              style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: c.outlineVariant + '40' }]}
+              onPress={() => setCountryModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="globe-outline" size={16} color={vm.filters.originCountry ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
+              <Text style={[{ flex: 1, color: vm.filters.originCountry ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]}>
+                {countryLabel}
+              </Text>
+              {vm.filters.originCountry && (
                 <TouchableOpacity
-                  key={lang.label}
-                  style={[
-                    styles.chip,
-                    { borderRadius: radii.full },
-                    active
-                      ? { backgroundColor: c.primary }
-                      : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' },
-                  ]}
-                  onPress={() => vm.updateFilter('language', lang.code)}
-                  activeOpacity={0.8}
+                  onPress={() => vm.updateFilter('originCountry', null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
-                    {lang.label}
-                  </Text>
+                  <Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} />
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-        </ScrollView>
+              )}
+              <Ionicons name="chevron-down-outline" size={16} color={c.onSurfaceVariant} style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+          </>
+        )}
 
         <Divider color={c.outlineVariant} />
 
-        {/* Release Year Range */}
+        {/* ── Release Year Range ── */}
         <SectionLabel label="Release Year Range" colors={c} typography={typography} />
         <View style={styles.yearRow}>
           <View style={[styles.yearInput, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, flex: 1 }]}>
@@ -247,12 +419,12 @@ export function DiscoverScreen({ onSelectItem }) {
 
         <Divider color={c.outlineVariant} />
 
-        {/* Sort By */}
+        {/* ── Sort By ── */}
         <SectionLabel label="Sort By" colors={c} typography={typography} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
           <View style={styles.hChipRow}>
-            {SORT_OPTIONS.map((opt) => {
-              const active = vm.filters.sortBy === opt.value;
+            {sortOptions.map((opt) => {
+              const active = displayedSortBy === opt.value;
               return (
                 <TouchableOpacity
                   key={opt.value}
@@ -275,7 +447,7 @@ export function DiscoverScreen({ onSelectItem }) {
           </View>
         </ScrollView>
 
-        {/* Validation Error */}
+        {/* ── Validation Error ── */}
         {vm.validationError && (
           <View style={[styles.validationBanner, { backgroundColor: colors.error + '18', borderRadius: radii.md }]}>
             <Ionicons name="warning-outline" size={16} color={colors.error} />
@@ -285,7 +457,7 @@ export function DiscoverScreen({ onSelectItem }) {
           </View>
         )}
 
-        {/* Action Row */}
+        {/* ── Action Row ── */}
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={[styles.resetBtn, { borderRadius: radii.md, borderColor: c.outlineVariant + '40' }]}
@@ -304,8 +476,8 @@ export function DiscoverScreen({ onSelectItem }) {
             {vm.loading
               ? <ActivityIndicator color={c.onPrimary} size="small" />
               : <>
-                  <Ionicons name="options-outline" size={16} color={c.onPrimary} />
-                  <Text style={[styles.searchBtnText, { color: c.onPrimary, ...typography.labelSm }]}>Find Content</Text>
+                  <Ionicons name="search-outline" size={16} color={c.onPrimary} />
+                  <Text style={[styles.searchBtnText, { color: c.onPrimary, ...typography.labelSm }]}>Search</Text>
                 </>
             }
           </TouchableOpacity>
@@ -319,6 +491,34 @@ export function DiscoverScreen({ onSelectItem }) {
         typography={typography}
         radii={radii}
         onSelectItem={onSelectItem}
+      />
+
+      {/* ── Language Picker Modal ── */}
+      <SearchablePickerModal
+        visible={langModalVisible}
+        onClose={() => setLangModalVisible(false)}
+        title="Select Language"
+        items={vm.languages}
+        selectedCode={vm.filters.language}
+        onSelect={(code) => vm.updateFilter('language', code)}
+        loading={vm.languagesLoading}
+        colors={c}
+        typography={typography}
+        radii={radii}
+      />
+
+      {/* ── Country Picker Modal ── */}
+      <SearchablePickerModal
+        visible={countryModalVisible}
+        onClose={() => setCountryModalVisible(false)}
+        title="Select Origin Country"
+        items={vm.countries}
+        selectedCode={vm.filters.originCountry}
+        onSelect={(code) => vm.updateFilter('originCountry', code)}
+        loading={vm.countriesLoading}
+        colors={c}
+        typography={typography}
+        radii={radii}
       />
     </ScrollView>
   );
@@ -372,7 +572,7 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
           Set your filters
         </Text>
         <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center' }]}>
-          Adjust the filters above and tap{'\n'}"Find Content" to explore.
+          Adjust the filters above and tap{'\n'}"Search" to explore.
         </Text>
       </View>
     );
@@ -495,6 +695,41 @@ function Divider({ color }) {
   return <View style={[styles.divider, { backgroundColor: color + '20' }]} />;
 }
 
+// ─── Picker Sheet Styles ───────────────────────────────────────────────────────
+
+const pickerStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(128,128,128,0.2)',
+  },
+});
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -525,6 +760,15 @@ const styles = StyleSheet.create({
 
   ratingRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 4 },
   ratingDot: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+
+  pickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
 
   yearRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   yearInput: {},

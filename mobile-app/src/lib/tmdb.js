@@ -218,6 +218,32 @@ export async function fetchGenres(mediaType) {
   return genres;
 }
 
+// In-memory language/country cache
+let _languageCache = null;
+let _countryDiscoverCache = null;
+
+export async function fetchLanguages() {
+  if (_languageCache) return _languageCache;
+  const data = await tmdbGet('/configuration/languages');
+  const sorted = (Array.isArray(data) ? data : [])
+    .filter((l) => l.english_name && l.english_name.trim())
+    .sort((a, b) => a.english_name.localeCompare(b.english_name))
+    .map((l) => ({ code: l.iso_639_1, label: l.english_name }));
+  _languageCache = [{ code: null, label: 'Any Language' }, ...sorted];
+  return _languageCache;
+}
+
+export async function fetchDiscoverCountries() {
+  if (_countryDiscoverCache) return _countryDiscoverCache;
+  const data = await tmdbGet('/configuration/countries', { language: 'en-US' });
+  const sorted = (Array.isArray(data) ? data : [])
+    .filter((c) => c.english_name && c.english_name.trim())
+    .sort((a, b) => a.english_name.localeCompare(b.english_name))
+    .map((c) => ({ code: c.iso_3166_1, label: c.english_name }));
+  _countryDiscoverCache = [{ code: null, label: 'Any Country' }, ...sorted];
+  return _countryDiscoverCache;
+}
+
 /**
  * Call /3/discover/movie or /3/discover/tv with a filter object.
  *
@@ -242,6 +268,7 @@ export async function discoverTitles(filters = {}) {
     genreLogic = 'AND',
     minRating = null,
     language = null,
+    originCountry = null,
     fromYear = null,
     toYear = null,
     sortBy = 'popularity.desc',
@@ -250,7 +277,7 @@ export async function discoverTitles(filters = {}) {
 
   const params = {
     sort_by: sortBy,
-    'vote_count.gte': 50,
+    'vote_count.gte': 20,
     include_adult: false,
     page,
   };
@@ -266,6 +293,10 @@ export async function discoverTitles(filters = {}) {
 
   if (language) {
     params.with_original_language = language;
+  }
+
+  if (mediaType === 'tv' && originCountry) {
+    params.with_origin_country = originCountry;
   }
 
   if (mediaType === 'movie') {
