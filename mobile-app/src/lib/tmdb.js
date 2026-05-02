@@ -1,11 +1,19 @@
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const HARDCODED_BEARER_TOKEN =
   'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZWNkNDE1YWJhY2VmMzYxM2I5NDc1MWQ5OWRhODU2YSIsIm5iZiI6MTc3MTgwMDUzOS45ODU5OTk4LCJzdWIiOiI2OTliODdkYmYwMTE1NmYxNDljNWE1MTgiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.oXCB5rLBXE6TwtgHGup4lEEX-dI0uTXGUVP8PQesics';
+const TMDB_REQUEST_TIMEOUT_MS = 12000;
+const TV_EPISODE_PROVIDER_LOOKUP_ENABLED = process.env.EXPO_PUBLIC_TMDB_TV_EPISODE_LOOKUP === 'true';
+const TV_EPISODE_PROVIDER_MAX_EPISODES = Number(process.env.EXPO_PUBLIC_TMDB_TV_EPISODE_MAX_EPISODES || 60);
 
 export const SERVICE_LABELS = {
   netflix: 'Netflix',
   amazon_prime_video: 'Prime Video',
   max: 'Max',
+};
+const DIRECT_SERVICE_NAMES = {
+  netflix: new Set(['netflix', 'netflix standard with ads', 'netflix basic with ads']),
+  amazon_prime_video: new Set(['amazon prime video']),
+  max: new Set(['max', 'hbo max']),
 };
 
 function normalize(text) {
@@ -14,22 +22,86 @@ function normalize(text) {
 
 function serviceKey(providerName) {
   const name = normalize(providerName);
-  if (name.includes('netflix')) return 'netflix';
-  if (name.includes('amazon prime video')) return 'amazon_prime_video';
-  if (name === 'max' || name.includes('hbo max')) return 'max';
+  for (const [key, directNames] of Object.entries(DIRECT_SERVICE_NAMES)) {
+    if (directNames.has(name)) return key;
+  }
   return null;
+}
+
+function directFlatrateServices(info = {}) {
+  return new Set(
+    (info.flatrate || [])
+      .map((provider) => serviceKey(provider.provider_name || ''))
+      .filter(Boolean)
+  );
+}
+
+function availabilityFromResults(results = {}) {
+  const availability = { netflix: [], amazon_prime_video: [], max: [] };
+
+  Object.entries(results).forEach(([countryCode, info]) => {
+    directFlatrateServices(info).forEach((key) => {
+      availability[key].push(countryCode);
+    });
+  });
+
+  Object.keys(availability).forEach((key) => {
+    availability[key] = Array.from(new Set(availability[key])).sort();
+  });
+
+  return availability;
+}
+
+async function mapWithConcurrency(items, limit, task) {
+  const results = [];
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await task(items[index]);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+function createTimeoutSignal(timeoutMs) {
+  if (typeof AbortController === 'undefined') return {};
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timeoutId),
+  };
 }
 
 async function tmdbGet(pathname, params = {}) {
   const url = new URL(`${TMDB_BASE}${pathname}`);
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      accept: 'application/json',
-      Authorization: `Bearer ${HARDCODED_BEARER_TOKEN}`,
-    },
-  });
+  const timeout = createTimeoutSignal(TMDB_REQUEST_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(url.toString(), {
+      headers: {
+        accept: 'application/json',
+        Authorization: `Bearer ${HARDCODED_BEARER_TOKEN}`,
+      },
+      signal: timeout.signal,
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Network request timed out. Check your connection and try again.');
+    }
+    throw new Error('Network request failed. Check your connection and try again.');
+  } finally {
+    timeout.clear?.();
+  }
 
   if (!response.ok) {
     const message = await response.text();
@@ -88,6 +160,21 @@ async function getTitleMetadata(mediaType, tmdbId) {
   const year = dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A';
   const genres = (data.genres || []).map((genre) => genre.name).filter(Boolean).sort();
   const rating = typeof data.vote_average === 'number' ? `${data.vote_average.toFixed(1)}/10` : 'N/A';
+  const runtimeMinutes = mediaType === 'tv'
+    ? (data.episode_run_time || []).find((value) => typeof value === 'number' && value > 0) || null
+    : data.runtime || null;
+  const seasons = mediaType === 'tv'
+    ? (data.seasons || [])
+        .filter((season) => season.season_number > 0)
+        .map((season) => ({
+          id: season.id,
+          name: season.name || `Season ${season.season_number}`,
+          seasonNumber: season.season_number,
+          episodeCount: season.episode_count || 0,
+          year: season.air_date ? season.air_date.slice(0, 4) : 'TBA',
+          posterUrl: season.poster_path ? `https://image.tmdb.org/t/p/w300${season.poster_path}` : null,
+        }))
+    : [];
 
   const videos = data.videos?.results || [];
   const youtubeVideos = videos.filter((video) => video.site === 'YouTube' && video.key);
@@ -99,6 +186,13 @@ async function getTitleMetadata(mediaType, tmdbId) {
     year,
     genres: genres.length ? genres.join(', ') : 'N/A',
     rating,
+    runtimeMinutes,
+    numberOfSeasons: mediaType === 'tv' ? data.number_of_seasons || seasons.length : null,
+    numberOfEpisodes: mediaType === 'tv' ? data.number_of_episodes || seasons.reduce((total, season) => total + season.episodeCount, 0) : null,
+    createdBy: mediaType === 'tv'
+      ? (data.created_by || []).map((person) => person.name).filter(Boolean).join(', ') || 'N/A'
+      : null,
+    seasons,
     trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : 'N/A',
   };
 }
@@ -107,7 +201,9 @@ async function getTitleMetadata(mediaType, tmdbId) {
 async function getCredits(mediaType, tmdbId) {
   const data = await tmdbGet(`/${mediaType}/${tmdbId}/credits`);
 
-  const director = (data.crew || []).find((person) => person.job === 'Director' || person.department === 'Directing');
+  const crew = data.crew || [];
+  const director = crew.find((person) => person.job === 'Director')
+    ?? crew.find((person) => person.department === 'Directing');
   const starring = (data.cast || []).sort((a, b) => (a.order || 9999) - (b.order || 9999)).slice(0, 4);
 
   return {
@@ -139,32 +235,90 @@ async function getSimilar(mediaType, tmdbId) {
 }
 
 async function getProviderCountries(mediaType, tmdbId) {
-  const data = await tmdbGet(`/${mediaType}/${tmdbId}/watch/providers`);
-  const results = data.results || {};
+  const cacheKey = `${mediaType}:${tmdbId}`;
+  if (_providerCountryCache.has(cacheKey)) return _providerCountryCache.get(cacheKey);
 
-  const availability = { netflix: [], amazon_prime_video: [], max: [] };
+  let availability;
+  if (mediaType === 'tv') {
+    availability = await getTvProviderCountries(tmdbId);
+  } else {
+    const data = await tmdbGet(`/${mediaType}/${tmdbId}/watch/providers`);
+    availability = availabilityFromResults(data.results || {});
+  }
 
-  Object.entries(results).forEach(([countryCode, info]) => {
-    const providers = [];
-    ['flatrate', 'ads', 'free'].forEach((section) => {
-      providers.push(...(info[section] || []));
+  _providerCountryCache.set(cacheKey, availability);
+  return availability;
+}
+
+const _providerCountryCache = new Map();
+let _countryNamesCache = null;
+
+async function getTvProviderCountries(tmdbId) {
+  const showLevelData = await tmdbGet(`/tv/${tmdbId}/watch/providers`);
+  const showLevelAvailability = availabilityFromResults(showLevelData.results || {});
+  showLevelAvailability.confidence = 'show';
+
+  if (!TV_EPISODE_PROVIDER_LOOKUP_ENABLED) {
+    return showLevelAvailability;
+  }
+
+  return getCompleteTvProviderCountries(tmdbId, showLevelAvailability);
+}
+
+async function getCompleteTvProviderCountries(tmdbId, fallbackAvailability = null) {
+  const details = await tmdbGet(`/tv/${tmdbId}`, { language: 'en-US' });
+  const episodes = (details.seasons || [])
+    .filter((season) => season.season_number > 0)
+    .flatMap((season) => Array.from(
+      { length: season.episode_count || 0 },
+      (_unused, index) => ({ seasonNumber: season.season_number, episodeNumber: index + 1 })
+    ));
+
+  if (!episodes.length) {
+    return fallbackAvailability || { netflix: [], amazon_prime_video: [], max: [], confidence: 'show' };
+  }
+
+  if (episodes.length > TV_EPISODE_PROVIDER_MAX_EPISODES) {
+    return fallbackAvailability || { netflix: [], amazon_prime_video: [], max: [], confidence: 'show' };
+  }
+
+  const episodeResults = await mapWithConcurrency(episodes, 8, (episode) =>
+    tmdbGet(`/tv/${tmdbId}/season/${episode.seasonNumber}/episode/${episode.episodeNumber}/watch/providers`)
+  );
+  const availability = { netflix: null, amazon_prime_video: null, max: null };
+
+  episodeResults.forEach((data) => {
+    const episodeAvailability = {
+      netflix: new Set(),
+      amazon_prime_video: new Set(),
+      max: new Set(),
+    };
+
+    Object.entries(data.results || {}).forEach(([countryCode, info]) => {
+      directFlatrateServices(info).forEach((key) => {
+        episodeAvailability[key].add(countryCode);
+      });
     });
 
-    const seen = new Set();
-    providers.forEach((provider) => {
-      const key = serviceKey(provider.provider_name || '');
-      if (key && !seen.has(key)) {
-        availability[key].push(countryCode);
-        seen.add(key);
+    Object.keys(availability).forEach((key) => {
+      if (availability[key] === null) {
+        availability[key] = episodeAvailability[key];
+      } else {
+        availability[key] = new Set([...availability[key]].filter((countryCode) => episodeAvailability[key].has(countryCode)));
       }
     });
   });
 
-  Object.keys(availability).forEach((key) => availability[key].sort());
-  return availability;
+  return {
+    ...Object.fromEntries(
+      Object.entries(availability).map(([key, countryCodes]) => [key, Array.from(countryCodes || []).sort()])
+    ),
+    confidence: 'episode',
+  };
 }
 
 async function getCountryNames() {
+  if (_countryNamesCache) return _countryNamesCache;
   const data = await tmdbGet('/configuration/countries', { language: 'en-US' });
   const countryNames = {};
   data.forEach((item) => {
@@ -172,11 +326,14 @@ async function getCountryNames() {
       countryNames[item.iso_3166_1] = item.english_name || item.name || item.iso_3166_1;
     }
   });
+  _countryNamesCache = countryNames;
   return countryNames;
 }
 
 function toRows(availability, countryNames) {
-  const allCodes = Array.from(new Set(Object.values(availability).flat())).sort();
+  const allCodes = Array.from(
+    new Set(Object.keys(SERVICE_LABELS).flatMap((key) => availability[key] || []))
+  ).sort();
   const netflix = new Set(availability.netflix || []);
   const prime = new Set(availability.amazon_prime_video || []);
   const max = new Set(availability.max || []);
@@ -252,7 +409,8 @@ export async function fetchDiscoverCountries() {
  *   genreIds: number[],
  *   genreLogic: 'AND' | 'OR',
  *   minRating: number | null,   // vote_average.gte
- *   language: string | null,    // ISO 639-1, e.g. 'en'
+ *   languageCodes: string[],    // ISO 639-1, e.g. ['en', 'ja']
+ *   originCountries: string[],  // ISO 3166-1, TV only, e.g. ['US', 'KR']
  *   fromYear: string | null,    // '2010'
  *   toYear: string | null,      // '2024'
  *   sortBy: string,             // 'popularity.desc' etc.
@@ -267,8 +425,8 @@ export async function discoverTitles(filters = {}) {
     genreIds = [],
     genreLogic = 'AND',
     minRating = null,
-    language = null,
-    originCountry = null,
+    languageCodes = [],
+    originCountries = [],
     fromYear = null,
     toYear = null,
     sortBy = 'popularity.desc',
@@ -291,12 +449,12 @@ export async function discoverTitles(filters = {}) {
     params['vote_average.gte'] = minRating;
   }
 
-  if (language) {
-    params.with_original_language = language;
+  if (languageCodes.length > 0) {
+    params.with_original_language = languageCodes.join('|');
   }
 
-  if (mediaType === 'tv' && originCountry) {
-    params.with_origin_country = originCountry;
+  if (mediaType === 'tv' && originCountries.length > 0) {
+    params.with_origin_country = originCountries.join('|');
   }
 
   if (mediaType === 'movie') {
@@ -353,5 +511,6 @@ export async function resolveMatch(query, match) {
     similar,
     rows,
     providerSummary: buildProviderSummary(rows),
+    providerAvailabilityConfidence: availability.confidence || 'show',
   };
 }
