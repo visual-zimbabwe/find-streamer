@@ -1,5 +1,5 @@
 import React, { Fragment } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
@@ -263,18 +263,22 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>GLOBAL AVAILABILITY</Text>
           
           <View style={styles.legend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.dot, { backgroundColor: '#E50914' }]} />
-              <Text style={[styles.legendText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Netflix</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.dot, { backgroundColor: '#00A8E1' }]} />
-              <Text style={[styles.legendText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Prime</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.dot, { backgroundColor: '#002BE7' }]} />
-              <Text style={[styles.legendText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Max</Text>
-            </View>
+            {result.providerSummary.map((provider) => (
+              <View key={provider.key} style={styles.legendItem}>
+                {provider.logoUrl ? (
+                  <Image
+                    source={{ uri: provider.logoUrl }}
+                    style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
+                    accessibilityLabel={provider.label}
+                  />
+                ) : (
+                  <View style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
+                )}
+                <Text style={[styles.legendText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                  {provider.label}
+                </Text>
+              </View>
+            ))}
           </View>
 
           <View style={[styles.table, { borderColor: colors.outlineVariant + '26' }]}>
@@ -282,9 +286,20 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               <View key={row.code} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: colors.surfaceContainerLow } : null]}>
                 <Text style={[styles.countryName, { color: colors.onSurface, ...typography.bodyMd }]}>{row.country}</Text>
                 <View style={styles.providerBadges}>
-                  {row.providers.netflix && <View style={[styles.dot, { backgroundColor: '#E50914' }]} />}
-                  {row.providers.amazon_prime_video && <View style={[styles.dot, { backgroundColor: '#00A8E1' }]} />}
-                  {row.providers.max && <View style={[styles.dot, { backgroundColor: '#002BE7' }]} />}
+                  {result.providerSummary.map((provider) =>
+                    row.providers[provider.key] ? (
+                      provider.logoUrl ? (
+                        <Image
+                          key={provider.key}
+                          source={{ uri: provider.logoUrl }}
+                          style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
+                          accessibilityLabel={provider.label}
+                        />
+                      ) : (
+                        <View key={provider.key} style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
+                      )
+                    ) : null
+                  )}
                 </View>
               </View>
             ))}
@@ -605,5 +620,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  serviceLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 1.5,
   },
 });

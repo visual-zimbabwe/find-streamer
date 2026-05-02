@@ -1,7 +1,6 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -16,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
-import { useDiscoverViewModel } from '../lib/discoverViewModel';
+import { MediaArtwork } from './MediaArtwork';
 
 // ─── Sort Options (media-type-aware) ──────────────────────────────────────────
 const SORT_OPTIONS_MOVIE = [
@@ -37,14 +36,26 @@ const SORT_OPTIONS_TV = [
 // ─── Rating Steps ──────────────────────────────────────────────────────────────
 const RATING_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
+function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {
+  if (!selectedCodes.length) return emptyLabel;
+
+  const labels = selectedCodes
+    .map((code) => items.find((item) => item.code === code)?.label || code)
+    .filter(Boolean);
+
+  if (labels.length <= 2) return labels.join(', ');
+  return `${labels.slice(0, 2).join(', ')} +${labels.length - 2} ${noun}`;
+}
+
 // ─── Searchable Picker Modal ───────────────────────────────────────────────────
 function SearchablePickerModal({
   visible,
   onClose,
   title,
   items,          // [{ code, label }]
-  selectedCode,
-  onSelect,
+  selectedCodes = [],
+  onToggle,
+  onClear,
   loading,
   colors,
   typography,
@@ -65,9 +76,12 @@ function SearchablePickerModal({
   };
 
   const handleSelect = (item) => {
-    setQuery('');
-    onSelect(item.code);
-    onClose();
+    if (item.code == null) {
+      onClear();
+      setQuery('');
+      return;
+    }
+    onToggle(item.code);
   };
 
   return (
@@ -86,8 +100,13 @@ function SearchablePickerModal({
             {/* Header */}
             <View style={pickerStyles.sheetHeader}>
               <Text style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '700' }]}>{title}</Text>
-              <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close-circle" size={24} color={colors.onSurfaceVariant} />
+              <TouchableOpacity
+                onPress={handleClose}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Done selecting ${title.toLowerCase()}`}
+              >
+                <Text style={[{ color: colors.primary, ...typography.labelSm, fontWeight: '800' }]}>Done</Text>
               </TouchableOpacity>
             </View>
 
@@ -104,7 +123,11 @@ function SearchablePickerModal({
                 autoCorrect={false}
               />
               {query.length > 0 && (
-                <TouchableOpacity onPress={() => setQuery('')}>
+                <TouchableOpacity
+                  onPress={() => setQuery('')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear picker search"
+                >
                   <Ionicons name="close-circle-outline" size={16} color={colors.onSurfaceVariant} />
                 </TouchableOpacity>
               )}
@@ -119,7 +142,7 @@ function SearchablePickerModal({
                 style={{ maxHeight: 380 }}
                 keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => {
-                  const active = item.code === selectedCode;
+                  const active = item.code == null ? selectedCodes.length === 0 : selectedCodes.includes(item.code);
                   return (
                     <TouchableOpacity
                       style={[
@@ -127,6 +150,9 @@ function SearchablePickerModal({
                         active && { backgroundColor: colors.primary + '18' },
                       ]}
                       onPress={() => handleSelect(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel={item.label}
+                      accessibilityState={{ selected: active }}
                     >
                       <Text style={[{ flex: 1, color: active ? colors.primary : colors.onSurface, ...typography.bodyMd, fontWeight: active ? '700' : '400' }]}>
                         {item.label}
@@ -151,15 +177,14 @@ function SearchablePickerModal({
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export function DiscoverScreen({ onSelectItem }) {
+export function DiscoverScreen({ onSelectItem, vm }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const c = colors;
 
-  const vm = useDiscoverViewModel();
-
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
+  const previousMediaTypeRef = useRef(vm.filters.mediaType);
 
   // Sort options depend on mediaType
   const sortOptions = vm.filters.mediaType === 'movie' ? SORT_OPTIONS_MOVIE : SORT_OPTIONS_TV;
@@ -173,14 +198,16 @@ export function DiscoverScreen({ onSelectItem }) {
   // Load genres when mediaType changes; reset genreIds that might not apply
   useEffect(() => {
     vm.loadGenres(vm.filters.mediaType);
-    vm.updateFilter('genreIds', []);
-    // Reset origin country when switching media types
-    if (vm.filters.mediaType === 'movie') {
-      vm.updateFilter('originCountry', null);
-    }
-    // Reset revenue sort that is movie-only
-    if (vm.filters.mediaType === 'tv' && vm.filters.sortBy === 'revenue.desc') {
-      vm.updateFilter('sortBy', 'popularity.desc');
+    const previousMediaType = previousMediaTypeRef.current;
+    if (previousMediaType !== vm.filters.mediaType) {
+      vm.updateFilter('genreIds', []);
+      if (vm.filters.mediaType === 'movie') {
+        vm.updateFilter('originCountries', []);
+      }
+      if (vm.filters.mediaType === 'tv' && vm.filters.sortBy === 'revenue.desc') {
+        vm.updateFilter('sortBy', 'popularity.desc');
+      }
+      previousMediaTypeRef.current = vm.filters.mediaType;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vm.filters.mediaType]);
@@ -192,13 +219,10 @@ export function DiscoverScreen({ onSelectItem }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Selected language display label
-  const selectedLang = vm.languages.find((l) => l.code === vm.filters.language);
-  const langLabel = selectedLang ? selectedLang.label : 'Any Language';
-
-  // Selected country display label (TV only)
-  const selectedCountry = vm.countries.find((c2) => c2.code === vm.filters.originCountry);
-  const countryLabel = selectedCountry ? selectedCountry.label : 'Any Country';
+  const selectedLanguageCodes = vm.filters.languageCodes || [];
+  const selectedOriginCountries = vm.filters.originCountries || [];
+  const langLabel = buildMultiLabel(vm.languages, selectedLanguageCodes, 'Any Language', 'languages');
+  const countryLabel = buildMultiLabel(vm.countries, selectedOriginCountries, 'Any Country', 'countries');
 
   return (
     <ScrollView
@@ -235,6 +259,9 @@ export function DiscoverScreen({ onSelectItem }) {
                 ]}
                 onPress={() => vm.updateFilter('mediaType', type)}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={type === 'movie' ? 'Show movie filters' : 'Show TV show filters'}
+                accessibilityState={{ selected: active }}
               >
                 <Ionicons
                   name={type === 'movie' ? 'film-outline' : 'tv-outline'}
@@ -263,6 +290,9 @@ export function DiscoverScreen({ onSelectItem }) {
                   key={mode}
                   style={[styles.logicOption, active && { backgroundColor: c.primary, borderRadius: radii.full }]}
                   onPress={() => vm.updateFilter('genreLogic', mode)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Use ${mode} genre matching`}
+                  accessibilityState={{ selected: active }}
                 >
                   <Text style={[{ color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
                     {mode}
@@ -291,6 +321,9 @@ export function DiscoverScreen({ onSelectItem }) {
                   ]}
                   onPress={() => vm.toggleGenre(genre.id)}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Toggle ${genre.name} genre`}
+                  accessibilityState={{ selected: active }}
                 >
                   <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
                     {genre.name}
@@ -302,7 +335,12 @@ export function DiscoverScreen({ onSelectItem }) {
         )}
 
         {vm.filters.genreIds.length > 0 && (
-          <TouchableOpacity onPress={() => vm.updateFilter('genreIds', [])} style={styles.clearGenres}>
+          <TouchableOpacity
+            onPress={() => vm.updateFilter('genreIds', [])}
+            style={styles.clearGenres}
+            accessibilityRole="button"
+            accessibilityLabel="Clear selected genres"
+          >
             <Text style={[{ color: c.primary, ...typography.labelSm }]}>Clear genres</Text>
           </TouchableOpacity>
         )}
@@ -327,6 +365,9 @@ export function DiscoverScreen({ onSelectItem }) {
                   active ? { backgroundColor: c.primary } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1 },
                 ]}
                 onPress={() => vm.updateFilter('minRating', step)}
+                accessibilityRole="button"
+                accessibilityLabel={step === 0 ? 'Any minimum rating' : `Minimum rating ${step}`}
+                accessibilityState={{ selected: active }}
               >
                 <Text style={[{ color: active ? c.onPrimary : c.onSurfaceVariant, fontSize: 10, fontWeight: '700' }]}>
                   {step}
@@ -344,15 +385,19 @@ export function DiscoverScreen({ onSelectItem }) {
           style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: c.outlineVariant + '40' }]}
           onPress={() => setLangModalVisible(true)}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`Original language, ${langLabel}`}
         >
-          <Ionicons name="language-outline" size={16} color={vm.filters.language ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
-          <Text style={[{ flex: 1, color: vm.filters.language ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]}>
+          <Ionicons name="language-outline" size={16} color={selectedLanguageCodes.length ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
+          <Text style={[{ flex: 1, color: selectedLanguageCodes.length ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
             {langLabel}
           </Text>
-          {vm.filters.language && (
+          {selectedLanguageCodes.length > 0 && (
             <TouchableOpacity
-              onPress={() => vm.updateFilter('language', null)}
+              onPress={() => vm.updateFilter('languageCodes', [])}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Clear selected languages"
             >
               <Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} />
             </TouchableOpacity>
@@ -369,15 +414,19 @@ export function DiscoverScreen({ onSelectItem }) {
               style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: c.outlineVariant + '40' }]}
               onPress={() => setCountryModalVisible(true)}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`Origin country, ${countryLabel}`}
             >
-              <Ionicons name="globe-outline" size={16} color={vm.filters.originCountry ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
-              <Text style={[{ flex: 1, color: vm.filters.originCountry ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]}>
+              <Ionicons name="globe-outline" size={16} color={selectedOriginCountries.length ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
+              <Text style={[{ flex: 1, color: selectedOriginCountries.length ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
                 {countryLabel}
               </Text>
-              {vm.filters.originCountry && (
+              {selectedOriginCountries.length > 0 && (
                 <TouchableOpacity
-                  onPress={() => vm.updateFilter('originCountry', null)}
+                  onPress={() => vm.updateFilter('originCountries', [])}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear selected countries"
                 >
                   <Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} />
                 </TouchableOpacity>
@@ -437,6 +486,9 @@ export function DiscoverScreen({ onSelectItem }) {
                   ]}
                   onPress={() => vm.updateFilter('sortBy', opt.value)}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Sort by ${opt.label}`}
+                  accessibilityState={{ selected: active }}
                 >
                   <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
                     {opt.label}
@@ -462,6 +514,8 @@ export function DiscoverScreen({ onSelectItem }) {
           <TouchableOpacity
             style={[styles.resetBtn, { borderRadius: radii.md, borderColor: c.outlineVariant + '40' }]}
             onPress={vm.resetFilters}
+            accessibilityRole="button"
+            accessibilityLabel="Reset discover filters"
           >
             <Ionicons name="refresh-outline" size={16} color={c.onSurfaceVariant} />
             <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginLeft: 6 }]}>Reset</Text>
@@ -472,6 +526,9 @@ export function DiscoverScreen({ onSelectItem }) {
             onPress={vm.search}
             activeOpacity={0.85}
             disabled={vm.loading}
+            accessibilityRole="button"
+            accessibilityLabel="Search with selected filters"
+            accessibilityState={{ disabled: vm.loading }}
           >
             {vm.loading
               ? <ActivityIndicator color={c.onPrimary} size="small" />
@@ -499,8 +556,9 @@ export function DiscoverScreen({ onSelectItem }) {
         onClose={() => setLangModalVisible(false)}
         title="Select Language"
         items={vm.languages}
-        selectedCode={vm.filters.language}
-        onSelect={(code) => vm.updateFilter('language', code)}
+        selectedCodes={selectedLanguageCodes}
+        onToggle={(code) => vm.toggleFilterValue('languageCodes', code)}
+        onClear={() => vm.updateFilter('languageCodes', [])}
         loading={vm.languagesLoading}
         colors={c}
         typography={typography}
@@ -513,8 +571,9 @@ export function DiscoverScreen({ onSelectItem }) {
         onClose={() => setCountryModalVisible(false)}
         title="Select Origin Country"
         items={vm.countries}
-        selectedCode={vm.filters.originCountry}
-        onSelect={(code) => vm.updateFilter('originCountry', code)}
+        selectedCodes={selectedOriginCountries}
+        onToggle={(code) => vm.toggleFilterValue('originCountries', code)}
+        onClear={() => vm.updateFilter('originCountries', [])}
         loading={vm.countriesLoading}
         colors={c}
         typography={typography}
@@ -555,6 +614,8 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
         <TouchableOpacity
           style={[styles.retryBtn, { backgroundColor: c.primary, borderRadius: radii.full }]}
           onPress={() => { clearError(); vm.search(); }}
+          accessibilityRole="button"
+          accessibilityLabel="Try search again"
         >
           <Text style={[{ color: c.onPrimary, ...typography.labelSm, fontWeight: '700' }]}>Try Again</Text>
         </TouchableOpacity>
@@ -629,6 +690,9 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
           onPress={loadMore}
           disabled={loadingMore}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Load more results"
+          accessibilityState={{ disabled: loadingMore }}
         >
           {loadingMore
             ? <ActivityIndicator color={c.primary} size="small" />
@@ -655,10 +719,16 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
 
 function DiscoverCard({ item, colors: c, typography, radii, onPress }) {
   return (
-    <TouchableOpacity style={styles.cardItem} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={styles.cardItem}
+      onPress={onPress}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={`Open details for ${item.title}`}
+    >
       <View style={[styles.posterWrapper, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.xl }]}>
         {item.posterUrl ? (
-          <Image source={{ uri: item.posterUrl }} style={styles.poster} resizeMode="cover" />
+          <MediaArtwork uri={item.posterUrl} style={styles.poster} resizeMode="cover" accessibilityLabel={`${item.title} poster`} />
         ) : (
           <View style={[styles.posterPlaceholder, { backgroundColor: c.surfaceContainerHigh }]}>
             <Ionicons name="image-outline" size={32} color={c.onSurfaceVariant} />
@@ -725,6 +795,7 @@ const pickerStyles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
     paddingVertical: 14,
+    minHeight: 48,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(128,128,128,0.2)',
   },
@@ -749,17 +820,17 @@ const styles = StyleSheet.create({
   typeLabel: { fontWeight: '700' },
 
   logicPill: { flexDirection: 'row', padding: 3 },
-  logicOption: { paddingHorizontal: 12, paddingVertical: 4 },
+  logicOption: { minHeight: 44, minWidth: 48, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center', justifyContent: 'center' },
 
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 7 },
+  chip: { paddingHorizontal: 14, paddingVertical: 7, minHeight: 48, justifyContent: 'center' },
   chipText: { fontWeight: '700' },
   hScroll: { marginBottom: 4 },
   hChipRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   clearGenres: { marginTop: 8, alignSelf: 'flex-start' },
 
   ratingRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 4 },
-  ratingDot: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  ratingDot: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
 
   pickerButton: {
     flexDirection: 'row',

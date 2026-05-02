@@ -172,12 +172,13 @@ function MobileApp() {
 
   const handlePersonPress = useCallback(async (personId, personName, role) => {
     setFilmographyLoading(true);
-    setFilmographyPerson({ id: personId, name: personName, role });
+    setFilmographyPerson({ id: personId, name: personName, role, profileUrl: null });
     setFilmographyResults([]);
     setActiveView('filmography');
     try {
-      const { results } = await fetchPersonFilmography(personId, personName, role);
+      const { results, profileUrl } = await fetchPersonFilmography(personId, personName, role);
       setFilmographyResults(results);
+      setFilmographyPerson(prev => ({ ...prev, profileUrl }));
     } catch (err) {
       Alert.alert('Error', 'Unable to fetch filmography.');
     } finally {
@@ -325,6 +326,7 @@ function MobileApp() {
               <FilmographyScreen
                 personName={filmographyPerson.name}
                 role={filmographyPerson.role}
+                profileUrl={filmographyPerson.profileUrl}
                 results={filmographyResults}
                 onSelectItem={handleSelectFilmographyItem}
                 loading={filmographyLoading}

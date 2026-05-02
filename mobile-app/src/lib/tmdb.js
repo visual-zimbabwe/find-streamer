@@ -29,19 +29,24 @@ function serviceKey(providerName) {
 }
 
 function directFlatrateServices(info = {}) {
-  return new Set(
-    (info.flatrate || [])
-      .map((provider) => serviceKey(provider.provider_name || ''))
-      .filter(Boolean)
-  );
+  const matched = new Map();
+  (info.flatrate || []).forEach((provider) => {
+    const key = serviceKey(provider.provider_name || '');
+    if (key && !matched.has(key)) {
+      matched.set(key, provider.logo_path || null);
+    }
+  });
+  return matched;
 }
 
 function availabilityFromResults(results = {}) {
   const availability = { netflix: [], amazon_prime_video: [], max: [] };
+  const logos = { netflix: null, amazon_prime_video: null, max: null };
 
   Object.entries(results).forEach(([countryCode, info]) => {
-    directFlatrateServices(info).forEach((key) => {
+    directFlatrateServices(info).forEach((logoPath, key) => {
       availability[key].push(countryCode);
+      if (!logos[key] && logoPath) logos[key] = logoPath;
     });
   });
 
@@ -49,7 +54,7 @@ function availabilityFromResults(results = {}) {
     availability[key] = Array.from(new Set(availability[key])).sort();
   });
 
-  return availability;
+  return { ...availability, logos };
 }
 
 async function mapWithConcurrency(items, limit, task) {
@@ -293,6 +298,7 @@ async function getCompleteTvProviderCountries(tmdbId, fallbackAvailability = nul
     tmdbGet(`/tv/${tmdbId}/season/${episode.seasonNumber}/episode/${episode.episodeNumber}/watch/providers`)
   );
   const availability = { netflix: null, amazon_prime_video: null, max: null };
+  const logos = { netflix: null, amazon_prime_video: null, max: null };
 
   episodeResults.forEach((data) => {
     const episodeAvailability = {
@@ -302,8 +308,9 @@ async function getCompleteTvProviderCountries(tmdbId, fallbackAvailability = nul
     };
 
     Object.entries(data.results || {}).forEach(([countryCode, info]) => {
-      directFlatrateServices(info).forEach((key) => {
+      directFlatrateServices(info).forEach((logoPath, key) => {
         episodeAvailability[key].add(countryCode);
+        if (!logos[key] && logoPath) logos[key] = logoPath;
       });
     });
 
@@ -320,6 +327,7 @@ async function getCompleteTvProviderCountries(tmdbId, fallbackAvailability = nul
     ...Object.fromEntries(
       Object.entries(availability).map(([key, countryCodes]) => [key, Array.from(countryCodes || []).sort()])
     ),
+    logos,
     confidence: 'episode',
   };
 }
@@ -359,11 +367,19 @@ function toRows(availability, countryNames) {
   return rows;
 }
 
-function buildProviderSummary(rows) {
+const SERVICE_FALLBACK_COLORS = {
+  netflix: '#E50914',
+  amazon_prime_video: '#00A8E1',
+  max: '#002BE7',
+};
+
+function buildProviderSummary(rows, logos = {}) {
   return Object.entries(SERVICE_LABELS).map(([key, label]) => ({
     key,
     label,
     count: rows.filter((row) => row.providers[key]).length,
+    logoUrl: logos[key] ? `https://image.tmdb.org/t/p/original${logos[key]}` : null,
+    fallbackColor: SERVICE_FALLBACK_COLORS[key],
   }));
 }
 
@@ -497,6 +513,47 @@ export async function discoverTitles(filters = {}) {
   };
 }
 
+// ─── Now Playing ─────────────────────────────────────────────────────────────
+
+/**
+ * Fetch movies currently in theatres from TMDB, sorted by rating (highest first).
+ * Merges page 1 and page 2 to give a richer result set (~40 titles).
+ */
+export async function fetchNowPlayingMovies() {
+  const [page1, page2] = await Promise.all([
+    tmdbGet('/movie/now_playing', { language: 'en-US', page: 1 }),
+    tmdbGet('/movie/now_playing', { language: 'en-US', page: 2 }),
+  ]);
+
+  const raw = [...(page1.results || []), ...(page2.results || [])];
+
+  // Deduplicate by id
+  const seen = new Set();
+  const unique = raw.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+
+  // Sort highest rating first
+  unique.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+
+  return unique.map((item) => {
+    const dateValue = item.release_date || '';
+    return {
+      mediaType: 'movie',
+      tmdbId: item.id,
+      title: item.title || '(Untitled)',
+      year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+      synopsis: (item.overview || '').trim() || 'No synopsis available.',
+      posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+      backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+      ratingValue: item.vote_average || 0,
+      rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+    };
+  });
+}
+
 // ─── Resolution ─────────────────────────────────────────────────────────────
 
 export async function resolveMatch(query, match) {
@@ -509,6 +566,7 @@ export async function resolveMatch(query, match) {
   ]);
 
   const rows = toRows(availability, countryNames);
+  const serviceLogos = availability.logos || {};
 
   return {
     query,
@@ -517,7 +575,13 @@ export async function resolveMatch(query, match) {
     ...credits,
     similar,
     rows,
-    providerSummary: buildProviderSummary(rows),
+    providerSummary: buildProviderSummary(rows, serviceLogos),
+    serviceLogos: Object.fromEntries(
+      Object.entries(serviceLogos).map(([key, path]) => [
+        key,
+        path ? `https://image.tmdb.org/t/p/original${path}` : null,
+      ])
+    ),
     providerAvailabilityConfidence: availability.confidence || 'show',
   };
 }
@@ -550,12 +614,8 @@ export async function fetchPersonFilmography(personId, personName, role) {
       return true;
     });
 
-    // Sort by release date descending
-    unique.sort((a, b) => {
-      const aDate = a.release_date || a.first_air_date || '';
-      const bDate = b.release_date || b.first_air_date || '';
-      return bDate.localeCompare(aDate);
-    });
+    // Sort by rating descending (highest to lowest)
+    unique.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
 
     const results = unique.map((item) => {
       const dateValue = item.release_date || item.first_air_date || '';
@@ -573,7 +633,11 @@ export async function fetchPersonFilmography(personId, personName, role) {
       };
     });
 
-    return { personName, role: 'cast', results };
+    // Get profile image
+    const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
+    const profileUrl = personData.profile_path ? `https://image.tmdb.org/t/p/w185${personData.profile_path}` : null;
+
+    return { personName, role: 'cast', results, profileUrl };
   }
 
   // Director / Creator path
@@ -599,12 +663,8 @@ export async function fetchPersonFilmography(personId, personName, role) {
     return true;
   });
 
-  // Sort by release date descending
-  unique.sort((a, b) => {
-    const aDate = a.release_date || a.first_air_date || '';
-    const bDate = b.release_date || b.first_air_date || '';
-    return bDate.localeCompare(aDate);
-  });
+  // Sort by rating descending (highest to lowest)
+  unique.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
 
   const results = unique.map((item) => {
     const dateValue = item.release_date || item.first_air_date || '';
@@ -621,5 +681,9 @@ export async function fetchPersonFilmography(personId, personName, role) {
     };
   });
 
-  return { personName, role, results };
+  // Get profile image
+  const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
+  const profileUrl = personData.profile_path ? `https://image.tmdb.org/t/p/w185${personData.profile_path}` : null;
+
+  return { personName, role, results, profileUrl };
 }

@@ -6,8 +6,8 @@ const DEFAULT_FILTERS = {
   genreIds: [],
   genreLogic: 'AND',
   minRating: 0,
-  language: null,
-  originCountry: null,
+  languageCodes: [],
+  originCountries: [],
   fromYear: '',
   toYear: '',
   sortBy: 'popularity.desc',
@@ -99,8 +99,20 @@ export function useDiscoverViewModel() {
     setValidationError(null);
   }, []);
 
+  const toggleFilterValue = useCallback((key, value) => {
+    setFilters((prev) => {
+      const current = Array.isArray(prev[key]) ? prev[key] : [];
+      const already = current.includes(value);
+      return {
+        ...prev,
+        [key]: already ? current.filter((item) => item !== value) : [...current, value],
+      };
+    });
+    setValidationError(null);
+  }, []);
+
   const resetFilters = useCallback(() => {
-    setFilters(DEFAULT_FILTERS);
+    setFilters({ ...DEFAULT_FILTERS, genreIds: [], languageCodes: [], originCountries: [] });
     setValidationError(null);
   }, []);
 
@@ -176,6 +188,7 @@ export function useDiscoverViewModel() {
     filters,
     updateFilter,
     toggleGenre,
+    toggleFilterValue,
     resetFilters,
 
     genres,

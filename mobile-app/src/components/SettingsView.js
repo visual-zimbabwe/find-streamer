@@ -14,6 +14,9 @@ export function SettingsView() {
           <TouchableOpacity 
             style={[styles.row, preference === 'light' && { backgroundColor: colors.surfaceContainerHigh }]} 
             onPress={() => setPreference('light')}
+            accessibilityRole="button"
+            accessibilityLabel="Use light mode"
+            accessibilityState={{ selected: preference === 'light' }}
           >
             <Text style={[styles.rowText, { color: colors.onSurface, ...typography.bodyLg }]}>☀️ Light Mode</Text>
             {preference === 'light' && <Text style={{ color: colors.primary }}>✓</Text>}
@@ -22,6 +25,9 @@ export function SettingsView() {
           <TouchableOpacity 
             style={[styles.row, preference === 'dark' && { backgroundColor: colors.surfaceContainerHigh }]} 
             onPress={() => setPreference('dark')}
+            accessibilityRole="button"
+            accessibilityLabel="Use dark mode"
+            accessibilityState={{ selected: preference === 'dark' }}
           >
             <Text style={[styles.rowText, { color: colors.onSurface, ...typography.bodyLg }]}>🌙 Dark Mode</Text>
             {preference === 'dark' && <Text style={{ color: colors.primary }}>✓</Text>}
@@ -30,6 +36,9 @@ export function SettingsView() {
           <TouchableOpacity 
             style={[styles.row, preference === 'system' && { backgroundColor: colors.surfaceContainerHigh }]} 
             onPress={() => setPreference('system')}
+            accessibilityRole="button"
+            accessibilityLabel="Use system default appearance"
+            accessibilityState={{ selected: preference === 'system' }}
           >
             <Text style={[styles.rowText, { color: colors.onSurface, ...typography.bodyLg }]}>🖥️ System Default</Text>
             {preference === 'system' && <Text style={{ color: colors.primary }}>✓</Text>}

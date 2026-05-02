@@ -87,10 +87,30 @@ const trovaDark = {
   glass: 'rgba(10, 14, 20, 0.8)',
 };
 
+const trovaLight = {
+  background: '#f7f7f2',
+  surface: '#ffffff',
+  surfaceContainerLow: '#ffffff',
+  surfaceContainer: '#ecece4',
+  surfaceContainerHigh: '#e1e2d8',
+  surfaceContainerHighest: '#d6d8cb',
+  primary: '#4457d3',
+  primaryDim: '#3346bc',
+  primaryContainer: '#dfe3ff',
+  onPrimary: '#ffffff',
+  onSurface: '#181b21',
+  onSurfaceVariant: '#61646d',
+  outlineVariant: '#b7baaa',
+  error: '#b3263a',
+  white: '#ffffff',
+  black: '#000000',
+  glass: 'rgba(247, 247, 242, 0.86)',
+};
+
 export const themes = {
   light: {
     mode: 'light',
-    colors: { ...trovaDark }, // Trova is dark-first, using same palette for now
+    colors: { ...trovaLight },
     spacing,
     radii,
     typography,

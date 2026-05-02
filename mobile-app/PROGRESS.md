@@ -1,5 +1,5 @@
 ## Current Phase
-Discover / Filter Feature — fully spec-compliant. All filters wired. BottomNav clipping fixed.
+Person-Based Content Discovery — directors, creators, AND starring actors are all tappable links that open a FilmographyScreen.
 
 ## Completed Tasks
 - [x] Initialized project link with `eas project:init` after removing defunct `projectId`.
@@ -15,8 +15,15 @@ Discover / Filter Feature — fully spec-compliant. All filters wired. BottomNav
 
 - [x] **EAS Build Fix** — Resolved "Install dependencies" failure by aligning project dependencies with Expo SDK 55 (updated React 19, RN 0.83, etc.) and adding `.npmrc` for `legacy-peer-deps`.
 
+- [x] **Starring Actor Discovery** — Full implementation:
+  - `src/lib/tmdb.js` — `getCredits()` now returns `starringPersons: [{id, name}]` (top 5 cast), alongside the existing `starring` string.
+  - `src/lib/tmdb.js` — `fetchPersonFilmography(personId, personName, role)` now accepts `role='cast'` (in addition to `'movie'` / `'tv'`). For actors it hits `/person/{id}/combined_credits` → `cast` array (deduplicated, filtered to `vote_count >= 5`, sorted newest-first). Returns mixed movie+TV results each with their own `mediaType` and `character` field.
+  - `src/components/ResultView.js` — STARRING section now renders each actor as a tappable underlined link (same pattern as director/created-by). Fires `onPersonPress(id, name, 'cast')`.
+  - `src/components/FilmographyScreen.js` — Rewritten to accept `role` prop (`'cast'` | `'movie'` | `'tv'`). For `'cast'`: header shows ⭐ icon + "STARRING IN" label; each card shows a small film/TV icon badge in top-left; subtitle shows `year · Character Name`. keyExtractor uses `mediaType-tmdbId` to avoid collisions in mixed results.
+  - `App.js` — `filmographyPerson` state stores `role` instead of `mediaType`. `FilmographyScreen` receives `role` prop.
+
 ## Active Bugs
-- None (pending live device verification of genre reset on media type switch).
+- None.
 
 ## Technical Decisions
 - **Profile:** Use `preview` in `eas.json` to generate installable APKs for direct testing.
@@ -33,7 +40,9 @@ Discover / Filter Feature — fully spec-compliant. All filters wired. BottomNav
 - **vote_count.gte:** Changed from 50 → 20 per spec.
 - **Sort options:** Media-type aware — Revenue hidden for TV; date sort params switch between `primary_release_date.*` (movies) and `first_air_date.*` (TV).
 
-## Session History
+- **Session History:**
 - **2026-03-24:** Resolved EAS permission error by removing the old `projectId` from `app.json` and re-initializing the project. Successfully started the Android build.
 - **2026-04-21 (session 1):** Implemented full Discover/Filter feature (3 new files, 3 modified files).
 - **2026-04-21 (session 2):** Upgraded Discover screen to full spec: searchable language/country pickers from TMDB API, Origin Country (TV-only), media-type-aware sort options, fixed BottomNav clipping, vote_count.gte=20.
+- **2026-05-02 (session 1):** Added director/creator tappable links (FilmographyScreen) for movies and TV shows.
+- **2026-05-02 (session 2):** Extended to starring actors — all 5 top-billed cast members are tappable; clicking one shows their full filmography (movies + TV shows combined) via TMDB combined_credits API.

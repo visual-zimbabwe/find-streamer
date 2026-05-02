@@ -30,6 +30,8 @@ export function StatePanel({ type, title, description, onRetry }) {
         <TouchableOpacity 
           style={[styles.button, { backgroundColor: colors.primary, borderRadius: radii.full }]}
           onPress={onRetry}
+          accessibilityRole="button"
+          accessibilityLabel="Try again"
         >
           <Text style={[styles.buttonText, { color: colors.onPrimary, ...typography.labelLg }]}>Try Again</Text>
         </TouchableOpacity>

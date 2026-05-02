@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEFAULT_WATCHLIST_CATEGORY_ID, WATCHLIST_CATEGORIES } from './watchlistCategories';
 
 const KEYS = {
   themePreference: 'find-streamer/theme-preference',
@@ -38,7 +39,15 @@ export async function loadWatchlist() {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    const categoryIds = new Set(WATCHLIST_CATEGORIES.map((category) => category.id));
+    return parsed.map((item) => ({
+      ...item,
+      watchlistCategoryId: categoryIds.has(item?.watchlistCategoryId)
+        ? item.watchlistCategoryId
+        : DEFAULT_WATCHLIST_CATEGORY_ID,
+    }));
   } catch {
     return [];
   }

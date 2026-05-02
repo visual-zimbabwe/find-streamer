@@ -11,7 +11,12 @@ export function AppHeader({ onBack, showBack, onSettingsPress }) {
     <View style={[styles.header, { backgroundColor: colors.background }]}>
       <View style={styles.brand}>
         {showBack && (
-          <TouchableOpacity onPress={onBack} style={[styles.backButton, { backgroundColor: colors.surfaceContainer, borderRadius: radii.full }]}>
+          <TouchableOpacity
+            onPress={onBack}
+            style={[styles.backButton, { backgroundColor: colors.surfaceContainer, borderRadius: radii.full }]}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <Ionicons name="chevron-back" size={24} color={colors.onSurface} />
           </TouchableOpacity>
         )}
@@ -23,6 +28,8 @@ export function AppHeader({ onBack, showBack, onSettingsPress }) {
       <TouchableOpacity 
         style={[styles.button, { backgroundColor: 'transparent' }]}
         onPress={onSettingsPress}
+        accessibilityRole="button"
+        accessibilityLabel="Open settings"
       >
         <Ionicons name="settings-outline" size={24} color={colors.onSurfaceVariant} />
       </TouchableOpacity>
@@ -46,8 +53,8 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginRight: 8,
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -63,9 +70,9 @@ const styles = StyleSheet.create({
     letterSpacing: -1.5,
   },
   button: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 
-export function FilmographyScreen({ personName, role, results = [], onSelectItem, loading }) {
+export function FilmographyScreen({ personName, role, results = [], onSelectItem, loading, profileUrl }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
 
@@ -58,7 +58,11 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.surfaceContainer, borderBottomColor: colors.outlineVariant + '40' }]}>
         <View style={[styles.personAvatar, { backgroundColor: colors.primary + '22' }]}>
-          <Ionicons name={role === 'cast' ? 'star' : 'person'} size={26} color={colors.primary} />
+          {profileUrl ? (
+            <MediaArtwork uri={profileUrl} style={styles.avatarImage} accessibilityLabel={`${personName} profile photo`} />
+          ) : (
+            <Ionicons name={role === 'cast' ? 'star' : 'person'} size={26} color={colors.primary} />
+          )}
         </View>
         <View style={styles.headerText}>
           <Text style={[styles.roleLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
@@ -122,6 +126,11 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   headerText: {
     flex: 1,

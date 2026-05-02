@@ -30,7 +30,6 @@ export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSear
           onChangeText={onChangeText}
           onSubmitEditing={onSubmit}
           editable={!loading}
-          autoFocus={!hideHero}
         />
       </View>
 
@@ -38,12 +37,18 @@ export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSear
         <TouchableOpacity 
           style={[styles.filterChip, filter === 'movie' ? { backgroundColor: colors.primary } : { backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.outlineVariant + '26' }]}
           onPress={() => onFilterChange(filter === 'movie' ? null : 'movie')}
+          accessibilityRole="button"
+          accessibilityLabel="Filter movies"
+          accessibilityState={{ selected: filter === 'movie' }}
         >
           <Text style={[styles.filterLabel, { color: filter === 'movie' ? colors.onPrimary : colors.onSurfaceVariant, ...typography.labelSm }]}>Movies</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.filterChip, filter === 'tv' ? { backgroundColor: colors.primary } : { backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.outlineVariant + '26' }]}
           onPress={() => onFilterChange(filter === 'tv' ? null : 'tv')}
+          accessibilityRole="button"
+          accessibilityLabel="Filter TV shows"
+          accessibilityState={{ selected: filter === 'tv' }}
         >
           <Text style={[styles.filterLabel, { color: filter === 'tv' ? colors.onPrimary : colors.onSurfaceVariant, ...typography.labelSm }]}>TV Shows</Text>
         </TouchableOpacity>
@@ -58,6 +63,8 @@ export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSear
                 key={item}
                 style={[styles.suggestionChip, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant + '26' }]}
                 onPress={() => onPickSuggestion(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`Search for ${item}`}
               >
                 <Text style={{ color: colors.onSurface, ...typography.bodyMd }}>{item}</Text>
               </TouchableOpacity>
@@ -114,6 +121,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 8,
     borderRadius: 20,
+    minHeight: 48,
+    justifyContent: 'center',
   },
   filterLabel: {
     fontWeight: '600',

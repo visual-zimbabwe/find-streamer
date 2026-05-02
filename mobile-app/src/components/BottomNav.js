@@ -14,6 +14,9 @@ export function BottomNav({ activeTab, onTabPress }) {
       <TouchableOpacity 
         style={[styles.navItem, activeTab === 'search' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
         onPress={() => onTabPress('search')}
+        accessibilityRole="tab"
+        accessibilityLabel="Search"
+        accessibilityState={{ selected: activeTab === 'search' }}
       >
         <Ionicons 
           name={activeTab === 'search' ? "search" : "search-outline"} 
@@ -26,6 +29,9 @@ export function BottomNav({ activeTab, onTabPress }) {
       <TouchableOpacity 
         style={[styles.navItem, activeTab === 'discover' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
         onPress={() => onTabPress('discover')}
+        accessibilityRole="tab"
+        accessibilityLabel="Discover"
+        accessibilityState={{ selected: activeTab === 'discover' }}
       >
         <Ionicons 
           name={activeTab === 'discover' ? "options" : "options-outline"} 
@@ -38,6 +44,9 @@ export function BottomNav({ activeTab, onTabPress }) {
       <TouchableOpacity 
         style={[styles.navItem, activeTab === 'watchlist' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
         onPress={() => onTabPress('watchlist')}
+        accessibilityRole="tab"
+        accessibilityLabel="Watchlist"
+        accessibilityState={{ selected: activeTab === 'watchlist' }}
       >
         <Ionicons 
           name={activeTab === 'watchlist' ? "bookmark" : "bookmark-outline"} 
@@ -68,6 +77,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
     paddingVertical: 8,
+    minHeight: 56,
+    minWidth: 92,
   },
   navLabel: {
     fontWeight: '600',

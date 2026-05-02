@@ -1,8 +1,10 @@
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
+import { MediaArtwork } from './MediaArtwork';
 
-export function MatchResults({ matches, onSelect, selectedId }) {
+export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistIds = [], selectedId }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
 
@@ -10,6 +12,7 @@ export function MatchResults({ matches, onSelect, selectedId }) {
 
   const topMatch = matches[0];
   const others = matches.slice(1);
+  const savedIds = new Set(watchlistIds);
 
   return (
     <View style={styles.container}>
@@ -23,13 +26,34 @@ export function MatchResults({ matches, onSelect, selectedId }) {
         style={[styles.heroCard, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}
         onPress={() => onSelect(topMatch)}
         activeOpacity={0.9}
+        accessibilityRole="button"
+        accessibilityLabel={`Open details for ${topMatch.title}`}
       >
-        <Image
-          source={{ uri: topMatch.backdropUrl || topMatch.posterUrl }}
+        <MediaArtwork
+          uri={topMatch.backdropUrl || topMatch.posterUrl}
           style={styles.heroImage}
           resizeMode="cover"
+          accessibilityLabel={`${topMatch.title} artwork`}
         />
         <View style={styles.heroOverlay} />
+        {onToggleWatchlist && (
+          <TouchableOpacity
+            style={[styles.heroBookmark, { backgroundColor: colors.surface + '99' }]}
+            onPress={(event) => {
+              event.stopPropagation?.();
+              onToggleWatchlist(topMatch);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={savedIds.has(topMatch.tmdbId) ? `Remove ${topMatch.title} from watchlist` : `Add ${topMatch.title} to watchlist`}
+            accessibilityState={{ selected: savedIds.has(topMatch.tmdbId) }}
+          >
+            <Ionicons
+              name={savedIds.has(topMatch.tmdbId) ? 'bookmark' : 'bookmark-outline'}
+              size={22}
+              color={savedIds.has(topMatch.tmdbId) ? colors.primary : colors.white}
+            />
+          </TouchableOpacity>
+        )}
         <View style={styles.heroContent}>
           <View style={[styles.badge, { backgroundColor: colors.primary }]}>
             <Text style={[styles.badgeText, { color: colors.onPrimary, ...typography.labelSm }]}>⭐ TOP MATCH</Text>
@@ -49,15 +73,31 @@ export function MatchResults({ matches, onSelect, selectedId }) {
             style={styles.gridItem}
             onPress={() => onSelect(item)}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Open details for ${item.title}`}
           >
             <View style={[styles.posterWrapper, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
-              <Image
-                source={{ uri: item.posterUrl }}
+              <MediaArtwork
+                uri={item.posterUrl}
                 style={styles.poster}
                 resizeMode="cover"
+                accessibilityLabel={`${item.title} poster`}
               />
-              <TouchableOpacity style={[styles.bookmark, { backgroundColor: colors.surface + '99' }]}>
-                <Text style={{ color: colors.white, fontSize: 16 }}>🔖</Text>
+              <TouchableOpacity
+                style={[styles.bookmark, { backgroundColor: colors.surface + '99' }]}
+                onPress={(event) => {
+                  event.stopPropagation?.();
+                  onToggleWatchlist?.(item);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={savedIds.has(item.tmdbId) ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`}
+                accessibilityState={{ selected: savedIds.has(item.tmdbId) }}
+              >
+                <Ionicons
+                  name={savedIds.has(item.tmdbId) ? 'bookmark' : 'bookmark-outline'}
+                  size={20}
+                  color={savedIds.has(item.tmdbId) ? colors.primary : colors.white}
+                />
               </TouchableOpacity>
             </View>
             <View style={styles.itemInfo}>
@@ -154,13 +194,25 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
+  },
+  heroBookmark: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
   },
   itemInfo: {
     paddingHorizontal: 4,
