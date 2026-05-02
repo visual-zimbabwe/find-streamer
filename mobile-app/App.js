@@ -1,7 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { StyleSheet, View, ScrollView, Alert, Keyboard, BackHandler } from 'react-native';
+import { StyleSheet, View, ScrollView, Alert, Keyboard, BackHandler, Modal, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme, ThemeProvider } from './src/theme/ThemeProvider';
 import { AppHeader } from './src/components/AppHeader';
 import { BottomNav } from './src/components/BottomNav';
@@ -11,9 +12,12 @@ import { ResultView } from './src/components/ResultView';
 import { SettingsView } from './src/components/SettingsView';
 import { WatchlistView } from './src/components/WatchlistView';
 import { DiscoverScreen } from './src/components/DiscoverScreen';
+import { FilmographyScreen } from './src/components/FilmographyScreen';
 import { StatePanel } from './src/components/StatePanel';
-import { searchTitleCandidates, resolveMatch } from './src/lib/tmdb';
+import { searchTitleCandidates, resolveMatch, fetchPersonFilmography } from './src/lib/tmdb';
+import { useDiscoverViewModel } from './src/lib/discoverViewModel';
 import { loadRecentSearches, saveRecentSearches, loadWatchlist, saveWatchlist } from './src/lib/storage';
+import { WATCHLIST_CATEGORIES, getWatchlistCategory } from './src/lib/watchlistCategories';
 
 export default function App() {
   return (
@@ -27,7 +31,7 @@ export default function App() {
 
 function MobileApp() {
   const { theme, resolvedMode } = useTheme();
-  const { colors } = theme;
+  const { colors, typography, radii } = theme;
 
   // View state: 'search' | 'results' | 'detail' | 'watchlist' | 'settings' | 'discover'
   const [activeView, setActiveView] = useState('search');
@@ -43,7 +47,41 @@ function MobileApp() {
   const [selectedResult, setSelectedResult] = useState(null);
   const [recentSearches, setRecentSearches] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
+  const [pendingWatchlistItem, setPendingWatchlistItem] = useState(null);
   const [filter, setFilter] = useState(null); // 'movie' | 'tv' | null
+  const [filmographyPerson, setFilmographyPerson] = useState(null); // { id, name, role }
+  const [filmographyResults, setFilmographyResults] = useState([]);
+  const [filmographyLoading, setFilmographyLoading] = useState(false);
+  const discoverVm = useDiscoverViewModel();
+
+  const handleBack = useCallback(() => {
+    if (activeView === 'settings') {
+      setActiveView(activeTab === 'watchlist' ? 'watchlist' : activeTab === 'discover' ? 'discover' : 'search');
+    } else if (activeView === 'filmography') {
+      setActiveView('detail');
+    } else if (activeView === 'detail') {
+      // Return to wherever the user came from
+      if (detailOrigin === 'filmography') {
+        setActiveView('filmography');
+      } else if (detailOrigin === 'discover') {
+        setActiveView('discover');
+        setActiveTab('discover');
+      } else if (detailOrigin === 'watchlist') {
+        setActiveView('watchlist');
+      } else {
+        setActiveView('results');
+      }
+    } else if (activeView === 'results') {
+      setActiveView('search');
+      setQuery('');
+    } else if (activeTab === 'watchlist') {
+      setActiveTab('search');
+      setActiveView('search');
+    } else if (activeTab === 'discover') {
+      setActiveTab('search');
+      setActiveView('search');
+    }
+  }, [activeView, activeTab, detailOrigin]);
 
   // Handle hardware back button
   useEffect(() => {
@@ -132,41 +170,61 @@ function MobileApp() {
     }
   }, []);
 
+  const handlePersonPress = useCallback(async (personId, personName, role) => {
+    setFilmographyLoading(true);
+    setFilmographyPerson({ id: personId, name: personName, role });
+    setFilmographyResults([]);
+    setActiveView('filmography');
+    try {
+      const { results } = await fetchPersonFilmography(personId, personName, role);
+      setFilmographyResults(results);
+    } catch (err) {
+      Alert.alert('Error', 'Unable to fetch filmography.');
+    } finally {
+      setFilmographyLoading(false);
+    }
+  }, []);
+
+  const handleSelectFilmographyItem = useCallback(async (item) => {
+    setLoading(true);
+    setDetailOrigin('filmography');
+    try {
+      const fullResult = await resolveMatch(item.title, item);
+      setSelectedResult(fullResult);
+      setActiveView('detail');
+    } catch (err) {
+      Alert.alert('Error', 'Unable to fetch details.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const handleToggleWatchlist = async (result) => {
     const isAdded = watchlist.some(item => item.tmdbId === result.tmdbId);
-    let newWatchlist;
     if (isAdded) {
-      newWatchlist = watchlist.filter(item => item.tmdbId !== result.tmdbId);
-    } else {
-      newWatchlist = [result, ...watchlist];
+      const newWatchlist = watchlist.filter(item => item.tmdbId !== result.tmdbId);
+      setWatchlist(newWatchlist);
+      await saveWatchlist(newWatchlist);
+      return;
     }
-    setWatchlist(newWatchlist);
-    await saveWatchlist(newWatchlist);
+
+    setPendingWatchlistItem(result);
   };
 
-  const handleBack = () => {
-    if (activeView === 'settings') {
-      setActiveView(activeTab === 'watchlist' ? 'watchlist' : activeTab === 'discover' ? 'discover' : 'search');
-    } else if (activeView === 'detail') {
-      // Return to wherever the user came from
-      if (detailOrigin === 'discover') {
-        setActiveView('discover');
-        setActiveTab('discover');
-      } else if (detailOrigin === 'watchlist') {
-        setActiveView('watchlist');
-      } else {
-        setActiveView('results');
-      }
-    } else if (activeView === 'results') {
-      setActiveView('search');
-      setQuery('');
-    } else if (activeTab === 'watchlist') {
-      setActiveTab('search');
-      setActiveView('search');
-    } else if (activeTab === 'discover') {
-      setActiveTab('search');
-      setActiveView('search');
-    }
+  const handleSelectWatchlistCategory = async (categoryId) => {
+    if (!pendingWatchlistItem) return;
+
+    const newWatchlist = [
+      {
+        ...pendingWatchlistItem,
+        watchlistCategoryId: categoryId,
+        watchlistCategoryLabel: getWatchlistCategory(categoryId).label,
+      },
+      ...watchlist.filter(item => item.tmdbId !== pendingWatchlistItem.tmdbId),
+    ];
+    setPendingWatchlistItem(null);
+    setWatchlist(newWatchlist);
+    await saveWatchlist(newWatchlist);
   };
 
   const handleTabPress = (tab) => {
@@ -185,7 +243,7 @@ function MobileApp() {
     return results.filter(item => item.mediaType === filter);
   }, [results, filter]);
 
-  const showBack = activeView === 'results' || activeView === 'detail' || activeView === 'settings';
+  const showBack = activeView === 'results' || activeView === 'detail' || activeView === 'settings' || activeView === 'filmography';
   const showLoading = loading && activeView !== 'detail' && activeView !== 'discover';
 
   return (
@@ -234,6 +292,8 @@ function MobileApp() {
                 <MatchResults 
                   matches={filteredResults} 
                   onSelect={handleSelectMatch} 
+                  onToggleWatchlist={handleToggleWatchlist}
+                  watchlistIds={watchlist.map(item => item.tmdbId)}
                 />
               </ScrollView>
             )}
@@ -245,6 +305,7 @@ function MobileApp() {
                 onToggleWatchlist={handleToggleWatchlist}
                 isInWatchlist={watchlist.some(item => item.tmdbId === selectedResult?.tmdbId)}
                 onSelectSimilar={handleSelectMatch}
+                onPersonPress={handlePersonPress}
               />
             )}
             
@@ -257,7 +318,17 @@ function MobileApp() {
             )}
 
             {activeView === 'discover' && (
-              <DiscoverScreen onSelectItem={handleSelectDiscoverItem} />
+              <DiscoverScreen onSelectItem={handleSelectDiscoverItem} vm={discoverVm} />
+            )}
+
+            {activeView === 'filmography' && filmographyPerson && (
+              <FilmographyScreen
+                personName={filmographyPerson.name}
+                role={filmographyPerson.role}
+                results={filmographyResults}
+                onSelectItem={handleSelectFilmographyItem}
+                loading={filmographyLoading}
+              />
             )}
 
             {activeView === 'settings' && (
@@ -266,6 +337,58 @@ function MobileApp() {
           </>
         )}
       </View>
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={Boolean(pendingWatchlistItem)}
+        onRequestClose={() => setPendingWatchlistItem(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.categorySheet, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '4D', borderRadius: radii.xl }]}>
+            <View style={styles.categoryHeader}>
+              <View style={styles.categoryTitleBlock}>
+                <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>SAVE TO WATCHLIST</Text>
+                <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
+                  {pendingWatchlistItem?.title}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.closeButton, { backgroundColor: colors.surfaceContainerHighest }]}
+                onPress={() => setPendingWatchlistItem(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Close watchlist category picker"
+              >
+                <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.categoryList}>
+              {WATCHLIST_CATEGORIES.map((category) => (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[styles.categoryOption, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '33', borderRadius: radii.lg }]}
+                  activeOpacity={0.82}
+                  onPress={() => handleSelectWatchlistCategory(category.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Save to ${category.label}`}
+                >
+                  <View style={[styles.categoryIcon, { backgroundColor: colors.primary + '22' }]}>
+                    <Ionicons name={category.icon} size={22} color={colors.primary} />
+                  </View>
+                  <View style={styles.categoryCopy}>
+                    <Text style={[styles.categoryOptionTitle, { color: colors.onSurface, ...typography.bodyLg }]}>{category.label}</Text>
+                    <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
+                      {category.description}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <BottomNav activeTab={activeTab} onTabPress={handleTabPress} />
     </SafeAreaView>
@@ -281,5 +404,68 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 100, // Account for BottomNav
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.62)',
+  },
+  categorySheet: {
+    borderWidth: 1,
+    margin: 16,
+    padding: 20,
+  },
+  categoryHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 16,
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  categoryTitleBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  categoryEyebrow: {
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  categoryTitle: {
+    fontWeight: '900',
+  },
+  closeButton: {
+    alignItems: 'center',
+    borderRadius: 24,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
+  categoryList: {
+    gap: 10,
+  },
+  categoryOption: {
+    alignItems: 'center',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+  },
+  categoryIcon: {
+    alignItems: 'center',
+    borderRadius: 20,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  categoryCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  categoryOptionTitle: {
+    fontWeight: '800',
+  },
+  categoryOptionDescription: {
+    lineHeight: 18,
   },
 });

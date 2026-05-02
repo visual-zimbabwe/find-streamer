@@ -192,6 +192,9 @@ async function getTitleMetadata(mediaType, tmdbId) {
     createdBy: mediaType === 'tv'
       ? (data.created_by || []).map((person) => person.name).filter(Boolean).join(', ') || 'N/A'
       : null,
+    createdByPersons: mediaType === 'tv'
+      ? (data.created_by || []).filter((p) => p.id && p.name).map((p) => ({ id: p.id, name: p.name }))
+      : [],
     seasons,
     trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : 'N/A',
   };
@@ -204,11 +207,15 @@ async function getCredits(mediaType, tmdbId) {
   const crew = data.crew || [];
   const director = crew.find((person) => person.job === 'Director')
     ?? crew.find((person) => person.department === 'Directing');
-  const starring = (data.cast || []).sort((a, b) => (a.order || 9999) - (b.order || 9999)).slice(0, 4);
+  const topCast = (data.cast || []).sort((a, b) => (a.order || 9999) - (b.order || 9999)).slice(0, 5);
 
   return {
     director: director ? director.name : 'N/A',
-    starring: starring.map((person) => person.name).join(', ') || 'N/A',
+    directorId: director ? director.id : null,
+    starring: topCast.map((person) => person.name).join(', ') || 'N/A',
+    starringPersons: topCast
+      .filter((p) => p.id && p.name)
+      .map((p) => ({ id: p.id, name: p.name })),
   };
 }
 
@@ -218,7 +225,7 @@ async function getSimilar(mediaType, tmdbId) {
   const results = (data.results || []).map((item) => {
     const dateValue = item.release_date || item.first_air_date || '';
     return {
-      mediaType: item.media_type || mediaType, // media_type might be missing in similar results
+      mediaType: item.media_type || mediaType,
       tmdbId: item.id,
       title: item.title || item.name || '(Untitled)',
       year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
@@ -513,4 +520,106 @@ export async function resolveMatch(query, match) {
     providerSummary: buildProviderSummary(rows),
     providerAvailabilityConfidence: availability.confidence || 'show',
   };
+}
+
+// ─── Filmography ─────────────────────────────────────────────────────────────
+
+/**
+ * Fetch all movies directed by, or TV shows created by, a specific TMDB person.
+ * @param {number} personId  TMDB person ID
+ * @param {string} personName Display name
+ * @param {'movie'|'tv'} mediaType
+ */
+export async function fetchPersonFilmography(personId, personName, role) {
+  // role: 'movie' (director), 'tv' (creator), or 'cast' (actor starring in movies/shows)
+  let items;
+  let resolvedMediaType; // used to set mediaType on result items
+
+  if (role === 'cast') {
+    // Combined credits covers both movies and TV the actor appeared in
+    const data = await tmdbGet(`/person/${personId}/combined_credits`, { language: 'en-US' });
+    const castCredits = (data.cast || [])
+      .filter((c) => c.media_type === 'movie' || c.media_type === 'tv')
+      .filter((c) => c.vote_count >= 5); // skip obscure entries
+
+    // Deduplicate by id
+    const seen = new Set();
+    const unique = castCredits.filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+
+    // Sort by release date descending
+    unique.sort((a, b) => {
+      const aDate = a.release_date || a.first_air_date || '';
+      const bDate = b.release_date || b.first_air_date || '';
+      return bDate.localeCompare(aDate);
+    });
+
+    const results = unique.map((item) => {
+      const dateValue = item.release_date || item.first_air_date || '';
+      return {
+        mediaType: item.media_type,
+        tmdbId: item.id,
+        title: item.title || item.name || '(Untitled)',
+        year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+        synopsis: (item.overview || '').trim() || 'No synopsis available.',
+        posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+        backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+        ratingValue: item.vote_average || 0,
+        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+        character: item.character || '',
+      };
+    });
+
+    return { personName, role: 'cast', results };
+  }
+
+  // Director / Creator path
+  const endpoint = role === 'movie'
+    ? `/person/${personId}/movie_credits`
+    : `/person/${personId}/tv_credits`;
+
+  const data = await tmdbGet(endpoint, { language: 'en-US' });
+  resolvedMediaType = role;
+
+  if (role === 'movie') {
+    items = (data.crew || []).filter((c) => c.job === 'Director');
+  } else {
+    items = (data.crew || []).filter((c) => c.job === 'Creator');
+    if (!items.length) items = data.crew || [];
+  }
+
+  // Deduplicate by id
+  const seen = new Set();
+  const unique = items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+
+  // Sort by release date descending
+  unique.sort((a, b) => {
+    const aDate = a.release_date || a.first_air_date || '';
+    const bDate = b.release_date || b.first_air_date || '';
+    return bDate.localeCompare(aDate);
+  });
+
+  const results = unique.map((item) => {
+    const dateValue = item.release_date || item.first_air_date || '';
+    return {
+      mediaType: resolvedMediaType,
+      tmdbId: item.id,
+      title: item.title || item.name || '(Untitled)',
+      year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+      synopsis: (item.overview || '').trim() || 'No synopsis available.',
+      posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+      backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+      ratingValue: item.vote_average || 0,
+      rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+    };
+  });
+
+  return { personName, role, results };
 }
