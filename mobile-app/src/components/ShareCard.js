@@ -52,10 +52,10 @@ export const ShareCard = forwardRef(function ShareCard({ result }, ref) {
     return r ? `${h}h ${r}m` : `${h}h`;
   }
 
-  // ── Genre: first two genres only to keep things tidy ─────────────────
+  // ── Genre: first three genres only to keep things tidy ───────────────
   const genreShort = (result.genres || 'Unknown Genre')
     .split(',')
-    .slice(0, 2)
+    .slice(0, 3)
     .map(g => g.trim())
     .join(' · ');
 
