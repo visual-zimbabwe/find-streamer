@@ -1,8 +1,11 @@
-import React, { Fragment } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image } from 'react-native';
+import React, { Fragment, useRef, useCallback } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import ViewShot from 'react-native-view-shot';
+import * as ExpoSharing from 'expo-sharing';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
+import { ShareCard } from './ShareCard';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
@@ -21,6 +24,31 @@ function formatRuntime(minutes, mediaType) {
 export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, onSelectSimilar, onPersonPress }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
+  const shareCardRef = useRef(null);
+
+  const handleShare = useCallback(async () => {
+    if (!shareCardRef.current) return;
+    try {
+      const uri = await shareCardRef.current.capture();
+      const canShare = await ExpoSharing.isAvailableAsync();
+      if (canShare) {
+        await ExpoSharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: `Check out ${result?.title}`,
+          UTI: 'public.png',
+        });
+      } else {
+        // Fallback to React Native's built-in Share for plain URL/text
+        await Share.share({
+          message: `Check out "${result?.title}" (${result?.year}) – ${result?.genres || 'Unknown Genre'}`,
+        });
+      }
+    } catch (err) {
+      if (err?.message !== 'User did not share') {
+        Alert.alert('Share failed', 'Unable to generate the share card. Please try again.');
+      }
+    }
+  }, [result]);
 
   if (!result) return null;
 
@@ -30,6 +58,16 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const hasSeasonDetails = isTv && (seasonCount > 0 || episodeCount > 0 || result.seasons?.length > 0);
 
   return (
+    <>
+    {/* Off-screen share card – captured by ViewShot, never visible to the user */}
+    <ViewShot
+      ref={shareCardRef}
+      options={{ format: 'png', quality: 1 }}
+      style={styles.offScreen}
+    >
+      <ShareCard result={result} />
+    </ViewShot>
+
     <ScrollView style={styles.container}>
       <View style={styles.heroSection}>
         <MediaArtwork
@@ -255,6 +293,15 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 color={isInWatchlist ? colors.primary : colors.onSurfaceVariant} 
               />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.bookmarkButton, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '4D' }]}
+              onPress={handleShare}
+              accessibilityRole="button"
+              accessibilityLabel={`Share ${result.title}`}
+            >
+              <Ionicons name="share-social-outline" size={24} color={colors.onSurfaceVariant} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -339,12 +386,20 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
         )}
       </View>
     </ScrollView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  offScreen: {
+    position: 'absolute',
+    top: -2000,
+    left: -2000,
+    opacity: 0,
+    pointerEvents: 'none',
   },
   heroSection: {
     height: 600,
