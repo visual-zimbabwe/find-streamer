@@ -164,7 +164,7 @@ function MobileApp() {
       }
 
       setResults(candidates);
-      navigateTo('results');
+      navigateTo('results', { results: candidates });
       setActiveTab('search');
       setFilter(null); // Reset filter on new search
       
@@ -178,7 +178,7 @@ function MobileApp() {
     } finally {
       setLoading(false);
     }
-  }, [query, recentSearches, handlePersonPress]);
+  }, [query, recentSearches, handlePersonPress, navigateTo]);
 
   const handleSelectMatch = useCallback(async (match) => {
     setLoading(true);
@@ -190,7 +190,7 @@ function MobileApp() {
     } finally {
       setLoading(false);
     }
-  }, [query, activeTab]);
+  }, [query, navigateTo]);
 
   // Called when a card in DiscoverScreen is tapped
   const handleSelectDiscoverItem = useCallback(async (item) => {
@@ -204,7 +204,7 @@ function MobileApp() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [navigateTo]);
 
   const handlePersonPress = useCallback(async (personId, personName, role) => {
     setFilmographyLoading(true);
@@ -220,7 +220,7 @@ function MobileApp() {
     } finally {
       setFilmographyLoading(false);
     }
-  }, []);
+  }, [navigateTo]);
 
   const handleSelectFilmographyItem = useCallback(async (item) => {
     setLoading(true);
@@ -232,7 +232,7 @@ function MobileApp() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [navigateTo]);
 
   const handleToggleWatchlist = async (result) => {
     const existingItem = watchlist.find(item => item.tmdbId === result.tmdbId);
