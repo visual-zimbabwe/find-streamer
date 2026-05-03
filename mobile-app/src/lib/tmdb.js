@@ -124,7 +124,22 @@ export async function searchTitleCandidates(query) {
     page: 1,
   });
 
-  const candidates = (data.results || []).filter((item) => item.media_type === 'movie' || item.media_type === 'tv');
+  const allResults = data.results || [];
+
+  // If the top result is a person, treat the whole search as a person query.
+  // A person result is considered "strong" when it is ranked #1 by TMDB and has
+  // a known_for_department (i.e. it is a real person profile, not a stub).
+  const topResult = allResults[0];
+  if (topResult?.media_type === 'person' && topResult.known_for_department) {
+    return {
+      isPerson: true,
+      personId: topResult.id,
+      personName: topResult.name || query,
+      role: 'cast',
+    };
+  }
+
+  const candidates = allResults.filter((item) => item.media_type === 'movie' || item.media_type === 'tv');
   if (!candidates.length) {
     const error = new Error(`No movie or TV results found for: ${query}`);
     error.code = 'NO_RESULTS';

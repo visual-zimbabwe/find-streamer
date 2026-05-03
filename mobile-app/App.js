@@ -33,12 +33,9 @@ function MobileApp() {
   const { theme, resolvedMode } = useTheme();
   const { colors, typography, radii } = theme;
 
-  // View state: 'search' | 'results' | 'detail' | 'watchlist' | 'settings' | 'discover'
   const [activeView, setActiveView] = useState('search');
-  // Tab state: 'search' | 'discover' | 'watchlist'
   const [activeTab, setActiveTab] = useState('search');
-  // Tracks which view to return to after closing 'detail'
-  const [detailOrigin, setDetailOrigin] = useState('results');
+  const [navigationHistory, setNavigationHistory] = useState([]);
   
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,49 +49,73 @@ function MobileApp() {
   const [filmographyPerson, setFilmographyPerson] = useState(null); // { id, name, role }
   const [filmographyResults, setFilmographyResults] = useState([]);
   const [filmographyLoading, setFilmographyLoading] = useState(false);
-  const [filmographyOrigin, setFilmographyOrigin] = useState('detail'); // 'detail' | 'search'
   const discoverVm = useDiscoverViewModel();
 
+  const navigateTo = useCallback((view, updates = {}) => {
+    // Save current state to history
+    setNavigationHistory(prev => [...prev, {
+      view: activeView,
+      activeTab,
+      query,
+      results,
+      selectedResult,
+      filter,
+      filmographyPerson,
+      filmographyResults,
+    }]);
+
+    // Apply updates for the new view
+    if (updates.activeTab !== undefined) setActiveTab(updates.activeTab);
+    if (updates.query !== undefined) setQuery(updates.query);
+    if (updates.results !== undefined) setResults(updates.results);
+    if (updates.selectedResult !== undefined) setSelectedResult(updates.selectedResult);
+    if (updates.filter !== undefined) setFilter(updates.filter);
+    if (updates.filmographyPerson !== undefined) setFilmographyPerson(updates.filmographyPerson);
+    if (updates.filmographyResults !== undefined) setFilmographyResults(updates.filmographyResults);
+    
+    setActiveView(view);
+  }, [activeView, activeTab, query, results, selectedResult, filter, filmographyPerson, filmographyResults]);
+
   const handleBack = useCallback(() => {
-    // If an error is showing, dismiss it and return to search
+    // If an error is showing, dismiss it
     if (error) {
       setError(null);
-      setActiveView('search');
+      // Usually stay on current view unless it was a fatal search error
+      if (activeView === 'results' && results.length === 0) {
+        setActiveView('search');
+      }
       return;
     }
-    if (activeView === 'settings') {
-      setActiveView(activeTab === 'watchlist' ? 'watchlist' : activeTab === 'discover' ? 'discover' : 'search');
-    } else if (activeView === 'filmography') {
-      setActiveView(filmographyOrigin === 'search' ? 'search' : 'detail');
-    } else if (activeView === 'detail') {
-      // Return to wherever the user came from
-      if (detailOrigin === 'filmography') {
-        setActiveView('filmography');
-      } else if (detailOrigin === 'discover') {
-        setActiveView('discover');
-        setActiveTab('discover');
-      } else if (detailOrigin === 'watchlist') {
-        setActiveView('watchlist');
-      } else {
-        setActiveView('results');
+
+    if (navigationHistory.length === 0) {
+      // Fallback: if we are somehow in a subview with no history, return to search
+      if (activeView !== 'search' || activeTab !== 'search') {
+        setActiveTab('search');
+        setActiveView('search');
+        setQuery('');
       }
-    } else if (activeView === 'results') {
-      setActiveView('search');
-      setQuery('');
-    } else if (activeTab === 'watchlist') {
-      setActiveTab('search');
-      setActiveView('search');
-    } else if (activeTab === 'discover') {
-      setActiveTab('search');
-      setActiveView('search');
+      return;
     }
-  }, [error, activeView, activeTab, detailOrigin, filmographyOrigin]);
+
+    // Pop the top item from history and restore state
+    const prev = navigationHistory[navigationHistory.length - 1];
+    setNavigationHistory(h => h.slice(0, -1));
+
+    setActiveView(prev.view);
+    setActiveTab(prev.activeTab);
+    setQuery(prev.query);
+    setResults(prev.results);
+    setSelectedResult(prev.selectedResult);
+    setFilter(prev.filter);
+    setFilmographyPerson(prev.filmographyPerson);
+    setFilmographyResults(prev.filmographyResults);
+  }, [error, activeView, activeTab, navigationHistory, results]);
 
   // Handle hardware back button
   useEffect(() => {
     const onBackPress = () => {
-      // If we are at the root with no error, allow app to close
-      if (activeView === 'search' && activeTab === 'search' && !error) {
+      // If we are at the root with no history and no error, allow app to close
+      if (activeView === 'search' && activeTab === 'search' && !error && navigationHistory.length === 0) {
         return false;
       }
       
@@ -105,7 +126,7 @@ function MobileApp() {
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [activeView, activeTab, error, handleBack]);
+  }, [activeView, activeTab, error, handleBack, navigationHistory]);
 
   // Initialization
   useEffect(() => {
@@ -138,12 +159,12 @@ function MobileApp() {
         const newHistory = [searchQuery, ...recentSearches.filter(q => q !== searchQuery)].slice(0, 3);
         setRecentSearches(newHistory);
         await saveRecentSearches(newHistory);
-        handlePersonPress(candidates.personId, candidates.personName, candidates.role, 'search');
+        handlePersonPress(candidates.personId, candidates.personName, candidates.role);
         return;
       }
 
       setResults(candidates);
-      setActiveView('results');
+      navigateTo('results');
       setActiveTab('search');
       setFilter(null); // Reset filter on new search
       
@@ -161,11 +182,9 @@ function MobileApp() {
 
   const handleSelectMatch = useCallback(async (match) => {
     setLoading(true);
-    setDetailOrigin(activeTab === 'watchlist' ? 'watchlist' : 'results');
     try {
       const fullResult = await resolveMatch(query, match);
-      setSelectedResult(fullResult);
-      setActiveView('detail');
+      navigateTo('detail', { selectedResult: fullResult });
     } catch (err) {
       Alert.alert('Error', 'Unable to fetch movie details.');
     } finally {
@@ -176,12 +195,10 @@ function MobileApp() {
   // Called when a card in DiscoverScreen is tapped
   const handleSelectDiscoverItem = useCallback(async (item) => {
     setLoading(true);
-    setDetailOrigin('discover');
     try {
       // Pass empty string as query — detail screen uses item.title as fallback
       const fullResult = await resolveMatch(item.title, item);
-      setSelectedResult(fullResult);
-      setActiveView('detail');
+      navigateTo('detail', { selectedResult: fullResult });
     } catch (err) {
       Alert.alert('Error', 'Unable to fetch details.');
     } finally {
@@ -189,12 +206,11 @@ function MobileApp() {
     }
   }, []);
 
-  const handlePersonPress = useCallback(async (personId, personName, role, origin = 'detail') => {
-    setFilmographyOrigin(origin);
+  const handlePersonPress = useCallback(async (personId, personName, role) => {
     setFilmographyLoading(true);
     setFilmographyPerson({ id: personId, name: personName, role, profileUrl: null });
     setFilmographyResults([]);
-    setActiveView('filmography');
+    navigateTo('filmography');
     try {
       const { results, profileUrl } = await fetchPersonFilmography(personId, personName, role);
       setFilmographyResults(results);
@@ -208,11 +224,9 @@ function MobileApp() {
 
   const handleSelectFilmographyItem = useCallback(async (item) => {
     setLoading(true);
-    setDetailOrigin('filmography');
     try {
       const fullResult = await resolveMatch(item.title, item);
-      setSelectedResult(fullResult);
-      setActiveView('detail');
+      navigateTo('detail', { selectedResult: fullResult });
     } catch (err) {
       Alert.alert('Error', 'Unable to fetch details.');
     } finally {
@@ -271,6 +285,7 @@ function MobileApp() {
 
   const handleTabPress = (tab) => {
     setActiveTab(tab);
+    setNavigationHistory([]); // Reset stack when switching tabs
     if (tab === 'search') {
       setActiveView('search');
     } else if (tab === 'discover') {
@@ -294,7 +309,7 @@ function MobileApp() {
       <AppHeader 
         showBack={showBack} 
         onBack={handleBack} 
-        onSettingsPress={() => setActiveView('settings')}
+        onSettingsPress={() => navigateTo('settings')}
       />
       
       <View style={styles.mainContent}>

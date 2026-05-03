@@ -22,6 +22,9 @@ Person-Based Content Discovery — directors, creators, AND starring actors are 
   - `src/components/FilmographyScreen.js` — Rewritten to accept `role` prop (`'cast'` | `'movie'` | `'tv'`). For `'cast'`: header shows ⭐ icon + "STARRING IN" label; each card shows a small film/TV icon badge in top-left; subtitle shows `year · Character Name`. keyExtractor uses `mediaType-tmdbId` to avoid collisions in mixed results.
   - `App.js` — `filmographyPerson` state stores `role` instead of `mediaType`. `FilmographyScreen` receives `role` prop.
 
+- [x] **Navigation Fix** — Resolved back-navigation loops (e.g. Movie → Director → Movie) by implementing a full `navigationHistory` stack in `App.js`. This replaces manual `origin` tracking with state-preserving snapshots for every navigation step.
+- [x] **Hardware Back Support** — Updated Android hardware back button handler to correctly pop from the navigation stack before allowing the app to close.
+
 ## Active Bugs
 - None.
 
