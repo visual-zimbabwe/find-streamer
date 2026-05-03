@@ -1,4 +1,4 @@
-import React, { Fragment, useRef, useCallback } from 'react';
+import React, { Fragment, useRef, useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
@@ -6,6 +6,7 @@ import * as ExpoSharing from 'expo-sharing';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 import { ShareCard } from './ShareCard';
+import { ShareOptionsSheet } from './ShareOptionsSheet';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
@@ -25,8 +26,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const shareCardRef = useRef(null);
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
+  const [shareCountries, setShareCountries] = useState(null);
 
-  const handleShare = useCallback(async () => {
+  const doCapture = useCallback(async () => {
     if (!shareCardRef.current) return;
     try {
       const uri = await shareCardRef.current.capture();
@@ -38,7 +41,6 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           UTI: 'public.png',
         });
       } else {
-        // Fallback to React Native's built-in Share for plain URL/text
         await Share.share({
           message: `Check out "${result?.title}" (${result?.year}) – ${result?.genres || 'Unknown Genre'}`,
         });
@@ -49,6 +51,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
       }
     }
   }, [result]);
+
+  const handleShareConfirm = useCallback(async (selectedCountries) => {
+    setShareSheetVisible(false);
+    setShareCountries(selectedCountries);
+    // Wait one frame for ShareCard to re-render with the new countries.
+    await new Promise(resolve => setTimeout(resolve, 120));
+    await doCapture();
+  }, [doCapture]);
 
   if (!result) return null;
 
@@ -65,8 +75,15 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
       options={{ format: 'png', quality: 1 }}
       style={styles.offScreen}
     >
-      <ShareCard result={result} />
+      <ShareCard result={result} selectedCountries={shareCountries} />
     </ViewShot>
+
+    <ShareOptionsSheet
+      visible={shareSheetVisible}
+      result={result}
+      onClose={() => setShareSheetVisible(false)}
+      onShare={handleShareConfirm}
+    />
 
     <ScrollView style={styles.container}>
       <View style={styles.heroSection}>
@@ -296,7 +313,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
 
             <TouchableOpacity
               style={[styles.bookmarkButton, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '4D' }]}
-              onPress={handleShare}
+              onPress={() => setShareSheetVisible(true)}
               accessibilityRole="button"
               accessibilityLabel={`Share ${result.title}`}
             >
