@@ -47,18 +47,25 @@ function MobileApp() {
   const [selectedResult, setSelectedResult] = useState(null);
   const [recentSearches, setRecentSearches] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
-  const [pendingWatchlistItem, setPendingWatchlistItem] = useState(null);
+  const [pendingWatchlistItem, setPendingWatchlistItem] = useState(null); // { ...item, _isReCategorize: bool }
   const [filter, setFilter] = useState(null); // 'movie' | 'tv' | null
   const [filmographyPerson, setFilmographyPerson] = useState(null); // { id, name, role }
   const [filmographyResults, setFilmographyResults] = useState([]);
   const [filmographyLoading, setFilmographyLoading] = useState(false);
+  const [filmographyOrigin, setFilmographyOrigin] = useState('detail'); // 'detail' | 'search'
   const discoverVm = useDiscoverViewModel();
 
   const handleBack = useCallback(() => {
+    // If an error is showing, dismiss it and return to search
+    if (error) {
+      setError(null);
+      setActiveView('search');
+      return;
+    }
     if (activeView === 'settings') {
       setActiveView(activeTab === 'watchlist' ? 'watchlist' : activeTab === 'discover' ? 'discover' : 'search');
     } else if (activeView === 'filmography') {
-      setActiveView('detail');
+      setActiveView(filmographyOrigin === 'search' ? 'search' : 'detail');
     } else if (activeView === 'detail') {
       // Return to wherever the user came from
       if (detailOrigin === 'filmography') {
@@ -81,13 +88,13 @@ function MobileApp() {
       setActiveTab('search');
       setActiveView('search');
     }
-  }, [activeView, activeTab, detailOrigin]);
+  }, [error, activeView, activeTab, detailOrigin, filmographyOrigin]);
 
   // Handle hardware back button
   useEffect(() => {
     const onBackPress = () => {
-      // If we are at the root, allow app to close
-      if (activeView === 'search' && activeTab === 'search') {
+      // If we are at the root with no error, allow app to close
+      if (activeView === 'search' && activeTab === 'search' && !error) {
         return false;
       }
       
@@ -98,7 +105,7 @@ function MobileApp() {
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [activeView, activeTab, handleBack]);
+  }, [activeView, activeTab, error, handleBack]);
 
   // Initialization
   useEffect(() => {
@@ -123,6 +130,18 @@ function MobileApp() {
 
     try {
       const candidates = await searchTitleCandidates(searchQuery);
+
+      // If TMDB's top hit is a person (e.g. "Tom Hanks"), skip the results list
+      // and go straight to their filmography.
+      if (candidates.isPerson) {
+        setLoading(false);
+        const newHistory = [searchQuery, ...recentSearches.filter(q => q !== searchQuery)].slice(0, 3);
+        setRecentSearches(newHistory);
+        await saveRecentSearches(newHistory);
+        handlePersonPress(candidates.personId, candidates.personName, candidates.role, 'search');
+        return;
+      }
+
       setResults(candidates);
       setActiveView('results');
       setActiveTab('search');
@@ -138,7 +157,7 @@ function MobileApp() {
     } finally {
       setLoading(false);
     }
-  }, [query, recentSearches]);
+  }, [query, recentSearches, handlePersonPress]);
 
   const handleSelectMatch = useCallback(async (match) => {
     setLoading(true);
@@ -170,7 +189,8 @@ function MobileApp() {
     }
   }, []);
 
-  const handlePersonPress = useCallback(async (personId, personName, role) => {
+  const handlePersonPress = useCallback(async (personId, personName, role, origin = 'detail') => {
+    setFilmographyOrigin(origin);
     setFilmographyLoading(true);
     setFilmographyPerson({ id: personId, name: personName, role, profileUrl: null });
     setFilmographyResults([]);
@@ -201,28 +221,49 @@ function MobileApp() {
   }, []);
 
   const handleToggleWatchlist = async (result) => {
-    const isAdded = watchlist.some(item => item.tmdbId === result.tmdbId);
-    if (isAdded) {
-      const newWatchlist = watchlist.filter(item => item.tmdbId !== result.tmdbId);
-      setWatchlist(newWatchlist);
-      await saveWatchlist(newWatchlist);
+    const existingItem = watchlist.find(item => item.tmdbId === result.tmdbId);
+    if (existingItem) {
+      // Open the modal showing the current category so the user can move or remove
+      setPendingWatchlistItem({ ...existingItem, _isReCategorize: true });
       return;
     }
 
-    setPendingWatchlistItem(result);
+    setPendingWatchlistItem({ ...result, _isReCategorize: false });
   };
 
   const handleSelectWatchlistCategory = async (categoryId) => {
     if (!pendingWatchlistItem) return;
 
-    const newWatchlist = [
-      {
-        ...pendingWatchlistItem,
-        watchlistCategoryId: categoryId,
-        watchlistCategoryLabel: getWatchlistCategory(categoryId).label,
-      },
-      ...watchlist.filter(item => item.tmdbId !== pendingWatchlistItem.tmdbId),
-    ];
+    const isReCategorize = pendingWatchlistItem._isReCategorize;
+    const { _isReCategorize, ...itemData } = pendingWatchlistItem;
+
+    const updatedItem = {
+      ...itemData,
+      watchlistCategoryId: categoryId,
+      watchlistCategoryLabel: getWatchlistCategory(categoryId).label,
+    };
+
+    let newWatchlist;
+    if (isReCategorize) {
+      // Update in-place, preserving original position
+      newWatchlist = watchlist.map(item =>
+        item.tmdbId === updatedItem.tmdbId ? updatedItem : item
+      );
+    } else {
+      newWatchlist = [
+        updatedItem,
+        ...watchlist.filter(item => item.tmdbId !== updatedItem.tmdbId),
+      ];
+    }
+
+    setPendingWatchlistItem(null);
+    setWatchlist(newWatchlist);
+    await saveWatchlist(newWatchlist);
+  };
+
+  const handleRemoveFromWatchlist = async () => {
+    if (!pendingWatchlistItem) return;
+    const newWatchlist = watchlist.filter(item => item.tmdbId !== pendingWatchlistItem.tmdbId);
     setPendingWatchlistItem(null);
     setWatchlist(newWatchlist);
     await saveWatchlist(newWatchlist);
@@ -350,7 +391,9 @@ function MobileApp() {
           <View style={[styles.categorySheet, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '4D', borderRadius: radii.xl }]}>
             <View style={styles.categoryHeader}>
               <View style={styles.categoryTitleBlock}>
-                <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>SAVE TO WATCHLIST</Text>
+                <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>
+                  {pendingWatchlistItem?._isReCategorize ? 'MOVE TO CATEGORY' : 'SAVE TO WATCHLIST'}
+                </Text>
                 <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
                   {pendingWatchlistItem?.title}
                 </Text>
@@ -366,27 +409,69 @@ function MobileApp() {
             </View>
 
             <View style={styles.categoryList}>
-              {WATCHLIST_CATEGORIES.map((category) => (
+              {WATCHLIST_CATEGORIES.map((category) => {
+                const isCurrent = pendingWatchlistItem?._isReCategorize &&
+                  pendingWatchlistItem?.watchlistCategoryId === category.id;
+                return (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[
+                      styles.categoryOption,
+                      {
+                        backgroundColor: isCurrent ? colors.primary + '1A' : colors.surfaceContainerHigh,
+                        borderColor: isCurrent ? colors.primary + '66' : colors.outlineVariant + '33',
+                        borderRadius: radii.lg,
+                      },
+                    ]}
+                    activeOpacity={0.82}
+                    onPress={() => handleSelectWatchlistCategory(category.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={isCurrent ? `Currently in ${category.label}` : `Move to ${category.label}`}
+                    accessibilityState={{ selected: isCurrent }}
+                  >
+                    <View style={[styles.categoryIcon, { backgroundColor: isCurrent ? colors.primary + '33' : colors.primary + '22' }]}>
+                      <Ionicons name={category.icon} size={22} color={colors.primary} />
+                    </View>
+                    <View style={styles.categoryCopy}>
+                      <View style={styles.categoryLabelRow}>
+                        <Text style={[styles.categoryOptionTitle, { color: isCurrent ? colors.primary : colors.onSurface, ...typography.bodyLg }]}>
+                          {category.label}
+                        </Text>
+                        {isCurrent && (
+                          <View style={[styles.currentBadge, { backgroundColor: colors.primary + '22' }]}>
+                            <Text style={[styles.currentBadgeText, { color: colors.primary, ...typography.labelSm }]}>CURRENT</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
+                        {category.description}
+                      </Text>
+                    </View>
+                    <Ionicons name={isCurrent ? 'checkmark-circle' : 'chevron-forward'} size={18} color={isCurrent ? colors.primary : colors.onSurfaceVariant} />
+                  </TouchableOpacity>
+                );
+              })}
+
+              {pendingWatchlistItem?._isReCategorize && (
                 <TouchableOpacity
-                  key={category.id}
-                  style={[styles.categoryOption, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '33', borderRadius: radii.lg }]}
+                  style={[styles.removeOption, { backgroundColor: colors.error + '12', borderColor: colors.error + '33', borderRadius: radii.lg }]}
                   activeOpacity={0.82}
-                  onPress={() => handleSelectWatchlistCategory(category.id)}
+                  onPress={handleRemoveFromWatchlist}
                   accessibilityRole="button"
-                  accessibilityLabel={`Save to ${category.label}`}
+                  accessibilityLabel="Remove from watchlist"
                 >
-                  <View style={[styles.categoryIcon, { backgroundColor: colors.primary + '22' }]}>
-                    <Ionicons name={category.icon} size={22} color={colors.primary} />
+                  <View style={[styles.categoryIcon, { backgroundColor: colors.error + '22' }]}>
+                    <Ionicons name="trash-outline" size={22} color={colors.error} />
                   </View>
                   <View style={styles.categoryCopy}>
-                    <Text style={[styles.categoryOptionTitle, { color: colors.onSurface, ...typography.bodyLg }]}>{category.label}</Text>
-                    <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
-                      {category.description}
+                    <Text style={[styles.categoryOptionTitle, { color: colors.error, ...typography.bodyLg }]}>Remove from Watchlist</Text>
+                    <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+                      Permanently remove this title.
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
+                  <Ionicons name="chevron-forward" size={18} color={colors.error} />
                 </TouchableOpacity>
-              ))}
+              )}
             </View>
           </View>
         </View>
@@ -469,5 +554,28 @@ const styles = StyleSheet.create({
   },
   categoryOptionDescription: {
     lineHeight: 18,
+  },
+  categoryLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  currentBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  currentBadgeText: {
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  removeOption: {
+    alignItems: 'center',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+    padding: 14,
   },
 });
