@@ -23,6 +23,71 @@ const SERVICE_ICONS = {
   max:               'tv',
 };
 
+// Ordered by streaming-market size / popularity – used as fallback when
+// neither US nor CA is available for a given service.
+const POPULARITY_ORDER = [
+  'US', 'CA', 'GB', 'AU', 'DE', 'FR', 'BR', 'MX', 'JP', 'IN',
+  'ES', 'IT', 'NL', 'KR', 'SE', 'NO', 'DK', 'PL', 'AR', 'CO',
+  'CL', 'PT', 'ZA', 'SG', 'TR', 'CH', 'BE', 'AT', 'FI', 'HU',
+  'CZ', 'RO', 'GR', 'IE', 'NZ', 'IL', 'TH', 'PH', 'MY', 'HK',
+  'TW', 'VN', 'ID', 'EG', 'NG',
+];
+
+// Short display names for the most common streaming markets.
+const SHORT_COUNTRY_NAMES = {
+  US: 'USA',    CA: 'Canada',  GB: 'UK',        AU: 'Australia',
+  DE: 'Germany',FR: 'France',  BR: 'Brazil',    MX: 'Mexico',
+  JP: 'Japan',  IN: 'India',   ES: 'Spain',     IT: 'Italy',
+  NL: 'Netherlands', KR: 'S. Korea', SE: 'Sweden', NO: 'Norway',
+  DK: 'Denmark',PL: 'Poland',  AR: 'Argentina', CO: 'Colombia',
+  CL: 'Chile',  PT: 'Portugal',ZA: 'S. Africa', SG: 'Singapore',
+  TR: 'Turkey', CH: 'Switzerland', BE: 'Belgium', AT: 'Austria',
+  FI: 'Finland',HU: 'Hungary', CZ: 'Czechia',   RO: 'Romania',
+  GR: 'Greece', IE: 'Ireland', NZ: 'N. Zealand', IL: 'Israel',
+  TH: 'Thailand',PH: 'Philippines', MY: 'Malaysia', HK: 'Hong Kong',
+  TW: 'Taiwan', VN: 'Vietnam', ID: 'Indonesia',  EG: 'Egypt',
+  NG: 'Nigeria',
+};
+
+function shortName(code) {
+  return SHORT_COUNTRY_NAMES[code] || code;
+}
+
+/**
+ * Pick at most 2 countries for a given service:
+ *  1. Prefer US then CA if available.
+ *  2. Fill remaining slots from POPULARITY_ORDER (skipping already picked).
+ */
+function pickCountries(rows, serviceKey) {
+  const available = new Set(
+    (rows || []).filter(r => r.providers[serviceKey]).map(r => r.code)
+  );
+  if (available.size === 0) return [];
+
+  const picked = [];
+  // Always prefer US first, then CA
+  if (available.has('US')) picked.push('US');
+  if (picked.length < 2 && available.has('CA')) picked.push('CA');
+
+  // Fill up to 2 from popularity ranking
+  if (picked.length < 2) {
+    for (const code of POPULARITY_ORDER) {
+      if (picked.length >= 2) break;
+      if (!picked.includes(code) && available.has(code)) picked.push(code);
+    }
+  }
+
+  // Final safety: if popularity list didn't cover all codes, grab any remaining
+  if (picked.length < 2) {
+    for (const code of available) {
+      if (picked.length >= 2) break;
+      if (!picked.includes(code)) picked.push(code);
+    }
+  }
+
+  return picked;
+}
+
 /**
  * ShareCard
  *
@@ -61,15 +126,6 @@ export const ShareCard = forwardRef(function ShareCard({ result }, ref) {
 
   // ── Streaming: only services with availability ────────────────────────
   const availableProviders = (result.providerSummary || []).filter(p => p.count > 0);
-
-  // ── Country count: total unique countries across all services ─────────
-  const countrySet = new Set();
-  (result.rows || []).forEach(row => {
-    Object.entries(row.providers).forEach(([, available]) => {
-      if (available) countrySet.add(row.code);
-    });
-  });
-  const totalCountries = countrySet.size;
 
   return (
     // The outer View dimensions define the card size that ViewShot captures.
@@ -120,28 +176,47 @@ export const ShareCard = forwardRef(function ShareCard({ result }, ref) {
         {/* Streaming availability */}
         {availableProviders.length > 0 ? (
           <View style={styles.streamingSection}>
-            <Text style={styles.streamLabel}>STREAMING IN {totalCountries} COUNTR{totalCountries === 1 ? 'Y' : 'IES'}</Text>
-            <View style={styles.providerRow}>
-              {availableProviders.map(p => (
-                <View key={p.key} style={[styles.providerBadge, { borderColor: SERVICE_COLORS[p.key] + '66' }]}>
-                  {p.logoUrl ? (
-                    <Image
-                      source={{ uri: p.logoUrl }}
-                      style={styles.providerLogo}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <Ionicons
-                      name={SERVICE_ICONS[p.key] || 'play-circle'}
-                      size={14}
-                      color={SERVICE_COLORS[p.key]}
-                    />
-                  )}
-                  <Text style={[styles.providerName, { color: SERVICE_COLORS[p.key] }]}>
-                    {p.label}
-                  </Text>
-                </View>
-              ))}
+            <Text style={styles.streamLabel}>WHERE TO STREAM</Text>
+            <View style={styles.providerList}>
+              {availableProviders.map(p => {
+                const countries = pickCountries(result.rows, p.key);
+                return (
+                  <View key={p.key} style={styles.providerServiceRow}>
+                    {/* Service name */}
+                    <View style={styles.providerServiceName}>
+                      {p.logoUrl ? (
+                        <Image
+                          source={{ uri: p.logoUrl }}
+                          style={styles.providerLogo}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <Ionicons
+                          name={SERVICE_ICONS[p.key] || 'play-circle'}
+                          size={11}
+                          color={SERVICE_COLORS[p.key]}
+                        />
+                      )}
+                      <Text style={[styles.providerName, { color: SERVICE_COLORS[p.key] }]}>
+                        {p.label}
+                      </Text>
+                    </View>
+                    {/* Country chips */}
+                    <View style={styles.countryChips}>
+                      {countries.map(code => (
+                        <View
+                          key={code}
+                          style={[styles.countryChip, { borderColor: SERVICE_COLORS[p.key] + '55' }]}
+                        >
+                          <Text style={[styles.countryChipText, { color: SERVICE_COLORS[p.key] }]}>
+                            {shortName(code)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           </View>
         ) : (
@@ -258,20 +333,39 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 8,
   },
-  providerRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
+  providerList: {
+    gap: 7,
   },
-  providerBadge: {
+  providerServiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  providerServiceName: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    minWidth: 80,
+  },
+  countryChips: {
+    flexDirection: 'row',
+    gap: 5,
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
+  countryChip: {
     backgroundColor: CARD_SURFACE,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
     borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  countryChipText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   providerLogo: {
     width: 14,
