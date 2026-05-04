@@ -195,12 +195,14 @@ export function DiscoverScreen({ onSelectItem, vm }) {
     ? vm.filters.sortBy
     : 'popularity.desc';
 
-  // Load genres when mediaType changes; reset genreIds that might not apply
+  // Load genres when mediaType changes; reset genre selections that might not apply
   useEffect(() => {
     vm.loadGenres(vm.filters.mediaType);
     const previousMediaType = previousMediaTypeRef.current;
     if (previousMediaType !== vm.filters.mediaType) {
       vm.updateFilter('genreIds', []);
+      vm.updateFilter('excludeGenreIds', []);
+      vm.updateFilter('excludeSmartTags', []);
       if (vm.filters.mediaType === 'movie') {
         vm.updateFilter('originCountries', []);
       }
@@ -278,72 +280,27 @@ export function DiscoverScreen({ onSelectItem, vm }) {
 
         <Divider color={c.outlineVariant} />
 
-        {/* ── Genre Multi-Select ── */}
-        <View style={styles.sectionRow}>
-          <SectionLabel label="Genres" colors={c} typography={typography} />
-          {/* AND / OR toggle */}
-          <View style={[styles.logicPill, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full }]}>
-            {['AND', 'OR'].map((mode) => {
-              const active = vm.filters.genreLogic === mode;
-              return (
-                <TouchableOpacity
-                  key={mode}
-                  style={[styles.logicOption, active && { backgroundColor: c.primary, borderRadius: radii.full }]}
-                  onPress={() => vm.updateFilter('genreLogic', mode)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Use ${mode} genre matching`}
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[{ color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
-                    {mode}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {vm.genresLoading ? (
-          <ActivityIndicator color={c.primary} style={{ marginVertical: 12 }} />
-        ) : (
-          <View style={styles.chipWrap}>
-            {vm.genres.map((genre) => {
-              const active = vm.filters.genreIds.includes(genre.id);
-              return (
-                <TouchableOpacity
-                  key={genre.id}
-                  style={[
-                    styles.chip,
-                    { borderRadius: radii.full },
-                    active
-                      ? { backgroundColor: c.primary }
-                      : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' },
-                  ]}
-                  onPress={() => vm.toggleGenre(genre.id)}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Toggle ${genre.name} genre`}
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
-                    {genre.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
-        {vm.filters.genreIds.length > 0 && (
-          <TouchableOpacity
-            onPress={() => vm.updateFilter('genreIds', [])}
-            style={styles.clearGenres}
-            accessibilityRole="button"
-            accessibilityLabel="Clear selected genres"
-          >
-            <Text style={[{ color: c.primary, ...typography.labelSm }]}>Clear genres</Text>
-          </TouchableOpacity>
-        )}
+        {/* ── Genre Filter Groups ── */}
+        <GenreFilterSection
+          genres={vm.genres}
+          genresLoading={vm.genresLoading}
+          genreIds={vm.filters.genreIds}
+          genreLogic={vm.filters.genreLogic}
+          excludeGenreIds={vm.filters.excludeGenreIds}
+          excludeSmartTags={vm.filters.excludeSmartTags}
+          onToggleInclude={vm.toggleGenre}
+          onToggleExclude={vm.toggleExcludeGenre}
+          onToggleSmartTag={vm.toggleSmartTag}
+          onUpdateGenreLogic={(v) => vm.updateFilter('genreLogic', v)}
+          onClearAll={() => {
+            vm.updateFilter('genreIds', []);
+            vm.updateFilter('excludeGenreIds', []);
+            vm.updateFilter('excludeSmartTags', []);
+          }}
+          colors={c}
+          typography={typography}
+          radii={radii}
+        />
 
         <Divider color={c.outlineVariant} />
 
@@ -583,6 +540,300 @@ export function DiscoverScreen({ onSelectItem, vm }) {
   );
 }
 
+// ─── Smart Tags ────────────────────────────────────────────────────────────────
+// These are curated filters that don't map 1:1 to a TMDB genre.
+const SMART_TAGS = [
+  {
+    key: 'anime',
+    label: 'Anime ✦',
+    // Only meaningful in Exclude mode; no TMDB genre ID.
+    description:
+      'Anime is not an official TMDB genre. This smart-filter removes ' +
+      'titles where the original language is Japanese AND the Animation ' +
+      'genre is set, or where "anime" appears in the title/overview.',
+  },
+];
+
+// ─── Genre Filter Section ─────────────────────────────────────────────────────
+
+function GenreFilterSection({
+  genres,
+  genresLoading,
+  genreIds,
+  genreLogic,
+  excludeGenreIds,
+  excludeSmartTags,
+  onToggleInclude,
+  onToggleExclude,
+  onToggleSmartTag,
+  onUpdateGenreLogic,
+  onClearAll,
+  colors: c,
+  typography,
+  radii,
+}) {
+  // 'include' | 'exclude'
+  const [activeTab, setActiveTab] = useState('include');
+
+  const hasAnySelection =
+    genreIds.length > 0 || excludeGenreIds.length > 0 || excludeSmartTags.length > 0;
+
+  const includeCount = genreIds.length;
+  const excludeCount = excludeGenreIds.length + excludeSmartTags.length;
+
+  return (
+    <View>
+      {/* ── Section header ── */}
+      <View style={styles.sectionRow}>
+        <SectionLabel label="Genres" colors={c} typography={typography} />
+        {hasAnySelection && (
+          <TouchableOpacity
+            onPress={onClearAll}
+            accessibilityRole="button"
+            accessibilityLabel="Clear all genre filters"
+          >
+            <Text style={[{ color: c.primary, ...typography.labelSm }]}>Clear all</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* ── Include / Exclude tab switcher ── */}
+      <View style={[genreStyles.tabRow, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.lg }]}>
+        {[
+          { key: 'include', label: 'Include', count: includeCount, activeColor: c.primary },
+          { key: 'exclude', label: 'Exclude', count: excludeCount, activeColor: c.error },
+        ].map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[
+                genreStyles.tabBtn,
+                { borderRadius: radii.md },
+                isActive && { backgroundColor: tab.activeColor },
+              ]}
+              onPress={() => setActiveTab(tab.key)}
+              activeOpacity={0.8}
+              accessibilityRole="tab"
+              accessibilityLabel={`${tab.label} genres tab`}
+              accessibilityState={{ selected: isActive }}
+            >
+              <Text
+                style={[
+                  {
+                    color: isActive ? c.onPrimary : c.onSurfaceVariant,
+                    ...typography.labelSm,
+                    fontWeight: '700',
+                  },
+                ]}
+              >
+                {tab.label}
+                {tab.count > 0 ? ` (${tab.count})` : ''}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* ── Include tab content ── */}
+      {activeTab === 'include' && (
+        <>
+          {/* AND / OR logic toggle — only meaningful for include */}
+          <View style={[genreStyles.logicRow]}>
+            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginRight: 8 }]}>
+              Match:
+            </Text>
+            <View style={[styles.logicPill, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full }]}>
+              {['AND', 'OR'].map((mode) => {
+                const active = genreLogic === mode;
+                return (
+                  <TouchableOpacity
+                    key={mode}
+                    style={[styles.logicOption, active && { backgroundColor: c.primary, borderRadius: radii.full }]}
+                    onPress={() => onUpdateGenreLogic(mode)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Use ${mode} genre matching`}
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[{ color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
+                      {mode}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginLeft: 8, flex: 1 }]} numberOfLines={1}>
+              {genreLogic === 'AND' ? 'all selected genres' : 'any selected genre'}
+            </Text>
+          </View>
+
+          {genresLoading ? (
+            <ActivityIndicator color={c.primary} style={{ marginVertical: 12 }} />
+          ) : (
+            <View style={styles.chipWrap}>
+              {genres.map((genre) => {
+                const included = genreIds.includes(genre.id);
+                const excluded = excludeGenreIds.includes(genre.id);
+                // Chip state: included → primary, excluded → dimmed-error, else neutral
+                let chipBg = c.surfaceContainerHigh;
+                let chipBorder = { borderWidth: 1, borderColor: c.outlineVariant + '40' };
+                let textColor = c.onSurfaceVariant;
+                if (included) { chipBg = c.primary; chipBorder = {}; textColor = c.onPrimary; }
+                if (excluded) { chipBg = c.error + '22'; chipBorder = { borderWidth: 1, borderColor: c.error + '55' }; textColor = c.error; }
+
+                return (
+                  <TouchableOpacity
+                    key={genre.id}
+                    style={[styles.chip, { borderRadius: radii.full, backgroundColor: chipBg }, chipBorder]}
+                    onPress={() => onToggleInclude(genre.id)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Include ${genre.name} genre`}
+                    accessibilityState={{ selected: included }}
+                  >
+                    {included && (
+                      <Ionicons name="checkmark" size={12} color={c.onPrimary} style={{ marginRight: 3 }} />
+                    )}
+                    {excluded && (
+                      <Ionicons name="remove-circle-outline" size={12} color={c.error} style={{ marginRight: 3 }} />
+                    )}
+                    <Text style={[styles.chipText, { color: textColor, ...typography.labelSm }]}>
+                      {genre.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {genreIds.length === 0 && !genresLoading && (
+            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 8, fontStyle: 'italic' }]}>
+              Tap a genre to require it in results.
+            </Text>
+          )}
+        </>
+      )}
+
+      {/* ── Exclude tab content ── */}
+      {activeTab === 'exclude' && (
+        <>
+          {/* Info callout */}
+          <View style={[genreStyles.infoBanner, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderLeftColor: c.error }]}>
+            <Ionicons name="information-circle-outline" size={16} color={c.onSurfaceVariant} style={{ marginRight: 8, marginTop: 1 }} />
+            <Text style={[{ flex: 1, color: c.onSurfaceVariant, ...typography.labelSm }]}>
+              Excluded genres are removed from results even if other filters match.
+            </Text>
+          </View>
+
+          {genresLoading ? (
+            <ActivityIndicator color={c.error} style={{ marginVertical: 12 }} />
+          ) : (
+            <View style={styles.chipWrap}>
+              {genres.map((genre) => {
+                const excluded = excludeGenreIds.includes(genre.id);
+                const included = genreIds.includes(genre.id);
+                let chipBg = c.surfaceContainerHigh;
+                let chipBorder = { borderWidth: 1, borderColor: c.outlineVariant + '40' };
+                let textColor = c.onSurfaceVariant;
+                if (excluded) { chipBg = c.error; chipBorder = {}; textColor = c.onPrimary; }
+                if (included) { chipBg = c.primary + '22'; chipBorder = { borderWidth: 1, borderColor: c.primary + '55' }; textColor = c.primary; }
+
+                return (
+                  <TouchableOpacity
+                    key={genre.id}
+                    style={[styles.chip, { borderRadius: radii.full, backgroundColor: chipBg }, chipBorder]}
+                    onPress={() => onToggleExclude(genre.id)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Exclude ${genre.name} genre`}
+                    accessibilityState={{ selected: excluded }}
+                  >
+                    {excluded && (
+                      <Ionicons name="close" size={12} color={c.onPrimary} style={{ marginRight: 3 }} />
+                    )}
+                    {included && (
+                      <Ionicons name="checkmark" size={12} color={c.primary} style={{ marginRight: 3 }} />
+                    )}
+                    <Text style={[styles.chipText, { color: textColor, ...typography.labelSm }]}>
+                      {genre.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* ── Smart Tags (Anime, etc.) ── */}
+          <View style={genreStyles.smartTagsHeader}>
+            <Ionicons name="sparkles-outline" size={13} color={c.onSurfaceVariant} style={{ marginRight: 6 }} />
+            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', letterSpacing: 0.8 }]}>
+              SMART FILTERS
+            </Text>
+          </View>
+
+          {SMART_TAGS.map((tag) => {
+            const isActive = excludeSmartTags.includes(tag.key);
+            return (
+              <View key={tag.key}>
+                <TouchableOpacity
+                  style={[
+                    genreStyles.smartTagChip,
+                    {
+                      borderRadius: radii.md,
+                      backgroundColor: isActive ? c.error + '18' : c.surfaceContainerHigh,
+                      borderColor: isActive ? c.error : c.outlineVariant + '40',
+                    },
+                  ]}
+                  onPress={() => onToggleSmartTag(tag.key)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Exclude ${tag.label}`}
+                  accessibilityState={{ selected: isActive }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                    {isActive
+                      ? <Ionicons name="close-circle" size={18} color={c.error} style={{ marginRight: 8 }} />
+                      : <Ionicons name="close-circle-outline" size={18} color={c.onSurfaceVariant} style={{ marginRight: 8 }} />
+                    }
+                    <View style={{ flex: 1 }}>
+                      <Text style={[{ color: isActive ? c.error : c.onSurface, ...typography.bodyMd, fontWeight: '700' }]}>
+                        {tag.label}
+                      </Text>
+                      <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]} numberOfLines={2}>
+                        Smart filter · not a TMDB genre
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[genreStyles.smartTagBadge, { backgroundColor: isActive ? c.error : c.surfaceContainerHigh, borderRadius: radii.sm }]}>
+                    <Text style={[{ color: isActive ? c.onPrimary : c.onSurfaceVariant, fontSize: 10, fontWeight: '800' }]}>
+                      {isActive ? 'ON' : 'OFF'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Explanation callout shown when active */}
+                {isActive && (
+                  <View style={[genreStyles.smartTagInfo, { backgroundColor: c.error + '10', borderRadius: radii.sm, borderLeftColor: c.error }]}>
+                    <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
+                      {tag.description}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+
+          {excludeGenreIds.length === 0 && excludeSmartTags.length === 0 && !genresLoading && (
+            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 8, fontStyle: 'italic' }]}>
+              Tap a genre to exclude it from results.
+            </Text>
+          )}
+        </>
+      )}
+    </View>
+  );
+}
+
 // ─── Results Section ──────────────────────────────────────────────────────────
 
 function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
@@ -798,6 +1049,57 @@ const pickerStyles = StyleSheet.create({
     minHeight: 48,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(128,128,128,0.2)',
+  },
+});
+
+const genreStyles = StyleSheet.create({
+  tabRow: {
+    flexDirection: 'row',
+    padding: 4,
+    marginBottom: 16,
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logicRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    padding: 12,
+    borderLeftWidth: 4,
+    marginBottom: 16,
+  },
+  smartTagsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  smartTagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  smartTagBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginLeft: 12,
+  },
+  smartTagInfo: {
+    padding: 12,
+    borderLeftWidth: 2,
+    marginBottom: 12,
+    marginLeft: 8,
   },
 });
 

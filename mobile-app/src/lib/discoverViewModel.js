@@ -3,8 +3,14 @@ import { fetchGenres, discoverTitles, fetchLanguages, fetchDiscoverCountries } f
 
 const DEFAULT_FILTERS = {
   mediaType: 'movie',
+  // ── Include genres ─────────────────────────────────────────────────────────
   genreIds: [],
   genreLogic: 'AND',
+  // ── Exclude genres (official TMDB genres) ──────────────────────────────────
+  excludeGenreIds: [],
+  // ── Exclude smart tags (e.g. 'anime') ──────────────────────────────────────
+  excludeSmartTags: [],
+  // ── Optional filters ───────────────────────────────────────────────────────
   minRating: 0,
   languageCodes: [],
   originCountries: [],
@@ -88,12 +94,53 @@ export function useDiscoverViewModel() {
     setValidationError(null);
   }, []);
 
+  // ── Include Genre Toggle ───────────────────────────────────────────────────
+  // A genre can only be in ONE group at a time.
+  // Toggling into "include" removes it from "exclude" if present.
+
   const toggleGenre = useCallback((id) => {
     setFilters((prev) => {
-      const already = prev.genreIds.includes(id);
+      const alreadyIncluded = prev.genreIds.includes(id);
       return {
         ...prev,
-        genreIds: already ? prev.genreIds.filter((g) => g !== id) : [...prev.genreIds, id],
+        genreIds: alreadyIncluded
+          ? prev.genreIds.filter((g) => g !== id)
+          : [...prev.genreIds, id],
+        // Remove from exclude group if it was there
+        excludeGenreIds: prev.excludeGenreIds.filter((g) => g !== id),
+      };
+    });
+    setValidationError(null);
+  }, []);
+
+  // ── Exclude Genre Toggle ───────────────────────────────────────────────────
+  // Toggling into "exclude" removes it from "include" if present.
+
+  const toggleExcludeGenre = useCallback((id) => {
+    setFilters((prev) => {
+      const alreadyExcluded = prev.excludeGenreIds.includes(id);
+      return {
+        ...prev,
+        excludeGenreIds: alreadyExcluded
+          ? prev.excludeGenreIds.filter((g) => g !== id)
+          : [...prev.excludeGenreIds, id],
+        // Remove from include group if it was there
+        genreIds: prev.genreIds.filter((g) => g !== id),
+      };
+    });
+    setValidationError(null);
+  }, []);
+
+  // ── Smart Tag Toggle ───────────────────────────────────────────────────────
+
+  const toggleSmartTag = useCallback((tag) => {
+    setFilters((prev) => {
+      const already = prev.excludeSmartTags.includes(tag);
+      return {
+        ...prev,
+        excludeSmartTags: already
+          ? prev.excludeSmartTags.filter((t) => t !== tag)
+          : [...prev.excludeSmartTags, tag],
       };
     });
     setValidationError(null);
@@ -112,7 +159,14 @@ export function useDiscoverViewModel() {
   }, []);
 
   const resetFilters = useCallback(() => {
-    setFilters({ ...DEFAULT_FILTERS, genreIds: [], languageCodes: [], originCountries: [] });
+    setFilters({
+      ...DEFAULT_FILTERS,
+      genreIds: [],
+      excludeGenreIds: [],
+      excludeSmartTags: [],
+      languageCodes: [],
+      originCountries: [],
+    });
     setValidationError(null);
   }, []);
 
@@ -188,6 +242,8 @@ export function useDiscoverViewModel() {
     filters,
     updateFilter,
     toggleGenre,
+    toggleExcludeGenre,
+    toggleSmartTag,
     toggleFilterValue,
     resetFilters,
 

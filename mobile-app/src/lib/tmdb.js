@@ -439,19 +439,41 @@ export async function fetchDiscoverCountries() {
   return _countryDiscoverCache;
 }
 
+// ─── Anime Smart-Filter ─────────────────────────────────────────────────────
+// Anime is not an official TMDB genre. We approximate it by flagging items
+// that (a) have Japanese as their original language AND carry the Animation
+// genre (id 16), OR (b) have 'anime' in their title/overview (rough heuristic).
+// TMDB genre id 16 = Animation.
+const ANIMATION_GENRE_ID = 16;
+
+function isLikelyAnime(rawItem) {
+  const lang = (rawItem.original_language || '').toLowerCase();
+  const genreIds = rawItem.genre_ids || [];
+  if (lang === 'ja' && genreIds.includes(ANIMATION_GENRE_ID)) return true;
+
+  // Secondary heuristic: title or overview contains 'anime'
+  const titleLower = (rawItem.title || rawItem.name || '').toLowerCase();
+  const overviewLower = (rawItem.overview || '').toLowerCase();
+  if (titleLower.includes('anime') || overviewLower.includes('anime')) return true;
+
+  return false;
+}
+
 /**
  * Call /3/discover/movie or /3/discover/tv with a filter object.
  *
  * filters = {
  *   mediaType: 'movie' | 'tv',
- *   genreIds: number[],
+ *   genreIds: number[],            // include genres (AND/OR)
  *   genreLogic: 'AND' | 'OR',
- *   minRating: number | null,   // vote_average.gte
- *   languageCodes: string[],    // ISO 639-1, e.g. ['en', 'ja']
- *   originCountries: string[],  // ISO 3166-1, TV only, e.g. ['US', 'KR']
- *   fromYear: string | null,    // '2010'
- *   toYear: string | null,      // '2024'
- *   sortBy: string,             // 'popularity.desc' etc.
+ *   excludeGenreIds: number[],     // official TMDB genres to exclude
+ *   excludeSmartTags: string[],    // e.g. ['anime']
+ *   minRating: number | null,      // vote_average.gte
+ *   languageCodes: string[],       // ISO 639-1, e.g. ['en', 'ja']
+ *   originCountries: string[],     // ISO 3166-1, TV only, e.g. ['US', 'KR']
+ *   fromYear: string | null,       // '2010'
+ *   toYear: string | null,         // '2024'
+ *   sortBy: string,                // 'popularity.desc' etc.
  *   page: number,
  * }
  *
@@ -462,6 +484,8 @@ export async function discoverTitles(filters = {}) {
     mediaType = 'movie',
     genreIds = [],
     genreLogic = 'AND',
+    excludeGenreIds = [],
+    excludeSmartTags = [],
     minRating = null,
     languageCodes = [],
     originCountries = [],
@@ -478,9 +502,16 @@ export async function discoverTitles(filters = {}) {
     page,
   };
 
+  // ── Include genres ──────────────────────────────────────────────────────────
   if (genreIds.length > 0) {
     const separator = genreLogic === 'OR' ? '|' : ',';
     params.with_genres = genreIds.join(separator);
+  }
+
+  // ── Exclude genres (TMDB native support) ───────────────────────────────────
+  if (excludeGenreIds.length > 0) {
+    // TMDB: without_genres accepts comma-separated IDs (always AND-exclusion)
+    params.without_genres = excludeGenreIds.join(',');
   }
 
   if (minRating != null && minRating > 0) {
@@ -505,7 +536,12 @@ export async function discoverTitles(filters = {}) {
 
   const data = await tmdbGet(`/discover/${mediaType}`, params);
 
-  const results = (data.results || []).map((item) => {
+  const excludeAnime = excludeSmartTags.includes('anime');
+
+  const rawItems = data.results || [];
+  const filtered = excludeAnime ? rawItems.filter((item) => !isLikelyAnime(item)) : rawItems;
+
+  const results = filtered.map((item) => {
     const dateValue = item.release_date || item.first_air_date || '';
     return {
       mediaType,
@@ -520,9 +556,14 @@ export async function discoverTitles(filters = {}) {
     };
   });
 
+  // When Anime is excluded we may have removed some items from the page,
+  // so adjust the reported count to avoid misleading the user.
+  const removedCount = rawItems.length - filtered.length;
+  const adjustedTotal = Math.max(0, (data.total_results || 0) - removedCount);
+
   return {
     results,
-    totalResults: data.total_results || 0,
+    totalResults: adjustedTotal,
     totalPages: data.total_pages || 1,
     page: data.page || 1,
   };
