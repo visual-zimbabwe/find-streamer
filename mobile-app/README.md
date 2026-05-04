@@ -1,71 +1,48 @@
-# Find Streamer Mobile (Expo)
+# FindStreamer Mobile App
 
-Mobile app (iOS/Android) for the same TMDB-based workflow used in desktop/CLI.
+FindStreamer is a premium mobile application designed to help users discover movies and TV shows and check their streaming availability across various services like Netflix, Prime Video, and Max. It features an advanced discovery engine with inclusive/exclusive filtering, person-based filmographies, and localized availability data.
 
-## Features
+## Quick Start
 
-- Search movie/TV title
-- Show top TMDB matches when a title is ambiguous
-- Let the user pick the exact movie or TV show before loading results
-- Metadata: year, genres, rating, trailer, synopsis
-- Country table with service columns: Netflix, Prime Video, Max
-- Alphabetical country ordering
+1.  **Install Dependencies:**
+    ```bash
+    npm install
+    ```
+2.  **Start Development Server:**
+    ```bash
+    npx expo start
+    ```
+3.  **Run on Android/iOS:**
+    Press `a` for Android or `i` for iOS in the terminal after starting the dev server.
 
-## Run
+## Usage
 
-```powershell
-cd .\mobile-app
-npm install
-npx expo start
-```
-
-Then scan the QR code in Expo Go, or run an emulator.
-
-## Build Notes
-
-For store builds, use EAS Build:
-
-```powershell
-npm install -g eas-cli
-eas build:configure
-eas build --platform android
-```
-
-You can similarly build for iOS with Apple developer setup.
-
-### Android APK (direct install)
-
-To always build an installable APK (not AAB), this project includes `eas.json` with a `preview` profile.
-
-```powershell
-cd .\mobile-app
+The main entry point is `App.js`. The application uses Expo and React Native.
+To build a preview APK:
+```bash
 eas build --platform android --profile preview
-```
-
-For Play Store submission builds (AAB), use:
-
-```powershell
-eas build --platform android --profile production
 ```
 
 ## Project Structure
 
 ```text
-mobile-app/
-├── .expo/
-├── Trova/
-│   ├── main_search/
-│   ├── search_results/
-│   └── watchlist_view/
-├── app.json
-├── App.js
-├── eas.json
-├── icon.png
-├── package.json
-├── README.md
-├── settings.html
+find-streamer/
+├── App.js                  # Main entry point and navigation state
+├── AGENT.md                # Agent-specific instructions
+├── PROGRESS.md             # Project roadmap and session memory
+├── README.md               # Project documentation
+├── app.json                # Expo configuration
+├── package.json            # Dependencies and scripts
 ├── src/
-├── tsconfig.json
-└── watchlist.html
+│   ├── components/         # React Native UI components
+│   │   ├── DiscoverScreen.js     # Advanced discovery engine UI
+│   │   ├── FilmographyScreen.js  # Person filmography view
+│   │   ├── ResultView.js         # Media details and availability
+│   │   └── ...                   # Other UI components
+│   ├── lib/                # Business logic and API utilities
+│   │   ├── tmdb.js               # TMDB API wrapper
+│   │   ├── discoverViewModel.js  # Discover screen logic
+│   │   └── ...                   # Data management utilities
+│   └── theme/              # Styling and design system
+└── tests/                  # Test suite
 ```
-

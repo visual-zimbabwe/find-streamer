@@ -1,5 +1,5 @@
 ## Current Phase
-Person-Based Content Discovery — directors, creators, AND starring actors are all tappable links that open a FilmographyScreen.
+Advanced Discover Filters — Inclusive/Exclusive genres and Anime smart-filtering.
 
 ## Completed Tasks
 - [x] Initialized project link with `eas project:init` after removing defunct `projectId`.
@@ -24,6 +24,10 @@ Person-Based Content Discovery — directors, creators, AND starring actors are 
 
 - [x] **Navigation Fix** — Resolved back-navigation loops (e.g. Movie → Director → Movie) by implementing a full `navigationHistory` stack in `App.js`. This replaces manual `origin` tracking with state-preserving snapshots for every navigation step.
 - [x] **Hardware Back Support** — Updated Android hardware back button handler to correctly pop from the navigation stack before allowing the app to close.
+- [x] **Discover Filter Evolution** — Inclusive/Exclusive genre logic:
+  - `src/lib/tmdb.js` — Added `without_genres` (exclude) support and `isLikelyAnime` smart-filter heuristic (JA + Animation).
+  - `src/lib/discoverViewModel.js` — Managed `excludeGenreIds` and `excludeSmartTags` state; implemented mutual exclusion between include/exclude groups.
+  - `src/components/DiscoverScreen.js` — Segmented UI with "Include" and "Exclude" tabs; Green/Red visual feedback; detailed Anime info callouts.
 
 ## Active Bugs
 - None.
