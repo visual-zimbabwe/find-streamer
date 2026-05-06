@@ -3,7 +3,7 @@
 FindStreamer is a premium mobile application designed to help users discover movies and TV shows and check their streaming availability across various services like Netflix, Prime Video, and Max. It features an advanced discovery engine with inclusive/exclusive filtering, language presets, region grouping, person-based filmographies, and localized availability data.
 
 ## Current Phase
-Advanced Discover Filters — Language presets by region and English-exclusion.
+Watchlist Experience & Organization — Grouping by media type and sorting by rating.
 
 ## Quick Start
 

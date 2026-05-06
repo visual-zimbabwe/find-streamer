@@ -1,5 +1,5 @@
 ## Current Phase
-Advanced Discover Filters — Language presets by region and English-exclusion.
+Watchlist Experience & Organization — Grouping by media type and sorting by rating.
 
 ## Completed Tasks
 - [x] Initialized project link with `eas project:init` after removing defunct `projectId`.
@@ -30,6 +30,12 @@ Advanced Discover Filters — Language presets by region and English-exclusion.
   - `src/lib/discoverViewModel.js` — Added `activePreset`, `excludeEnglish` state; implemented `applyPreset` / `clearPreset` actions.
   - `src/components/DiscoverScreen.js` — Added "Language Presets" scrollable chip section; integrated info banners for region descriptions and smart-filter warnings; synced presets with the advanced language picker.
 
+- [x] **Watchlist Experience & Organization**:
+  - `src/components/WatchlistView.js` — Implemented automatic sub-grouping within each category: items are now split into "Movies" and "TV Shows" blocks.
+  - Added rating-based sorting: each sub-group is ordered by rating in descending order.
+  - Enhanced UI hierarchy: added sub-group headers with icons (`film-outline`, `tv-outline`) and dividers.
+  - Fixed category header count to reflect the `totalCount` of all items in sub-groups.
+
 ## Active Bugs
 - None.
 
@@ -56,3 +62,4 @@ Advanced Discover Filters — Language presets by region and English-exclusion.
 - **2026-04-21 (session 2):** Upgraded Discover screen to full spec: searchable language/country pickers from TMDB API, Origin Country (TV-only), media-type-aware sort options, fixed BottomNav clipping, vote_count.gte=20.
 - **2026-05-02 (session 1):** Added director/creator tappable links (FilmographyScreen) for movies and TV shows.
 - **2026-05-02 (session 2):** Extended to starring actors — all 5 top-billed cast members are tappable; clicking one shows their full filmography (movies + TV shows combined) via TMDB combined_credits API.
+- **2026-05-06:** Implemented Watchlist sub-grouping (Movies vs TV) and rating-based sorting. Added visual dividers and group headers to the Watchlist view.
