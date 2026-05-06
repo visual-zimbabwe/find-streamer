@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 import { REGION_PRESETS, SPECIAL_PRESETS, findPreset } from '../lib/languagePresets';
+import { COUNTRY_PRESETS, findCountryPreset, filterCountriesByPreset } from '../lib/countryPresets';
 
 // ─── Sort Options (media-type-aware) ──────────────────────────────────────────
 const SORT_OPTIONS_MOVIE = [
@@ -452,9 +453,80 @@ export function DiscoverScreen({ onSelectItem, vm }) {
         {vm.filters.mediaType === 'tv' && (
           <>
             <Divider color={c.outlineVariant} />
-            <SectionLabel label="Origin Country (TV)" colors={c} typography={typography} />
+
+            {/* Section label + clear */}
+            <View style={styles.sectionRow}>
+              <SectionLabel label="Country Presets" colors={c} typography={typography} />
+              {vm.filters.activeCountryPreset && (
+                <TouchableOpacity
+                  onPress={() => vm.clearCountryPreset()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear country preset"
+                >
+                  <Text style={[{ color: c.primary, ...typography.labelSm }]}>Clear</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Continent chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.hScroll, { marginBottom: 12 }]}>
+              <View style={styles.hChipRow}>
+                {COUNTRY_PRESETS.map((preset) => {
+                  const active = vm.filters.activeCountryPreset === preset.id;
+                  return (
+                    <TouchableOpacity
+                      key={preset.id}
+                      style={[
+                        styles.chip,
+                        { borderRadius: radii.full },
+                        active
+                          ? { backgroundColor: c.primary }
+                          : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' },
+                      ]}
+                      onPress={() => active ? vm.clearCountryPreset() : vm.applyCountryPreset(preset.id)}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Filter countries by ${preset.label}`}
+                      accessibilityState={{ selected: active }}
+                    >
+                      <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
+                        {preset.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            {/* Active preset description banner */}
+            {vm.filters.activeCountryPreset && (
+              <View style={[genreStyles.infoBanner, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderLeftColor: c.primary, marginBottom: 16 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[{ color: c.onSurface, ...typography.labelSm, fontWeight: '700', marginBottom: 2 }]}>
+                    {findCountryPreset(vm.filters.activeCountryPreset)?.label}
+                  </Text>
+                  <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
+                    {findCountryPreset(vm.filters.activeCountryPreset)?.description}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => vm.clearCountryPreset()} style={{ marginLeft: 8 }}>
+                  <Ionicons name="close-circle" size={20} color={c.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Origin Country section label + picker */}
+            <View style={styles.sectionRow}>
+              <SectionLabel label="Origin Country (TV)" colors={c} typography={typography} />
+              {vm.filters.activeCountryPreset && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="flash-outline" size={12} color={c.primary} />
+                  <Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>PRESET ACTIVE</Text>
+                </View>
+              )}
+            </View>
             <TouchableOpacity
-              style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: c.outlineVariant + '40' }]}
+              style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activeCountryPreset ? c.primary + '40' : c.outlineVariant + '40' }]}
               onPress={() => setCountryModalVisible(true)}
               activeOpacity={0.8}
               accessibilityRole="button"
@@ -462,7 +534,9 @@ export function DiscoverScreen({ onSelectItem, vm }) {
             >
               <Ionicons name="globe-outline" size={16} color={selectedOriginCountries.length ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
               <Text style={[{ flex: 1, color: selectedOriginCountries.length ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
-                {countryLabel}
+                {vm.filters.activeCountryPreset && !selectedOriginCountries.length
+                  ? `All ${findCountryPreset(vm.filters.activeCountryPreset)?.label} countries`
+                  : countryLabel}
               </Text>
               {selectedOriginCountries.length > 0 && (
                 <TouchableOpacity
@@ -616,8 +690,10 @@ export function DiscoverScreen({ onSelectItem, vm }) {
       <SearchablePickerModal
         visible={countryModalVisible}
         onClose={() => setCountryModalVisible(false)}
-        title="Select Origin Country"
-        items={vm.countries}
+        title={vm.filters.activeCountryPreset
+          ? `${findCountryPreset(vm.filters.activeCountryPreset)?.label} Countries`
+          : 'Select Origin Country'}
+        items={filterCountriesByPreset(vm.countries, vm.filters.activeCountryPreset)}
         selectedCodes={selectedOriginCountries}
         onToggle={(code) => vm.toggleFilterValue('originCountries', code)}
         onClear={() => vm.updateFilter('originCountries', [])}

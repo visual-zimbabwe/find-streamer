@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { fetchGenres, discoverTitles, fetchLanguages, fetchDiscoverCountries } from './tmdb';
 import { resolvePreset } from './languagePresets';
+import { codesForCountryPreset } from './countryPresets';
 
 const DEFAULT_FILTERS = {
   mediaType: 'movie',
@@ -25,6 +26,10 @@ const DEFAULT_FILTERS = {
   // When true, `with_original_language` will use NOT logic to exclude 'en'.
   // Derived from the 'exclude_english' / 'non_english_only' special presets.
   excludeEnglish: false,
+  // ── Country preset (continent shortcut, TV only) ───────────────────────────
+  // Stores the active continent id ('africa', 'asia', 'europe', …).
+  // Filters the country picker to only show countries in that continent.
+  activeCountryPreset: null,
 };
 
 export function useDiscoverViewModel() {
@@ -197,6 +202,35 @@ export function useDiscoverViewModel() {
     setValidationError(null);
   }, []);
 
+  // ── Country Preset Actions ─────────────────────────────────────────────────
+
+  /**
+   * Activate a continent preset for the Origin Country picker.
+   * Clears any selected origin countries that are outside the chosen continent.
+   */
+  const applyCountryPreset = useCallback((presetId) => {
+    const allowed = new Set(codesForCountryPreset(presetId));
+    setFilters((prev) => ({
+      ...prev,
+      activeCountryPreset: presetId,
+      // Keep only already-selected countries that belong to the continent.
+      originCountries: prev.originCountries.filter((code) => allowed.has(code)),
+    }));
+    setValidationError(null);
+  }, []);
+
+  /**
+   * Clear the continent preset (shows full country list again).
+   * Does NOT clear the already-selected countries.
+   */
+  const clearCountryPreset = useCallback(() => {
+    setFilters((prev) => ({
+      ...prev,
+      activeCountryPreset: null,
+    }));
+    setValidationError(null);
+  }, []);
+
   const resetFilters = useCallback(() => {
     setFilters({
       ...DEFAULT_FILTERS,
@@ -207,6 +241,7 @@ export function useDiscoverViewModel() {
       originCountries: [],
       activePreset: null,
       excludeEnglish: false,
+      activeCountryPreset: null,
     });
     setValidationError(null);
   }, []);
@@ -288,6 +323,8 @@ export function useDiscoverViewModel() {
     toggleFilterValue,
     applyPreset,
     clearPreset,
+    applyCountryPreset,
+    clearCountryPreset,
     resetFilters,
 
     genres,
