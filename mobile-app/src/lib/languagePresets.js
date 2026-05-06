@@ -33,31 +33,15 @@ export const REGION_PRESETS = [
     smartFilter: false,
   },
   {
-    id: 'east_asia',
-    label: 'East Asia 🎌',
-    emoji: '🎌',
-    description: 'Korean, Japanese, Mandarin Chinese, Cantonese',
-    // Note: TMDB uses 'zh' for Mandarin and 'cn' is sometimes used for Cantonese.
-    // 'zh' covers the bulk of Chinese-language content. Including both for breadth.
-    codes: ['ko', 'ja', 'zh', 'cn'],
-    smartFilter: false,
-  },
-  {
-    id: 'south_asia',
-    label: 'South Asia 🎬',
-    emoji: '🎬',
-    description: 'Hindi, Tamil, Telugu, Malayalam, Kannada, Bengali, Marathi, Punjabi, Sinhala, Nepali, Urdu',
-    // Note: Many Indian regional languages have sparse TMDB entries; the main
-    // industry languages (hi, ta, te, ml, kn) have solid coverage.
-    codes: ['hi', 'ta', 'te', 'ml', 'kn', 'bn', 'mr', 'pa', 'si', 'ne', 'ur'],
-    smartFilter: false,
-  },
-  {
-    id: 'southeast_asia',
-    label: 'Southeast Asia 🌏',
+    id: 'asia',
+    label: 'Asia 🌏',
     emoji: '🌏',
-    description: 'Thai, Vietnamese, Indonesian, Malay, Tagalog/Filipino',
-    codes: ['th', 'vi', 'id', 'ms', 'tl'],
+    description: 'Korean, Japanese, Mandarin Chinese, Cantonese, Hindi, Tamil, Telugu, Malayalam, Kannada, Bengali, Marathi, Punjabi, Sinhala, Nepali, Urdu, Thai, Vietnamese, Indonesian, Malay, Tagalog/Filipino',
+    // Combines East Asia, South Asia, and Southeast Asia.
+    // Note: TMDB uses 'zh' for Mandarin and 'cn' is sometimes used for Cantonese.
+    // Many Indian regional languages have sparse TMDB entries; the main
+    // industry languages (hi, ta, te, ml, kn) have solid coverage.
+    codes: ['ko', 'ja', 'zh', 'cn', 'hi', 'ta', 'te', 'ml', 'kn', 'bn', 'mr', 'pa', 'si', 'ne', 'ur', 'th', 'vi', 'id', 'ms', 'tl'],
     smartFilter: false,
   },
   {
