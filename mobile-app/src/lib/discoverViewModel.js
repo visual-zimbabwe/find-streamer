@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { fetchGenres, discoverTitles, fetchLanguages, fetchDiscoverCountries } from './tmdb';
+import { resolvePreset } from './languagePresets';
 
 const DEFAULT_FILTERS = {
   mediaType: 'movie',
@@ -17,6 +18,13 @@ const DEFAULT_FILTERS = {
   fromYear: '',
   toYear: '',
   sortBy: 'popularity.desc',
+  // ── Language preset (region shortcut) ─────────────────────────────────────
+  // Stores the active preset id ('europe', 'east_asia', 'exclude_english', …)
+  // null means the user is using the advanced individual-language picker.
+  activePreset: null,
+  // When true, `with_original_language` will use NOT logic to exclude 'en'.
+  // Derived from the 'exclude_english' / 'non_english_only' special presets.
+  excludeEnglish: false,
 };
 
 export function useDiscoverViewModel() {
@@ -158,6 +166,37 @@ export function useDiscoverViewModel() {
     setValidationError(null);
   }, []);
 
+  // ── Preset Actions ─────────────────────────────────────────────────────────
+
+  /**
+   * Activate a region or special preset.
+   * Clears any manually selected individual language codes and sets the
+   * derived languageCodes / excludeEnglish flags from the curated mapping.
+   */
+  const applyPreset = useCallback((presetId) => {
+    const { languageCodes, excludeEnglish } = resolvePreset(presetId);
+    setFilters((prev) => ({
+      ...prev,
+      activePreset: presetId,
+      languageCodes,
+      excludeEnglish,
+    }));
+    setValidationError(null);
+  }, []);
+
+  /**
+   * Clear all language selection (preset + individual codes).
+   */
+  const clearPreset = useCallback(() => {
+    setFilters((prev) => ({
+      ...prev,
+      activePreset: null,
+      languageCodes: [],
+      excludeEnglish: false,
+    }));
+    setValidationError(null);
+  }, []);
+
   const resetFilters = useCallback(() => {
     setFilters({
       ...DEFAULT_FILTERS,
@@ -166,6 +205,8 @@ export function useDiscoverViewModel() {
       excludeSmartTags: [],
       languageCodes: [],
       originCountries: [],
+      activePreset: null,
+      excludeEnglish: false,
     });
     setValidationError(null);
   }, []);
@@ -245,6 +286,8 @@ export function useDiscoverViewModel() {
     toggleExcludeGenre,
     toggleSmartTag,
     toggleFilterValue,
+    applyPreset,
+    clearPreset,
     resetFilters,
 
     genres,

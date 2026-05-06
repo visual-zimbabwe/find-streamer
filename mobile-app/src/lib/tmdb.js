@@ -492,6 +492,7 @@ export async function discoverTitles(filters = {}) {
     fromYear = null,
     toYear = null,
     sortBy = 'popularity.desc',
+    excludeEnglish = false,
     page = 1,
   } = filters;
 
@@ -520,6 +521,14 @@ export async function discoverTitles(filters = {}) {
 
   if (languageCodes.length > 0) {
     params.with_original_language = languageCodes.join('|');
+  } else if (excludeEnglish) {
+    // TMDB doesn't have a native 'without_original_language'.
+    // We simulate it by including all other common languages.
+    const allLangs = await fetchLanguages();
+    const otherCodes = allLangs
+      .map(l => l.code)
+      .filter(code => code !== null && code !== 'en');
+    params.with_original_language = otherCodes.join('|');
   }
 
   if (mediaType === 'tv' && originCountries.length > 0) {

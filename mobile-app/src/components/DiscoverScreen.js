@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
+import { REGION_PRESETS, SPECIAL_PRESETS, findPreset } from '../lib/languagePresets';
 
 // ─── Sort Options (media-type-aware) ──────────────────────────────────────────
 const SORT_OPTIONS_MOVIE = [
@@ -336,22 +337,107 @@ export function DiscoverScreen({ onSelectItem, vm }) {
 
         <Divider color={c.outlineVariant} />
 
-        {/* ── Original Language ── */}
-        <SectionLabel label="Original Language" colors={c} typography={typography} />
+        {/* ── Language Presets ── */}
+        <SectionLabel label="Language Presets" colors={c} typography={typography} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.hScroll, { marginBottom: 12 }]}>
+          <View style={styles.hChipRow}>
+            {SPECIAL_PRESETS.map((preset) => {
+              const active = vm.filters.activePreset === preset.id;
+              return (
+                <TouchableOpacity
+                  key={preset.id}
+                  style={[
+                    styles.chip,
+                    { borderRadius: radii.full },
+                    active
+                      ? { backgroundColor: c.secondaryContainer, borderWidth: 1, borderColor: c.secondary }
+                      : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' },
+                  ]}
+                  onPress={() => active ? vm.clearPreset() : vm.applyPreset(preset.id)}
+                >
+                  <Text style={[styles.chipText, { color: active ? c.onSecondaryContainer : c.onSurfaceVariant, ...typography.labelSm }]}>
+                    {preset.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            {REGION_PRESETS.map((preset) => {
+              const active = vm.filters.activePreset === preset.id;
+              return (
+                <TouchableOpacity
+                  key={preset.id}
+                  style={[
+                    styles.chip,
+                    { borderRadius: radii.full },
+                    active
+                      ? { backgroundColor: c.primary }
+                      : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' },
+                  ]}
+                  onPress={() => active ? vm.clearPreset() : vm.applyPreset(preset.id)}
+                >
+                  <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
+                    {preset.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+
+        {/* Preset Description / Smart Filter Note */}
+        {vm.filters.activePreset && (
+          <View style={[genreStyles.infoBanner, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderLeftColor: c.primary, marginBottom: 16 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[{ color: c.onSurface, ...typography.labelSm, fontWeight: '700', marginBottom: 2 }]}>
+                {findPreset(vm.filters.activePreset)?.label}
+              </Text>
+              <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
+                {findPreset(vm.filters.activePreset)?.description}
+              </Text>
+              {findPreset(vm.filters.activePreset)?.smartFilter && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                  <Ionicons name="sparkles-outline" size={12} color={c.primary} style={{ marginRight: 4 }} />
+                  <Text style={[{ color: c.primary, ...typography.labelSm, fontWeight: '700' }]}>SMART FILTER</Text>
+                </View>
+              )}
+              {findPreset(vm.filters.activePreset)?.smartFilterNote && (
+                <Text style={[{ color: c.onSurfaceVariant, fontSize: 11, fontStyle: 'italic', marginTop: 4 }]}>
+                  {findPreset(vm.filters.activePreset).smartFilterNote}
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity onPress={() => vm.clearPreset()} style={{ marginLeft: 8 }}>
+              <Ionicons name="close-circle" size={20} color={c.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <Divider color={c.outlineVariant} />
+
+        {/* ── Advanced Language Filter ── */}
+        <View style={styles.sectionRow}>
+          <SectionLabel label="Advanced Language Filter" colors={c} typography={typography} />
+          {vm.filters.activePreset && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="flash-outline" size={12} color={c.primary} />
+              <Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>PRESET ACTIVE</Text>
+            </View>
+          )}
+        </View>
         <TouchableOpacity
-          style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: c.outlineVariant + '40' }]}
+          style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activePreset ? c.primary + '40' : c.outlineVariant + '40' }]}
           onPress={() => setLangModalVisible(true)}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel={`Original language, ${langLabel}`}
         >
-          <Ionicons name="language-outline" size={16} color={selectedLanguageCodes.length ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
-          <Text style={[{ flex: 1, color: selectedLanguageCodes.length ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
-            {langLabel}
+          <Ionicons name="language-outline" size={16} color={selectedLanguageCodes.length || vm.filters.excludeEnglish ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
+          <Text style={[{ flex: 1, color: (selectedLanguageCodes.length || vm.filters.excludeEnglish) ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
+            {vm.filters.activePreset ? findPreset(vm.filters.activePreset).label : langLabel}
           </Text>
-          {selectedLanguageCodes.length > 0 && (
+          {(selectedLanguageCodes.length > 0 || vm.filters.excludeEnglish) && (
             <TouchableOpacity
-              onPress={() => vm.updateFilter('languageCodes', [])}
+              onPress={() => vm.clearPreset()}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
               accessibilityLabel="Clear selected languages"
@@ -514,8 +600,12 @@ export function DiscoverScreen({ onSelectItem, vm }) {
         title="Select Language"
         items={vm.languages}
         selectedCodes={selectedLanguageCodes}
-        onToggle={(code) => vm.toggleFilterValue('languageCodes', code)}
-        onClear={() => vm.updateFilter('languageCodes', [])}
+        onToggle={(code) => {
+          vm.toggleFilterValue('languageCodes', code);
+          vm.updateFilter('activePreset', null);
+          vm.updateFilter('excludeEnglish', false);
+        }}
+        onClear={() => vm.clearPreset()}
         loading={vm.languagesLoading}
         colors={c}
         typography={typography}

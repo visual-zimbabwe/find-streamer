@@ -1,6 +1,9 @@
 # FindStreamer Mobile App
 
-FindStreamer is a premium mobile application designed to help users discover movies and TV shows and check their streaming availability across various services like Netflix, Prime Video, and Max. It features an advanced discovery engine with inclusive/exclusive filtering, person-based filmographies, and localized availability data.
+FindStreamer is a premium mobile application designed to help users discover movies and TV shows and check their streaming availability across various services like Netflix, Prime Video, and Max. It features an advanced discovery engine with inclusive/exclusive filtering, language presets, region grouping, person-based filmographies, and localized availability data.
+
+## Current Phase
+Advanced Discover Filters — Language presets by region and English-exclusion.
 
 ## Quick Start
 
@@ -41,8 +44,12 @@ find-streamer/
 │   │   └── ...                   # Other UI components
 │   ├── lib/                # Business logic and API utilities
 │   │   ├── tmdb.js               # TMDB API wrapper
-│   │   ├── discoverViewModel.js  # Discover screen logic
-│   │   └── ...                   # Data management utilities
+│   │   ├── discoverViewModel.js
+│   │   ├── languagePresets.js
+│   │   ├── shareUtils.js
+│   │   ├── storage.js
+│   │   ├── tmdb.js
+│   │   └── watchlistCategories.js
 │   └── theme/              # Styling and design system
 └── tests/                  # Test suite
 ```

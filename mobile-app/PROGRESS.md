@@ -1,5 +1,5 @@
 ## Current Phase
-Advanced Discover Filters — Inclusive/Exclusive genres and Anime smart-filtering.
+Advanced Discover Filters — Language presets by region and English-exclusion.
 
 ## Completed Tasks
 - [x] Initialized project link with `eas project:init` after removing defunct `projectId`.
@@ -24,10 +24,11 @@ Advanced Discover Filters — Inclusive/Exclusive genres and Anime smart-filteri
 
 - [x] **Navigation Fix** — Resolved back-navigation loops (e.g. Movie → Director → Movie) by implementing a full `navigationHistory` stack in `App.js`. This replaces manual `origin` tracking with state-preserving snapshots for every navigation step.
 - [x] **Hardware Back Support** — Updated Android hardware back button handler to correctly pop from the navigation stack before allowing the app to close.
-- [x] **Discover Filter Evolution** — Inclusive/Exclusive genre logic:
-  - `src/lib/tmdb.js` — Added `without_genres` (exclude) support and `isLikelyAnime` smart-filter heuristic (JA + Animation).
-  - `src/lib/discoverViewModel.js` — Managed `excludeGenreIds` and `excludeSmartTags` state; implemented mutual exclusion between include/exclude groups.
-  - `src/components/DiscoverScreen.js` — Segmented UI with "Include" and "Exclude" tabs; Green/Red visual feedback; detailed Anime info callouts.
+- [x] **Discover Filter Evolution** — Language Presets:
+  - `src/lib/languagePresets.js` — Created a curated mapping layer for regional language groups (Europe, East Asia, etc.) and special toggles (Exclude English). Includes "smart filter" metadata for imperfect mappings (Middle East, Africa, Latin America).
+  - `src/lib/tmdb.js` — Updated `discoverTitles` to handle `excludeEnglish` by fetching all languages and including all codes except 'en'.
+  - `src/lib/discoverViewModel.js` — Added `activePreset`, `excludeEnglish` state; implemented `applyPreset` / `clearPreset` actions.
+  - `src/components/DiscoverScreen.js` — Added "Language Presets" scrollable chip section; integrated info banners for region descriptions and smart-filter warnings; synced presets with the advanced language picker.
 
 ## Active Bugs
 - None.
@@ -46,6 +47,8 @@ Advanced Discover Filters — Inclusive/Exclusive genres and Anime smart-filteri
 - **BottomNav fix:** Removed hard-coded `height:80`, added explicit `paddingTop:10`. Safe-area `insets.bottom` already applied correctly.
 - **vote_count.gte:** Changed from 50 → 20 per spec.
 - **Sort options:** Media-type aware — Revenue hidden for TV; date sort params switch between `primary_release_date.*` (movies) and `first_air_date.*` (TV).
+- **Language Presets:** Uses a dedicated `languagePresets.js` mapping layer instead of raw ISO codes. "Exclude English" is simulated by including all non-English languages in `with_original_language` since TMDB lacks a `without_original_language` parameter.
+- **Smart Filters:** Labeled with ✨ icons and explanatory text when TMDB's language/genre data is imprecise (e.g., Arabic, Sub-Saharan Africa, Latin America).
 
 - **Session History:**
 - **2026-03-24:** Resolved EAS permission error by removing the old `projectId` from `app.json` and re-initializing the project. Successfully started the Android build.

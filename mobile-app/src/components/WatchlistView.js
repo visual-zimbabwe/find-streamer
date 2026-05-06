@@ -39,12 +39,17 @@ export function WatchlistView({ items, onRemove, onSelect }) {
     );
   }
 
+  const sortByRatingDesc = (arr) =>
+    [...arr].sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
+
   const groupedItems = WATCHLIST_CATEGORIES
-    .map((category) => ({
-      ...category,
-      items: items.filter((item) => getWatchlistCategory(item.watchlistCategoryId).id === category.id),
-    }))
-    .filter((category) => category.items.length > 0);
+    .map((category) => {
+      const all = items.filter((item) => getWatchlistCategory(item.watchlistCategoryId).id === category.id);
+      const movies = sortByRatingDesc(all.filter((item) => item.mediaType === 'movie'));
+      const tvShows = sortByRatingDesc(all.filter((item) => item.mediaType !== 'movie'));
+      return { ...category, movies, tvShows, totalCount: all.length };
+    })
+    .filter((category) => category.totalCount > 0);
 
   const toggleCategory = (categoryId) => {
     setCollapsedCategoryIds((current) => ({
@@ -153,7 +158,7 @@ export function WatchlistView({ items, onRemove, onSelect }) {
                 <View style={styles.categoryHeadingText}>
                   <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]}>{category.label}</Text>
                   <Text style={[styles.categoryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                    {category.items.length} {category.items.length === 1 ? 'TITLE' : 'TITLES'}
+                    {category.totalCount} {category.totalCount === 1 ? 'TITLE' : 'TITLES'}
                   </Text>
                 </View>
                 <View style={[styles.categoryToggle, { borderColor: colors.outlineVariant }]}>
@@ -166,47 +171,58 @@ export function WatchlistView({ items, onRemove, onSelect }) {
               </TouchableOpacity>
 
               {!isCollapsed && (
-                <View style={styles.list}>
-                  {category.items.map((item) => (
-                    <TouchableOpacity 
-                      key={item.tmdbId} 
-                      style={styles.card}
-                      activeOpacity={0.8}
-                      onPress={() => onSelect(item)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Open details for ${item.title}`}
-                    >
-                      <View style={[styles.posterWrapper, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
-                        <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} />
-                        <TouchableOpacity 
-                          style={[styles.removeButton, { backgroundColor: colors.surface + 'cc' }]}
-                          onPress={() => onRemove(item.tmdbId)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Remove ${item.title} from watchlist`}
-                        >
-                          <Ionicons name="trash-outline" size={18} color={colors.error} />
-                        </TouchableOpacity>
-                      </View>
-                      <View style={styles.info}>
-                        <View style={styles.badgeRow}>
-                          <Text style={[styles.mediaType, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                            {item.mediaType?.toUpperCase()}
+                <View style={styles.groupStack}>
+                  {[{ label: 'Movies', icon: 'film-outline', data: category.movies }, { label: 'TV Shows', icon: 'tv-outline', data: category.tvShows }]
+                    .filter((g) => g.data.length > 0)
+                    .map((group) => (
+                      <View key={group.label} style={styles.mediaGroup}>
+                        <View style={styles.mediaGroupHeader}>
+                          <Ionicons name={group.icon} size={14} color={colors.onSurfaceVariant} />
+                          <Text style={[styles.mediaGroupLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                            {group.label.toUpperCase()}
                           </Text>
+                          <View style={[styles.mediaGroupDivider, { backgroundColor: colors.outlineVariant }]} />
                         </View>
-                        <Text style={[styles.itemTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
-                          {item.title}
-                        </Text>
-                        <View style={styles.meta}>
-                          <Ionicons name="star" size={14} color={colors.primary} />
-                          <Text style={{ color: colors.primary }}>{item.rating}</Text>
-                          <Text style={{ color: colors.onSurfaceVariant }}>• {item.year}</Text>
+                        <View style={styles.list}>
+                          {group.data.map((item) => (
+                            <TouchableOpacity
+                              key={item.tmdbId}
+                              style={styles.card}
+                              activeOpacity={0.8}
+                              onPress={() => onSelect(item)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Open details for ${item.title}`}
+                            >
+                              <View style={[styles.posterWrapper, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
+                                <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} />
+                                <TouchableOpacity
+                                  style={[styles.removeButton, { backgroundColor: colors.surface + 'cc' }]}
+                                  onPress={() => onRemove(item.tmdbId)}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`Remove ${item.title} from watchlist`}
+                                >
+                                  <Ionicons name="trash-outline" size={18} color={colors.error} />
+                                </TouchableOpacity>
+                              </View>
+                              <View style={styles.info}>
+                                <Text style={[styles.itemTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
+                                  {item.title}
+                                </Text>
+                                <View style={styles.meta}>
+                                  <Ionicons name="star" size={14} color={colors.primary} />
+                                  <Text style={{ color: colors.primary }}>{item.rating}</Text>
+                                  <Text style={{ color: colors.onSurfaceVariant }}>• {item.year}</Text>
+                                </View>
+                                <Text style={[styles.synopsis, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
+                                  {item.synopsis}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
                         </View>
-                        <Text style={[styles.synopsis, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
-                          {item.synopsis}
-                        </Text>
                       </View>
-                    </TouchableOpacity>
-                  ))}
+                    ))
+                  }
                 </View>
               )}
             </View>
@@ -273,6 +289,25 @@ const styles = StyleSheet.create({
     height: 36,
     justifyContent: 'center',
     width: 36,
+  },
+  groupStack: {
+    gap: 28,
+  },
+  mediaGroup: {
+    gap: 16,
+  },
+  mediaGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  mediaGroupLabel: {
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  mediaGroupDivider: {
+    flex: 1,
+    height: 1,
   },
   list: {
     gap: 32,
