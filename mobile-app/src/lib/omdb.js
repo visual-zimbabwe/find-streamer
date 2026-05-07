@@ -3,14 +3,14 @@ const OMDB_BASE = 'http://www.omdbapi.com/';
 
 /**
  * Fetch ratings from OMDb for a given IMDB ID.
- * Returns an object with imdbRating, rottenTomatoes, and metascore.
+ * Returns an object with imdbRating, rottenTomatoes, metascore, and awards.
  * Any field that is unavailable / 'N/A' will be null.
  *
  * @param {string|null} imdbId  e.g. 'tt3896198'
- * @returns {Promise<{ imdbRating: string|null, rottenTomatoes: string|null, metascore: string|null }>}
+ * @returns {Promise<{ imdbRating: string|null, rottenTomatoes: string|null, metascore: string|null, awards: string|null }>}
  */
 export async function fetchOmdbRatings(imdbId) {
-  const empty = { imdbRating: null, rottenTomatoes: null, metascore: null };
+  const empty = { imdbRating: null, rottenTomatoes: null, metascore: null, awards: null };
 
   if (!imdbId) return empty;
 
@@ -31,7 +31,10 @@ export async function fetchOmdbRatings(imdbId) {
     const rottenTomatoes =
       (data.Ratings || []).find((r) => r.Source === 'Rotten Tomatoes')?.Value ?? null;
 
-    return { imdbRating, rottenTomatoes, metascore };
+    const awards =
+      data.Awards && data.Awards !== 'N/A' ? data.Awards : null;
+
+    return { imdbRating, rottenTomatoes, metascore, awards };
   } catch {
     return empty;
   }
