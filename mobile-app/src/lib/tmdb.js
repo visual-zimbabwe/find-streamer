@@ -1,3 +1,5 @@
+import { fetchOmdbRatings } from './omdb';
+
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const HARDCODED_BEARER_TOKEN =
   'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZWNkNDE1YWJhY2VmMzYxM2I5NDc1MWQ5OWRhODU2YSIsIm5iZiI6MTc3MTgwMDUzOS45ODU5OTk4LCJzdWIiOiI2OTliODdkYmYwMTE1NmYxNDljNWE1MTgiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.oXCB5rLBXE6TwtgHGup4lEEX-dI0uTXGUVP8PQesics';
@@ -207,6 +209,7 @@ async function getTitleMetadata(mediaType, tmdbId) {
     genres: genres.length ? genres.join(', ') : 'N/A',
     rating,
     runtimeMinutes,
+    imdbId: data.imdb_id || null,
     numberOfSeasons: mediaType === 'tv' ? data.number_of_seasons || seasons.length : null,
     numberOfEpisodes: mediaType === 'tv' ? data.number_of_episodes || seasons.reduce((total, season) => total + season.episodeCount, 0) : null,
     createdBy: mediaType === 'tv'
@@ -630,6 +633,9 @@ export async function resolveMatch(query, match) {
     getCountryNames(),
   ]);
 
+  // Fetch OMDb ratings using the IMDB ID returned by TMDB metadata.
+  const omdbRatings = await fetchOmdbRatings(metadata.imdbId || null);
+
   const rows = toRows(availability, countryNames);
   const serviceLogos = availability.logos || {};
 
@@ -648,6 +654,7 @@ export async function resolveMatch(query, match) {
       ])
     ),
     providerAvailabilityConfidence: availability.confidence || 'show',
+    omdbRatings,
   };
 }
 

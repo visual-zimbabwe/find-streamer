@@ -204,6 +204,42 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           </Text>
         </View>
 
+        {/* ─── Ratings ─────────────────────────────────────────────────── */}
+        {result.omdbRatings && (result.omdbRatings.imdbRating || result.omdbRatings.rottenTomatoes || result.omdbRatings.metascore) && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>RATINGS</Text>
+            <View style={styles.ratingsRow}>
+              {result.omdbRatings.imdbRating && (
+                <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
+                  <Text style={styles.ratingBadgeIcon}>⭐</Text>
+                  <View>
+                    <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>IMDb</Text>
+                    <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.imdbRating}</Text>
+                  </View>
+                </View>
+              )}
+              {result.omdbRatings.rottenTomatoes && (
+                <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
+                  <Text style={styles.ratingBadgeIcon}>🍅</Text>
+                  <View>
+                    <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Rotten Tomatoes</Text>
+                    <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.rottenTomatoes}</Text>
+                  </View>
+                </View>
+              )}
+              {result.omdbRatings.metascore && (
+                <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
+                  <Text style={styles.ratingBadgeIcon}>🛡️</Text>
+                  <View>
+                    <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Metascore</Text>
+                    <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.metascore}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         {hasSeasonDetails && (
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>SEASONS & EPISODES</Text>
@@ -698,5 +734,32 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 6,
     borderWidth: 1.5,
+  },
+  ratingsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    minWidth: 130,
+  },
+  ratingBadgeIcon: {
+    fontSize: 24,
+  },
+  ratingBadgeLabel: {
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  ratingBadgeValue: {
+    fontWeight: '900',
   },
 });
