@@ -1,5 +1,5 @@
 const OMDB_API_KEY = 'cd05d48b';
-const OMDB_BASE = 'http://www.omdbapi.com/';
+const OMDB_BASE = 'https://www.omdbapi.com/';
 
 /**
  * Fetch ratings from OMDb for a given IMDB ID.
