@@ -1,9 +1,9 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 
-export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSearches, onPickSuggestion, filter, onFilterChange, hideHistory, hideHero }) {
+export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSearches, onPickSuggestion, filter, onFilterChange, hideHistory, hideHero, typeResults, typeLoading, onTypeSelect }) {
   const { theme } = useTheme();
   const { colors, spacing, typography, radii } = theme;
 
@@ -31,7 +31,46 @@ export function SearchPanel({ value, onChangeText, onSubmit, loading, recentSear
           onSubmitEditing={onSubmit}
           editable={!loading}
         />
+        {typeLoading && (
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 14 }} />
+        )}
       </View>
+
+      {/* Live suggestion list */}
+      {typeResults && typeResults.length > 0 && value.trim().length > 0 && (
+        <View style={[styles.liveResults, { backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.lg }]}>
+          {typeResults.slice(0, 10).map((item, index) => (
+            <TouchableOpacity
+              key={item.tmdbId}
+              style={[
+                styles.liveRow,
+                index < typeResults.slice(0, 10).length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.outlineVariant + '26' },
+              ]}
+              onPress={() => onTypeSelect && onTypeSelect(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`Select ${item.title}`}
+              activeOpacity={0.72}
+            >
+              {item.posterUrl ? (
+                <Image source={{ uri: item.posterUrl }} style={styles.livePoster} resizeMode="cover" />
+              ) : (
+                <View style={[styles.livePoster, styles.livePosterPlaceholder, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <Ionicons name="film-outline" size={16} color={colors.onSurfaceVariant} />
+                </View>
+              )}
+              <View style={styles.liveInfo}>
+                <Text style={[styles.liveTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <Text style={[styles.liveMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                  {item.year !== 'N/A' ? item.year : ''}{item.year !== 'N/A' && item.mediaType ? ' · ' : ''}{item.mediaType === 'tv' ? 'TV Show' : item.mediaType === 'movie' ? 'Movie' : ''}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceVariant} style={{ opacity: 0.5 }} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       <View style={styles.filterToggles}>
         <TouchableOpacity 
@@ -127,6 +166,38 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  liveResults: {
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  liveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 12,
+  },
+  livePoster: {
+    width: 36,
+    height: 52,
+    borderRadius: 6,
+  },
+  livePosterPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  liveTitle: {
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  liveMeta: {
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   suggestionsWrapper: {
     marginTop: 48,

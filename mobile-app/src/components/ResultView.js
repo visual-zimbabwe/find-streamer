@@ -322,16 +322,27 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           ))}
           
           <View style={styles.actionRow}>
-            <TouchableOpacity 
-              style={[styles.watchButton, { backgroundColor: colors.primary }]}
-              onPress={() => Linking.openURL(result.trailer)}
-              disabled={!result.trailer || result.trailer === 'N/A'}
-              accessibilityRole="button"
-              accessibilityLabel={`Watch trailer for ${result.title}`}
-              accessibilityState={{ disabled: !result.trailer || result.trailer === 'N/A' }}
-            >
-              <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>▶ WATCH TRAILER</Text>
-            </TouchableOpacity>
+            {result.trailer && result.trailer !== 'N/A' && (
+              <TouchableOpacity
+                style={[styles.watchButton, { backgroundColor: colors.primary }]}
+                onPress={() => Linking.openURL(result.trailer)}
+                accessibilityRole="button"
+                accessibilityLabel={`Watch trailer for ${result.title}`}
+              >
+                <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>▶ WATCH TRAILER</Text>
+              </TouchableOpacity>
+            )}
+
+            {result.imdbId && (
+              <TouchableOpacity
+                style={[styles.imdbButton, { backgroundColor: '#F5C518', borderColor: '#D4A800' }]}
+                onPress={() => Linking.openURL(`https://www.imdb.com/title/${result.imdbId}/`)}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${result.title} on IMDb`}
+              >
+                <Text style={[styles.imdbButtonText, { ...typography.labelSm }]}>IMDb</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity 
               style={[styles.bookmarkButton, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '4D' }]}
@@ -675,6 +686,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  imdbButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imdbButtonText: {
+    fontWeight: '900',
+    color: '#000000',
+    letterSpacing: 0.5,
   },
   similarScroll: {
     gap: 16,

@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StyleSheet, View, ScrollView, Alert, Keyboard, BackHandler, Modal, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,6 +46,9 @@ function MobileApp() {
   const [watchlist, setWatchlist] = useState([]);
   const [pendingWatchlistItem, setPendingWatchlistItem] = useState(null); // { ...item, _isReCategorize: bool }
   const [filter, setFilter] = useState(null); // 'movie' | 'tv' | null
+  const [typeResults, setTypeResults] = useState([]);
+  const [typeLoading, setTypeLoading] = useState(false);
+  const typeDebounceRef = useRef(null);
   const [filmographyPerson, setFilmographyPerson] = useState(null); // { id, name, role }
   const [filmographyResults, setFilmographyResults] = useState([]);
   const [filmographyLoading, setFilmographyLoading] = useState(false);
@@ -141,9 +144,58 @@ function MobileApp() {
     init();
   }, []);
 
+  const clearTypeResults = useCallback(() => {
+    if (typeDebounceRef.current) clearTimeout(typeDebounceRef.current);
+    setTypeResults([]);
+    setTypeLoading(false);
+  }, []);
+
+  // Debounced search-as-you-type: fires 300 ms after the user stops typing
+  const handleQueryChange = useCallback((text) => {
+    setQuery(text);
+    if (typeDebounceRef.current) clearTimeout(typeDebounceRef.current);
+    if (!text.trim()) {
+      setTypeResults([]);
+      setTypeLoading(false);
+      return;
+    }
+    setTypeLoading(true);
+    typeDebounceRef.current = setTimeout(async () => {
+      try {
+        const candidates = await searchTitleCandidates(text.trim());
+        // candidates may be a person object – ignore it for live suggestions
+        if (candidates.isPerson) {
+          setTypeResults([]);
+        } else {
+          setTypeResults(candidates.slice(0, 10));
+        }
+      } catch {
+        setTypeResults([]);
+      } finally {
+        setTypeLoading(false);
+      }
+    }, 300);
+  }, []);
+
+  // Selecting a live suggestion goes straight to the detail view
+  const handleTypeSelect = useCallback(async (match) => {
+    clearTypeResults();
+    Keyboard.dismiss();
+    setLoading(true);
+    try {
+      const fullResult = await resolveMatch(match.title, match);
+      navigateTo('detail', { selectedResult: fullResult });
+    } catch (err) {
+      Alert.alert('Error', 'Unable to fetch movie details.');
+    } finally {
+      setLoading(false);
+    }
+  }, [clearTypeResults, navigateTo]);
+
   const handleSearch = useCallback(async (searchQuery = query) => {
     if (!searchQuery.trim()) return;
     
+    clearTypeResults();
     Keyboard.dismiss();
     setLoading(true);
     setError(null);
@@ -178,7 +230,7 @@ function MobileApp() {
     } finally {
       setLoading(false);
     }
-  }, [query, recentSearches, handlePersonPress, navigateTo]);
+  }, [query, recentSearches, clearTypeResults, handlePersonPress, navigateTo]);
 
   const handleSelectMatch = useCallback(async (match) => {
     setLoading(true);
@@ -323,13 +375,16 @@ function MobileApp() {
               <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
                 <SearchPanel 
                   value={query} 
-                  onChangeText={setQuery} 
+                  onChangeText={handleQueryChange} 
                   onSubmit={() => handleSearch()} 
                   loading={loading}
                   recentSearches={recentSearches}
                   onPickSuggestion={handleSearch}
                   filter={filter}
                   onFilterChange={setFilter}
+                  typeResults={typeResults}
+                  typeLoading={typeLoading}
+                  onTypeSelect={handleTypeSelect}
                 />
               </ScrollView>
             )}
@@ -338,13 +393,16 @@ function MobileApp() {
               <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
                 <SearchPanel 
                   value={query} 
-                  onChangeText={setQuery} 
+                  onChangeText={handleQueryChange} 
                   onSubmit={() => handleSearch()} 
                   loading={loading}
                   hideHistory={true}
                   hideHero={true}
                   filter={filter}
                   onFilterChange={setFilter}
+                  typeResults={typeResults}
+                  typeLoading={typeLoading}
+                  onTypeSelect={handleTypeSelect}
                 />
                 <MatchResults 
                   matches={filteredResults} 
