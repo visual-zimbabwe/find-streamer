@@ -129,7 +129,6 @@ export const COUNTRY_PRESETS = [
       'TJ', // Tajikistan
       'TH', // Thailand
       'TL', // Timor-Leste
-      'TR', // Turkey
       'TM', // Turkmenistan
       'AE', // United Arab Emirates
       'UZ', // Uzbekistan
@@ -262,6 +261,29 @@ export const COUNTRY_PRESETS = [
       'TO', // Tonga
       'TV', // Tuvalu
       'VU', // Vanuatu
+    ],
+  },
+  {
+    id: 'middle_east',
+    label: 'Middle East 🅌',
+    emoji: '🅌',
+    description: 'Saudi Arabia, UAE, Turkey, Iran, Iraq, Israel, Jordan, Kuwait, Lebanon, Qatar, and more.',
+    codes: [
+      'AE', // United Arab Emirates
+      'BH', // Bahrain
+      'IL', // Israel
+      'IQ', // Iraq
+      'IR', // Iran
+      'JO', // Jordan
+      'KW', // Kuwait
+      'LB', // Lebanon
+      'OM', // Oman
+      'PS', // Palestine
+      'QA', // Qatar
+      'SA', // Saudi Arabia
+      'SY', // Syria
+      'TR', // Turkey
+      'YE', // Yemen
     ],
   },
 ];

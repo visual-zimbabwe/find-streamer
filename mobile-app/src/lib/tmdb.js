@@ -1,4 +1,5 @@
 import { fetchOmdbRatings } from './omdb';
+import { NON_ENGLISH_CODES } from './languagePresets';
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const HARDCODED_BEARER_TOKEN =
@@ -525,13 +526,12 @@ export async function discoverTitles(filters = {}) {
   if (languageCodes.length > 0) {
     params.with_original_language = languageCodes.join('|');
   } else if (excludeEnglish) {
-    // TMDB doesn't have a native 'without_original_language'.
-    // We simulate it by including all other common languages.
-    const allLangs = await fetchLanguages();
-    const otherCodes = allLangs
-      .map(l => l.code)
-      .filter(code => code !== null && code !== 'en');
-    params.with_original_language = otherCodes.join('|');
+    // TMDB has no native `without_original_language` parameter.
+    // We use NON_ENGLISH_CODES — a curated, stable union of all major
+    // non-English language codes across our region presets.
+    // This avoids the URL-length issues caused by joining all 180+ TMDB
+    // language codes and keeps the query semantically meaningful.
+    params.with_original_language = NON_ENGLISH_CODES.join('|');
   }
 
   if (mediaType === 'tv' && originCountries.length > 0) {

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { fetchGenres, discoverTitles, fetchLanguages, fetchDiscoverCountries } from './tmdb';
-import { resolvePreset } from './languagePresets';
-import { codesForCountryPreset } from './countryPresets';
+import { resolvePreset, LANGUAGE_TO_COUNTRY_PRESET } from './languagePresets';
+import { codesForCountryPreset, findCountryPreset } from './countryPresets';
 
 const DEFAULT_FILTERS = {
   mediaType: 'movie',
@@ -52,6 +52,10 @@ export function useDiscoverViewModel() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [validationError, setValidationError] = useState(null);
+
+  // Linked-preset banner: set when a language preset maps to a country preset
+  // and the user is on the TV view. Shape: { presetId, label } | null
+  const [pendingCountryLink, setPendingCountryLink] = useState(null);
 
   // Abort guard: prevent stale responses overwriting newer ones
   const searchTokenRef = useRef(0);
@@ -187,6 +191,22 @@ export function useDiscoverViewModel() {
       excludeEnglish,
     }));
     setValidationError(null);
+
+    // Show the linked country preset banner if:
+    //  - We are on the TV view (country filter only applies to TV)
+    //  - The activated language preset has a mapped country preset
+    //  - No country preset is already active
+    setFilters((prev) => {
+      const linkedId = LANGUAGE_TO_COUNTRY_PRESET[presetId];
+      const isTV = prev.mediaType === 'tv';
+      if (linkedId && isTV && !prev.activeCountryPreset) {
+        const linked = findCountryPreset(linkedId);
+        if (linked) {
+          setPendingCountryLink({ presetId: linkedId, label: linked.label });
+        }
+      }
+      return prev; // filter state already set above — no changes needed here
+    });
   }, []);
 
   /**
@@ -199,7 +219,28 @@ export function useDiscoverViewModel() {
       languageCodes: [],
       excludeEnglish: false,
     }));
+    setPendingCountryLink(null);
     setValidationError(null);
+  }, []);
+
+  // ── Linked Country Preset Actions ──────────────────────────────────────────
+
+  /** User accepted the linked country preset suggestion. */
+  const acceptCountryLink = useCallback(() => {
+    if (!pendingCountryLink) return;
+    const allowed = new Set(codesForCountryPreset(pendingCountryLink.presetId));
+    setFilters((prev) => ({
+      ...prev,
+      activeCountryPreset: pendingCountryLink.presetId,
+      originCountries: prev.originCountries.filter((code) => allowed.has(code)),
+    }));
+    setPendingCountryLink(null);
+    setValidationError(null);
+  }, [pendingCountryLink]);
+
+  /** User dismissed the linked country preset suggestion. */
+  const dismissCountryLink = useCallback(() => {
+    setPendingCountryLink(null);
   }, []);
 
   // ── Country Preset Actions ─────────────────────────────────────────────────
@@ -243,6 +284,7 @@ export function useDiscoverViewModel() {
       excludeEnglish: false,
       activeCountryPreset: null,
     });
+    setPendingCountryLink(null);
     setValidationError(null);
   }, []);
 
@@ -323,6 +365,9 @@ export function useDiscoverViewModel() {
     toggleFilterValue,
     applyPreset,
     clearPreset,
+    acceptCountryLink,
+    dismissCountryLink,
+    pendingCountryLink,
     applyCountryPreset,
     clearCountryPreset,
     resetFilters,

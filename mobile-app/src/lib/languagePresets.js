@@ -42,7 +42,8 @@ export const REGION_PRESETS = [
     // Many Indian regional languages have sparse TMDB entries; the main
     // industry languages (hi, ta, te, ml, kn) have solid coverage.
     codes: ['ko', 'ja', 'zh', 'cn', 'hi', 'ta', 'te', 'ml', 'kn', 'bn', 'mr', 'pa', 'si', 'ne', 'ur', 'th', 'vi', 'id', 'ms', 'tl'],
-    smartFilter: false,
+    smartFilter: true,
+    smartFilterNote: 'TMDB uses \'zh\' broadly for Chinese content. Mandarin and Cantonese titles may be mixed. Results tagged with \'cn\' (Cantonese) are included for broader coverage.',
   },
   {
     id: 'middle_east',
@@ -110,6 +111,49 @@ export const SPECIAL_PRESETS = [
     description: 'Equivalent to Exclude English — ensures all results have a non-English original language.',
     isSpecial: true,
   },
+];
+
+// ─── Language → Country Preset Link Map ──────────────────────────────────────
+
+/**
+ * Maps a language preset id to the corresponding country preset id.
+ * Used to show the "Also filter by country?" linked-preset banner when the
+ * user activates a language preset on the TV view.
+ */
+export const LANGUAGE_TO_COUNTRY_PRESET = {
+  europe:        'europe',
+  asia:          'asia',
+  middle_east:   'middle_east',
+  africa:        'africa',
+  latin_america: 'south_america',
+  north_america: 'north_america',
+};
+
+// ─── Non-English Curated Language List ───────────────────────────────────────
+
+/**
+ * A curated, stable list of ISO 639-1 codes representing the major
+ * non-English content-producing languages on TMDB.
+ *
+ * This is used by the "Exclude English" / "Non-English Only" presets
+ * as a workaround for TMDB's lack of a native `without_original_language`
+ * parameter. Using this curated list instead of fetching all ~180+ TMDB
+ * language codes avoids URL-length issues (414 errors) and keeps the query
+ * semantically meaningful.
+ *
+ * The list is the union of all codes across REGION_PRESETS, minus 'en'.
+ */
+export const NON_ENGLISH_CODES = [
+  // Europe
+  'fr', 'es', 'de', 'it', 'pt', 'ru', 'pl', 'nl', 'sv', 'no', 'da',
+  'fi', 'cs', 'ro', 'el', 'hu', 'uk', 'hr', 'sr', 'sk', 'bg', 'lt', 'lv', 'et',
+  // Asia
+  'ko', 'ja', 'zh', 'cn', 'hi', 'ta', 'te', 'ml', 'kn', 'bn', 'mr',
+  'pa', 'si', 'ne', 'ur', 'th', 'vi', 'id', 'ms', 'tl',
+  // Middle East
+  'ar', 'fa', 'tr', 'he',
+  // Africa
+  'af', 'sw', 'am', 'so', 'wo', 'yo', 'ig', 'ha',
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

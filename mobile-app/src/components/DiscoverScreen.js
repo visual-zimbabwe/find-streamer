@@ -413,6 +413,48 @@ export function DiscoverScreen({ onSelectItem, vm }) {
           </View>
         )}
 
+        {/* ── Linked Country Preset Banner (TV only, automatic) ── */}
+        {vm.pendingCountryLink && vm.filters.mediaType === 'tv' && (
+          <View style={[
+            genreStyles.infoBanner,
+            {
+              backgroundColor: c.secondaryContainer,
+              borderRadius: radii.md,
+              borderLeftColor: c.secondary,
+              marginBottom: 16,
+              alignItems: 'center',
+            },
+          ]}>
+            <Ionicons name="link-outline" size={16} color={c.onSecondaryContainer} style={{ marginRight: 10, marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={[{ color: c.onSecondaryContainer, ...typography.labelSm, fontWeight: '700', marginBottom: 2 }]}>
+                Also filter by origin country?
+              </Text>
+              <Text style={[{ color: c.onSecondaryContainer, ...typography.labelSm, opacity: 0.8 }]}>
+                Narrow TV results to shows from {vm.pendingCountryLink.label} countries.
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                <TouchableOpacity
+                  style={[{ backgroundColor: c.secondary, borderRadius: radii.full, paddingHorizontal: 14, paddingVertical: 6 }]}
+                  onPress={vm.acceptCountryLink}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Yes, also filter by ${vm.pendingCountryLink.label} countries`}
+                >
+                  <Text style={[{ color: c.onSecondary, ...typography.labelSm, fontWeight: '800' }]}>Yes, link it</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[{ backgroundColor: c.secondaryContainer, borderRadius: radii.full, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: c.secondary + '60' }]}
+                  onPress={vm.dismissCountryLink}
+                  accessibilityRole="button"
+                  accessibilityLabel="No, keep language filter only"
+                >
+                  <Text style={[{ color: c.onSecondaryContainer, ...typography.labelSm, fontWeight: '700' }]}>No thanks</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
         <Divider color={c.outlineVariant} />
 
         {/* ── Advanced Language Filter ── */}

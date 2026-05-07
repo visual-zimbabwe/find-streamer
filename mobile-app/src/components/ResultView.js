@@ -484,7 +484,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 accessibilityRole="button"
                 accessibilityLabel={`Watch trailer for ${result.title}`}
               >
-                <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>▶ WATCH TRAILER</Text>
+                <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>▶ TRAILER</Text>
               </TouchableOpacity>
             )}
 
