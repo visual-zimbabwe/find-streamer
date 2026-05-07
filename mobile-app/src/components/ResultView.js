@@ -1,6 +1,7 @@
 import React, { Fragment, useRef, useCallback, useState, useEffect } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import ViewShot from 'react-native-view-shot';
 import * as ExpoSharing from 'expo-sharing';
 import { useTheme } from '../theme/ThemeProvider';
@@ -15,11 +16,11 @@ function pluralize(count, singular, plural = `${singular}s`) {
 
 // ── Award badge definitions ───────────────────────────────────────────────
 const AWARD_DEFS = [
-  { key: 'oscar',   label: 'Oscar',        icon: '🏆', regex: /oscar/i,        color: '#C9A84C', bg: '#3A2E14' },
-  { key: 'globe',   label: 'Golden Globe', icon: '🌐', regex: /golden globe/i,  color: '#C9A84C', bg: '#2E2E14' },
-  { key: 'bafta',   label: 'BAFTA',        icon: '🎭', regex: /bafta/i,         color: '#9B59B6', bg: '#2A1A3A' },
-  { key: 'emmy',    label: 'Emmy',         icon: '📡', regex: /emmy/i,          color: '#3498DB', bg: '#0D2236' },
-  { key: 'sag',     label: 'SAG Award',    icon: '🎬', regex: /screen actors guild|sag award/i, color: '#E74C3C', bg: '#2A0E0E' },
+  { key: 'oscar', label: 'Oscar', icon: '🏆', regex: /oscar/i, color: '#C9A84C', bg: '#3A2E14' },
+  { key: 'globe', label: 'Golden Globe', icon: '🌐', regex: /golden globe/i, color: '#C9A84C', bg: '#2E2E14' },
+  { key: 'bafta', label: 'BAFTA', icon: '🎭', regex: /bafta/i, color: '#9B59B6', bg: '#2A1A3A' },
+  { key: 'emmy', label: 'Emmy', icon: '📡', regex: /emmy/i, color: '#3498DB', bg: '#0D2236' },
+  { key: 'sag', label: 'SAG Award', icon: '🎬', regex: /screen actors guild|sag award/i, color: '#E74C3C', bg: '#2A0E0E' },
   { key: 'critics', label: 'Critics Choice', icon: '✍️', regex: /critics.{0,6}choice/i, color: '#27AE60', bg: '#0E2A16' },
 ];
 
@@ -35,24 +36,24 @@ function parseAwards(awardsStr) {
     if (!def.regex.test(awardsStr)) continue;
 
     // Look for "Won N <award>" or "Nominated for N <award>"
-    const wonMatch     = awardsStr.match(new RegExp(`won\\s+(\\d+)\\s+${def.key === 'oscar' ? 'oscar' : def.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'));
-    const nomMatch     = awardsStr.match(new RegExp(`nominated for\\s+(\\d+)\\s+${def.key === 'oscar' ? 'oscar' : def.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'));
+    const wonMatch = awardsStr.match(new RegExp(`won\\s+(\\d+)\\s+${def.key === 'oscar' ? 'oscar' : def.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'));
+    const nomMatch = awardsStr.match(new RegExp(`nominated for\\s+(\\d+)\\s+${def.key === 'oscar' ? 'oscar' : def.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'));
 
     badges.push({
       ...def,
-      won:       wonMatch  ? parseInt(wonMatch[1],  10) : null,
-      nominated: nomMatch  ? parseInt(nomMatch[1], 10) : null,
+      won: wonMatch ? parseInt(wonMatch[1], 10) : null,
+      nominated: nomMatch ? parseInt(nomMatch[1], 10) : null,
     });
   }
 
   // Also extract the grand total wins & nominations (e.g. "83 wins & 215 nominations total")
-  const totalWonMatch  = awardsStr.match(/(\d+)\s+win/i);
-  const totalNomMatch  = awardsStr.match(/(\d+)\s+nomination/i);
+  const totalWonMatch = awardsStr.match(/(\d+)\s+win/i);
+  const totalNomMatch = awardsStr.match(/(\d+)\s+nomination/i);
 
   return {
     badges,
-    totalWins:  totalWonMatch  ? parseInt(totalWonMatch[1],  10) : null,
-    totalNoms:  totalNomMatch  ? parseInt(totalNomMatch[1], 10) : null,
+    totalWins: totalWonMatch ? parseInt(totalWonMatch[1], 10) : null,
+    totalNoms: totalNomMatch ? parseInt(totalNomMatch[1], 10) : null,
     raw: awardsStr,
   };
 }
@@ -130,481 +131,478 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
 
   return (
     <>
-    {/* Off-screen share card – captured by ViewShot, never visible to the user */}
-    <ViewShot
-      ref={shareCardRef}
-      options={{ format: 'png', quality: 1 }}
-      style={styles.offScreen}
-    >
-      <ShareCard result={result} selectedCountries={shareCountries} />
-    </ViewShot>
+      {/* Off-screen share card – captured by ViewShot, never visible to the user */}
+      <ViewShot
+        ref={shareCardRef}
+        options={{ format: 'png', quality: 1 }}
+        style={styles.offScreen}
+      >
+        <ShareCard result={result} selectedCountries={shareCountries} />
+      </ViewShot>
 
-    <ShareOptionsSheet
-      visible={shareSheetVisible}
-      result={result}
-      onClose={() => setShareSheetVisible(false)}
-      onShare={handleShareConfirm}
-    />
+      <ShareOptionsSheet
+        visible={shareSheetVisible}
+        result={result}
+        onClose={() => setShareSheetVisible(false)}
+        onShare={handleShareConfirm}
+      />
 
-    <Animated.ScrollView style={[styles.container, { opacity: paletteOpacity, backgroundColor: colors.background }]}>
-      <View style={styles.heroSection}>
-        <MediaArtwork
-          uri={result.backdropUrl || result.posterUrl}
-          style={styles.backdrop}
-          resizeMode="cover"
-          accessibilityLabel={`${result.title} artwork`}
-        />
-        {/* Gradient scrim tinted with the extracted accent color */}
-        <View style={[styles.scrimTop, { backgroundColor: 'rgba(0,0,0,0.15)' }]} />
-        <View style={[styles.scrimBottom, { backgroundColor: colors.background + 'E6' }]} />
-        
-        <View style={styles.heroContent}>
-          <View style={styles.metaRow}>
-            <View style={[styles.genreBadge, { backgroundColor: colors.primary + '55' }]}>
-              <Text style={[styles.genreText, { color: '#ffffff', ...typography.labelSm }]}>{result.genres || 'Unknown Genre'}</Text>
-            </View>
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={14} color={colors.primary} />
-              <Text style={[styles.ratingText, { color: '#ffffff', ...typography.labelSm }]}>{result.rating}</Text>
-            </View>
-            {/* Subtle palette-active pill */}
-            {palette && (
-              <View style={[styles.palettePill, { backgroundColor: colors.primary + '44' }]}>
-                <View style={[styles.paletteDot, { backgroundColor: colors.primary }]} />
-                <Text style={[styles.palettePillText, { color: '#ffffff', ...typography.labelSm }]}>Themed</Text>
+      <Animated.ScrollView style={[styles.container, { opacity: paletteOpacity, backgroundColor: colors.background }]}>
+        <View style={styles.heroSection}>
+          <MediaArtwork
+            uri={result.backdropUrl || result.posterUrl}
+            style={styles.backdrop}
+            resizeMode="cover"
+            accessibilityLabel={`${result.title} artwork`}
+          />
+          {/* Gradient scrim tinted with the extracted accent color */}
+          <View style={[styles.scrimTop, { backgroundColor: 'rgba(0,0,0,0.15)' }]} />
+          <LinearGradient
+            colors={['transparent', colors.background + 'B3', colors.background]}
+            locations={[0, 0.5, 1]}
+            style={styles.scrimBottom}
+          />
+
+          <View style={styles.heroContent}>
+            <View style={styles.metaRow}>
+              <View style={[styles.genreBadge, { backgroundColor: colors.primary + '55' }]}>
+                <Text style={[styles.genreText, { color: '#ffffff', ...typography.labelSm }]}>{result.genres || 'Unknown Genre'}</Text>
               </View>
-            )}
-          </View>
-          
-          {/* Title stays white — it always sits on top of the backdrop image */}
-          <Text style={[styles.title, { color: '#ffffff', ...typography.displayLg }]}>{result.title}</Text>
-          
-          <View style={styles.infoRow}>
-            <View style={styles.infoPill}>
-              <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.75)" />
-              <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>{result.year}</Text>
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={14} color={colors.primary} />
+                <Text style={[styles.ratingText, { color: '#ffffff', ...typography.labelSm }]}>{result.rating}</Text>
+              </View>
             </View>
-            <View style={styles.infoPill}>
-              <Ionicons name={isTv ? 'tv-outline' : 'time-outline'} size={14} color="rgba(255,255,255,0.75)" />
-              <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
-                {isTv ? pluralize(seasonCount, 'season') : formatRuntime(result.runtimeMinutes, result.mediaType)}
-              </Text>
-            </View>
-            {result.omdbRatings?.rated && (
-              <View style={[styles.infoPill, styles.ratedBadge]}>
-                <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.85)', ...typography.labelSm }]}>
-                  {result.omdbRatings.rated}
+
+            {/* Title stays white — it always sits on top of the backdrop image */}
+            <Text style={[styles.title, { color: '#ffffff', ...typography.displayLg }]}>{result.title}</Text>
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoPill}>
+                <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.75)" />
+                <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>{result.year}</Text>
+              </View>
+              <View style={styles.infoPill}>
+                <Ionicons name={isTv ? 'tv-outline' : 'time-outline'} size={14} color="rgba(255,255,255,0.75)" />
+                <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
+                  {isTv ? pluralize(seasonCount, 'season') : formatRuntime(result.runtimeMinutes, result.mediaType)}
                 </Text>
               </View>
-            )}
+              {result.omdbRatings?.rated && (
+                <View style={[styles.infoPill, styles.ratedBadge]}>
+                  <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.85)', ...typography.labelSm }]}>
+                    {result.omdbRatings.rated}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
-      </View>
 
-      <View style={[styles.detailsContent, { backgroundColor: colors.background }]}>
-        <View style={styles.metaGrid}>
-          <View style={styles.metaItem}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-              {isTv ? 'CREATED BY' : 'DIRECTOR'}
-            </Text>
-            {isTv ? (
-              result.createdByPersons && result.createdByPersons.length > 0 ? (
+        <View style={[styles.detailsContent, { backgroundColor: colors.background }]}>
+          <View style={styles.metaGrid}>
+            <View style={styles.metaItem}>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                {isTv ? 'CREATED BY' : 'DIRECTOR'}
+              </Text>
+              {isTv ? (
+                result.createdByPersons && result.createdByPersons.length > 0 ? (
+                  <View style={styles.personLinkRow}>
+                    {result.createdByPersons.map((person, idx) => (
+                      <React.Fragment key={person.id}>
+                        <TouchableOpacity
+                          onPress={() => onPersonPress?.(person.id, person.name, 'tv')}
+                          accessibilityRole="button"
+                          accessibilityLabel={`View shows created by ${person.name}`}
+                        >
+                          <Text style={[styles.metaText, styles.personLink, { color: colors.primary, ...typography.bodyMd }]}>
+                            {person.name}
+                          </Text>
+                        </TouchableOpacity>
+                        {idx < result.createdByPersons.length - 1 && (
+                          <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{', '}</Text>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{result.createdBy}</Text>
+                )
+              ) : (
+                result.directorId ? (
+                  <TouchableOpacity
+                    onPress={() => onPersonPress?.(result.directorId, result.director, 'movie')}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View films directed by ${result.director}`}
+                  >
+                    <Text style={[styles.metaText, styles.personLink, { color: colors.primary, ...typography.bodyMd }]}>
+                      {result.director}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{result.director}</Text>
+                )
+              )}
+            </View>
+            <View style={styles.metaItem}>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>STARRING</Text>
+              {result.starringPersons && result.starringPersons.length > 0 ? (
                 <View style={styles.personLinkRow}>
-                  {result.createdByPersons.map((person, idx) => (
+                  {result.starringPersons.map((person, idx) => (
                     <React.Fragment key={person.id}>
                       <TouchableOpacity
-                        onPress={() => onPersonPress?.(person.id, person.name, 'tv')}
+                        onPress={() => onPersonPress?.(person.id, person.name, 'cast')}
                         accessibilityRole="button"
-                        accessibilityLabel={`View shows created by ${person.name}`}
+                        accessibilityLabel={`View filmography for ${person.name}`}
                       >
                         <Text style={[styles.metaText, styles.personLink, { color: colors.primary, ...typography.bodyMd }]}>
                           {person.name}
                         </Text>
                       </TouchableOpacity>
-                      {idx < result.createdByPersons.length - 1 && (
+                      {idx < result.starringPersons.length - 1 && (
                         <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{', '}</Text>
                       )}
                     </React.Fragment>
                   ))}
                 </View>
               ) : (
-                <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{result.createdBy}</Text>
-              )
-            ) : (
-              result.directorId ? (
-                <TouchableOpacity
-                  onPress={() => onPersonPress?.(result.directorId, result.director, 'movie')}
-                  accessibilityRole="button"
-                  accessibilityLabel={`View films directed by ${result.director}`}
-                >
-                  <Text style={[styles.metaText, styles.personLink, { color: colors.primary, ...typography.bodyMd }]}>
-                    {result.director}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{result.director}</Text>
-              )
-            )}
-          </View>
-          <View style={styles.metaItem}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>STARRING</Text>
-            {result.starringPersons && result.starringPersons.length > 0 ? (
-              <View style={styles.personLinkRow}>
-                {result.starringPersons.map((person, idx) => (
-                  <React.Fragment key={person.id}>
-                    <TouchableOpacity
-                      onPress={() => onPersonPress?.(person.id, person.name, 'cast')}
-                      accessibilityRole="button"
-                      accessibilityLabel={`View filmography for ${person.name}`}
-                    >
-                      <Text style={[styles.metaText, styles.personLink, { color: colors.primary, ...typography.bodyMd }]}>
-                        {person.name}
-                      </Text>
-                    </TouchableOpacity>
-                    {idx < result.starringPersons.length - 1 && (
-                      <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{', '}</Text>
-                    )}
-                  </React.Fragment>
-                ))}
-              </View>
-            ) : (
-              <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
-                {result.starring}
-              </Text>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>SYNOPSIS</Text>
-          <Text style={[styles.synopsis, { color: colors.onSurface, ...typography.bodyLg }]}>
-            {result.synopsis}
-          </Text>
-        </View>
-
-        {/* ─── Ratings ─────────────────────────────────────────────────── */}
-        {result.omdbRatings && (result.omdbRatings.imdbRating || result.omdbRatings.rottenTomatoes || result.omdbRatings.metascore) && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>RATINGS</Text>
-            <View style={styles.ratingsRow}>
-              {result.omdbRatings.imdbRating && (
-                <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
-                  <Text style={styles.ratingBadgeIcon}>⭐</Text>
-                  <View>
-                    <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>IMDb</Text>
-                    <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.imdbRating}</Text>
-                  </View>
-                </View>
-              )}
-              {result.omdbRatings.rottenTomatoes && (
-                <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
-                  <Text style={styles.ratingBadgeIcon}>🍅</Text>
-                  <View>
-                    <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Rotten Tomatoes</Text>
-                    <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.rottenTomatoes}</Text>
-                  </View>
-                </View>
-              )}
-              {result.omdbRatings.metascore && (
-                <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
-                  <Text style={styles.ratingBadgeIcon}>🛡️</Text>
-                  <View>
-                    <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Metascore</Text>
-                    <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.metascore}</Text>
-                  </View>
-                </View>
+                <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+                  {result.starring}
+                </Text>
               )}
             </View>
           </View>
-        )}
 
-        {/* ─── Awards ──────────────────────────────────────────────────── */}
-        {result.omdbRatings?.awards && (() => {
-          const parsed = parseAwards(result.omdbRatings.awards);
-          const hasBadges = parsed.badges && parsed.badges.length > 0;
-          return (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>SYNOPSIS</Text>
+            <Text style={[styles.synopsis, { color: colors.onSurface, ...typography.bodyLg }]}>
+              {result.synopsis}
+            </Text>
+          </View>
+
+          {/* ─── Ratings ─────────────────────────────────────────────────── */}
+          {result.omdbRatings && (result.omdbRatings.imdbRating || result.omdbRatings.rottenTomatoes || result.omdbRatings.metascore) && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>AWARDS & RECOGNITION</Text>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>RATINGS</Text>
+              <View style={styles.ratingsRow}>
+                {result.omdbRatings.imdbRating && (
+                  <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
+                    <Text style={styles.ratingBadgeIcon}>⭐</Text>
+                    <View>
+                      <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>IMDb</Text>
+                      <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.imdbRating}</Text>
+                    </View>
+                  </View>
+                )}
+                {result.omdbRatings.rottenTomatoes && (
+                  <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
+                    <Text style={styles.ratingBadgeIcon}>🍅</Text>
+                    <View>
+                      <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Rotten Tomatoes</Text>
+                      <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.rottenTomatoes}</Text>
+                    </View>
+                  </View>
+                )}
+                {result.omdbRatings.metascore && (
+                  <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
+                    <Text style={styles.ratingBadgeIcon}>🛡️</Text>
+                    <View>
+                      <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Metascore</Text>
+                      <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.metascore}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
 
-              {/* Per-ceremony badge tiles */}
-              {hasBadges && (
+          {/* ─── Awards ──────────────────────────────────────────────────── */}
+          {result.omdbRatings?.awards && (() => {
+            const parsed = parseAwards(result.omdbRatings.awards);
+            const hasBadges = parsed.badges && parsed.badges.length > 0;
+            return (
+              <View style={styles.section}>
+                <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>AWARDS & RECOGNITION</Text>
+
+                {/* Per-ceremony badge tiles */}
+                {hasBadges && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.awardsScroll}
+                  >
+                    {parsed.badges.map((badge) => (
+                      <View
+                        key={badge.key}
+                        style={[
+                          styles.awardTile,
+                          { backgroundColor: badge.bg, borderColor: badge.color + '55' },
+                        ]}
+                      >
+                        <Text style={styles.awardTileIcon}>{badge.icon}</Text>
+                        <Text style={[styles.awardTileLabel, { color: badge.color, ...typography.labelSm }]}>
+                          {badge.label.toUpperCase()}
+                        </Text>
+                        {badge.won != null && (
+                          <View style={[styles.awardWonPill, { backgroundColor: badge.color + '22', borderColor: badge.color + '66' }]}>
+                            <Text style={[styles.awardWonText, { color: badge.color, ...typography.labelSm }]}>
+                              🏅 {badge.won} {badge.won === 1 ? 'Win' : 'Wins'}
+                            </Text>
+                          </View>
+                        )}
+                        {badge.nominated != null && badge.won == null && (
+                          <View style={[styles.awardWonPill, { backgroundColor: badge.color + '11', borderColor: badge.color + '44' }]}>
+                            <Text style={[styles.awardWonText, { color: badge.color + 'CC', ...typography.labelSm }]}>
+                              📋 Nominated
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+
+                {/* Grand-total pill */}
+                {(parsed.totalWins != null || parsed.totalNoms != null) && (
+                  <View style={[styles.awardsSummary, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '33' }]}>
+                    {parsed.totalWins != null && (
+                      <View style={styles.awardsStat}>
+                        <Text style={[styles.awardsStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{parsed.totalWins}</Text>
+                        <Text style={[styles.awardsStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>TOTAL WINS</Text>
+                      </View>
+                    )}
+                    {parsed.totalWins != null && parsed.totalNoms != null && (
+                      <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
+                    )}
+                    {parsed.totalNoms != null && (
+                      <View style={styles.awardsStat}>
+                        <Text style={[styles.awardsStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{parsed.totalNoms}</Text>
+                        <Text style={[styles.awardsStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>NOMINATIONS</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* Raw awards text as a caption */}
+                {!hasBadges && (
+                  <Text style={[styles.awardsRaw, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+                    {parsed.raw}
+                  </Text>
+                )}
+              </View>
+            );
+          })()}
+
+          {hasSeasonDetails && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>SEASONS & EPISODES</Text>
+              <View style={[styles.seriesStats, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26', borderRadius: radii.xl }]}>
+                <View style={styles.seriesStat}>
+                  <Ionicons name="albums-outline" size={22} color={colors.primary} />
+                  <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{seasonCount}</Text>
+                  <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                    {seasonCount === 1 ? 'SEASON' : 'SEASONS'}
+                  </Text>
+                </View>
+                <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
+                <View style={styles.seriesStat}>
+                  <Ionicons name="play-circle-outline" size={22} color={colors.primary} />
+                  <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{episodeCount}</Text>
+                  <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                    {episodeCount === 1 ? 'EPISODE' : 'EPISODES'}
+                  </Text>
+                </View>
+                <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
+                <View style={styles.seriesStat}>
+                  <Ionicons name="timer-outline" size={22} color={colors.primary} />
+                  <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>
+                    {result.runtimeMinutes ? `${result.runtimeMinutes}m` : 'N/A'}
+                  </Text>
+                  <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>AVG LENGTH</Text>
+                </View>
+              </View>
+
+              {result.seasons?.length > 0 && (
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.awardsScroll}
+                  contentContainerStyle={styles.seasonsScroll}
                 >
-                  {parsed.badges.map((badge) => (
-                    <View
-                      key={badge.key}
-                      style={[
-                        styles.awardTile,
-                        { backgroundColor: badge.bg, borderColor: badge.color + '55' },
-                      ]}
-                    >
-                      <Text style={styles.awardTileIcon}>{badge.icon}</Text>
-                      <Text style={[styles.awardTileLabel, { color: badge.color, ...typography.labelSm }]}>
-                        {badge.label.toUpperCase()}
-                      </Text>
-                      {badge.won != null && (
-                        <View style={[styles.awardWonPill, { backgroundColor: badge.color + '22', borderColor: badge.color + '66' }]}>
-                          <Text style={[styles.awardWonText, { color: badge.color, ...typography.labelSm }]}>
-                            🏅 {badge.won} {badge.won === 1 ? 'Win' : 'Wins'}
-                          </Text>
+                  {result.seasons.map((season) => (
+                    <View key={season.id || season.seasonNumber} style={[styles.seasonCard, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant + '26', borderRadius: radii.md }]}>
+                      {season.posterUrl ? (
+                        <MediaArtwork uri={season.posterUrl} style={styles.seasonPoster} accessibilityLabel={`${season.name} poster`} />
+                      ) : (
+                        <View style={[styles.seasonPosterFallback, { backgroundColor: colors.surfaceContainerHighest }]}>
+                          <Ionicons name="tv-outline" size={28} color={colors.onSurfaceVariant} />
                         </View>
                       )}
-                      {badge.nominated != null && badge.won == null && (
-                        <View style={[styles.awardWonPill, { backgroundColor: badge.color + '11', borderColor: badge.color + '44' }]}>
-                          <Text style={[styles.awardWonText, { color: badge.color + 'CC', ...typography.labelSm }]}>
-                            📋 Nominated
-                          </Text>
-                        </View>
-                      )}
+                      <View style={styles.seasonBody}>
+                        <Text style={[styles.seasonName, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+                          {season.name}
+                        </Text>
+                        <Text style={[styles.seasonMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                          {season.year} • {pluralize(season.episodeCount, 'episode')}
+                        </Text>
+                      </View>
                     </View>
                   ))}
                 </ScrollView>
               )}
+            </View>
+          )}
 
-              {/* Grand-total pill */}
-              {(parsed.totalWins != null || parsed.totalNoms != null) && (
-                <View style={[styles.awardsSummary, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '33' }]}>
-                  {parsed.totalWins != null && (
-                    <View style={styles.awardsStat}>
-                      <Text style={[styles.awardsStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{parsed.totalWins}</Text>
-                      <Text style={[styles.awardsStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>TOTAL WINS</Text>
-                    </View>
-                  )}
-                  {parsed.totalWins != null && parsed.totalNoms != null && (
-                    <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
-                  )}
-                  {parsed.totalNoms != null && (
-                    <View style={styles.awardsStat}>
-                      <Text style={[styles.awardsStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{parsed.totalNoms}</Text>
-                      <Text style={[styles.awardsStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>NOMINATIONS</Text>
-                    </View>
-                  )}
+          <View style={[styles.streamingCard, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl, borderColor: colors.outlineVariant + '26' }]}>
+            <Text style={[styles.sectionLabel, { color: colors.onSurface, ...typography.labelSm, marginBottom: 24 }]}>WHERE TO STREAM</Text>
+            {result.providerAvailabilityConfidence === 'show' && isTv && (
+              <Text style={[styles.providerNote, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+                TV availability is estimated from show-level provider data.
+              </Text>
+            )}
+
+            {result.providerSummary.map((provider) => (
+              <View key={provider.key} style={styles.providerRow}>
+                <View style={styles.providerInfo}>
+                  <View style={[styles.providerIcon, { backgroundColor: colors.surfaceContainerHighest }]}>
+                    <Ionicons name="film-outline" size={20} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.providerName, { color: colors.onSurface, ...typography.bodyLg }]}>{provider.label}</Text>
                 </View>
-              )}
-
-              {/* Raw awards text as a caption */}
-              {!hasBadges && (
-                <Text style={[styles.awardsRaw, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                  {parsed.raw}
+                <Text style={[styles.providerStatus, { color: provider.count > 0 ? colors.primary : colors.onSurfaceVariant, ...typography.labelSm }]}>
+                  {provider.count > 0 ? `Available in ${provider.count} countries` : 'Not available'}
                 </Text>
-              )}
-            </View>
-          );
-        })()}
+              </View>
+            ))}
 
-        {hasSeasonDetails && (
+            <View style={styles.actionRow}>
+              {result.trailer && result.trailer !== 'N/A' && (
+                <TouchableOpacity
+                  style={[styles.watchButton, { backgroundColor: colors.primary }]}
+                  onPress={() => Linking.openURL(result.trailer)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Watch trailer for ${result.title}`}
+                >
+                  <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>▶ TRAILER</Text>
+                </TouchableOpacity>
+              )}
+
+              {result.imdbId && (
+                <TouchableOpacity
+                  style={[styles.imdbButton, { backgroundColor: '#F5C518', borderColor: '#D4A800' }]}
+                  onPress={() => Linking.openURL(`https://www.imdb.com/title/${result.imdbId}/`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${result.title} on IMDb`}
+                >
+                  <Text style={[styles.imdbButtonText, { ...typography.labelSm }]}>IMDb</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[styles.bookmarkButton, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '4D' }]}
+                onPress={() => onToggleWatchlist(result)}
+                accessibilityRole="button"
+                accessibilityLabel={isInWatchlist ? `Remove ${result.title} from watchlist` : `Add ${result.title} to watchlist`}
+                accessibilityState={{ selected: isInWatchlist }}
+              >
+                <Ionicons
+                  name={isInWatchlist ? "bookmark" : "bookmark-outline"}
+                  size={24}
+                  color={isInWatchlist ? colors.primary : colors.onSurfaceVariant}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.bookmarkButton, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '4D' }]}
+                onPress={() => setShareSheetVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Share ${result.title}`}
+              >
+                <Ionicons name="share-social-outline" size={24} color={colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Detailed Country View */}
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>SEASONS & EPISODES</Text>
-            <View style={[styles.seriesStats, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26', borderRadius: radii.xl }]}>
-              <View style={styles.seriesStat}>
-                <Ionicons name="albums-outline" size={22} color={colors.primary} />
-                <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{seasonCount}</Text>
-                <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                  {seasonCount === 1 ? 'SEASON' : 'SEASONS'}
-                </Text>
-              </View>
-              <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
-              <View style={styles.seriesStat}>
-                <Ionicons name="play-circle-outline" size={22} color={colors.primary} />
-                <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{episodeCount}</Text>
-                <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                  {episodeCount === 1 ? 'EPISODE' : 'EPISODES'}
-                </Text>
-              </View>
-              <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
-              <View style={styles.seriesStat}>
-                <Ionicons name="timer-outline" size={22} color={colors.primary} />
-                <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>
-                  {result.runtimeMinutes ? `${result.runtimeMinutes}m` : 'N/A'}
-                </Text>
-                <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>AVG LENGTH</Text>
-              </View>
+            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>GLOBAL AVAILABILITY</Text>
+
+            <View style={styles.legend}>
+              {result.providerSummary.map((provider) => (
+                <View key={provider.key} style={styles.legendItem}>
+                  {provider.logoUrl ? (
+                    <Image
+                      source={{ uri: provider.logoUrl }}
+                      style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
+                      accessibilityLabel={provider.label}
+                    />
+                  ) : (
+                    <View style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
+                  )}
+                  <Text style={[styles.legendText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                    {provider.label}
+                  </Text>
+                </View>
+              ))}
             </View>
 
-            {result.seasons?.length > 0 && (
+            <View style={[styles.table, { borderColor: colors.outlineVariant + '26' }]}>
+              {result.rows.map((row, index) => (
+                <View key={row.code} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: colors.surfaceContainerLow } : null]}>
+                  <Text style={[styles.countryName, { color: colors.onSurface, ...typography.bodyMd }]}>{row.country}</Text>
+                  <View style={styles.providerBadges}>
+                    {result.providerSummary.map((provider) =>
+                      row.providers[provider.key] ? (
+                        provider.logoUrl ? (
+                          <Image
+                            key={provider.key}
+                            source={{ uri: provider.logoUrl }}
+                            style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
+                            accessibilityLabel={provider.label}
+                          />
+                        ) : (
+                          <View key={provider.key} style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
+                        )
+                      ) : null
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* More Like This */}
+          {result.similar && result.similar.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>MORE LIKE THIS</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.seasonsScroll}
+                contentContainerStyle={styles.similarScroll}
               >
-                {result.seasons.map((season) => (
-                  <View key={season.id || season.seasonNumber} style={[styles.seasonCard, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant + '26', borderRadius: radii.md }]}>
-                    {season.posterUrl ? (
-                      <MediaArtwork uri={season.posterUrl} style={styles.seasonPoster} accessibilityLabel={`${season.name} poster`} />
-                    ) : (
-                      <View style={[styles.seasonPosterFallback, { backgroundColor: colors.surfaceContainerHighest }]}>
-                        <Ionicons name="tv-outline" size={28} color={colors.onSurfaceVariant} />
+                {result.similar.map((item) => (
+                  <TouchableOpacity
+                    key={item.tmdbId}
+                    style={styles.similarItem}
+                    onPress={() => onSelectSimilar(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open details for ${item.title}`}
+                  >
+                    <View style={[styles.similarPoster, { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}>
+                      <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} />
+                      <View style={styles.similarRating}>
+                        <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>{item.rating}</Text>
                       </View>
-                    )}
-                    <View style={styles.seasonBody}>
-                      <Text style={[styles.seasonName, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
-                        {season.name}
-                      </Text>
-                      <Text style={[styles.seasonMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                        {season.year} • {pluralize(season.episodeCount, 'episode')}
-                      </Text>
                     </View>
-                  </View>
+                    <Text style={[styles.similarTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
-            )}
-          </View>
-        )}
-
-        <View style={[styles.streamingCard, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl, borderColor: colors.outlineVariant + '26' }]}>
-          <Text style={[styles.sectionLabel, { color: colors.onSurface, ...typography.labelSm, marginBottom: 24 }]}>WHERE TO STREAM</Text>
-          {result.providerAvailabilityConfidence === 'show' && isTv && (
-            <Text style={[styles.providerNote, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-              TV availability is estimated from show-level provider data.
-            </Text>
-          )}
-          
-          {result.providerSummary.map((provider) => (
-            <View key={provider.key} style={styles.providerRow}>
-              <View style={styles.providerInfo}>
-                <View style={[styles.providerIcon, { backgroundColor: colors.surfaceContainerHighest }]}>
-                  <Ionicons name="film-outline" size={20} color={colors.primary} />
-                </View>
-                <Text style={[styles.providerName, { color: colors.onSurface, ...typography.bodyLg }]}>{provider.label}</Text>
-              </View>
-              <Text style={[styles.providerStatus, { color: provider.count > 0 ? colors.primary : colors.onSurfaceVariant, ...typography.labelSm }]}>
-                {provider.count > 0 ? `Available in ${provider.count} countries` : 'Not available'}
-              </Text>
             </View>
-          ))}
-          
-          <View style={styles.actionRow}>
-            {result.trailer && result.trailer !== 'N/A' && (
-              <TouchableOpacity
-                style={[styles.watchButton, { backgroundColor: colors.primary }]}
-                onPress={() => Linking.openURL(result.trailer)}
-                accessibilityRole="button"
-                accessibilityLabel={`Watch trailer for ${result.title}`}
-              >
-                <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>▶ TRAILER</Text>
-              </TouchableOpacity>
-            )}
-
-            {result.imdbId && (
-              <TouchableOpacity
-                style={[styles.imdbButton, { backgroundColor: '#F5C518', borderColor: '#D4A800' }]}
-                onPress={() => Linking.openURL(`https://www.imdb.com/title/${result.imdbId}/`)}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${result.title} on IMDb`}
-              >
-                <Text style={[styles.imdbButtonText, { ...typography.labelSm }]}>IMDb</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity 
-              style={[styles.bookmarkButton, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '4D' }]}
-              onPress={() => onToggleWatchlist(result)}
-              accessibilityRole="button"
-              accessibilityLabel={isInWatchlist ? `Remove ${result.title} from watchlist` : `Add ${result.title} to watchlist`}
-              accessibilityState={{ selected: isInWatchlist }}
-            >
-              <Ionicons 
-                name={isInWatchlist ? "bookmark" : "bookmark-outline"} 
-                size={24} 
-                color={isInWatchlist ? colors.primary : colors.onSurfaceVariant} 
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.bookmarkButton, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '4D' }]}
-              onPress={() => setShareSheetVisible(true)}
-              accessibilityRole="button"
-              accessibilityLabel={`Share ${result.title}`}
-            >
-              <Ionicons name="share-social-outline" size={24} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
-
-        {/* Detailed Country View */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>GLOBAL AVAILABILITY</Text>
-          
-          <View style={styles.legend}>
-            {result.providerSummary.map((provider) => (
-              <View key={provider.key} style={styles.legendItem}>
-                {provider.logoUrl ? (
-                  <Image
-                    source={{ uri: provider.logoUrl }}
-                    style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
-                    accessibilityLabel={provider.label}
-                  />
-                ) : (
-                  <View style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
-                )}
-                <Text style={[styles.legendText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                  {provider.label}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={[styles.table, { borderColor: colors.outlineVariant + '26' }]}>
-            {result.rows.map((row, index) => (
-              <View key={row.code} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: colors.surfaceContainerLow } : null]}>
-                <Text style={[styles.countryName, { color: colors.onSurface, ...typography.bodyMd }]}>{row.country}</Text>
-                <View style={styles.providerBadges}>
-                  {result.providerSummary.map((provider) =>
-                    row.providers[provider.key] ? (
-                      provider.logoUrl ? (
-                        <Image
-                          key={provider.key}
-                          source={{ uri: provider.logoUrl }}
-                          style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
-                          accessibilityLabel={provider.label}
-                        />
-                      ) : (
-                        <View key={provider.key} style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
-                      )
-                    ) : null
-                  )}
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* More Like This */}
-        {result.similar && result.similar.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>MORE LIKE THIS</Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.similarScroll}
-            >
-              {result.similar.map((item) => (
-                <TouchableOpacity 
-                  key={item.tmdbId} 
-                  style={styles.similarItem}
-                  onPress={() => onSelectSimilar(item)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open details for ${item.title}`}
-                >
-                  <View style={[styles.similarPoster, { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}>
-                    <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} />
-                    <View style={styles.similarRating}>
-                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>{item.rating}</Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.similarTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </View>
-    </Animated.ScrollView>
+      </Animated.ScrollView>
     </>
   );
 }
@@ -698,24 +696,6 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingBottom: 100,
     // backgroundColor applied inline via colors.background so it shifts with the poster palette
-  },
-  palettePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  paletteDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  palettePillText: {
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    fontSize: 10,
   },
   section: {
     marginBottom: 40,
