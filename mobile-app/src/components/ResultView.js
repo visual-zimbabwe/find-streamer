@@ -1,9 +1,10 @@
-import React, { Fragment, useRef, useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert } from 'react-native';
+import React, { Fragment, useRef, useCallback, useState, useEffect } from 'react';
+import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
 import * as ExpoSharing from 'expo-sharing';
 import { useTheme } from '../theme/ThemeProvider';
+import { usePosterTheme } from '../lib/usePosterTheme';
 import { MediaArtwork } from './MediaArtwork';
 import { ShareCard } from './ShareCard';
 import { ShareOptionsSheet } from './ShareOptionsSheet';
@@ -24,10 +25,26 @@ function formatRuntime(minutes, mediaType) {
 
 export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, onSelectSimilar, onPersonPress }) {
   const { theme } = useTheme();
-  const { colors, typography, radii } = theme;
+  const { typography, radii } = theme;
   const shareCardRef = useRef(null);
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const [shareCountries, setShareCountries] = useState(null);
+
+  // ── Dynamic poster palette ───────────────────────────────────────────────
+  const { palette } = usePosterTheme(result?.posterUrl);
+  // Merge poster palette over base theme; fall back gracefully
+  const colors = palette ?? theme.colors;
+
+  // Fade in when palette arrives so the color shift feels smooth
+  const paletteOpacity = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    paletteOpacity.setValue(0.3);
+    Animated.timing(paletteOpacity, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+  }, [palette, paletteOpacity]);
 
   const doCapture = useCallback(async () => {
     if (!shareCardRef.current) return;
@@ -85,7 +102,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
       onShare={handleShareConfirm}
     />
 
-    <ScrollView style={styles.container}>
+    <Animated.ScrollView style={[styles.container, { opacity: paletteOpacity, backgroundColor: colors.background }]}>
       <View style={styles.heroSection}>
         <MediaArtwork
           uri={result.backdropUrl || result.posterUrl}
@@ -93,29 +110,39 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           resizeMode="cover"
           accessibilityLabel={`${result.title} artwork`}
         />
-        <View style={styles.scrim} />
+        {/* Gradient scrim tinted with the extracted accent color */}
+        <View style={[styles.scrimTop, { backgroundColor: 'rgba(0,0,0,0.15)' }]} />
+        <View style={[styles.scrimBottom, { backgroundColor: colors.background + 'E6' }]} />
         
         <View style={styles.heroContent}>
           <View style={styles.metaRow}>
-            <View style={[styles.genreBadge, { backgroundColor: colors.primary + '33' }]}>
-              <Text style={[styles.genreText, { color: colors.primary, ...typography.labelSm }]}>{result.genres || 'Unknown Genre'}</Text>
+            <View style={[styles.genreBadge, { backgroundColor: colors.primary + '55' }]}>
+              <Text style={[styles.genreText, { color: '#ffffff', ...typography.labelSm }]}>{result.genres || 'Unknown Genre'}</Text>
             </View>
             <View style={styles.ratingRow}>
               <Ionicons name="star" size={14} color={colors.primary} />
-              <Text style={[styles.ratingText, { color: colors.onSurface, ...typography.labelSm }]}>{result.rating}</Text>
+              <Text style={[styles.ratingText, { color: '#ffffff', ...typography.labelSm }]}>{result.rating}</Text>
             </View>
+            {/* Subtle palette-active pill */}
+            {palette && (
+              <View style={[styles.palettePill, { backgroundColor: colors.primary + '44' }]}>
+                <View style={[styles.paletteDot, { backgroundColor: colors.primary }]} />
+                <Text style={[styles.palettePillText, { color: '#ffffff', ...typography.labelSm }]}>Themed</Text>
+              </View>
+            )}
           </View>
           
-          <Text style={[styles.title, { color: colors.onSurface, ...typography.displayLg }]}>{result.title}</Text>
+          {/* Title stays white — it always sits on top of the backdrop image */}
+          <Text style={[styles.title, { color: '#ffffff', ...typography.displayLg }]}>{result.title}</Text>
           
           <View style={styles.infoRow}>
             <View style={styles.infoPill}>
-              <Ionicons name="calendar-outline" size={14} color={colors.onSurfaceVariant} />
-              <Text style={[styles.infoText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>{result.year}</Text>
+              <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.75)" />
+              <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>{result.year}</Text>
             </View>
             <View style={styles.infoPill}>
-              <Ionicons name={isTv ? 'tv-outline' : 'time-outline'} size={14} color={colors.onSurfaceVariant} />
-              <Text style={[styles.infoText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+              <Ionicons name={isTv ? 'tv-outline' : 'time-outline'} size={14} color="rgba(255,255,255,0.75)" />
+              <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
                 {isTv ? pluralize(seasonCount, 'season') : formatRuntime(result.runtimeMinutes, result.mediaType)}
               </Text>
             </View>
@@ -123,7 +150,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
         </View>
       </View>
 
-      <View style={styles.detailsContent}>
+      <View style={[styles.detailsContent, { backgroundColor: colors.background }]}>
         <View style={styles.metaGrid}>
           <View style={styles.metaItem}>
             <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
@@ -449,7 +476,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           </View>
         )}
       </View>
-    </ScrollView>
+    </Animated.ScrollView>
     </>
   );
 }
@@ -474,9 +501,15 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  scrim: {
+  scrimTop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 14, 20, 0.4)',
+  },
+  scrimBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '65%',
   },
   heroContent: {
     position: 'absolute',
@@ -529,6 +562,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 32,
     paddingBottom: 100,
+    // backgroundColor applied inline via colors.background so it shifts with the poster palette
+  },
+  palettePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  paletteDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  palettePillText: {
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    fontSize: 10,
   },
   section: {
     marginBottom: 40,
