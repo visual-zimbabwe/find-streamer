@@ -10,7 +10,7 @@ const OMDB_BASE = 'http://www.omdbapi.com/';
  * @returns {Promise<{ imdbRating: string|null, rottenTomatoes: string|null, metascore: string|null, awards: string|null }>}
  */
 export async function fetchOmdbRatings(imdbId) {
-  const empty = { imdbRating: null, rottenTomatoes: null, metascore: null, awards: null };
+  const empty = { imdbRating: null, rottenTomatoes: null, metascore: null, awards: null, rated: null };
 
   if (!imdbId) return empty;
 
@@ -34,7 +34,10 @@ export async function fetchOmdbRatings(imdbId) {
     const awards =
       data.Awards && data.Awards !== 'N/A' ? data.Awards : null;
 
-    return { imdbRating, rottenTomatoes, metascore, awards };
+    const rated =
+      data.Rated && data.Rated !== 'N/A' && data.Rated !== 'Not Rated' && data.Rated !== 'Unrated' ? data.Rated : null;
+
+    return { imdbRating, rottenTomatoes, metascore, awards, rated };
   } catch {
     return empty;
   }

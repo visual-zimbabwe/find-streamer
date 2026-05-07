@@ -190,6 +190,13 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 {isTv ? pluralize(seasonCount, 'season') : formatRuntime(result.runtimeMinutes, result.mediaType)}
               </Text>
             </View>
+            {result.omdbRatings?.rated && (
+              <View style={[styles.infoPill, styles.ratedBadge]}>
+                <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.85)', ...typography.labelSm }]}>
+                  {result.omdbRatings.rated}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -678,6 +685,13 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontWeight: '600',
+  },
+  ratedBadge: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   detailsContent: {
     paddingHorizontal: 24,
