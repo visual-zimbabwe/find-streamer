@@ -523,52 +523,35 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           </View>
 
           {/* Detailed Country View */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>GLOBAL AVAILABILITY</Text>
+          {result.rows && result.rows.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>GLOBAL AVAILABILITY</Text>
 
-            <View style={styles.legend}>
-              {result.providerSummary.map((provider) => (
-                <View key={provider.key} style={styles.legendItem}>
-                  {provider.logoUrl ? (
-                    <Image
-                      source={{ uri: provider.logoUrl }}
-                      style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
-                      accessibilityLabel={provider.label}
-                    />
-                  ) : (
-                    <View style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
-                  )}
-                  <Text style={[styles.legendText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                    {provider.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={[styles.table, { borderColor: colors.outlineVariant + '26' }]}>
-              {result.rows.map((row, index) => (
-                <View key={row.code} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: colors.surfaceContainerLow } : null]}>
-                  <Text style={[styles.countryName, { color: colors.onSurface, ...typography.bodyMd }]}>{row.country}</Text>
-                  <View style={styles.providerBadges}>
-                    {result.providerSummary.map((provider) =>
-                      row.providers[provider.key] ? (
-                        provider.logoUrl ? (
-                          <Image
-                            key={provider.key}
-                            source={{ uri: provider.logoUrl }}
-                            style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
-                            accessibilityLabel={provider.label}
-                          />
-                        ) : (
-                          <View key={provider.key} style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
-                        )
-                      ) : null
-                    )}
+              <View style={[styles.table, { borderColor: colors.outlineVariant + '26' }]}>
+                {result.rows.map((row, index) => (
+                  <View key={row.code} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: colors.surfaceContainerLow } : null]}>
+                    <Text style={[styles.countryName, { color: colors.onSurface, ...typography.bodyMd }]}>{row.country}</Text>
+                    <View style={styles.providerBadges}>
+                      {result.providerSummary.map((provider) =>
+                        row.providers[provider.key] ? (
+                          provider.logoUrl ? (
+                            <Image
+                              key={provider.key}
+                              source={{ uri: provider.logoUrl }}
+                              style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
+                              accessibilityLabel={provider.label}
+                            />
+                          ) : (
+                            <View key={provider.key} style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
+                          )
+                        ) : null
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
-          </View>
+          )}
 
           {/* More Like This */}
           {result.similar && result.similar.length > 0 && (
