@@ -126,6 +126,33 @@ function pickAccent(colorResult) {
   return scored[0]?.hex || null;
 }
 
+function pickMeshColors(accentHex, colorResult) {
+  const candidates = [
+    accentHex,
+    colorResult?.vibrant,
+    colorResult?.lightVibrant,
+    colorResult?.muted,
+    colorResult?.darkVibrant,
+    colorResult?.lightMuted,
+    colorResult?.secondary,
+    colorResult?.detail,
+  ].filter(Boolean);
+
+  const unique = [];
+  candidates.forEach((hex) => {
+    if (!unique.includes(hex)) unique.push(hex);
+  });
+
+  const fallback = [
+    accentHex,
+    lighten(accentHex, 0.18),
+    darken(accentHex, 0.36),
+    '#111827',
+  ];
+
+  return [...unique, ...fallback].slice(0, 4);
+}
+
 /**
  * Build the full posterTheme palette from an accent hex color.
  * Always targets dark-mode UI (the detail hero is dark-overlaid).
@@ -166,6 +193,7 @@ function buildPalette(accentHex, colorResult) {
   const onSurfaceVariant = withAlpha(onSurface, 0.6);
   const outlineVariant = withAlpha(onSurface, 0.15);
   const glass = withAlpha(bg, 0.85);
+  const meshColors = pickMeshColors(primary, colorResult);
 
   return {
     background: bg,
@@ -185,6 +213,7 @@ function buildPalette(accentHex, colorResult) {
     white: '#ffffff',
     black: '#000000',
     glass,
+    meshColors,
     // Keep original accent for hero scrim reference
     _accentHex: accentHex,
   };

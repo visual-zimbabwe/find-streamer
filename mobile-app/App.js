@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { StyleSheet, View, ScrollView, Alert, Keyboard, BackHandler, Modal, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, ScrollView, Keyboard, BackHandler, Modal, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, ThemeProvider } from './src/theme/ThemeProvider';
@@ -14,10 +14,14 @@ import { WatchlistView } from './src/components/WatchlistView';
 import { DiscoverScreen } from './src/components/DiscoverScreen';
 import { FilmographyScreen } from './src/components/FilmographyScreen';
 import { StatePanel } from './src/components/StatePanel';
-import { searchTitleCandidates, resolveMatch, fetchPersonFilmography } from './src/lib/tmdb';
+import { EmptyState } from './src/components/EmptyState';
+import { ErrorBanner } from './src/components/ErrorBanner';
+import { searchTitleCandidates, searchLiveCandidates, resolveMatch, fetchPersonFilmography, fetchSurpriseRecommendation } from './src/lib/tmdb';
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
-import { loadRecentSearches, saveRecentSearches, loadWatchlist, saveWatchlist } from './src/lib/storage';
+import { useVoiceSearch } from './src/lib/useVoiceSearch';
+import { loadRecentSearches, saveRecentSearches, loadRecentViewed, saveRecentViewed, loadWatchlist, saveWatchlist } from './src/lib/storage';
 import { WATCHLIST_CATEGORIES, getWatchlistCategory } from './src/lib/watchlistCategories';
+import { classifyAppError } from './src/lib/errors';
 
 export default function App() {
   return (
@@ -40,19 +44,64 @@ function MobileApp() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [errorInfo, setErrorInfo] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [offlineBanner, setOfflineBanner] = useState(null);
   const [results, setResults] = useState([]);
   const [selectedResult, setSelectedResult] = useState(null);
   const [recentSearches, setRecentSearches] = useState([]);
+  const [recentViewed, setRecentViewed] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
+  const [surpriseLoading, setSurpriseLoading] = useState(false);
   const [pendingWatchlistItem, setPendingWatchlistItem] = useState(null); // { ...item, _isReCategorize: bool }
   const [filter, setFilter] = useState(null); // 'movie' | 'tv' | null
   const [typeResults, setTypeResults] = useState([]);
   const [typeLoading, setTypeLoading] = useState(false);
   const typeDebounceRef = useRef(null);
+  const typeRequestRef = useRef(0);
   const [filmographyPerson, setFilmographyPerson] = useState(null); // { id, name, role }
   const [filmographyResults, setFilmographyResults] = useState([]);
   const [filmographyLoading, setFilmographyLoading] = useState(false);
   const discoverVm = useDiscoverViewModel();
+
+  const showToast = useCallback((message, options = {}) => {
+    setToast({
+      message,
+      title: options.title,
+      icon: options.icon || 'alert-circle-outline',
+      actionLabel: options.actionLabel,
+      onPress: options.onPress,
+    });
+  }, []);
+
+  const handleRequestError = useCallback((err, fallbackMessage, options = {}) => {
+    const classified = classifyAppError(err);
+    const message = classified.message || fallbackMessage || 'Something went wrong. Please try again.';
+    if (classified.severity === 'offline') {
+      setOfflineBanner({
+        message: "You're offline. Some features may be unavailable.",
+        title: 'Offline',
+      });
+    }
+    if (options.fullScreen) {
+      setError(message);
+      setErrorInfo(classified);
+    } else {
+      showToast(message, {
+        title: classified.title,
+        icon: classified.severity === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline',
+        actionLabel: options.actionLabel,
+        onPress: options.onPress,
+      });
+    }
+    return classified;
+  }, [showToast]);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timeout = setTimeout(() => setToast(null), 4500);
+    return () => clearTimeout(timeout);
+  }, [toast]);
 
   const navigateTo = useCallback((view, updates = {}) => {
     // Save current state to history
@@ -83,6 +132,7 @@ function MobileApp() {
     // If an error is showing, dismiss it
     if (error) {
       setError(null);
+      setErrorInfo(null);
       // Usually stay on current view unless it was a fatal search error
       if (activeView === 'results' && results.length === 0) {
         setActiveView('search');
@@ -134,11 +184,13 @@ function MobileApp() {
   // Initialization
   useEffect(() => {
     async function init() {
-      const [history, saved] = await Promise.all([
+      const [history, viewed, saved] = await Promise.all([
         loadRecentSearches(),
+        loadRecentViewed(),
         loadWatchlist()
       ]);
       setRecentSearches(history);
+      setRecentViewed(viewed);
       setWatchlist(saved);
     }
     init();
@@ -146,6 +198,7 @@ function MobileApp() {
 
   const clearTypeResults = useCallback(() => {
     if (typeDebounceRef.current) clearTimeout(typeDebounceRef.current);
+    typeRequestRef.current += 1;
     setTypeResults([]);
     setTypeLoading(false);
   }, []);
@@ -155,108 +208,45 @@ function MobileApp() {
     setQuery(text);
     if (typeDebounceRef.current) clearTimeout(typeDebounceRef.current);
     if (!text.trim()) {
+      typeRequestRef.current += 1;
       setTypeResults([]);
       setTypeLoading(false);
       return;
     }
+    const requestId = typeRequestRef.current + 1;
+    typeRequestRef.current = requestId;
+    const trimmedText = text.trim();
     setTypeLoading(true);
     typeDebounceRef.current = setTimeout(async () => {
       try {
-        const candidates = await searchTitleCandidates(text.trim());
-        // candidates may be a person object – ignore it for live suggestions
-        if (candidates.isPerson) {
-          setTypeResults([]);
-        } else {
-          setTypeResults(candidates.slice(0, 10));
+        const candidates = await searchLiveCandidates(trimmedText);
+        if (requestId === typeRequestRef.current) {
+          setTypeResults(candidates);
+          setOfflineBanner(null);
         }
       } catch {
-        setTypeResults([]);
+        if (requestId === typeRequestRef.current) {
+          setTypeResults([]);
+        }
       } finally {
-        setTypeLoading(false);
+        if (requestId === typeRequestRef.current) {
+          setTypeLoading(false);
+        }
       }
     }, 300);
   }, []);
 
-  // Selecting a live suggestion goes straight to the detail view
-  const handleTypeSelect = useCallback(async (match) => {
-    clearTypeResults();
-    Keyboard.dismiss();
-    setLoading(true);
-    try {
-      const fullResult = await resolveMatch(match.title, match);
-      navigateTo('detail', { selectedResult: fullResult });
-    } catch (err) {
-      Alert.alert('Error', 'Unable to fetch movie details.');
-    } finally {
-      setLoading(false);
-    }
-  }, [clearTypeResults, navigateTo]);
+  const handleVoiceSearchError = useCallback((message) => {
+    showToast(message, {
+      title: 'Voice Search',
+      icon: 'mic-off-outline',
+    });
+  }, [showToast]);
 
-  const handleSearch = useCallback(async (searchQuery = query) => {
-    if (!searchQuery.trim()) return;
-    
-    clearTypeResults();
-    Keyboard.dismiss();
-    setLoading(true);
-    setError(null);
-    setQuery(searchQuery);
-
-    try {
-      const candidates = await searchTitleCandidates(searchQuery);
-
-      // If TMDB's top hit is a person (e.g. "Tom Hanks"), skip the results list
-      // and go straight to their filmography.
-      if (candidates.isPerson) {
-        setLoading(false);
-        const newHistory = [searchQuery, ...recentSearches.filter(q => q !== searchQuery)].slice(0, 3);
-        setRecentSearches(newHistory);
-        await saveRecentSearches(newHistory);
-        handlePersonPress(candidates.personId, candidates.personName, candidates.role);
-        return;
-      }
-
-      setResults(candidates);
-      navigateTo('results', { results: candidates });
-      setActiveTab('search');
-      setFilter(null); // Reset filter on new search
-      
-      // Update history
-      const newHistory = [searchQuery, ...recentSearches.filter(q => q !== searchQuery)].slice(0, 3);
-      setRecentSearches(newHistory);
-      await saveRecentSearches(newHistory);
-    } catch (err) {
-      setError(err.message);
-      setActiveView('search');
-    } finally {
-      setLoading(false);
-    }
-  }, [query, recentSearches, clearTypeResults, handlePersonPress, navigateTo]);
-
-  const handleSelectMatch = useCallback(async (match) => {
-    setLoading(true);
-    try {
-      const fullResult = await resolveMatch(query, match);
-      navigateTo('detail', { selectedResult: fullResult });
-    } catch (err) {
-      Alert.alert('Error', 'Unable to fetch movie details.');
-    } finally {
-      setLoading(false);
-    }
-  }, [query, navigateTo]);
-
-  // Called when a card in DiscoverScreen is tapped
-  const handleSelectDiscoverItem = useCallback(async (item) => {
-    setLoading(true);
-    try {
-      // Pass empty string as query — detail screen uses item.title as fallback
-      const fullResult = await resolveMatch(item.title, item);
-      navigateTo('detail', { selectedResult: fullResult });
-    } catch (err) {
-      Alert.alert('Error', 'Unable to fetch details.');
-    } finally {
-      setLoading(false);
-    }
-  }, [navigateTo]);
+  const { listening: voiceListening, toggleVoiceSearch } = useVoiceSearch({
+    onTranscript: handleQueryChange,
+    onError: handleVoiceSearchError,
+  });
 
   const handlePersonPress = useCallback(async (personId, personName, role) => {
     setFilmographyLoading(true);
@@ -267,24 +257,164 @@ function MobileApp() {
       const { results, profileUrl } = await fetchPersonFilmography(personId, personName, role);
       setFilmographyResults(results);
       setFilmographyPerson(prev => ({ ...prev, profileUrl }));
+      setOfflineBanner(null);
     } catch (err) {
-      Alert.alert('Error', 'Unable to fetch filmography.');
+      handleRequestError(err, 'Unable to fetch filmography.');
     } finally {
       setFilmographyLoading(false);
     }
-  }, [navigateTo]);
+  }, [navigateTo, handleRequestError]);
+
+  const rememberSearch = useCallback(async (searchQuery) => {
+    const newHistory = [searchQuery, ...recentSearches.filter(q => q !== searchQuery)].slice(0, 3);
+    setRecentSearches(newHistory);
+    await saveRecentSearches(newHistory);
+  }, [recentSearches]);
+
+  const rememberViewed = useCallback(async (result) => {
+    if (!result?.tmdbId || !result?.title || !result?.mediaType) return;
+    const nextViewed = [
+      result,
+      ...recentViewed.filter((item) => !(item.tmdbId === result.tmdbId && item.mediaType === result.mediaType)),
+    ].slice(0, 8);
+    setRecentViewed(nextViewed);
+    await saveRecentViewed(nextViewed);
+  }, [recentViewed]);
+
+  // Selecting a live suggestion goes straight to the detail view
+  const handleTypeSelect = useCallback(async (match) => {
+    clearTypeResults();
+    Keyboard.dismiss();
+
+    if (match.resultType === 'person') {
+      const personName = match.personName || match.title;
+      setQuery(personName);
+      await rememberSearch(personName);
+      handlePersonPress(match.personId, personName, match.role);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const fullResult = await resolveMatch(match.title, match);
+      await rememberViewed(fullResult);
+      navigateTo('detail', { selectedResult: fullResult });
+      setOfflineBanner(null);
+    } catch (err) {
+      handleRequestError(err, 'Unable to fetch movie details.');
+    } finally {
+      setLoading(false);
+    }
+  }, [clearTypeResults, handlePersonPress, navigateTo, rememberSearch, rememberViewed, handleRequestError]);
+
+  const handleSearch = useCallback(async (searchQuery = query) => {
+    if (!searchQuery.trim()) return;
+    
+    clearTypeResults();
+    Keyboard.dismiss();
+    setLoading(true);
+    setError(null);
+    setErrorInfo(null);
+    setQuery(searchQuery);
+
+    try {
+      const candidates = await searchTitleCandidates(searchQuery);
+      setOfflineBanner(null);
+
+      // If TMDB's top hit is a person (e.g. "Tom Hanks"), skip the results list
+      // and go straight to their filmography.
+      if (candidates.isPerson) {
+        setLoading(false);
+        await rememberSearch(searchQuery);
+        handlePersonPress(candidates.personId, candidates.personName, candidates.role);
+        return;
+      }
+
+      setResults(candidates);
+      navigateTo('results', { results: candidates });
+      setActiveTab('search');
+      setFilter(null); // Reset filter on new search
+      
+      // Update history
+      await rememberSearch(searchQuery);
+    } catch (err) {
+      const classified = classifyAppError(err);
+      if (classified.code === 'NO_RESULTS') {
+        setResults([]);
+        navigateTo('results', { results: [] });
+        setActiveTab('search');
+        setFilter(null);
+        await rememberSearch(searchQuery);
+      } else {
+        handleRequestError(err, 'Unable to search right now.', { fullScreen: true });
+        setActiveView('search');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [query, clearTypeResults, handlePersonPress, navigateTo, rememberSearch, handleRequestError]);
+
+  const handleSelectMatch = useCallback(async (match) => {
+    setLoading(true);
+    try {
+      const fullResult = await resolveMatch(query, match);
+      await rememberViewed(fullResult);
+      navigateTo('detail', { selectedResult: fullResult });
+      setOfflineBanner(null);
+    } catch (err) {
+      handleRequestError(err, 'Unable to fetch movie details.');
+    } finally {
+      setLoading(false);
+    }
+  }, [query, navigateTo, rememberViewed, handleRequestError]);
+
+  // Called when a card in DiscoverScreen is tapped
+  const handleSelectDiscoverItem = useCallback(async (item) => {
+    setLoading(true);
+    try {
+      // Pass empty string as query — detail screen uses item.title as fallback
+      const fullResult = await resolveMatch(item.title, item);
+      await rememberViewed(fullResult);
+      navigateTo('detail', { selectedResult: fullResult });
+      setOfflineBanner(null);
+    } catch (err) {
+      handleRequestError(err, 'Unable to fetch details.');
+    } finally {
+      setLoading(false);
+    }
+  }, [navigateTo, rememberViewed, handleRequestError]);
 
   const handleSelectFilmographyItem = useCallback(async (item) => {
     setLoading(true);
     try {
       const fullResult = await resolveMatch(item.title, item);
+      await rememberViewed(fullResult);
       navigateTo('detail', { selectedResult: fullResult });
+      setOfflineBanner(null);
     } catch (err) {
-      Alert.alert('Error', 'Unable to fetch details.');
+      handleRequestError(err, 'Unable to fetch details.');
     } finally {
       setLoading(false);
     }
-  }, [navigateTo]);
+  }, [navigateTo, rememberViewed, handleRequestError]);
+
+  const handleSurpriseMe = useCallback(async () => {
+    const seeds = watchlist.filter((item) => getWatchlistCategory(item.watchlistCategoryId).id === 'highly_recommend');
+    setSurpriseLoading(true);
+    clearTypeResults();
+    Keyboard.dismiss();
+    try {
+      const pick = await fetchSurpriseRecommendation(seeds);
+      const fullResult = await resolveMatch(pick.title, pick);
+      await rememberViewed(fullResult);
+      navigateTo('detail', { selectedResult: fullResult });
+      setOfflineBanner(null);
+    } catch (err) {
+      handleRequestError(err, 'Unable to find a surprise pick right now.');
+    } finally {
+      setSurpriseLoading(false);
+    }
+  }, [watchlist, clearTypeResults, navigateTo, rememberViewed, handleRequestError]);
 
   const handleToggleWatchlist = async (result) => {
     const existingItem = watchlist.find(item => item.tmdbId === result.tmdbId);
@@ -324,7 +454,35 @@ function MobileApp() {
 
     setPendingWatchlistItem(null);
     setWatchlist(newWatchlist);
-    await saveWatchlist(newWatchlist);
+    try {
+      await saveWatchlist(newWatchlist);
+      showToast(isReCategorize ? 'Watchlist category updated.' : 'Saved to Watchlist.', {
+        title: 'Watchlist',
+        icon: 'bookmark-outline',
+      });
+    } catch (err) {
+      setWatchlist(watchlist);
+      showToast('Failed to save to Watchlist. Tap to retry.', {
+        title: 'Watchlist',
+        icon: 'alert-circle-outline',
+        actionLabel: 'Retry',
+        onPress: async () => {
+          try {
+            await saveWatchlist(newWatchlist);
+            setWatchlist(newWatchlist);
+            showToast(isReCategorize ? 'Watchlist category updated.' : 'Saved to Watchlist.', {
+              title: 'Watchlist',
+              icon: 'bookmark-outline',
+            });
+          } catch {
+            showToast('Still could not save. Please try again in a moment.', {
+              title: 'Watchlist',
+              icon: 'alert-circle-outline',
+            });
+          }
+        },
+      });
+    }
   };
 
   const handleRemoveFromWatchlist = async () => {
@@ -332,7 +490,92 @@ function MobileApp() {
     const newWatchlist = watchlist.filter(item => item.tmdbId !== pendingWatchlistItem.tmdbId);
     setPendingWatchlistItem(null);
     setWatchlist(newWatchlist);
-    await saveWatchlist(newWatchlist);
+    try {
+      await saveWatchlist(newWatchlist);
+      showToast('Removed from Watchlist.', {
+        title: 'Watchlist',
+        icon: 'trash-outline',
+      });
+    } catch (err) {
+      setWatchlist(watchlist);
+      showToast('Failed to update Watchlist. Tap to retry.', {
+        title: 'Watchlist',
+        icon: 'alert-circle-outline',
+        actionLabel: 'Retry',
+        onPress: async () => {
+          try {
+            await saveWatchlist(newWatchlist);
+            setWatchlist(newWatchlist);
+            showToast('Removed from Watchlist.', {
+              title: 'Watchlist',
+              icon: 'trash-outline',
+            });
+          } catch {
+            showToast('Still could not update Watchlist. Please try again in a moment.', {
+              title: 'Watchlist',
+              icon: 'alert-circle-outline',
+            });
+          }
+        },
+      });
+    }
+  };
+
+  const persistWatchlistChange = async (nextWatchlist, rollbackWatchlist, successMessage, successIcon) => {
+    setWatchlist(nextWatchlist);
+    try {
+      await saveWatchlist(nextWatchlist);
+      showToast(successMessage, {
+        title: 'Watchlist',
+        icon: successIcon,
+      });
+    } catch (err) {
+      setWatchlist(rollbackWatchlist);
+      showToast('Failed to update Watchlist. Tap to retry.', {
+        title: 'Watchlist',
+        icon: 'alert-circle-outline',
+        actionLabel: 'Retry',
+        onPress: async () => {
+          try {
+            await saveWatchlist(nextWatchlist);
+            setWatchlist(nextWatchlist);
+            showToast(successMessage, {
+              title: 'Watchlist',
+              icon: successIcon,
+            });
+          } catch {
+            showToast('Still could not update Watchlist. Please try again in a moment.', {
+              title: 'Watchlist',
+              icon: 'alert-circle-outline',
+            });
+          }
+        },
+      });
+    }
+  };
+
+  const handleRemoveWatchlistItem = async (tmdbId) => {
+    const nextWatchlist = watchlist.filter((item) => item.tmdbId !== tmdbId);
+    if (nextWatchlist.length === watchlist.length) return;
+    await persistWatchlistChange(nextWatchlist, watchlist, 'Removed from Watchlist.', 'trash-outline');
+  };
+
+  const handleMarkWatched = async (tmdbId) => {
+    const watchedCategory = getWatchlistCategory('watched');
+    const nextWatchlist = watchlist.map((item) =>
+      item.tmdbId === tmdbId
+        ? {
+          ...item,
+          watchlistCategoryId: watchedCategory.id,
+          watchlistCategoryLabel: watchedCategory.label,
+        }
+        : item
+    );
+    const changed = nextWatchlist.some((item, index) =>
+      item.tmdbId === tmdbId && item.watchlistCategoryId !== watchlist[index]?.watchlistCategoryId
+    );
+    if (!changed) return;
+    await persistWatchlistChange(nextWatchlist, watchlist, 'Marked as watched.', 'checkmark-circle-outline');
   };
 
   const handleTabPress = (tab) => {
@@ -352,6 +595,11 @@ function MobileApp() {
     return results.filter(item => item.mediaType === filter);
   }, [results, filter]);
 
+  const hasHighlyRecommendedSeeds = useMemo(
+    () => watchlist.some((item) => getWatchlistCategory(item.watchlistCategoryId).id === 'highly_recommend'),
+    [watchlist]
+  );
+
   const showBack = activeView === 'results' || activeView === 'detail' || activeView === 'settings' || activeView === 'filmography';
   const showLoading = loading && activeView !== 'detail' && activeView !== 'discover';
 
@@ -368,7 +616,13 @@ function MobileApp() {
         {showLoading ? (
           <StatePanel type="loading" title="Searching..." description="Please wait while we find your movie." />
         ) : error ? (
-          <StatePanel type="error" title="Search Error" description={error} onRetry={() => handleSearch(query)} />
+          <StatePanel
+            type={errorInfo?.severity === 'offline' ? 'offline' : errorInfo?.severity === 'service' ? 'service' : 'error'}
+            title={errorInfo?.title || 'Search Error'}
+            description={error}
+            onRetry={() => handleSearch(query)}
+            actionLabel="Refresh"
+          />
         ) : (
           <>
             {activeView === 'search' && (
@@ -379,12 +633,19 @@ function MobileApp() {
                   onSubmit={() => handleSearch()} 
                   loading={loading}
                   recentSearches={recentSearches}
+                  recentViewed={recentViewed}
                   onPickSuggestion={handleSearch}
+                  onPickRecentViewed={handleSelectMatch}
+                  onSurpriseMe={handleSurpriseMe}
+                  surpriseLoading={surpriseLoading}
+                  surpriseEnabled={hasHighlyRecommendedSeeds}
                   filter={filter}
                   onFilterChange={setFilter}
                   typeResults={typeResults}
                   typeLoading={typeLoading}
                   onTypeSelect={handleTypeSelect}
+                  onVoicePress={toggleVoiceSearch}
+                  voiceListening={voiceListening}
                 />
               </ScrollView>
             )}
@@ -398,11 +659,16 @@ function MobileApp() {
                   loading={loading}
                   hideHistory={true}
                   hideHero={true}
+                  onSurpriseMe={handleSurpriseMe}
+                  surpriseLoading={surpriseLoading}
+                  surpriseEnabled={hasHighlyRecommendedSeeds}
                   filter={filter}
                   onFilterChange={setFilter}
                   typeResults={typeResults}
                   typeLoading={typeLoading}
                   onTypeSelect={handleTypeSelect}
+                  onVoicePress={toggleVoiceSearch}
+                  voiceListening={voiceListening}
                 />
                 <MatchResults 
                   matches={filteredResults} 
@@ -410,6 +676,32 @@ function MobileApp() {
                   onToggleWatchlist={handleToggleWatchlist}
                   watchlistIds={watchlist.map(item => item.tmdbId)}
                 />
+                {filteredResults.length === 0 && (
+                  <EmptyState
+                    variant="empty"
+                    title="No matches found"
+                    description={filter
+                      ? `We couldn't find any ${filter === 'movie' ? 'movies' : 'TV shows'} for "${query}".`
+                      : `We couldn't find any matches for "${query}".`}
+                    primaryAction={filter ? {
+                      label: 'Clear Filters',
+                      icon: 'close-circle-outline',
+                      onPress: () => setFilter(null),
+                      accessibilityLabel: 'Clear result filters',
+                    } : {
+                      label: 'Check Spelling',
+                      icon: 'create-outline',
+                      onPress: () => setActiveView('search'),
+                      accessibilityLabel: 'Edit search text',
+                    }}
+                    secondaryAction={{
+                      label: 'Discover',
+                      onPress: () => handleTabPress('discover'),
+                      accessibilityLabel: 'Go to Discover',
+                    }}
+                    compact
+                  />
+                )}
               </ScrollView>
             )}
             
@@ -427,7 +719,8 @@ function MobileApp() {
             {activeView === 'watchlist' && (
               <WatchlistView 
                 items={watchlist} 
-                onRemove={(id) => handleToggleWatchlist({ tmdbId: id })}
+                onRemove={handleRemoveWatchlistItem}
+                onMarkWatched={handleMarkWatched}
                 onSelect={handleSelectMatch}
               />
             )}
@@ -549,6 +842,22 @@ function MobileApp() {
           </View>
         </View>
       </Modal>
+
+      <ErrorBanner
+        placement="top"
+        title={offlineBanner?.title}
+        message={offlineBanner?.message}
+        icon="cloud-offline-outline"
+        onDismiss={() => setOfflineBanner(null)}
+      />
+      <ErrorBanner
+        title={toast?.title}
+        message={toast?.message}
+        icon={toast?.icon}
+        actionLabel={toast?.actionLabel}
+        onPress={toast?.onPress}
+        onDismiss={() => setToast(null)}
+      />
 
       <BottomNav activeTab={activeTab} onTabPress={handleTabPress} />
     </SafeAreaView>

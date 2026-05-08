@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef } from 'react';
-import { fetchGenres, discoverTitles, fetchLanguages, fetchDiscoverCountries } from './tmdb';
+import { fetchGenres, discoverTitles, enrichDiscoverResults, fetchLanguages, fetchDiscoverCountries } from './tmdb';
 import { resolvePreset, LANGUAGE_TO_COUNTRY_PRESET } from './languagePresets';
 import { codesForCountryPreset, findCountryPreset } from './countryPresets';
+import { classifyAppError } from './errors';
 
 const DEFAULT_FILTERS = {
   mediaType: 'movie',
@@ -50,7 +51,10 @@ export function useDiscoverViewModel() {
 
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [enrichingResults, setEnrichingResults] = useState(false);
   const [error, setError] = useState(null);
+  const [errorInfo, setErrorInfo] = useState(null);
+  const [loadMoreError, setLoadMoreError] = useState(null);
   const [validationError, setValidationError] = useState(null);
 
   // Linked-preset banner: set when a language preset maps to a country preset
@@ -184,29 +188,23 @@ export function useDiscoverViewModel() {
    */
   const applyPreset = useCallback((presetId) => {
     const { languageCodes, excludeEnglish } = resolvePreset(presetId);
-    setFilters((prev) => ({
-      ...prev,
-      activePreset: presetId,
-      languageCodes,
-      excludeEnglish,
-    }));
-    setValidationError(null);
-
-    // Show the linked country preset banner if:
-    //  - We are on the TV view (country filter only applies to TV)
-    //  - The activated language preset has a mapped country preset
-    //  - No country preset is already active
     setFilters((prev) => {
       const linkedId = LANGUAGE_TO_COUNTRY_PRESET[presetId];
       const isTV = prev.mediaType === 'tv';
       if (linkedId && isTV && !prev.activeCountryPreset) {
         const linked = findCountryPreset(linkedId);
-        if (linked) {
-          setPendingCountryLink({ presetId: linkedId, label: linked.label });
-        }
+        setPendingCountryLink(linked ? { presetId: linkedId, label: linked.label } : null);
+      } else {
+        setPendingCountryLink(null);
       }
-      return prev; // filter state already set above — no changes needed here
+      return {
+        ...prev,
+        activePreset: presetId,
+        languageCodes,
+        excludeEnglish,
+      };
     });
+    setValidationError(null);
   }, []);
 
   /**
@@ -306,6 +304,42 @@ export function useDiscoverViewModel() {
     return null;
   }
 
+  function resultKey(item) {
+    return `${item.mediaType}:${item.tmdbId}`;
+  }
+
+  function effectiveOriginCountries(f) {
+    if (f.mediaType !== 'tv') return [];
+    if (f.originCountries.length > 0) return f.originCountries;
+    if (f.activeCountryPreset) return codesForCountryPreset(f.activeCountryPreset);
+    return [];
+  }
+
+  function buildDiscoverApiFilters(f) {
+    return {
+      ...f,
+      originCountries: effectiveOriginCountries(f),
+    };
+  }
+
+  const enrichVisibleResults = useCallback((items, token) => {
+    if (!items.length) return;
+
+    setEnrichingResults(true);
+    enrichDiscoverResults(items)
+      .then((enrichedItems) => {
+        if (token !== searchTokenRef.current) return;
+        const enrichedByKey = new Map(enrichedItems.map((item) => [resultKey(item), item]));
+        setResults((prev) => prev.map((item) => enrichedByKey.get(resultKey(item)) || item));
+      })
+      .catch(() => {
+        // OMDb enrichment is best-effort and should never block or fail Discover.
+      })
+      .finally(() => {
+        if (token === searchTokenRef.current) setEnrichingResults(false);
+      });
+  }, []);
+
   // ── Search (Page 1) ────────────────────────────────────────────────────────
 
   const search = useCallback(async () => {
@@ -315,21 +349,27 @@ export function useDiscoverViewModel() {
     const token = ++searchTokenRef.current;
     setLoading(true);
     setError(null);
+    setErrorInfo(null);
+    setLoadMoreError(null);
     setValidationError(null);
+    setEnrichingResults(false);
     setResults([]);
     setTotalResults(0);
     setCurrentPage(0);
 
     try {
-      const data = await discoverTitles({ ...filters, page: 1 });
+      const data = await discoverTitles({ ...buildDiscoverApiFilters(filters), page: 1 });
       if (token !== searchTokenRef.current) return; // stale
       setResults(data.results);
       setTotalResults(data.totalResults);
       setTotalPages(data.totalPages);
       setCurrentPage(1);
+      enrichVisibleResults(data.results, token);
     } catch (e) {
       if (token !== searchTokenRef.current) return;
-      setError(e.message || 'Something went wrong. Please try again.');
+      const classified = classifyAppError(e);
+      setError(classified.message);
+      setErrorInfo(classified);
     } finally {
       if (token === searchTokenRef.current) setLoading(false);
     }
@@ -342,12 +382,14 @@ export function useDiscoverViewModel() {
 
     const nextPage = currentPage + 1;
     setLoadingMore(true);
+    setLoadMoreError(null);
     try {
-      const data = await discoverTitles({ ...filters, page: nextPage });
+      const data = await discoverTitles({ ...buildDiscoverApiFilters(filters), page: nextPage });
       setResults((prev) => [...prev, ...data.results]);
       setCurrentPage(nextPage);
+      enrichVisibleResults(data.results, searchTokenRef.current);
     } catch (e) {
-      setError(e.message || 'Failed to load more results.');
+      setLoadMoreError(classifyAppError(e).message || "Couldn't load more. Tap to retry.");
     } finally {
       setLoadingMore(false);
     }
@@ -391,11 +433,15 @@ export function useDiscoverViewModel() {
 
     loading,
     loadingMore,
+    enrichingResults,
     error,
+    errorInfo,
+    loadMoreError,
     validationError,
 
     search,
     loadMore,
-    clearError: () => setError(null),
+    clearError: () => { setError(null); setErrorInfo(null); },
+    clearLoadMoreError: () => setLoadMoreError(null),
   };
 }

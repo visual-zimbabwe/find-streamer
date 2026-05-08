@@ -222,6 +222,40 @@ export const COUNTRY_PRESETS = [
     ],
   },
   {
+    id: 'latin_america',
+    label: 'Latin America 🌎',
+    emoji: '🌎',
+    description: 'Mexico, Central America, the Caribbean, Brazil, Argentina, Colombia, Chile, Peru, Venezuela, and more.',
+    codes: [
+      'MX', // Mexico
+      'BZ', // Belize
+      'CR', // Costa Rica
+      'SV', // El Salvador
+      'GT', // Guatemala
+      'HN', // Honduras
+      'NI', // Nicaragua
+      'PA', // Panama
+      'CU', // Cuba
+      'DO', // Dominican Republic
+      'HT', // Haiti
+      'JM', // Jamaica
+      'PR', // Puerto Rico
+      'TT', // Trinidad and Tobago
+      'AR', // Argentina
+      'BO', // Bolivia
+      'BR', // Brazil
+      'CL', // Chile
+      'CO', // Colombia
+      'EC', // Ecuador
+      'GY', // Guyana
+      'PY', // Paraguay
+      'PE', // Peru
+      'SR', // Suriname
+      'UY', // Uruguay
+      'VE', // Venezuela
+    ],
+  },
+  {
     id: 'south_america',
     label: 'South America 🌎',
     emoji: '🌎',
@@ -265,8 +299,8 @@ export const COUNTRY_PRESETS = [
   },
   {
     id: 'middle_east',
-    label: 'Middle East 🅌',
-    emoji: '🅌',
+    label: 'Middle East 🕌',
+    emoji: '🕌',
     description: 'Saudi Arabia, UAE, Turkey, Iran, Iraq, Israel, Jordan, Kuwait, Lebanon, Qatar, and more.',
     codes: [
       'AE', // United Arab Emirates

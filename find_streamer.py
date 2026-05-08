@@ -3,6 +3,7 @@ import json
 import os
 import sys
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -19,6 +20,11 @@ TARGET_SERVICES = {
     "amazon_prime_video": "Amazon Prime Video",
     "max": "Max",
 }
+DIRECT_SERVICE_NAMES = {
+    "netflix": {"netflix", "netflix standard with ads", "netflix basic with ads"},
+    "amazon_prime_video": {"amazon prime video"},
+    "max": {"max", "hbo max"},
+}
 
 
 def normalize(text: str) -> str:
@@ -27,13 +33,31 @@ def normalize(text: str) -> str:
 
 def service_key(provider_name: str) -> str | None:
     name = normalize(provider_name)
-    if "netflix" in name:
-        return "netflix"
-    if "amazon prime video" in name:
-        return "amazon_prime_video"
-    if name in {"max", "hbo max"} or "hbo max" in name:
-        return "max"
+    for key, direct_names in DIRECT_SERVICE_NAMES.items():
+        if name in direct_names:
+            return key
     return None
+
+
+def direct_flatrate_services(info: dict) -> set[str]:
+    return {
+        key
+        for provider in info.get("flatrate", [])
+        if (key := service_key(provider.get("provider_name", "")))
+    }
+
+
+def availability_from_results(results: dict) -> Dict[str, List[str]]:
+    availability: Dict[str, List[str]] = defaultdict(list)
+
+    for country_code, info in results.items():
+        for key in direct_flatrate_services(info):
+            availability[key].append(country_code)
+
+    for key in availability:
+        availability[key] = sorted(set(availability[key]))
+
+    return availability
 
 
 def tmdb_get(
@@ -127,31 +151,65 @@ def choose_candidate(query: str, matches: List[dict]) -> dict:
 def get_provider_countries(
     media_type: str, tmdb_id: int, bearer_token: str | None, api_key: str | None
 ) -> Dict[str, List[str]]:
+    if media_type == "tv":
+        return get_tv_complete_provider_countries(tmdb_id, bearer_token, api_key)
+
     data = tmdb_get(
         f"/{media_type}/{tmdb_id}/watch/providers",
         bearer_token=bearer_token,
         api_key=api_key,
     )
-    results = data.get("results", {})
+    return availability_from_results(data.get("results", {}))
 
-    availability: Dict[str, List[str]] = defaultdict(list)
 
-    for country_code, info in results.items():
-        providers = []
-        for section in ("flatrate", "ads", "free"):
-            providers.extend(info.get(section, []))
+def get_tv_complete_provider_countries(
+    tmdb_id: int, bearer_token: str | None, api_key: str | None
+) -> Dict[str, List[str]]:
+    details = tmdb_get(
+        f"/tv/{tmdb_id}",
+        params={"language": "en-US"},
+        bearer_token=bearer_token,
+        api_key=api_key,
+    )
+    episodes = [
+        (season.get("season_number"), episode_number)
+        for season in details.get("seasons", [])
+        if season.get("season_number", 0) > 0
+        for episode_number in range(1, season.get("episode_count", 0) + 1)
+    ]
+    availability: Dict[str, set[str] | None] = {key: None for key in TARGET_SERVICES}
 
-        seen_for_country = set()
-        for provider in providers:
-            key = service_key(provider.get("provider_name", ""))
-            if key and key not in seen_for_country:
-                availability[key].append(country_code)
-                seen_for_country.add(key)
+    if not episodes:
+        data = tmdb_get(
+            f"/tv/{tmdb_id}/watch/providers",
+            bearer_token=bearer_token,
+            api_key=api_key,
+        )
+        return availability_from_results(data.get("results", {}))
 
-    for key in availability:
-        availability[key] = sorted(availability[key])
+    def get_episode_results(episode: tuple[int, int]) -> dict:
+        season_number, episode_number = episode
+        data = tmdb_get(
+            f"/tv/{tmdb_id}/season/{season_number}/episode/{episode_number}/watch/providers",
+            bearer_token=bearer_token,
+            api_key=api_key,
+        )
+        return data.get("results", {})
 
-    return availability
+    with ThreadPoolExecutor(max_workers=min(8, len(episodes))) as executor:
+        episode_results_list = list(executor.map(get_episode_results, episodes))
+
+    for episode_results in episode_results_list:
+        episode_availability: Dict[str, set[str]] = {key: set() for key in TARGET_SERVICES}
+
+        for country_code, info in episode_results.items():
+            for key in direct_flatrate_services(info):
+                episode_availability[key].add(country_code)
+
+        for key, country_codes in episode_availability.items():
+            availability[key] = country_codes if availability[key] is None else availability[key] & country_codes
+
+    return {key: sorted(country_codes or set()) for key, country_codes in availability.items()}
 
 
 def get_title_metadata(

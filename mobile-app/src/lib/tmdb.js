@@ -1,5 +1,6 @@
 import { fetchOmdbRatings } from './omdb';
 import { NON_ENGLISH_CODES } from './languagePresets';
+import { createAppError, isRetryableStatus, retryWithBackoff } from './errors';
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const HARDCODED_BEARER_TOKEN =
@@ -89,34 +90,52 @@ function createTimeoutSignal(timeoutMs) {
 }
 
 async function tmdbGet(pathname, params = {}) {
-  const url = new URL(`${TMDB_BASE}${pathname}`);
-  Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
+  return retryWithBackoff(async () => {
+    const url = new URL(`${TMDB_BASE}${pathname}`);
+    Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
 
-  const timeout = createTimeoutSignal(TMDB_REQUEST_TIMEOUT_MS);
-  let response;
-  try {
-    response = await fetch(url.toString(), {
-      headers: {
-        accept: 'application/json',
-        Authorization: `Bearer ${HARDCODED_BEARER_TOKEN}`,
-      },
-      signal: timeout.signal,
-    });
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw new Error('Network request timed out. Check your connection and try again.');
+    const timeout = createTimeoutSignal(TMDB_REQUEST_TIMEOUT_MS);
+    let response;
+    try {
+      response = await fetch(url.toString(), {
+        headers: {
+          accept: 'application/json',
+          Authorization: `Bearer ${HARDCODED_BEARER_TOKEN}`,
+        },
+        signal: timeout.signal,
+      });
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw createAppError('Please check your connection and try again.', 'TIMEOUT');
+      }
+      throw createAppError('Please check your connection and try again.', 'OFFLINE');
+    } finally {
+      timeout.clear?.();
     }
-    throw new Error('Network request failed. Check your connection and try again.');
-  } finally {
-    timeout.clear?.();
-  }
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`TMDB request failed (${response.status}): ${message}`);
-  }
+    if (!response.ok) {
+      const status = response.status;
+      let message = '';
+      try {
+        message = await response.text();
+      } catch {
+        message = '';
+      }
 
-  return response.json();
+      if (status === 429) {
+        throw createAppError('Our movie database is busy right now. Give it a moment and refresh.', 'RATE_LIMITED', { status });
+      }
+      if (status >= 500) {
+        throw createAppError('Our movie database is taking a quick coffee break. Please try again in a moment.', 'SERVICE_UNAVAILABLE', { status });
+      }
+      throw createAppError('Something went wrong while loading movie data. Please try again.', 'TMDB_ERROR', { status, rawMessage: message });
+    }
+
+    return response.json();
+  }, {
+    retries: 2,
+    shouldRetry: (error) => error?.code === 'OFFLINE' || error?.code === 'TIMEOUT' || isRetryableStatus(error?.status),
+  });
 }
 
 export async function searchTitleCandidates(query) {
@@ -138,15 +157,13 @@ export async function searchTitleCandidates(query) {
       isPerson: true,
       personId: topResult.id,
       personName: topResult.name || query,
-      role: 'cast',
+      role: personRoleForDepartment(topResult.known_for_department),
     };
   }
 
   const candidates = allResults.filter((item) => item.media_type === 'movie' || item.media_type === 'tv');
   if (!candidates.length) {
-    const error = new Error(`No movie or TV results found for: ${query}`);
-    error.code = 'NO_RESULTS';
-    throw error;
+    throw createAppError(`We couldn't find any matches for "${query}".`, 'NO_RESULTS', { query });
   }
 
   const queryNorm = normalize(query);
@@ -159,18 +176,74 @@ export async function searchTitleCandidates(query) {
     return (b.popularity || 0) - (a.popularity || 0);
   });
 
-  return candidates.slice(0, 10).map((item) => {
-    const dateValue = item.release_date || item.first_air_date || '';
-    return {
-      mediaType: item.media_type,
-      tmdbId: item.id,
-      title: item.title || item.name || '(Untitled)',
-      year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
-      synopsis: (item.overview || '').trim() || 'No synopsis available.',
-      posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-      backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
-    };
+  return candidates.slice(0, 10).map(mapSearchMediaItem);
+}
+
+function personRoleForDepartment(department) {
+  return department === 'Directing' ? 'movie' : 'cast';
+}
+
+function personLabelForDepartment(department) {
+  return department === 'Directing' ? 'Director' : 'Actor';
+}
+
+function knownForSummary(knownFor = []) {
+  return knownFor
+    .filter((item) => item.media_type === 'movie' || item.media_type === 'tv')
+    .map((item) => item.title || item.name)
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(', ');
+}
+
+function mapSearchMediaItem(item) {
+  const dateValue = item.release_date || item.first_air_date || '';
+  return {
+    resultType: 'media',
+    mediaType: item.media_type,
+    tmdbId: item.id,
+    title: item.title || item.name || '(Untitled)',
+    year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+    synopsis: (item.overview || '').trim() || 'No synopsis available.',
+    posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+    backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+  };
+}
+
+function mapSearchPersonItem(item) {
+  if (!item.known_for_department || !['Acting', 'Directing'].includes(item.known_for_department)) {
+    return null;
+  }
+
+  return {
+    resultType: 'person',
+    personId: item.id,
+    tmdbId: item.id,
+    personName: item.name || '(Unnamed person)',
+    title: item.name || '(Unnamed person)',
+    role: personRoleForDepartment(item.known_for_department),
+    departmentLabel: personLabelForDepartment(item.known_for_department),
+    knownFor: knownForSummary(item.known_for),
+    profileUrl: item.profile_path ? `https://image.tmdb.org/t/p/w185${item.profile_path}` : null,
+  };
+}
+
+export async function searchLiveCandidates(query) {
+  const data = await tmdbGet('/search/multi', {
+    query,
+    include_adult: false,
+    language: 'en-US',
+    page: 1,
   });
+
+  return (data.results || [])
+    .map((item) => {
+      if (item.media_type === 'person') return mapSearchPersonItem(item);
+      if (item.media_type === 'movie' || item.media_type === 'tv') return mapSearchMediaItem(item);
+      return null;
+    })
+    .filter(Boolean)
+    .slice(0, 10);
 }
 
 async function getTitleMetadata(mediaType, tmdbId) {
@@ -217,7 +290,12 @@ async function getTitleMetadata(mediaType, tmdbId) {
       ? (data.created_by || []).map((person) => person.name).filter(Boolean).join(', ') || 'N/A'
       : null,
     createdByPersons: mediaType === 'tv'
-      ? (data.created_by || []).filter((p) => p.id && p.name).map((p) => ({ id: p.id, name: p.name }))
+      ? (data.created_by || []).filter((p) => p.id && p.name).map((p) => ({
+        id: p.id,
+        name: p.name,
+        job: 'Creator',
+        profileUrl: personProfileUrl(p.profile_path),
+      }))
       : [],
     seasons,
     trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : 'N/A',
@@ -225,21 +303,69 @@ async function getTitleMetadata(mediaType, tmdbId) {
 }
 
 
+function personProfileUrl(profilePath) {
+  return profilePath ? `https://image.tmdb.org/t/p/w185${profilePath}` : null;
+}
+
+function uniquePeople(people = []) {
+  const seen = new Set();
+  return people.filter((person) => {
+    const key = person.id || person.name;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function getCredits(mediaType, tmdbId) {
   const data = await tmdbGet(`/${mediaType}/${tmdbId}/credits`);
 
   const crew = data.crew || [];
-  const director = crew.find((person) => person.job === 'Director')
-    ?? crew.find((person) => person.department === 'Directing');
-  const topCast = (data.cast || []).sort((a, b) => (a.order || 9999) - (b.order || 9999)).slice(0, 5);
+  const directors = uniquePeople(crew.filter((person) => person.job === 'Director'));
+  const director = directors[0] ?? crew.find((person) => person.department === 'Directing');
+  const writerJobs = new Set(['Writer', 'Screenplay', 'Story', 'Teleplay', 'Novel', 'Characters']);
+  const writers = uniquePeople(crew.filter((person) => writerJobs.has(person.job))).slice(0, 6);
+  const fullCast = (data.cast || [])
+    .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+  const topCast = fullCast.slice(0, 5);
 
   return {
     director: director ? director.name : 'N/A',
     directorId: director ? director.id : null,
+    directorPersons: directors
+      .filter((p) => p.id && p.name)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        job: p.job || 'Director',
+        profileUrl: personProfileUrl(p.profile_path),
+      })),
+    writer: writers.map((person) => person.name).join(', ') || 'N/A',
+    writerPersons: writers
+      .filter((p) => p.name)
+      .map((p) => ({
+        id: p.id || null,
+        name: p.name,
+        job: p.job || 'Writer',
+        profileUrl: personProfileUrl(p.profile_path),
+      })),
     starring: topCast.map((person) => person.name).join(', ') || 'N/A',
     starringPersons: topCast
       .filter((p) => p.id && p.name)
-      .map((p) => ({ id: p.id, name: p.name })),
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        character: p.character || '',
+        profileUrl: personProfileUrl(p.profile_path),
+      })),
+    castPersons: fullCast
+      .filter((p) => p.id && p.name)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        character: p.character || '',
+        profileUrl: personProfileUrl(p.profile_path),
+      })),
   };
 }
 
@@ -263,6 +389,61 @@ async function getSimilar(mediaType, tmdbId) {
   return results
     .sort((a, b) => b.ratingValue - a.ratingValue)
     .slice(0, 5);
+}
+
+export async function fetchSurpriseRecommendation(seedItems = []) {
+  const seeds = seedItems
+    .filter((item) => item?.tmdbId && (item.mediaType === 'movie' || item.mediaType === 'tv'))
+    .slice(0, 8);
+
+  if (!seeds.length) {
+    throw createAppError('Add a few favorites to Highly Recommend first, then try Surprise Me.', 'NO_SURPRISE_SEEDS');
+  }
+
+  const similarGroups = await mapWithConcurrency(seeds, 3, async (seed) => {
+    try {
+      const data = await tmdbGet(`/${seed.mediaType}/${seed.tmdbId}/recommendations`, {
+        language: 'en-US',
+        page: 1,
+      });
+      return (data.results || []).map((item) => ({
+        mediaType: seed.mediaType,
+        tmdbId: item.id,
+        title: item.title || item.name || '(Untitled)',
+        year: (item.release_date || item.first_air_date || '').slice(0, 4) || 'N/A',
+        synopsis: (item.overview || '').trim() || 'No synopsis available.',
+        posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+        backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+        ratingValue: item.vote_average || 0,
+        voteCount: item.vote_count || 0,
+        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+      }));
+    } catch {
+      return [];
+    }
+  });
+
+  const seedKeys = new Set(seeds.map((item) => `${item.mediaType}:${item.tmdbId}`));
+  const unique = [];
+  const seen = new Set(seedKeys);
+
+  similarGroups.flat().forEach((item) => {
+    const key = `${item.mediaType}:${item.tmdbId}`;
+    if (seen.has(key) || !item.posterUrl) return;
+    seen.add(key);
+    unique.push(item);
+  });
+
+  const strongMatches = unique
+    .filter((item) => item.ratingValue >= 7 && item.voteCount >= 75)
+    .sort((a, b) => (b.ratingValue * Math.log10(b.voteCount + 10)) - (a.ratingValue * Math.log10(a.voteCount + 10)));
+
+  const pool = (strongMatches.length >= 5 ? strongMatches : unique.sort((a, b) => b.ratingValue - a.ratingValue)).slice(0, 24);
+  if (!pool.length) {
+    throw createAppError('No surprise picks were found from your Highly Recommend titles yet.', 'NO_RESULTS');
+  }
+
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 async function getProviderCountries(mediaType, tmdbId) {
@@ -420,6 +601,7 @@ export async function fetchGenres(mediaType) {
 // In-memory language/country cache
 let _languageCache = null;
 let _countryDiscoverCache = null;
+const _discoverImdbIdCache = new Map();
 
 export async function fetchLanguages() {
   if (_languageCache) return _languageCache;
@@ -441,6 +623,39 @@ export async function fetchDiscoverCountries() {
     .map((c) => ({ code: c.iso_3166_1, label: c.english_name }));
   _countryDiscoverCache = [{ code: null, label: 'Any Country' }, ...sorted];
   return _countryDiscoverCache;
+}
+
+async function getDiscoverImdbId(mediaType, tmdbId) {
+  const cacheKey = `${mediaType}:${tmdbId}`;
+  if (_discoverImdbIdCache.has(cacheKey)) return _discoverImdbIdCache.get(cacheKey);
+
+  try {
+    const data = mediaType === 'tv'
+      ? await tmdbGet(`/tv/${tmdbId}/external_ids`)
+      : await tmdbGet(`/movie/${tmdbId}`, { language: 'en-US' });
+    const imdbId = data.imdb_id || null;
+    _discoverImdbIdCache.set(cacheKey, imdbId);
+    return imdbId;
+  } catch {
+    _discoverImdbIdCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+export async function enrichDiscoverResults(items = []) {
+  if (!items.length) return [];
+
+  return mapWithConcurrency(items, 4, async (item) => {
+    const imdbId = item.imdbId || await getDiscoverImdbId(item.mediaType, item.tmdbId);
+    const omdbRatings = await fetchOmdbRatings(imdbId);
+
+    return {
+      ...item,
+      imdbId,
+      omdbRatings,
+      omdbEnriched: true,
+    };
+  });
 }
 
 // ─── Anime Smart-Filter ─────────────────────────────────────────────────────

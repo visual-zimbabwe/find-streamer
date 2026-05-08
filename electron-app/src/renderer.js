@@ -11,6 +11,8 @@ const yearEl = document.getElementById('year');
 const genresEl = document.getElementById('genres');
 const ratingEl = document.getElementById('rating');
 const trailerEl = document.getElementById('trailer');
+const seriesInfoCardEl = document.getElementById('series-info-card');
+const seriesInfoEl = document.getElementById('series-info');
 const tableBody = document.getElementById('table-body');
 
 let activeQuery = '';
@@ -46,10 +48,35 @@ function renderTable(rows) {
     .join('');
 }
 
+function pluralize(count, singular, plural = `${singular}s`) {
+  return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
+}
+
+function renderSeriesInfo(data) {
+  if (data.mediaType !== 'tv') {
+    seriesInfoCardEl.classList.add('hidden');
+    seriesInfoEl.textContent = '-';
+    return;
+  }
+
+  const seasonText = pluralize(data.numberOfSeasons, 'season');
+  const episodeText = pluralize(data.numberOfEpisodes, 'episode');
+  const runtimeText = data.runtimeMinutes ? `, about ${data.runtimeMinutes}m per episode` : '';
+  const seasonList = (data.seasons || [])
+    .slice(0, 4)
+    .map((season) => `${season.name} (${pluralize(season.episodeCount, 'episode')})`)
+    .join('; ');
+
+  seriesInfoEl.textContent = `${seasonText}, ${episodeText}${runtimeText}${seasonList ? `. ${seasonList}` : ''}`;
+  seriesInfoCardEl.classList.remove('hidden');
+}
+
 function resetResults() {
   resultEl.classList.add('hidden');
   pickerEl.classList.add('hidden');
   matchesListEl.innerHTML = '';
+  seriesInfoCardEl.classList.add('hidden');
+  seriesInfoEl.textContent = '-';
 }
 
 function matchButtonLabel(match) {
@@ -75,6 +102,7 @@ async function loadSelection(match, triggerButton) {
     yearEl.textContent = data.year;
     genresEl.textContent = data.genres;
     ratingEl.textContent = data.rating;
+    renderSeriesInfo(data);
 
     if (data.trailer && data.trailer !== 'N/A') {
       trailerEl.href = data.trailer;

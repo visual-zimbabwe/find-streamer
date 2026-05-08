@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
+import { EmptyState } from './EmptyState';
+import { ResultsSkeleton } from './SkeletonLoaders';
 import { REGION_PRESETS, SPECIAL_PRESETS, findPreset } from '../lib/languagePresets';
 import { COUNTRY_PRESETS, findCountryPreset, filterCountriesByPreset } from '../lib/countryPresets';
 
@@ -1045,15 +1047,31 @@ function GenreFilterSection({
 // ─── Results Section ──────────────────────────────────────────────────────────
 
 function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
-  const { loading, error, clearError, hasSearched, results, totalResults, hasMore, loadingMore, loadMore } = vm;
+  const {
+    loading,
+    error,
+    errorInfo,
+    clearError,
+    hasSearched,
+    results,
+    totalResults,
+    hasMore,
+    loadingMore,
+    loadMore,
+    loadMoreError,
+    clearLoadMoreError,
+    enrichingResults,
+  } = vm;
 
   if (loading) {
     return (
-      <View style={styles.stateBox}>
-        <ActivityIndicator color={c.primary} size="large" />
-        <Text style={[styles.stateText, { color: c.onSurfaceVariant, ...typography.bodyMd, marginTop: 16 }]}>
-          Searching…
-        </Text>
+      <View style={styles.resultsSection}>
+        <View style={styles.resultsHeader}>
+          <Text style={[{ color: c.onSurface, ...typography.titleLg, fontWeight: '800' }]}>
+            Searching
+          </Text>
+        </View>
+        <ResultsSkeleton count={4} />
       </View>
     );
   }
@@ -1061,23 +1079,18 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
   if (error) {
     return (
       <View style={styles.stateBox}>
-        <View style={[styles.stateIconCircle, { backgroundColor: c.error + '18' }]}>
-          <Ionicons name="alert-circle-outline" size={48} color={c.error} />
-        </View>
-        <Text style={[{ color: c.onSurface, ...typography.titleLg, textAlign: 'center', marginBottom: 8 }]}>
-          Something went wrong
-        </Text>
-        <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center', marginBottom: 24 }]}>
-          {error}
-        </Text>
-        <TouchableOpacity
-          style={[styles.retryBtn, { backgroundColor: c.primary, borderRadius: radii.full }]}
-          onPress={() => { clearError(); vm.search(); }}
-          accessibilityRole="button"
-          accessibilityLabel="Try search again"
-        >
-          <Text style={[{ color: c.onPrimary, ...typography.labelSm, fontWeight: '700' }]}>Try Again</Text>
-        </TouchableOpacity>
+        <EmptyState
+          variant={errorInfo?.severity === 'offline' ? 'offline' : 'service'}
+          title={errorInfo?.title || 'Something went wrong'}
+          description={error}
+          primaryAction={{
+            label: 'Refresh',
+            icon: 'refresh-outline',
+            onPress: () => { clearError(); vm.search(); },
+            accessibilityLabel: 'Refresh discover results',
+          }}
+          compact
+        />
       </View>
     );
   }
@@ -1101,15 +1114,23 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
   if (results.length === 0) {
     return (
       <View style={styles.stateBox}>
-        <View style={[styles.stateIconCircle, { backgroundColor: c.primary + '15' }]}>
-          <Ionicons name="search-outline" size={48} color={c.onSurfaceVariant} />
-        </View>
-        <Text style={[{ color: c.onSurface, ...typography.titleLg, textAlign: 'center', marginBottom: 8 }]}>
-          No results found
-        </Text>
-        <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center' }]}>
-          Try broadening your filters or removing some criteria.
-        </Text>
+        <EmptyState
+          variant="empty"
+          title="No matches found"
+          description="We couldn't find anything with those filters. Clear a few choices and search again."
+          primaryAction={{
+            label: 'Clear Filters',
+            icon: 'close-circle-outline',
+            onPress: vm.resetFilters,
+            accessibilityLabel: 'Clear discover filters',
+          }}
+          secondaryAction={{
+            label: 'Search Again',
+            onPress: vm.search,
+            accessibilityLabel: 'Search again with current filters',
+          }}
+          compact
+        />
       </View>
     );
   }
@@ -1121,10 +1142,20 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
         <Text style={[{ color: c.onSurface, ...typography.titleLg, fontWeight: '800' }]}>
           Results
         </Text>
-        <View style={[styles.countBadge, { backgroundColor: c.primary + '20', borderRadius: radii.full }]}>
-          <Text style={[{ color: c.primary, ...typography.labelSm, fontWeight: '700' }]}>
-            {totalResults.toLocaleString()} found
-          </Text>
+        <View style={styles.resultsHeaderBadges}>
+          {enrichingResults && (
+            <View style={[styles.enrichmentBadge, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full, borderColor: c.outlineVariant + '40' }]}>
+              <ActivityIndicator color={c.primary} size="small" />
+              <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', marginLeft: 6 }]}>
+                ratings
+              </Text>
+            </View>
+          )}
+          <View style={[styles.countBadge, { backgroundColor: c.primary + '20', borderRadius: radii.full }]}>
+            <Text style={[{ color: c.primary, ...typography.labelSm, fontWeight: '700' }]}>
+              {totalResults.toLocaleString()} found
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -1143,7 +1174,20 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
       </View>
 
       {/* Load More */}
-      {hasMore && (
+      {loadMoreError ? (
+        <TouchableOpacity
+          style={[styles.loadMoreBtn, styles.loadMoreErrorBtn, { backgroundColor: c.error + '12', borderRadius: radii.md, borderColor: c.error + '44' }]}
+          onPress={() => { clearLoadMoreError(); loadMore(); }}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading more results"
+        >
+          <Ionicons name="refresh-outline" size={16} color={c.error} />
+          <Text style={[{ color: c.error, ...typography.labelSm, fontWeight: '800', marginLeft: 6 }]}>
+            Couldn't load more. Tap to retry.
+          </Text>
+        </TouchableOpacity>
+      ) : hasMore && (
         <TouchableOpacity
           style={[styles.loadMoreBtn, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: c.outlineVariant + '40' }]}
           onPress={loadMore}
@@ -1177,6 +1221,12 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
 // ─── Discover Card ─────────────────────────────────────────────────────────────
 
 function DiscoverCard({ item, colors: c, typography, radii, onPress }) {
+  const omdb = item.omdbRatings || {};
+  const imdbRating = omdb.imdbRating ? omdb.imdbRating.replace('/10', '') : null;
+  const rottenTomatoes = omdb.rottenTomatoes || null;
+  const contentRating = omdb.rated || null;
+  const hasOmdbMetadata = Boolean(imdbRating || rottenTomatoes || contentRating);
+
   return (
     <TouchableOpacity
       style={styles.cardItem}
@@ -1186,13 +1236,7 @@ function DiscoverCard({ item, colors: c, typography, radii, onPress }) {
       accessibilityLabel={`Open details for ${item.title}`}
     >
       <View style={[styles.posterWrapper, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.xl }]}>
-        {item.posterUrl ? (
-          <MediaArtwork uri={item.posterUrl} style={styles.poster} resizeMode="cover" accessibilityLabel={`${item.title} poster`} />
-        ) : (
-          <View style={[styles.posterPlaceholder, { backgroundColor: c.surfaceContainerHigh }]}>
-            <Ionicons name="image-outline" size={32} color={c.onSurfaceVariant} />
-          </View>
-        )}
+        <MediaArtwork uri={item.posterUrl} style={styles.poster} resizeMode="cover" accessibilityLabel={`${item.title} poster`} title={item.title} />
         {/* Rating badge */}
         {item.ratingValue > 0 && (
           <View style={[styles.ratingBadge, { backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: radii.sm }]}>
@@ -1203,9 +1247,35 @@ function DiscoverCard({ item, colors: c, typography, radii, onPress }) {
       <Text style={[styles.cardTitle, { color: c.onSurface, ...typography.labelSm, fontWeight: '700' }]} numberOfLines={2}>
         {item.title}
       </Text>
-      <Text style={[{ color: c.onSurfaceVariant, fontSize: 10, fontWeight: '600' }]}>
-        {item.mediaType === 'movie' ? '🎬' : '📺'} {item.year}
-      </Text>
+      <View style={styles.cardMetaRow}>
+        <Ionicons
+          name={item.mediaType === 'movie' ? 'film-outline' : 'tv-outline'}
+          size={11}
+          color={c.onSurfaceVariant}
+        />
+        <Text style={[{ color: c.onSurfaceVariant, fontSize: 10, fontWeight: '600', marginLeft: 4 }]}>
+          {item.year}
+        </Text>
+      </View>
+      {hasOmdbMetadata && (
+        <View style={styles.omdbBadgeRow}>
+          {imdbRating && (
+            <View style={[styles.omdbPill, { backgroundColor: '#F5C518', borderRadius: radii.sm }]}>
+              <Text style={styles.imdbPillText}>IMDb {imdbRating}</Text>
+            </View>
+          )}
+          {rottenTomatoes && (
+            <View style={[styles.omdbPill, { backgroundColor: '#F04438', borderRadius: radii.sm }]}>
+              <Text style={styles.omdbPillText}>RT {rottenTomatoes}</Text>
+            </View>
+          )}
+          {contentRating && (
+            <View style={[styles.omdbPill, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.sm, borderWidth: 1, borderColor: c.outlineVariant + '40' }]}>
+              <Text style={[styles.contentRatingText, { color: c.onSurfaceVariant }]}>{contentRating}</Text>
+            </View>
+          )}
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -1373,7 +1443,9 @@ const styles = StyleSheet.create({
   // Results
   resultsSection: { marginBottom: 32 },
   resultsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  resultsHeaderBadges: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   countBadge: { paddingHorizontal: 12, paddingVertical: 5 },
+  enrichmentBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   cardItem: { width: '46%', marginBottom: 8 },
@@ -1382,7 +1454,14 @@ const styles = StyleSheet.create({
   posterPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   ratingBadge: { position: 'absolute', top: 8, left: 8, paddingHorizontal: 7, paddingVertical: 3 },
   cardTitle: { marginBottom: 2 },
+  cardMetaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  omdbBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  omdbPill: { paddingHorizontal: 5, paddingVertical: 3, minHeight: 20, justifyContent: 'center' },
+  imdbPillText: { color: '#141414', fontSize: 9, fontWeight: '900' },
+  omdbPillText: { color: '#ffffff', fontSize: 9, fontWeight: '900' },
+  contentRatingText: { fontSize: 9, fontWeight: '900' },
 
   loadMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, marginTop: 24, borderWidth: 1 },
+  loadMoreErrorBtn: { paddingHorizontal: 12 },
   endText: { textAlign: 'center', marginTop: 24, letterSpacing: 1 },
 });

@@ -64,7 +64,7 @@ export const REGION_PRESETS = [
     description: 'Afrikaans, Swahili, Amharic, Somali, Wolof, Yoruba, Igbo, Hausa, Zulu, Xhosa',
     // Note: Many Sub-Saharan African languages have very limited TMDB coverage.
     // This preset is a best-effort approximation and is marked as a smart filter.
-    codes: ['af', 'sw', 'am', 'so', 'wo', 'yo', 'ig', 'ha'],
+    codes: ['af', 'sw', 'am', 'so', 'wo', 'yo', 'ig', 'ha', 'zu', 'xh'],
     smartFilter: true,
     smartFilterNote: 'African language content has limited TMDB coverage. Results may be sparse.',
   },
@@ -125,7 +125,7 @@ export const LANGUAGE_TO_COUNTRY_PRESET = {
   asia:          'asia',
   middle_east:   'middle_east',
   africa:        'africa',
-  latin_america: 'south_america',
+  latin_america: 'latin_america',
   north_america: 'north_america',
 };
 
@@ -153,7 +153,7 @@ export const NON_ENGLISH_CODES = [
   // Middle East
   'ar', 'fa', 'tr', 'he',
   // Africa
-  'af', 'sw', 'am', 'so', 'wo', 'yo', 'ig', 'ha',
+  'af', 'sw', 'am', 'so', 'wo', 'yo', 'ig', 'ha', 'zu', 'xh',
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -30,7 +30,7 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
         accessibilityLabel={`Open details for ${item.title}`}
       >
         <View style={[styles.posterCard, { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}>
-          <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} />
+          <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
           {/* Rating badge */}
           <View style={styles.ratingBadge}>
             <Text style={styles.ratingText}>{item.rating}</Text>
@@ -59,7 +59,7 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
       <View style={[styles.header, { backgroundColor: colors.surfaceContainer, borderBottomColor: colors.outlineVariant + '40' }]}>
         <View style={[styles.personAvatar, { backgroundColor: colors.primary + '22' }]}>
           {profileUrl ? (
-            <MediaArtwork uri={profileUrl} style={styles.avatarImage} accessibilityLabel={`${personName} profile photo`} />
+            <MediaArtwork uri={profileUrl} style={styles.avatarImage} accessibilityLabel={`${personName} profile photo`} title={personName} icon="person-outline" compactFallback />
           ) : (
             <Ionicons name={role === 'cast' ? 'star' : 'person'} size={26} color={colors.primary} />
           )}

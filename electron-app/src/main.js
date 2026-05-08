@@ -9,6 +9,11 @@ const TARGET_SERVICES = {
   amazon_prime_video: 'Amazon Prime Video',
   max: 'Max'
 };
+const DIRECT_SERVICE_NAMES = {
+  netflix: new Set(['netflix', 'netflix standard with ads', 'netflix basic with ads']),
+  amazon_prime_video: new Set(['amazon prime video']),
+  max: new Set(['max', 'hbo max'])
+};
 
 function normalize(text) {
   return (text || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').trim();
@@ -16,10 +21,55 @@ function normalize(text) {
 
 function serviceKey(providerName) {
   const name = normalize(providerName);
-  if (name.includes('netflix')) return 'netflix';
-  if (name.includes('amazon prime video')) return 'amazon_prime_video';
-  if (name === 'max' || name.includes('hbo max')) return 'max';
+  for (const [key, directNames] of Object.entries(DIRECT_SERVICE_NAMES)) {
+    if (directNames.has(name)) return key;
+  }
   return null;
+}
+
+function directFlatrateServices(info = {}) {
+  return new Set(
+    (info.flatrate || [])
+      .map((provider) => serviceKey(provider.provider_name || ''))
+      .filter(Boolean)
+  );
+}
+
+function availabilityFromResults(results = {}) {
+  const availability = {
+    netflix: [],
+    amazon_prime_video: [],
+    max: []
+  };
+
+  for (const [countryCode, info] of Object.entries(results)) {
+    for (const key of directFlatrateServices(info)) {
+      availability[key].push(countryCode);
+    }
+  }
+
+  for (const key of Object.keys(availability)) {
+    availability[key] = [...new Set(availability[key])].sort();
+  }
+
+  return availability;
+}
+
+async function mapWithConcurrency(items, limit, task) {
+  const results = [];
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await task(items[index]);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
 }
 
 function authHeaders() {
@@ -92,6 +142,18 @@ async function getTitleMetadata(mediaType, tmdbId) {
 
   const genres = (data.genres || []).map((g) => g.name).filter(Boolean).sort();
   const rating = typeof data.vote_average === 'number' ? `${data.vote_average.toFixed(1)}/10` : 'N/A';
+  const runtimeMinutes = mediaType === 'tv'
+    ? (data.episode_run_time || []).find((value) => typeof value === 'number' && value > 0) || null
+    : data.runtime || null;
+  const seasons = mediaType === 'tv'
+    ? (data.seasons || [])
+        .filter((season) => season.season_number > 0)
+        .map((season) => ({
+          name: season.name || `Season ${season.season_number}`,
+          episodeCount: season.episode_count || 0,
+          year: season.air_date ? season.air_date.slice(0, 4) : 'TBA'
+        }))
+    : [];
 
   const videos = (data.videos && data.videos.results) || [];
   const youtube = videos.filter((v) => v.site === 'YouTube' && v.key);
@@ -103,41 +165,69 @@ async function getTitleMetadata(mediaType, tmdbId) {
     year,
     genres: genres.length ? genres.join(', ') : 'N/A',
     rating,
+    runtimeMinutes,
+    numberOfSeasons: mediaType === 'tv' ? data.number_of_seasons || seasons.length : null,
+    numberOfEpisodes: mediaType === 'tv' ? data.number_of_episodes || seasons.reduce((total, season) => total + season.episodeCount, 0) : null,
+    seasons,
     trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : 'N/A'
   };
 }
 
 async function getProviderCountries(mediaType, tmdbId) {
-  const data = await tmdbGet(`/${mediaType}/${tmdbId}/watch/providers`);
-  const results = data.results || {};
+  if (mediaType === 'tv') {
+    return getCompleteTvProviderCountries(tmdbId);
+  }
 
+  const data = await tmdbGet(`/${mediaType}/${tmdbId}/watch/providers`);
+  return availabilityFromResults(data.results || {});
+}
+
+async function getCompleteTvProviderCountries(tmdbId) {
+  const details = await tmdbGet(`/tv/${tmdbId}`, { language: 'en-US' });
+  const episodes = (details.seasons || [])
+    .filter((season) => season.season_number > 0)
+    .flatMap((season) => Array.from(
+      { length: season.episode_count || 0 },
+      (_unused, index) => ({ seasonNumber: season.season_number, episodeNumber: index + 1 })
+    ));
+
+  if (!episodes.length) {
+    const data = await tmdbGet(`/tv/${tmdbId}/watch/providers`);
+    return availabilityFromResults(data.results || {});
+  }
+
+  const episodeResults = await mapWithConcurrency(episodes, 8, (episode) =>
+    tmdbGet(`/tv/${tmdbId}/season/${episode.seasonNumber}/episode/${episode.episodeNumber}/watch/providers`)
+  );
   const availability = {
-    netflix: [],
-    amazon_prime_video: [],
-    max: []
+    netflix: null,
+    amazon_prime_video: null,
+    max: null
   };
 
-  for (const [countryCode, info] of Object.entries(results)) {
-    const providers = [];
-    for (const section of ['flatrate', 'ads', 'free']) {
-      providers.push(...(info[section] || []));
-    }
+  for (const data of episodeResults) {
+    const episodeAvailability = {
+      netflix: new Set(),
+      amazon_prime_video: new Set(),
+      max: new Set()
+    };
 
-    const seen = new Set();
-    for (const provider of providers) {
-      const key = serviceKey(provider.provider_name || '');
-      if (key && !seen.has(key)) {
-        availability[key].push(countryCode);
-        seen.add(key);
+    for (const [countryCode, info] of Object.entries(data.results || {})) {
+      for (const key of directFlatrateServices(info)) {
+        episodeAvailability[key].add(countryCode);
       }
     }
+
+    for (const key of Object.keys(availability)) {
+      availability[key] = availability[key] === null
+        ? episodeAvailability[key]
+        : new Set([...availability[key]].filter((countryCode) => episodeAvailability[key].has(countryCode)));
+    }
   }
 
-  for (const key of Object.keys(availability)) {
-    availability[key].sort();
-  }
-
-  return availability;
+  return Object.fromEntries(
+    Object.entries(availability).map(([key, countryCodes]) => [key, [...(countryCodes || new Set())].sort()])
+  );
 }
 
 async function getCountryNames() {
@@ -191,6 +281,10 @@ async function resolveMatch(query, match) {
     year: metadata.year,
     genres: metadata.genres,
     rating: metadata.rating,
+    runtimeMinutes: metadata.runtimeMinutes,
+    numberOfSeasons: metadata.numberOfSeasons,
+    numberOfEpisodes: metadata.numberOfEpisodes,
+    seasons: metadata.seasons,
     trailer: metadata.trailer,
     serviceLabels: TARGET_SERVICES,
     rows: buildRows(availability, countryNames)

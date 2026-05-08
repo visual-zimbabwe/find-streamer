@@ -1,5 +1,5 @@
-import React, { Fragment, useRef, useCallback, useState, useEffect } from 'react';
-import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert } from 'react-native';
+import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
+import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import ViewShot from 'react-native-view-shot';
@@ -12,6 +12,12 @@ import { ShareOptionsSheet } from './ShareOptionsSheet';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
+}
+
+function hasValue(value) {
+  if (value == null) return false;
+  const text = String(value).trim();
+  return Boolean(text) && !['N/A', 'Undefined', 'undefined', 'Unknown Genre'].includes(text);
 }
 
 // ── Award badge definitions ───────────────────────────────────────────────
@@ -59,7 +65,7 @@ function parseAwards(awardsStr) {
 }
 
 function formatRuntime(minutes, mediaType) {
-  if (!minutes) return mediaType === 'tv' ? 'Episode length N/A' : 'Runtime N/A';
+  if (!minutes) return null;
   if (mediaType === 'tv') return `${minutes}m episodes`;
 
   const hours = Math.floor(minutes / 60);
@@ -68,12 +74,39 @@ function formatRuntime(minutes, mediaType) {
   return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
 
+const HERO_HEIGHT = 600;
+
+function splitPeople(value) {
+  if (!hasValue(value)) return [];
+  return String(value)
+    .split(',')
+    .map((name) => name.trim())
+    .filter(Boolean);
+}
+
+function initialsForName(name = '') {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+  return initials || '?';
+}
+
+function personKey(person, index) {
+  return `${person.role || 'person'}-${person.id || person.name}-${index}`;
+}
+
 export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, onSelectSimilar, onPersonPress }) {
   const { theme } = useTheme();
   const { typography, radii } = theme;
   const shareCardRef = useRef(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const meshShift = useRef(new Animated.Value(0)).current;
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const [shareCountries, setShareCountries] = useState(null);
+  const [showAllCast, setShowAllCast] = useState(false);
 
   // ── Dynamic poster palette ───────────────────────────────────────────────
   const { palette } = usePosterTheme(result?.posterUrl);
@@ -90,6 +123,31 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
       useNativeDriver: true,
     }).start();
   }, [palette, paletteOpacity]);
+
+  useEffect(() => {
+    setShowAllCast(false);
+  }, [result?.tmdbId]);
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(meshShift, {
+          toValue: 1,
+          duration: 9000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(meshShift, {
+          toValue: 0,
+          duration: 9000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [meshShift]);
 
   const doCapture = useCallback(async () => {
     if (!shareCardRef.current) return;
@@ -122,12 +180,167 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
     await doCapture();
   }, [doCapture]);
 
+  const peopleSections = useMemo(() => {
+    const current = result || {};
+    const omdbWriterNames = splitPeople(current.omdbRatings?.writer);
+    const tmdbWriterNames = splitPeople(current.writer);
+    const writerNames = omdbWriterNames.length ? omdbWriterNames : tmdbWriterNames;
+    const writerPersons = current.writerPersons || [];
+
+    const directorPeople = current.mediaType === 'tv'
+      ? (current.createdByPersons || []).map((person) => ({
+        ...person,
+        role: 'creator',
+        roleLabel: 'Creator',
+      }))
+      : (current.directorPersons?.length ? current.directorPersons : (current.directorId && hasValue(current.director) ? [{ id: current.directorId, name: current.director }] : []))
+        .map((person) => ({
+          ...person,
+          role: 'director',
+          roleLabel: 'Director',
+        }));
+
+    const writerPeople = writerNames.map((name) => {
+      const match = writerPersons.find((person) => person.name === name);
+      return {
+        ...(match || {}),
+        name,
+        role: 'writer',
+        roleLabel: match?.job || 'Writer',
+      };
+    });
+
+    const tmdbCast = current.castPersons?.length
+      ? current.castPersons
+      : current.starringPersons || [];
+    const omdbCast = splitPeople(current.omdbRatings?.actors).map((name) => ({
+      id: null,
+      name,
+      character: '',
+      profileUrl: null,
+    }));
+    const castSource = tmdbCast.length ? tmdbCast : omdbCast;
+    const castPeople = castSource.map((person) => ({
+      ...person,
+      role: 'cast',
+      roleLabel: person.character ? person.character : 'Cast',
+    }));
+
+    return {
+      crewPeople: [...directorPeople, ...writerPeople],
+      castPeople,
+    };
+  }, [result]);
+
   if (!result) return null;
 
   const isTv = result.mediaType === 'tv';
   const seasonCount = result.numberOfSeasons || result.seasons?.length || 0;
   const episodeCount = result.numberOfEpisodes || 0;
   const hasSeasonDetails = isTv && (seasonCount > 0 || episodeCount > 0 || result.seasons?.length > 0);
+  const runtimeLabel = formatRuntime(result.runtimeMinutes, result.mediaType);
+  const hasRating = hasValue(result.rating);
+  const hasGenres = hasValue(result.genres);
+  const hasDirector = !isTv && hasValue(result.director);
+  const hasCreatedBy = isTv && (hasValue(result.createdBy) || result.createdByPersons?.length > 0);
+  const writerText = hasValue(result.omdbRatings?.writer) ? result.omdbRatings.writer : result.writer;
+  const hasWriter = hasValue(writerText);
+  const hasPeople = peopleSections.crewPeople.length > 0 || peopleSections.castPeople.length > 0;
+  const visibleCastPeople = showAllCast ? peopleSections.castPeople : peopleSections.castPeople.slice(0, 10);
+  const remainingCastCount = Math.max(peopleSections.castPeople.length - visibleCastPeople.length, 0);
+  const providerSummary = result.providerSummary || [];
+  const providerCount = providerSummary.reduce((sum, provider) => sum + (provider.count || 0), 0);
+  const meshColors = colors.meshColors || [
+    colors.primary,
+    colors.surfaceContainerHighest,
+    colors.surfaceContainer,
+    colors.background,
+  ];
+  const heroTransform = {
+    transform: [
+      {
+        translateY: scrollY.interpolate({
+          inputRange: [-120, 0, HERO_HEIGHT],
+          outputRange: [-30, 0, HERO_HEIGHT * 0.22],
+          extrapolate: 'clamp',
+        }),
+      },
+      {
+        scale: scrollY.interpolate({
+          inputRange: [-120, 0, HERO_HEIGHT],
+          outputRange: [1.2, 1.06, 1.12],
+          extrapolate: 'clamp',
+        }),
+      },
+    ],
+  };
+  const heroContentMotion = {
+    opacity: scrollY.interpolate({
+      inputRange: [0, 260, 430],
+      outputRange: [1, 0.65, 0.05],
+      extrapolate: 'clamp',
+    }),
+    transform: [
+      {
+        translateY: scrollY.interpolate({
+          inputRange: [0, HERO_HEIGHT],
+          outputRange: [0, HERO_HEIGHT * 0.12],
+          extrapolate: 'clamp',
+        }),
+      },
+    ],
+  };
+  const meshA = {
+    backgroundColor: meshColors[0],
+    transform: [
+      {
+        translateX: meshShift.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-48, 18],
+        }),
+      },
+      {
+        translateY: meshShift.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-16, 36],
+        }),
+      },
+    ],
+  };
+  const meshB = {
+    backgroundColor: meshColors[1],
+    transform: [
+      {
+        translateX: meshShift.interpolate({
+          inputRange: [0, 1],
+          outputRange: [28, -30],
+        }),
+      },
+      {
+        translateY: meshShift.interpolate({
+          inputRange: [0, 1],
+          outputRange: [20, -24],
+        }),
+      },
+    ],
+  };
+  const meshC = {
+    backgroundColor: meshColors[2],
+    transform: [
+      {
+        translateX: meshShift.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-12, 42],
+        }),
+      },
+      {
+        translateY: meshShift.interpolate({
+          inputRange: [0, 1],
+          outputRange: [30, -8],
+        }),
+      },
+    ],
+  };
 
   return (
     <>
@@ -137,7 +350,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
         options={{ format: 'png', quality: 1 }}
         style={styles.offScreen}
       >
-        <ShareCard result={result} selectedCountries={shareCountries} />
+        <ShareCard result={result} selectedCountries={shareCountries} themeColors={colors} />
       </ViewShot>
 
       <ShareOptionsSheet
@@ -147,14 +360,24 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
         onShare={handleShareConfirm}
       />
 
-      <Animated.ScrollView style={[styles.container, { opacity: paletteOpacity, backgroundColor: colors.background }]}>
+      <Animated.ScrollView
+        style={[styles.container, { opacity: paletteOpacity, backgroundColor: colors.background }]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
         <View style={styles.heroSection}>
-          <MediaArtwork
-            uri={result.backdropUrl || result.posterUrl}
-            style={styles.backdrop}
-            resizeMode="cover"
-            accessibilityLabel={`${result.title} artwork`}
-          />
+          <Animated.View style={[styles.parallaxArtwork, heroTransform]}>
+            <MediaArtwork
+              uri={result.backdropUrl || result.posterUrl}
+              style={styles.backdrop}
+              resizeMode="cover"
+              accessibilityLabel={`${result.title} artwork`}
+              title={result.title}
+            />
+          </Animated.View>
           {/* Gradient scrim tinted with the extracted accent color */}
           <View style={[styles.scrimTop, { backgroundColor: 'rgba(0,0,0,0.15)' }]} />
           <LinearGradient
@@ -163,15 +386,19 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             style={styles.scrimBottom}
           />
 
-          <View style={styles.heroContent}>
+          <Animated.View style={[styles.heroContent, heroContentMotion]}>
             <View style={styles.metaRow}>
-              <View style={[styles.genreBadge, { backgroundColor: colors.primary + '55' }]}>
-                <Text style={[styles.genreText, { color: '#ffffff', ...typography.labelSm }]}>{result.genres || 'Unknown Genre'}</Text>
-              </View>
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={14} color={colors.primary} />
-                <Text style={[styles.ratingText, { color: '#ffffff', ...typography.labelSm }]}>{result.rating}</Text>
-              </View>
+              {hasGenres && (
+                <View style={[styles.genreBadge, { backgroundColor: colors.primary + '55' }]}>
+                  <Text style={[styles.genreText, { color: '#ffffff', ...typography.labelSm }]}>{result.genres}</Text>
+                </View>
+              )}
+              {hasRating && (
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={14} color={colors.primary} />
+                  <Text style={[styles.ratingText, { color: '#ffffff', ...typography.labelSm }]}>{result.rating}</Text>
+                </View>
+              )}
             </View>
 
             {/* Title stays white — it always sits on top of the backdrop image */}
@@ -182,12 +409,22 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.75)" />
                 <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>{result.year}</Text>
               </View>
-              <View style={styles.infoPill}>
-                <Ionicons name={isTv ? 'tv-outline' : 'time-outline'} size={14} color="rgba(255,255,255,0.75)" />
-                <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
-                  {isTv ? pluralize(seasonCount, 'season') : formatRuntime(result.runtimeMinutes, result.mediaType)}
-                </Text>
-              </View>
+              {isTv && seasonCount > 0 && (
+                <View style={styles.infoPill}>
+                  <Ionicons name="tv-outline" size={14} color="rgba(255,255,255,0.75)" />
+                  <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
+                    {pluralize(seasonCount, 'season')}
+                  </Text>
+                </View>
+              )}
+              {!isTv && runtimeLabel && (
+                <View style={styles.infoPill}>
+                  <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.75)" />
+                  <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
+                    {runtimeLabel}
+                  </Text>
+                </View>
+              )}
               {result.omdbRatings?.rated && (
                 <View style={[styles.infoPill, styles.ratedBadge]}>
                   <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.85)', ...typography.labelSm }]}>
@@ -196,11 +433,25 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 </View>
               )}
             </View>
-          </View>
+          </Animated.View>
         </View>
 
         <View style={[styles.detailsContent, { backgroundColor: colors.background }]}>
+          <View pointerEvents="none" style={styles.meshBackdrop}>
+            <LinearGradient
+              colors={[colors.background, meshColors[3] || colors.surfaceContainer, colors.background]}
+              locations={[0, 0.48, 1]}
+              style={StyleSheet.absoluteFill}
+            />
+            <Animated.View style={[styles.meshOrb, styles.meshOrbA, meshA]} />
+            <Animated.View style={[styles.meshOrb, styles.meshOrbB, meshB]} />
+            <Animated.View style={[styles.meshOrb, styles.meshOrbC, meshC]} />
+            <View style={[styles.meshVeil, { backgroundColor: colors.background + 'D9' }]} />
+          </View>
+
+          {(hasDirector || hasCreatedBy || hasWriter) && (
           <View style={styles.metaGrid}>
+            {(hasDirector || hasCreatedBy) && (
             <View style={styles.metaItem}>
               <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
                 {isTv ? 'CREATED BY' : 'DIRECTOR'}
@@ -244,34 +495,111 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 )
               )}
             </View>
+            )}
+            {hasWriter && (
             <View style={styles.metaItem}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>STARRING</Text>
-              {result.starringPersons && result.starringPersons.length > 0 ? (
-                <View style={styles.personLinkRow}>
-                  {result.starringPersons.map((person, idx) => (
-                    <React.Fragment key={person.id}>
-                      <TouchableOpacity
-                        onPress={() => onPersonPress?.(person.id, person.name, 'cast')}
-                        accessibilityRole="button"
-                        accessibilityLabel={`View filmography for ${person.name}`}
-                      >
-                        <Text style={[styles.metaText, styles.personLink, { color: colors.primary, ...typography.bodyMd }]}>
-                          {person.name}
-                        </Text>
-                      </TouchableOpacity>
-                      {idx < result.starringPersons.length - 1 && (
-                        <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{', '}</Text>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </View>
-              ) : (
-                <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
-                  {result.starring}
-                </Text>
-              )}
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>WRITER</Text>
+              <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={3}>
+                {writerText}
+              </Text>
             </View>
+            )}
           </View>
+          )}
+
+          {hasPeople && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 0 }]}>CAST & CREW</Text>
+                {remainingCastCount > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setShowAllCast(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show ${remainingCastCount} more cast members`}
+                    style={[styles.seeAllButton, { borderColor: colors.primary + '66', backgroundColor: colors.primaryContainer }]}
+                  >
+                    <Text style={[styles.seeAllText, { color: colors.primary, ...typography.labelSm }]}>SEE ALL</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.peopleScroll}
+                decelerationRate="fast"
+              >
+                {peopleSections.crewPeople.map((person, index) => (
+                  <TouchableOpacity
+                    key={personKey(person, index)}
+                    style={styles.personCard}
+                    onPress={() => person.id && person.role !== 'writer' ? onPersonPress?.(person.id, person.name, person.role === 'creator' ? 'tv' : 'movie') : null}
+                    disabled={!person.id || person.role === 'writer'}
+                    accessibilityRole={person.id && person.role !== 'writer' ? 'button' : 'text'}
+                    accessibilityLabel={person.id && person.role !== 'writer' ? `View work by ${person.name}` : person.name}
+                    activeOpacity={person.id && person.role !== 'writer' ? 0.78 : 1}
+                  >
+                    <View style={[styles.avatarRing, { borderColor: colors.primary + '66', backgroundColor: colors.primaryContainer }]}>
+                      {person.profileUrl ? (
+                        <MediaArtwork
+                          uri={person.profileUrl}
+                          style={styles.personAvatar}
+                          accessibilityLabel={`${person.name} profile photo`}
+                          title={person.name}
+                          icon="person-outline"
+                          compactFallback
+                        />
+                      ) : (
+                        <Text style={[styles.avatarInitials, { color: colors.primary, ...typography.labelSm }]}>
+                          {initialsForName(person.name)}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={[styles.personName, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+                      {person.name}
+                    </Text>
+                    <Text style={[styles.personRole, { color: colors.onSurfaceVariant, ...typography.labelSm }]} numberOfLines={2}>
+                      {person.roleLabel}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+
+                {visibleCastPeople.map((person, index) => (
+                  <TouchableOpacity
+                    key={personKey(person, index)}
+                    style={styles.personCard}
+                    onPress={() => person.id ? onPersonPress?.(person.id, person.name, 'cast') : null}
+                    disabled={!person.id}
+                    accessibilityRole={person.id ? 'button' : 'text'}
+                    accessibilityLabel={person.id ? `View filmography for ${person.name}` : person.name}
+                    activeOpacity={person.id ? 0.78 : 1}
+                  >
+                    <View style={[styles.avatarRing, { borderColor: colors.outlineVariant + '55', backgroundColor: colors.surfaceContainerHigh }]}>
+                      {person.profileUrl ? (
+                        <MediaArtwork
+                          uri={person.profileUrl}
+                          style={styles.personAvatar}
+                          accessibilityLabel={`${person.name} profile photo`}
+                          title={person.name}
+                          icon="person-outline"
+                          compactFallback
+                        />
+                      ) : (
+                        <Text style={[styles.avatarInitials, { color: colors.onSurface, ...typography.labelSm }]}>
+                          {initialsForName(person.name)}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={[styles.personName, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+                      {person.name}
+                    </Text>
+                    <Text style={[styles.personRole, { color: colors.onSurfaceVariant, ...typography.labelSm }]} numberOfLines={2}>
+                      {person.roleLabel}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>SYNOPSIS</Text>
@@ -412,14 +740,18 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     {episodeCount === 1 ? 'EPISODE' : 'EPISODES'}
                   </Text>
                 </View>
-                <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
-                <View style={styles.seriesStat}>
-                  <Ionicons name="timer-outline" size={22} color={colors.primary} />
-                  <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>
-                    {result.runtimeMinutes ? `${result.runtimeMinutes}m` : 'N/A'}
-                  </Text>
-                  <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>AVG LENGTH</Text>
-                </View>
+                {result.runtimeMinutes && (
+                  <>
+                    <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
+                    <View style={styles.seriesStat}>
+                      <Ionicons name="timer-outline" size={22} color={colors.primary} />
+                      <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>
+                        {`${result.runtimeMinutes}m`}
+                      </Text>
+                      <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>AVG LENGTH</Text>
+                    </View>
+                  </>
+                )}
               </View>
 
               {result.seasons?.length > 0 && (
@@ -430,13 +762,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 >
                   {result.seasons.map((season) => (
                     <View key={season.id || season.seasonNumber} style={[styles.seasonCard, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant + '26', borderRadius: radii.md }]}>
-                      {season.posterUrl ? (
-                        <MediaArtwork uri={season.posterUrl} style={styles.seasonPoster} accessibilityLabel={`${season.name} poster`} />
-                      ) : (
-                        <View style={[styles.seasonPosterFallback, { backgroundColor: colors.surfaceContainerHighest }]}>
-                          <Ionicons name="tv-outline" size={28} color={colors.onSurfaceVariant} />
-                        </View>
-                      )}
+                      <MediaArtwork uri={season.posterUrl} style={styles.seasonPoster} accessibilityLabel={`${season.name} poster`} title={season.name} icon="tv-outline" />
                       <View style={styles.seasonBody}>
                         <Text style={[styles.seasonName, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
                           {season.name}
@@ -460,7 +786,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               </Text>
             )}
 
-            {result.providerSummary.map((provider) => (
+            {providerCount === 0 ? (
+              <View style={[styles.providerEmpty, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '33', borderRadius: radii.md }]}>
+                <Ionicons name="bookmark-outline" size={20} color={colors.primary} />
+                <Text style={[styles.providerEmptyText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+                  Not currently available to stream in the tracked countries. Add it to Watchlist to check again later.
+                </Text>
+              </View>
+            ) : providerSummary.map((provider) => (
               <View key={provider.key} style={styles.providerRow}>
                 <View style={styles.providerInfo}>
                   <View style={[styles.providerIcon, { backgroundColor: colors.surfaceContainerHighest }]}>
@@ -477,12 +810,13 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             <View style={styles.actionRow}>
               {result.trailer && result.trailer !== 'N/A' && (
                 <TouchableOpacity
-                  style={[styles.watchButton, { backgroundColor: colors.primary }]}
+                  style={[styles.watchButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
                   onPress={() => Linking.openURL(result.trailer)}
                   accessibilityRole="button"
                   accessibilityLabel={`Watch trailer for ${result.title}`}
                 >
-                  <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>▶ TRAILER</Text>
+                  <Ionicons name="play" size={16} color={colors.onPrimary} />
+                  <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>TRAILER</Text>
                 </TouchableOpacity>
               )}
 
@@ -498,7 +832,13 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               )}
 
               <TouchableOpacity
-                style={[styles.bookmarkButton, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '4D' }]}
+                style={[
+                  styles.bookmarkButton,
+                  {
+                    backgroundColor: isInWatchlist ? colors.primary : colors.primaryContainer,
+                    borderColor: colors.primary + '66',
+                  },
+                ]}
                 onPress={() => onToggleWatchlist(result)}
                 accessibilityRole="button"
                 accessibilityLabel={isInWatchlist ? `Remove ${result.title} from watchlist` : `Add ${result.title} to watchlist`}
@@ -507,7 +847,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 <Ionicons
                   name={isInWatchlist ? "bookmark" : "bookmark-outline"}
                   size={24}
-                  color={isInWatchlist ? colors.primary : colors.onSurfaceVariant}
+                  color={isInWatchlist ? colors.onPrimary : colors.primary}
                 />
               </TouchableOpacity>
 
@@ -532,7 +872,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   <View key={row.code} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: colors.surfaceContainerLow } : null]}>
                     <Text style={[styles.countryName, { color: colors.onSurface, ...typography.bodyMd }]}>{row.country}</Text>
                     <View style={styles.providerBadges}>
-                      {result.providerSummary.map((provider) =>
+                      {providerSummary.map((provider) =>
                         row.providers[provider.key] ? (
                           provider.logoUrl ? (
                             <Image
@@ -571,7 +911,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     accessibilityLabel={`Open details for ${item.title}`}
                   >
                     <View style={[styles.similarPoster, { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}>
-                      <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} />
+                      <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
                       <View style={styles.similarRating}>
                         <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>{item.rating}</Text>
                       </View>
@@ -602,9 +942,13 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
   heroSection: {
-    height: 600,
+    height: HERO_HEIGHT,
     width: '100%',
     position: 'relative',
+    overflow: 'hidden',
+  },
+  parallaxArtwork: {
+    ...StyleSheet.absoluteFillObject,
   },
   backdrop: {
     width: '100%',
@@ -678,10 +1022,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 32,
     paddingBottom: 100,
+    position: 'relative',
+    overflow: 'hidden',
     // backgroundColor applied inline via colors.background so it shifts with the poster palette
+  },
+  meshBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.88,
+  },
+  meshOrb: {
+    position: 'absolute',
+    opacity: 0.24,
+  },
+  meshOrbA: {
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    left: -150,
+    top: 24,
+  },
+  meshOrbB: {
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    right: -126,
+    top: 340,
+  },
+  meshOrbC: {
+    width: 360,
+    height: 360,
+    borderRadius: 180,
+    left: -80,
+    bottom: 220,
+  },
+  meshVeil: {
+    ...StyleSheet.absoluteFillObject,
   },
   section: {
     marginBottom: 40,
+  },
+  sectionHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 18,
   },
   sectionLabel: {
     fontWeight: '800',
@@ -725,6 +1109,18 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     lineHeight: 20,
   },
+  providerEmpty: {
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 18,
+    padding: 14,
+  },
+  providerEmptyText: {
+    flex: 1,
+    lineHeight: 20,
+  },
   legend: {
     flexDirection: 'row',
     gap: 16,
@@ -758,6 +1154,53 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontWeight: '700',
+  },
+  seeAllButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  seeAllText: {
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  peopleScroll: {
+    gap: 16,
+    paddingRight: 40,
+  },
+  personCard: {
+    alignItems: 'center',
+    width: 92,
+  },
+  avatarRing: {
+    alignItems: 'center',
+    borderRadius: 38,
+    borderWidth: 1.5,
+    height: 76,
+    justifyContent: 'center',
+    marginBottom: 10,
+    overflow: 'hidden',
+    width: 76,
+  },
+  personAvatar: {
+    height: '100%',
+    width: '100%',
+  },
+  avatarInitials: {
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  personName: {
+    fontWeight: '800',
+    minHeight: 40,
+    textAlign: 'center',
+  },
+  personRole: {
+    fontWeight: '700',
+    minHeight: 32,
+    textAlign: 'center',
+    textTransform: 'uppercase',
   },
   seriesStats: {
     borderWidth: 1,
@@ -820,10 +1263,16 @@ const styles = StyleSheet.create({
   },
   watchButton: {
     flex: 1,
+    flexDirection: 'row',
+    gap: 8,
     height: 56,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 4,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.26,
+    shadowRadius: 18,
   },
   watchButtonText: {
     fontWeight: '800',

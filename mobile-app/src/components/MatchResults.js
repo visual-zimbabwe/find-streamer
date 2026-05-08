@@ -34,6 +34,7 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
           style={styles.heroImage}
           resizeMode="cover"
           accessibilityLabel={`${topMatch.title} artwork`}
+          title={topMatch.title}
         />
         <View style={styles.heroOverlay} />
         {onToggleWatchlist && (
@@ -82,6 +83,7 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
                 style={styles.poster}
                 resizeMode="cover"
                 accessibilityLabel={`${item.title} poster`}
+                title={item.title}
               />
               <TouchableOpacity
                 style={[styles.bookmark, { backgroundColor: colors.surface + '99' }]}

@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mojo Release Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              display: ["Bebas Neue", "sans-serif"],
+              body: ["IBM Plex Sans", "sans-serif"],
+            },
+            boxShadow: {
+              panel: "0 24px 80px rgba(0, 0, 0, 0.45)",
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --color-primary: #00d4ff;
+        --color-secondary: #03c1fb;
+        --color-tertiary: #4c72d5;
+        --color-neutral: #121417;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen font-body text-neutral-100" style="background-color: var(--color-neutral);">
+    <div class="fixed inset-0 -z-10 overflow-hidden">
+      <div class="absolute inset-0" style="background: radial-gradient(circle at top left, rgba(0, 212, 255, 0.22), transparent 26%), radial-gradient(circle at 78% 18%, rgba(76, 114, 213, 0.20), transparent 30%), linear-gradient(160deg, #0d1014 0%, #121417 45%, #181d25 100%);"></div>
+      <div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:34px_34px] opacity-20"></div>
+    </div>
+
+    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <section class="mb-8 grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+        <div class="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-panel backdrop-blur md:p-8">
+          <p class="mb-3 text-xs font-semibold uppercase tracking-[0.45em]" style="color: var(--color-primary);">
+            Domestic Release Calendar
+          </p>
+          <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h1 class="font-display text-5xl uppercase leading-none text-white sm:text-6xl">
+                Mojo Release Tracker
+              </h1>
+              <p class="mt-4 max-w-2xl text-sm text-neutral-300 sm:text-base">
+                A lightweight release dashboard powered by Box Office Mojo scraping,
+                local JSON caching, and fast browser-side filtering.
+              </p>
+            </div>
+            <button
+              id="refreshButton"
+              class="rounded-full border px-5 py-3 text-sm font-semibold text-white transition"
+              style="border-color: rgba(0, 212, 255, 0.35); background: linear-gradient(180deg, rgba(0, 212, 255, 0.18), rgba(3, 193, 251, 0.10));"
+            >
+              Refresh Cache
+            </button>
+          </div>
+        </div>
+
+        <div class="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-panel backdrop-blur">
+          <p class="text-xs font-semibold uppercase tracking-[0.35em]" style="color: rgba(0, 212, 255, 0.88);">Status</p>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p class="text-xs uppercase tracking-[0.3em] text-neutral-400">Source</p>
+              <p id="sourceLabel" class="mt-2 text-sm text-neutral-200">Not loaded</p>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p class="text-xs uppercase tracking-[0.3em] text-neutral-400">Cache</p>
+              <p id="cacheLabel" class="mt-2 text-sm text-neutral-200">Pending</p>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p class="text-xs uppercase tracking-[0.3em] text-neutral-400">Results</p>
+              <p id="resultCount" class="mt-2 text-2xl font-semibold text-white">0</p>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p class="text-xs uppercase tracking-[0.3em] text-neutral-400">Last Fetch</p>
+              <p id="fetchedAt" class="mt-2 text-sm text-neutral-200">Waiting</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-panel backdrop-blur">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div class="relative">
+            <p class="mb-2 block text-xs font-semibold uppercase tracking-[0.25em] text-neutral-400">Distributor</p>
+            <button
+              id="distributorButton"
+              type="button"
+              class="flex w-full items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-left text-sm text-white transition hover:bg-white/10"
+              style="background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));"
+            >
+              <span id="distributorSummary" class="truncate text-neutral-200">All distributors</span>
+              <span class="ml-3 text-xs uppercase tracking-[0.25em]" style="color: rgba(0, 212, 255, 0.88);">Choose</span>
+            </button>
+            <div
+              id="distributorMenu"
+              class="absolute left-0 top-[calc(100%+0.75rem)] z-20 hidden w-full overflow-hidden rounded-3xl border border-white/10 bg-neutral-950/95 shadow-panel backdrop-blur"
+            >
+              <div class="border-b border-white/10 px-4 py-3 text-[11px] uppercase tracking-[0.28em] text-neutral-500">Pick one or many</div>
+              <div id="distributorOptions" class="max-h-72 space-y-1 overflow-y-auto p-3"></div>
+            </div>
+          </div>
+
+          <div class="relative">
+            <p class="mb-2 block text-xs font-semibold uppercase tracking-[0.25em] text-neutral-400">Genre</p>
+            <button
+              id="genreButton"
+              type="button"
+              class="flex w-full items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-left text-sm text-white transition hover:bg-white/10"
+              style="background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));"
+            >
+              <span id="genreSummary" class="truncate text-neutral-200">All genres</span>
+              <span class="ml-3 text-xs uppercase tracking-[0.25em]" style="color: rgba(3, 193, 251, 0.88);">Choose</span>
+            </button>
+            <div
+              id="genreMenu"
+              class="absolute left-0 top-[calc(100%+0.75rem)] z-20 hidden w-full overflow-hidden rounded-3xl border border-white/10 bg-neutral-950/95 shadow-panel backdrop-blur"
+            >
+              <div class="border-b border-white/10 px-4 py-3 text-[11px] uppercase tracking-[0.28em] text-neutral-500">Filter release genres</div>
+              <div id="genreOptions" class="max-h-72 space-y-1 overflow-y-auto p-3"></div>
+            </div>
+          </div>
+
+          <div class="relative">
+            <p class="mb-2 block text-xs font-semibold uppercase tracking-[0.25em] text-neutral-400">Month</p>
+            <button
+              id="monthButton"
+              type="button"
+              class="flex w-full items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-left text-sm text-white transition hover:bg-white/10"
+              style="background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));"
+            >
+              <span id="monthSummary" class="truncate text-neutral-200">Current month</span>
+              <span class="ml-3 text-xs uppercase tracking-[0.25em]" style="color: rgba(76, 114, 213, 0.92);">Choose</span>
+            </button>
+            <div
+              id="monthMenu"
+              class="absolute left-0 top-[calc(100%+0.75rem)] z-20 hidden w-full overflow-hidden rounded-3xl border border-white/10 bg-neutral-950/95 shadow-panel backdrop-blur"
+            >
+              <div class="border-b border-white/10 px-4 py-3 text-[11px] uppercase tracking-[0.28em] text-neutral-500">Load one or many months</div>
+              <div id="monthOptions" class="max-h-72 space-y-1 overflow-y-auto p-3"></div>
+            </div>
+          </div>
+
+          <div class="relative">
+            <p class="mb-2 block text-xs font-semibold uppercase tracking-[0.25em] text-neutral-400">Year</p>
+            <button
+              id="yearButton"
+              type="button"
+              class="flex w-full items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-left text-sm text-white transition hover:bg-white/10"
+              style="background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));"
+            >
+              <span id="yearSummary" class="truncate text-neutral-200">{{ current_year }}</span>
+              <span class="ml-3 text-xs uppercase tracking-[0.25em]" style="color: rgba(76, 114, 213, 0.92);">Choose</span>
+            </button>
+            <div
+              id="yearMenu"
+              class="absolute left-0 top-[calc(100%+0.75rem)] z-20 hidden w-full overflow-hidden rounded-3xl border border-white/10 bg-neutral-950/95 shadow-panel backdrop-blur"
+            >
+              <div class="border-b border-white/10 px-4 py-3 text-[11px] uppercase tracking-[0.28em] text-neutral-500">Load one or many years</div>
+              <div id="yearOptions" class="max-h-72 space-y-1 overflow-y-auto p-3"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div id="alertBox" class="mt-6 hidden rounded-2xl border px-4 py-3 text-sm"></div>
+
+      <section class="mt-6">
+        <div id="loadingState" class="hidden rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-neutral-300 shadow-panel">
+          Loading releases...
+        </div>
+
+        <div id="emptyState" class="hidden rounded-3xl border border-dashed border-white/15 bg-white/5 p-10 text-center shadow-panel">
+          <p class="font-display text-3xl uppercase tracking-wide text-white">No matching releases</p>
+          <p class="mt-3 text-sm text-neutral-400">
+            Try another month, broaden the filters, or refresh the cache.
+          </p>
+        </div>
+
+        <div id="cardsGrid" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3"></div>
+      </section>
+    </main>
+
+    <script>
+      const state = {
+        releases: [],
+        currentMonth: {{ current_month }},
+        currentYear: {{ current_year }},
+        lastLoadMeta: [],
+        filters: {
+          months: [{{ current_month }}],
+          years: [{{ current_year }}],
+          genres: null,
+          distributors: null,
+        },
+      };
+
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+
+      const cardsGrid = document.getElementById("cardsGrid");
+      const emptyState = document.getElementById("emptyState");
+      const loadingState = document.getElementById("loadingState");
+      const alertBox = document.getElementById("alertBox");
+      const filterConfigs = {
+        distributors: {
+          key: "distributors",
+          label: "distributors",
+          allLabel: "All distributors",
+          button: document.getElementById("distributorButton"),
+          menu: document.getElementById("distributorMenu"),
+          summary: document.getElementById("distributorSummary"),
+          options: document.getElementById("distributorOptions"),
+          accent: "cyan",
+        },
+        genres: {
+          key: "genres",
+          label: "genres",
+          allLabel: "All genres",
+          button: document.getElementById("genreButton"),
+          menu: document.getElementById("genreMenu"),
+          summary: document.getElementById("genreSummary"),
+          options: document.getElementById("genreOptions"),
+          accent: "orange",
+        },
+        months: {
+          key: "months",
+          label: "months",
+          allLabel: "All months",
+          button: document.getElementById("monthButton"),
+          menu: document.getElementById("monthMenu"),
+          summary: document.getElementById("monthSummary"),
+          options: document.getElementById("monthOptions"),
+          accent: "tertiary",
+        },
+        years: {
+          key: "years",
+          label: "years",
+          allLabel: "All years",
+          button: document.getElementById("yearButton"),
+          menu: document.getElementById("yearMenu"),
+          summary: document.getElementById("yearSummary"),
+          options: document.getElementById("yearOptions"),
+          accent: "tertiary",
+        },
+      };
+      const refreshButton = document.getElementById("refreshButton");
+      const sourceLabel = document.getElementById("sourceLabel");
+      const cacheLabel = document.getElementById("cacheLabel");
+      const resultCount = document.getElementById("resultCount");
+      const fetchedAt = document.getElementById("fetchedAt");
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function accentClasses(accent) {
+        const accents = {
+          cyan: {
+            checked: "border-white/10 text-white",
+            idle: "border-white/5 bg-white/[0.03] text-neutral-300 hover:bg-white/[0.06]",
+            mark: "border-white/10 text-white",
+            activeStyle: "background: linear-gradient(180deg, rgba(0, 212, 255, 0.18), rgba(3, 193, 251, 0.08));",
+            markStyle: "background: rgba(0, 212, 255, 0.16); border-color: rgba(0, 212, 255, 0.35);",
+          },
+          orange: {
+            checked: "border-white/10 text-white",
+            idle: "border-white/5 bg-white/[0.03] text-neutral-300 hover:bg-white/[0.06]",
+            mark: "border-white/10 text-white",
+            activeStyle: "background: linear-gradient(180deg, rgba(3, 193, 251, 0.16), rgba(76, 114, 213, 0.08));",
+            markStyle: "background: rgba(3, 193, 251, 0.16); border-color: rgba(3, 193, 251, 0.35);",
+          },
+          tertiary: {
+            checked: "border-white/10 text-white",
+            idle: "border-white/5 bg-white/[0.03] text-neutral-300 hover:bg-white/[0.06]",
+            mark: "border-white/10 text-white",
+            activeStyle: "background: linear-gradient(180deg, rgba(76, 114, 213, 0.22), rgba(76, 114, 213, 0.08));",
+            markStyle: "background: rgba(76, 114, 213, 0.18); border-color: rgba(76, 114, 213, 0.4);",
+          },
+        };
+        return accents[accent];
+      }
+
+      function isAllSelected(key, values) {
+        const current = state.filters[key];
+        return current === null || current.length === values.length;
+      }
+
+      function getAvailableValues(key) {
+        if (key === "months") {
+          return monthNames.map((_, index) => index + 1);
+        }
+        if (key === "years") {
+          return state.availableYears || [];
+        }
+        if (key === "genres") {
+          return state.availableGenres || [];
+        }
+        if (key === "distributors") {
+          return state.availableDistributors || [];
+        }
+        return [];
+      }
+
+      function getEffectiveSelection(key, values = getAvailableValues(key)) {
+        const current = state.filters[key];
+        return current === null ? [...values] : [...current];
+      }
+
+      function dedupeReleases(releases) {
+        const sorted = [...releases].sort((left, right) => {
+          const byDate = left.release_date.localeCompare(right.release_date);
+          if (byDate !== 0) {
+            return byDate;
+          }
+          return left.title.localeCompare(right.title);
+        });
+
+        const seen = new Set();
+        return sorted.filter((release) => {
+          const uniqueKey = [
+            release.title.trim().toLowerCase(),
+            release.distributor,
+          ].join("::");
+          if (seen.has(uniqueKey)) {
+            return false;
+          }
+          seen.add(uniqueKey);
+          return true;
+        });
+      }
+
+      function formatSummary(key, values, formatter = (value) => value) {
+        const current = state.filters[key];
+        const selected = getEffectiveSelection(key, values);
+        if (!values.length || current === null || selected.length === values.length) {
+          return filterConfigs[key].allLabel;
+        }
+        if (selected.length === 0) {
+          return `No ${filterConfigs[key].label}`;
+        }
+        if (selected.length === 1) {
+          return formatter(selected[0]);
+        }
+        if (selected.length === 2) {
+          return `${formatter(selected[0])}, ${formatter(selected[1])}`;
+        }
+        return `${selected.length} ${filterConfigs[key].label} selected`;
+      }
+
+      function renderOptionList(key, values, formatter = (value) => value) {
+        const config = filterConfigs[key];
+        const palette = accentClasses(config.accent);
+        const allSelected = isAllSelected(key, values);
+        const selectedValues = new Set(getEffectiveSelection(key, values));
+        const noneSelected = state.filters[key] !== null && state.filters[key].length === 0;
+
+        const rows = [
+          `
+            <div class="mb-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                data-filter="${key}"
+                data-value="__all__"
+                class="filter-option ${allSelected ? palette.checked : palette.idle} rounded-2xl border px-3 py-3 text-left text-sm font-medium transition"
+                style="${allSelected ? palette.activeStyle : ""}"
+              >
+                All
+              </button>
+              <button
+                type="button"
+                data-filter="${key}"
+                data-value="__clear__"
+                class="filter-option ${noneSelected ? palette.checked : palette.idle} rounded-2xl border px-3 py-3 text-left text-sm font-medium transition"
+                style="${noneSelected ? palette.activeStyle : ""}"
+              >
+                Clear
+              </button>
+            </div>
+          `,
+        ];
+
+        values.forEach((value) => {
+          const selected = selectedValues.has(value);
+          rows.push(`
+            <button
+              type="button"
+              data-filter="${key}"
+              data-value="${escapeHtml(value)}"
+              class="filter-option ${selected ? palette.checked : palette.idle} flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-left text-sm transition"
+              style="${selected ? palette.activeStyle : ""}"
+            >
+              <span class="truncate">${escapeHtml(formatter(value))}</span>
+              <span class="${selected ? palette.mark : "border-white/10 text-transparent"} flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs" style="${selected ? palette.markStyle : ""}">✓</span>
+            </button>
+          `);
+        });
+
+        config.options.innerHTML = rows.join("");
+      }
+
+      function renderFilterSummaries() {
+        filterConfigs.distributors.summary.textContent = formatSummary("distributors", getAvailableValues("distributors"));
+        filterConfigs.genres.summary.textContent = formatSummary("genres", getAvailableValues("genres"));
+        filterConfigs.months.summary.textContent = formatSummary("months", getAvailableValues("months"), (value) => monthNames[value - 1]);
+        filterConfigs.years.summary.textContent = formatSummary("years", getAvailableValues("years"), (value) => String(value));
+      }
+
+      function initializeFilters() {
+        state.availableGenres = [];
+        state.availableDistributors = [];
+        state.availableYears = Array.from(
+          { length: state.currentYear - 1969 },
+          (_, index) => state.currentYear - index
+        ).filter((year) => year >= 1970);
+        renderOptionList("months", getAvailableValues("months"), (value) => monthNames[value - 1]);
+        renderOptionList("years", getAvailableValues("years"), (value) => String(value));
+        renderFilterSummaries();
+      }
+
+      function toggleMenu(targetKey) {
+        Object.values(filterConfigs).forEach((config) => {
+          const shouldOpen = config.key === targetKey && config.menu.classList.contains("hidden");
+          config.menu.classList.toggle("hidden", !shouldOpen);
+        });
+      }
+
+      function closeMenus() {
+        Object.values(filterConfigs).forEach((config) => config.menu.classList.add("hidden"));
+      }
+
+      function setFilterSelection(key, values) {
+        state.filters[key] = values === null ? null : [...values];
+        renderFilterSummaries();
+
+        if (key === "months") {
+          renderOptionList("months", getAvailableValues("months"), (value) => monthNames[value - 1]);
+          loadReleases(false);
+          return;
+        }
+
+        if (key === "years") {
+          renderOptionList("years", getAvailableValues("years"), (value) => String(value));
+          loadReleases(false);
+          return;
+        }
+
+        if (key === "genres") {
+          renderOptionList("genres", getAvailableValues("genres"));
+        }
+
+        if (key === "distributors") {
+          renderOptionList("distributors", getAvailableValues("distributors"));
+        }
+
+        applyFilters();
+      }
+
+      function handleFilterToggle(key, value) {
+        const availableValues = getAvailableValues(key);
+
+        if (value === "__all__") {
+          setFilterSelection(key, null);
+          return;
+        }
+
+        if (value === "__clear__") {
+          setFilterSelection(key, []);
+          return;
+        }
+
+        const normalizedValue = key === "months" || key === "years" ? Number(value) : value;
+        const next = new Set(getEffectiveSelection(key, availableValues));
+        if (next.has(normalizedValue)) {
+          next.delete(normalizedValue);
+        } else {
+          next.add(normalizedValue);
+        }
+
+        if (next.size === availableValues.length) {
+          setFilterSelection(key, null);
+          return;
+        }
+
+        setFilterSelection(key, [...next]);
+      }
+
+      function setAlert(message = "", kind = "error") {
+        if (!message) {
+          alertBox.className = "mt-6 hidden rounded-2xl border px-4 py-3 text-sm";
+          alertBox.textContent = "";
+          return;
+        }
+
+        const styles = {
+          error: "mt-6 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100",
+          info: "mt-6 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100",
+        };
+
+        alertBox.className = styles[kind] || styles.error;
+        alertBox.textContent = message;
+      }
+
+      function setLoading(isLoading) {
+        loadingState.classList.toggle("hidden", !isLoading);
+      }
+
+      function appendInfoAlert(message) {
+        if (!message) {
+          return;
+        }
+        setAlert(message, "info");
+      }
+
+      function updateStatus(metaItems = []) {
+        state.lastLoadMeta = metaItems;
+
+        if (!metaItems.length) {
+          sourceLabel.textContent = "Not loaded";
+          cacheLabel.textContent = "Pending";
+          fetchedAt.textContent = "Waiting";
+          return;
+        }
+
+        const labels = metaItems.map((item) => `${monthNames[item.month - 1]} ${item.year}`);
+        const cacheHits = metaItems.filter((item) => item.cache_status === "hit").length;
+
+        sourceLabel.textContent = labels.join(", ");
+        cacheLabel.textContent =
+          cacheHits === metaItems.length
+            ? "Cache hit"
+            : cacheHits === 0
+              ? "Fresh scrape"
+              : `${cacheHits}/${metaItems.length} cached`;
+
+        const newestFetch = metaItems
+          .map((item) => new Date(item.fetched_at))
+          .sort((a, b) => b - a)[0];
+        fetchedAt.textContent = newestFetch ? newestFetch.toLocaleString() : "Unavailable";
+      }
+
+      function populateGenres(releases) {
+        const genres = new Set();
+        const distributors = new Set();
+        releases.forEach((release) => {
+          (release.genres || []).forEach((genre) => genres.add(genre));
+          if (release.distributor) {
+            distributors.add(release.distributor);
+          }
+        });
+
+        state.availableGenres = [...genres].sort();
+        state.availableDistributors = [...distributors].sort();
+        state.filters.genres = state.filters.genres === null
+          ? null
+          : state.filters.genres.filter((genre) => state.availableGenres.includes(genre));
+        state.filters.distributors = state.filters.distributors === null
+          ? null
+          : state.filters.distributors.filter((distributor) => state.availableDistributors.includes(distributor));
+        renderOptionList("genres", getAvailableValues("genres"));
+        renderOptionList("distributors", getAvailableValues("distributors"));
+        renderFilterSummaries();
+      }
+
+      function renderCards(releases) {
+        resultCount.textContent = String(releases.length);
+
+        if (!releases.length) {
+          cardsGrid.innerHTML = "";
+          emptyState.classList.remove("hidden");
+          return;
+        }
+
+        emptyState.classList.add("hidden");
+        cardsGrid.innerHTML = releases
+          .map((release) => {
+            const releaseDate = new Date(`${release.release_date}T00:00:00`);
+            const releaseMonthLabel = releaseDate.toLocaleString("en-US", {
+              month: "long",
+              year: "numeric",
+            });
+
+            return `
+            <article class="group overflow-hidden rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-5 transition hover:-translate-y-1" style="box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-[0.3em]" style="color: var(--color-primary);">${releaseMonthLabel}</p>
+                  <h2 class="mt-3 text-xl font-semibold text-white">${release.title}</h2>
+                </div>
+                <span class="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-white" style="border-color: rgba(76, 114, 213, 0.35); background: rgba(76, 114, 213, 0.18);">
+                  ${release.scale}
+                </span>
+              </div>
+              <div class="mt-5 grid gap-3 text-sm text-neutral-300">
+                <div>
+                  <p class="text-[11px] uppercase tracking-[0.28em] text-neutral-500">Distributor</p>
+                  <p class="mt-1">${release.distributor}</p>
+                </div>
+                <div>
+                  <p class="text-[11px] uppercase tracking-[0.28em] text-neutral-500">Genre</p>
+                  <p class="mt-1">${release.genre}</p>
+                </div>
+              </div>
+            </article>
+          `;
+          })
+          .join("");
+      }
+
+      function applyFilters() {
+        const rawGenres = state.filters.genres;
+        const rawDistributors = state.filters.distributors;
+        const rawMonths = state.filters.months;
+        const rawYears = state.filters.years;
+        const selectedGenres = new Set(getEffectiveSelection("genres"));
+        const selectedDistributors = new Set(getEffectiveSelection("distributors"));
+        const selectedMonths = new Set(getEffectiveSelection("months"));
+        const selectedYears = new Set(getEffectiveSelection("years"));
+
+        const filtered = state.releases.filter((release) => {
+          const releaseDate = new Date(`${release.release_date}T00:00:00`);
+          const matchesGenre =
+            rawGenres === null
+            || (
+              rawGenres.length > 0
+              && (release.genres || []).some((genre) => selectedGenres.has(genre))
+            );
+          const matchesMonth =
+            rawMonths === null
+            || (
+              rawMonths.length > 0
+              && selectedMonths.has(releaseDate.getMonth() + 1)
+            );
+          const matchesDistributor =
+            rawDistributors === null
+            || (
+              rawDistributors.length > 0
+              && selectedDistributors.has(release.distributor)
+            );
+          const matchesYear =
+            rawYears === null
+            || (
+              rawYears.length > 0
+              && selectedYears.has(releaseDate.getFullYear())
+            );
+          return matchesGenre && matchesMonth && matchesDistributor && matchesYear;
+        });
+
+        renderCards(filtered);
+      }
+
+      async function loadReleases(forceRefresh = false) {
+        if (Array.isArray(state.filters.months) && state.filters.months.length === 0) {
+          state.releases = [];
+          renderCards([]);
+          updateStatus([]);
+          setAlert("", "info");
+          return;
+        }
+
+        if (Array.isArray(state.filters.years) && state.filters.years.length === 0) {
+          state.releases = [];
+          renderCards([]);
+          updateStatus([]);
+          setAlert("", "info");
+          return;
+        }
+
+        const monthsToLoad = getEffectiveSelection("months");
+        const yearsToLoad = getEffectiveSelection("years");
+
+        setAlert("");
+        setLoading(true);
+
+        try {
+          const settled = await Promise.allSettled(
+            yearsToLoad.flatMap((year) => monthsToLoad.map(async (month) => {
+              const params = new URLSearchParams({
+                month: String(month),
+                year: String(year),
+              });
+              if (forceRefresh) {
+                params.set("refresh", "true");
+              }
+
+              const response = await fetch(`/api/releases?${params.toString()}`);
+              const payload = await response.json();
+
+              if (!response.ok || !payload.ok) {
+                throw new Error(payload.error || "Unable to load releases.");
+              }
+
+              return payload;
+            }))
+          );
+
+          const payloads = [];
+          const skipped = [];
+
+          settled.forEach((result, index) => {
+            const year = yearsToLoad[Math.floor(index / monthsToLoad.length)];
+            const month = monthsToLoad[index % monthsToLoad.length];
+
+            if (result.status === "fulfilled") {
+              payloads.push(result.value);
+              return;
+            }
+
+            const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+            if (message.includes("Calendar page not found")) {
+              skipped.push(`${monthNames[month - 1]} ${year}`);
+              return;
+            }
+
+            throw result.reason;
+          });
+
+          if (!payloads.length) {
+            throw new Error("No Box Office Mojo calendar pages were available for the selected months and years.");
+          }
+
+          state.releases = dedupeReleases(
+            payloads.flatMap((payload) => payload.releases || [])
+          );
+          populateGenres(state.releases);
+          applyFilters();
+          updateStatus(payloads);
+          if (skipped.length) {
+            appendInfoAlert(`Skipped unavailable calendars: ${skipped.join(", ")}.`);
+          }
+        } catch (error) {
+          state.releases = [];
+          renderCards([]);
+          setAlert(error.message || "Unexpected error while loading releases.");
+          updateStatus([]);
+          sourceLabel.textContent = "Load failed";
+          cacheLabel.textContent = "Unavailable";
+          fetchedAt.textContent = "Unavailable";
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      initializeFilters();
+
+      Object.values(filterConfigs).forEach((config) => {
+        config.button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          toggleMenu(config.key);
+        });
+
+        config.menu.addEventListener("click", (event) => {
+          const target = event.target.closest(".filter-option");
+          if (!target) {
+            return;
+          }
+
+          handleFilterToggle(target.dataset.filter, target.dataset.value);
+        });
+      });
+
+      document.addEventListener("click", (event) => {
+        const insideFilter = event.target.closest("#distributorMenu, #genreMenu, #monthMenu, #yearMenu, #distributorButton, #genreButton, #monthButton, #yearButton");
+        if (!insideFilter) {
+          closeMenus();
+        }
+      });
+
+      refreshButton.addEventListener("click", () => loadReleases(true));
+
+      loadReleases(false);
+    </script>
+  </body>
+</html>

@@ -1,5 +1,15 @@
 const OMDB_API_KEY = 'cd05d48b';
 const OMDB_BASE = 'https://www.omdbapi.com/';
+const EMPTY_OMDB_RATINGS = {
+  imdbRating: null,
+  rottenTomatoes: null,
+  metascore: null,
+  awards: null,
+  rated: null,
+  writer: null,
+  actors: null,
+};
+const _omdbRatingsCache = new Map();
 
 /**
  * Fetch ratings from OMDb for a given IMDB ID.
@@ -10,17 +20,16 @@ const OMDB_BASE = 'https://www.omdbapi.com/';
  * @returns {Promise<{ imdbRating: string|null, rottenTomatoes: string|null, metascore: string|null, awards: string|null }>}
  */
 export async function fetchOmdbRatings(imdbId) {
-  const empty = { imdbRating: null, rottenTomatoes: null, metascore: null, awards: null, rated: null };
-
-  if (!imdbId) return empty;
+  if (!imdbId) return EMPTY_OMDB_RATINGS;
+  if (_omdbRatingsCache.has(imdbId)) return _omdbRatingsCache.get(imdbId);
 
   try {
     const url = `${OMDB_BASE}?i=${encodeURIComponent(imdbId)}&apikey=${OMDB_API_KEY}`;
     const response = await fetch(url, { headers: { accept: 'application/json' } });
-    if (!response.ok) return empty;
+    if (!response.ok) return EMPTY_OMDB_RATINGS;
 
     const data = await response.json();
-    if (data.Response === 'False') return empty;
+    if (data.Response === 'False') return EMPTY_OMDB_RATINGS;
 
     const imdbRating =
       data.imdbRating && data.imdbRating !== 'N/A' ? `${data.imdbRating}/10` : null;
@@ -37,8 +46,16 @@ export async function fetchOmdbRatings(imdbId) {
     const rated =
       data.Rated && data.Rated !== 'N/A' && data.Rated !== 'Not Rated' && data.Rated !== 'Unrated' ? data.Rated : null;
 
-    return { imdbRating, rottenTomatoes, metascore, awards, rated };
+    const writer =
+      data.Writer && data.Writer !== 'N/A' ? data.Writer : null;
+
+    const actors =
+      data.Actors && data.Actors !== 'N/A' ? data.Actors : null;
+
+    const ratings = { imdbRating, rottenTomatoes, metascore, awards, rated, writer, actors };
+    _omdbRatingsCache.set(imdbId, ratings);
+    return ratings;
   } catch {
-    return empty;
+    return EMPTY_OMDB_RATINGS;
   }
 }

@@ -3,6 +3,7 @@
     "name": "Trova",
     "slug": "trova",
     "version": "1.0.0",
+    "scheme": "trova",
     "orientation": "portrait",
     "icon": "./icon.png",
     "platforms": [
@@ -27,7 +28,17 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Trova to use the microphone for voice search.",
+          "speechRecognitionPermission": "Allow Trova to convert speech into search text.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ]
     ],
     "extra": {
       "eas": {
