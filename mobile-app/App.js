@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { StyleSheet, View, ScrollView, Keyboard, BackHandler, Modal, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useTheme, ThemeProvider } from './src/theme/ThemeProvider';
 import { AppHeader } from './src/components/AppHeader';
 import { BottomNav } from './src/components/BottomNav';
@@ -331,6 +332,7 @@ function MobileApp() {
       }
 
       setResults(candidates);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigateTo('results', { results: candidates });
       setActiveTab('search');
       setFilter(null); // Reset filter on new search
@@ -726,7 +728,12 @@ function MobileApp() {
             )}
 
             {activeView === 'discover' && (
-              <DiscoverScreen onSelectItem={handleSelectDiscoverItem} vm={discoverVm} />
+              <DiscoverScreen
+                onSelectItem={handleSelectDiscoverItem}
+                vm={discoverVm}
+                onToggleWatchlist={handleToggleWatchlist}
+                watchlistIds={watchlist.map(item => item.tmdbId)}
+              />
             )}
 
             {activeView === 'filmography' && filmographyPerson && (

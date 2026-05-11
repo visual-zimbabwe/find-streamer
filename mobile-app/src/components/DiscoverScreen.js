@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
+  Animated,
   ActivityIndicator,
   Modal,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
@@ -181,7 +184,7 @@ function SearchablePickerModal({
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export function DiscoverScreen({ onSelectItem, vm }) {
+export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistIds = [] }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const c = colors;
@@ -709,6 +712,8 @@ export function DiscoverScreen({ onSelectItem, vm }) {
         typography={typography}
         radii={radii}
         onSelectItem={onSelectItem}
+        onToggleWatchlist={onToggleWatchlist}
+        watchlistIds={watchlistIds}
       />
 
       {/* ── Language Picker Modal ── */}
@@ -1046,7 +1051,7 @@ function GenreFilterSection({
 
 // ─── Results Section ──────────────────────────────────────────────────────────
 
-function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
+function ResultsSection({ vm, colors: c, typography, radii, onSelectItem, onToggleWatchlist, watchlistIds = [] }) {
   const {
     loading,
     error,
@@ -1169,6 +1174,8 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
             typography={typography}
             radii={radii}
             onPress={() => onSelectItem(item)}
+            onQuickSave={() => onToggleWatchlist?.(item)}
+            isSaved={watchlistIds.includes(item.tmdbId)}
           />
         ))}
       </View>
@@ -1219,64 +1226,126 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem }) {
 }
 
 // ─── Discover Card ─────────────────────────────────────────────────────────────
+// Swipe RIGHT → Quick Save to Watchlist (green bookmark hint)
+// Swipe LEFT  → (no-op in Discover; reserved for future)
 
-function DiscoverCard({ item, colors: c, typography, radii, onPress }) {
+const SWIPE_THRESHOLD = 64; // px to trigger quick-save
+
+function DiscoverCard({ item, colors: c, typography, radii, onPress, onQuickSave, isSaved }) {
   const omdb = item.omdbRatings || {};
   const imdbRating = omdb.imdbRating ? omdb.imdbRating.replace('/10', '') : null;
   const rottenTomatoes = omdb.rottenTomatoes || null;
   const contentRating = omdb.rated || null;
   const hasOmdbMetadata = Boolean(imdbRating || rottenTomatoes || contentRating);
 
+  const translateX = useRef(new Animated.Value(0)).current;
+  const hintOpacity = useRef(new Animated.Value(0)).current;
+  const isTriggered = useRef(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderGrant: () => {
+        isTriggered.current = false;
+      },
+      onPanResponderMove: (_, g) => {
+        // Only allow rightward drag (positive dx)
+        const clamped = Math.max(0, Math.min(g.dx, SWIPE_THRESHOLD * 1.4));
+        translateX.setValue(clamped);
+        hintOpacity.setValue(Math.min(1, clamped / SWIPE_THRESHOLD));
+
+        if (!isTriggered.current && clamped >= SWIPE_THRESHOLD) {
+          isTriggered.current = true;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        const triggered = g.dx >= SWIPE_THRESHOLD;
+        // Snap back
+        Animated.parallel([
+          Animated.spring(translateX, { toValue: 0, tension: 300, friction: 12, useNativeDriver: true }),
+          Animated.timing(hintOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+        ]).start();
+
+        if (triggered) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          onQuickSave?.();
+        }
+      },
+    })
+  ).current;
+
   return (
-    <TouchableOpacity
-      style={styles.cardItem}
-      onPress={onPress}
-      activeOpacity={0.8}
-      accessibilityRole="button"
-      accessibilityLabel={`Open details for ${item.title}`}
-    >
-      <View style={[styles.posterWrapper, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.xl }]}>
-        <MediaArtwork uri={item.posterUrl} style={styles.poster} resizeMode="cover" accessibilityLabel={`${item.title} poster`} title={item.title} />
-        {/* Rating badge */}
-        {item.ratingValue > 0 && (
-          <View style={[styles.ratingBadge, { backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: radii.sm }]}>
-            <Text style={{ color: '#FFD700', fontSize: 10, fontWeight: '800' }}>★ {item.ratingValue.toFixed(1)}</Text>
-          </View>
-        )}
-      </View>
-      <Text style={[styles.cardTitle, { color: c.onSurface, ...typography.labelSm, fontWeight: '700' }]} numberOfLines={2}>
-        {item.title}
-      </Text>
-      <View style={styles.cardMetaRow}>
+    <View style={styles.cardItem}>
+      {/* Swipe hint layer — revealed behind the card as user drags right */}
+      <Animated.View
+        style={[
+          styles.swipeHint,
+          {
+            opacity: hintOpacity,
+            backgroundColor: isSaved ? c.surfaceContainerHigh : '#1DB954',
+            borderRadius: radii.xl,
+          },
+        ]}
+      >
         <Ionicons
-          name={item.mediaType === 'movie' ? 'film-outline' : 'tv-outline'}
-          size={11}
-          color={c.onSurfaceVariant}
+          name={isSaved ? 'bookmark' : 'bookmark-outline'}
+          size={26}
+          color={isSaved ? c.primary : '#fff'}
         />
-        <Text style={[{ color: c.onSurfaceVariant, fontSize: 10, fontWeight: '600', marginLeft: 4 }]}>
-          {item.year}
-        </Text>
-      </View>
-      {hasOmdbMetadata && (
-        <View style={styles.omdbBadgeRow}>
-          {imdbRating && (
-            <View style={[styles.omdbPill, { backgroundColor: '#F5C518', borderRadius: radii.sm }]}>
-              <Text style={styles.imdbPillText}>IMDb {imdbRating}</Text>
+      </Animated.View>
+
+      <Animated.View style={{ transform: [{ translateX }] }}>
+        <TouchableOpacity
+          onPress={onPress}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`Open details for ${item.title}`}
+          {...panResponder.panHandlers}
+        >
+          <View style={[styles.posterWrapper, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.xl }]}>
+            <MediaArtwork uri={item.posterUrl} style={styles.poster} resizeMode="cover" accessibilityLabel={`${item.title} poster`} title={item.title} />
+            {item.ratingValue > 0 && (
+              <View style={[styles.ratingBadge, { backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: radii.sm }]}>
+                <Text style={{ color: '#FFD700', fontSize: 10, fontWeight: '800' }}>★ {item.ratingValue.toFixed(1)}</Text>
+              </View>
+            )}
+            {isSaved && (
+              <View style={[styles.savedCorner, { backgroundColor: c.primary }]}>
+                <Ionicons name="bookmark" size={12} color={c.onPrimary} />
+              </View>
+            )}
+          </View>
+          <Text style={[styles.cardTitle, { color: c.onSurface, ...typography.labelSm, fontWeight: '700' }]} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <View style={styles.cardMetaRow}>
+            <Ionicons name={item.mediaType === 'movie' ? 'film-outline' : 'tv-outline'} size={11} color={c.onSurfaceVariant} />
+            <Text style={[{ color: c.onSurfaceVariant, fontSize: 10, fontWeight: '600', marginLeft: 4 }]}>{item.year}</Text>
+          </View>
+          {hasOmdbMetadata && (
+            <View style={styles.omdbBadgeRow}>
+              {imdbRating && (
+                <View style={[styles.omdbPill, { backgroundColor: '#F5C518', borderRadius: radii.sm }]}>
+                  <Text style={styles.imdbPillText}>IMDb {imdbRating}</Text>
+                </View>
+              )}
+              {rottenTomatoes && (
+                <View style={[styles.omdbPill, { backgroundColor: '#F04438', borderRadius: radii.sm }]}>
+                  <Text style={styles.omdbPillText}>RT {rottenTomatoes}</Text>
+                </View>
+              )}
+              {contentRating && (
+                <View style={[styles.omdbPill, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.sm, borderWidth: 1, borderColor: c.outlineVariant + '40' }]}>
+                  <Text style={[styles.contentRatingText, { color: c.onSurfaceVariant }]}>{contentRating}</Text>
+                </View>
+              )}
             </View>
           )}
-          {rottenTomatoes && (
-            <View style={[styles.omdbPill, { backgroundColor: '#F04438', borderRadius: radii.sm }]}>
-              <Text style={styles.omdbPillText}>RT {rottenTomatoes}</Text>
-            </View>
-          )}
-          {contentRating && (
-            <View style={[styles.omdbPill, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.sm, borderWidth: 1, borderColor: c.outlineVariant + '40' }]}>
-              <Text style={[styles.contentRatingText, { color: c.onSurfaceVariant }]}>{contentRating}</Text>
-            </View>
-          )}
-        </View>
-      )}
-    </TouchableOpacity>
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -1448,7 +1517,28 @@ const styles = StyleSheet.create({
   enrichmentBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-  cardItem: { width: '46%', marginBottom: 8 },
+  cardItem: { width: '46%', marginBottom: 8, position: 'relative' },
+  swipeHint: {
+    position: 'absolute',
+    inset: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    aspectRatio: 2 / 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savedCorner: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   posterWrapper: { aspectRatio: 2 / 3, overflow: 'hidden', marginBottom: 8, position: 'relative' },
   poster: { width: '100%', height: '100%' },
   posterPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },

@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react'
 import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import ViewShot from 'react-native-view-shot';
 import * as ExpoSharing from 'expo-sharing';
 import { useTheme } from '../theme/ThemeProvider';
@@ -9,6 +10,7 @@ import { usePosterTheme } from '../lib/usePosterTheme';
 import { MediaArtwork } from './MediaArtwork';
 import { ShareCard } from './ShareCard';
 import { ShareOptionsSheet } from './ShareOptionsSheet';
+import { TrailerModal } from './TrailerModal';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
@@ -107,6 +109,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const [shareCountries, setShareCountries] = useState(null);
   const [showAllCast, setShowAllCast] = useState(false);
+  const [trailerVisible, setTrailerVisible] = useState(false);
 
   // ── Dynamic poster palette ───────────────────────────────────────────────
   const { palette } = usePosterTheme(result?.posterUrl);
@@ -358,6 +361,13 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
         result={result}
         onClose={() => setShareSheetVisible(false)}
         onShare={handleShareConfirm}
+      />
+
+      <TrailerModal
+        visible={trailerVisible}
+        trailerUrl={result?.trailer}
+        title={result?.title}
+        onClose={() => setTrailerVisible(false)}
       />
 
       <Animated.ScrollView
@@ -840,7 +850,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               {result.trailer && result.trailer !== 'N/A' && (
                 <TouchableOpacity
                   style={[styles.watchButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
-                  onPress={() => Linking.openURL(result.trailer)}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setTrailerVisible(true);
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel={`Watch trailer for ${result.title}`}
                 >
@@ -860,6 +873,22 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 </TouchableOpacity>
               )}
 
+              {result.imdbId && (
+                <TouchableOpacity
+                  style={[styles.rtButton, { backgroundColor: '#FA320A', borderColor: '#C82400' }]}
+                  onPress={() => {
+                    const slug = result.title
+                      ? result.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+                      : '';
+                    Linking.openURL(`https://www.rottentomatoes.com/search?search=${encodeURIComponent(result.title || '')}`);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Search ${result.title} on Rotten Tomatoes`}
+                >
+                  <Text style={[styles.rtButtonText, { ...typography.labelSm }]}>🍅 RT</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 style={[
                   styles.bookmarkButton,
@@ -868,7 +897,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     borderColor: colors.primary + '66',
                   },
                 ]}
-                onPress={() => onToggleWatchlist(result)}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onToggleWatchlist(result);
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={isInWatchlist ? `Remove ${result.title} from watchlist` : `Add ${result.title} to watchlist`}
                 accessibilityState={{ selected: isInWatchlist }}
@@ -1327,6 +1359,20 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#000000',
     letterSpacing: 0.5,
+  },
+  rtButton: {
+    width: 64,
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rtButtonText: {
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 0.5,
+    fontSize: 12,
   },
   similarScroll: {
     gap: 16,

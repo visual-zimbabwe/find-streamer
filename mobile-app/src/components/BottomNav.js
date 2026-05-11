@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeProvider';
 
 export function BottomNav({ activeTab, onTabPress }) {
@@ -13,7 +14,7 @@ export function BottomNav({ activeTab, onTabPress }) {
     <View style={[styles.container, { backgroundColor: colors.background + 'cc', paddingTop: 10, paddingBottom: insets.bottom + 8, borderTopColor: colors.outlineVariant + '26' }]}>
       <TouchableOpacity 
         style={[styles.navItem, activeTab === 'search' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
-        onPress={() => onTabPress('search')}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onTabPress('search'); }}
         accessibilityRole="tab"
         accessibilityLabel="Search"
         accessibilityState={{ selected: activeTab === 'search' }}
@@ -28,7 +29,7 @@ export function BottomNav({ activeTab, onTabPress }) {
 
       <TouchableOpacity 
         style={[styles.navItem, activeTab === 'discover' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
-        onPress={() => onTabPress('discover')}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onTabPress('discover'); }}
         accessibilityRole="tab"
         accessibilityLabel="Discover"
         accessibilityState={{ selected: activeTab === 'discover' }}
@@ -43,7 +44,7 @@ export function BottomNav({ activeTab, onTabPress }) {
       
       <TouchableOpacity 
         style={[styles.navItem, activeTab === 'watchlist' && { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}
-        onPress={() => onTabPress('watchlist')}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onTabPress('watchlist'); }}
         accessibilityRole="tab"
         accessibilityLabel="Watchlist"
         accessibilityState={{ selected: activeTab === 'watchlist' }}

@@ -1,8 +1,70 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useCallback } from 'react';
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
+
+/**
+ * AnimatedCard
+ * Wraps any card content with a spring press-in animation that makes the
+ * poster appear to "grow" into the next screen — approximating a shared-element
+ * transition without needing a native navigation engine.
+ */
+function AnimatedCard({ style, onPress, children, accessibilityLabel }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = useCallback(() => {
+    Animated.spring(scale, {
+      toValue: 0.96,
+      tension: 300,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  }, [scale]);
+
+  const handlePressOut = useCallback(() => {
+    Animated.spring(scale, {
+      toValue: 1,
+      tension: 200,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [scale]);
+
+  const handlePress = useCallback(() => {
+    // Burst scale to 1.04 before navigating — gives "launch" feel
+    Animated.sequence([
+      Animated.spring(scale, {
+        toValue: 1.04,
+        tension: 300,
+        friction: 6,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        tension: 200,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start(() => onPress?.());
+  }, [scale, onPress]);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={1}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      <Animated.View style={[style, { transform: [{ scale }] }]}>
+        {children}
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
 
 export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistIds = [], selectedId }) {
   const { theme } = useTheme();
@@ -21,12 +83,10 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
         <Text style={[styles.count, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>{matches.length} results found</Text>
       </View>
 
-      {/* Hero Card */}
-      <TouchableOpacity
+      {/* Hero Card — grows on press */}
+      <AnimatedCard
         style={[styles.heroCard, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}
         onPress={() => onSelect(topMatch)}
-        activeOpacity={0.9}
-        accessibilityRole="button"
         accessibilityLabel={`Open details for ${topMatch.title}`}
       >
         <MediaArtwork
@@ -42,6 +102,7 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
             style={[styles.heroBookmark, { backgroundColor: colors.surface + '99' }]}
             onPress={(event) => {
               event.stopPropagation?.();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onToggleWatchlist(topMatch);
             }}
             accessibilityRole="button"
@@ -64,20 +125,17 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
             {topMatch.synopsis}
           </Text>
         </View>
-      </TouchableOpacity>
+      </AnimatedCard>
 
-      {/* Grid of others */}
+      {/* Grid of others — each poster also grows on press */}
       <View style={styles.grid}>
         {others.map((item) => (
-          <TouchableOpacity
-            key={item.tmdbId}
-            style={styles.gridItem}
-            onPress={() => onSelect(item)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={`Open details for ${item.title}`}
-          >
-            <View style={[styles.posterWrapper, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
+          <View key={item.tmdbId} style={styles.gridItem}>
+            <AnimatedCard
+              style={[styles.posterWrapper, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}
+              onPress={() => onSelect(item)}
+              accessibilityLabel={`Open details for ${item.title}`}
+            >
               <MediaArtwork
                 uri={item.posterUrl}
                 style={styles.poster}
@@ -89,6 +147,7 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
                 style={[styles.bookmark, { backgroundColor: colors.surface + '99' }]}
                 onPress={(event) => {
                   event.stopPropagation?.();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   onToggleWatchlist?.(item);
                 }}
                 accessibilityRole="button"
@@ -101,7 +160,7 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
                   color={savedIds.has(item.tmdbId) ? colors.primary : colors.white}
                 />
               </TouchableOpacity>
-            </View>
+            </AnimatedCard>
             <View style={styles.itemInfo}>
               <Text style={[styles.itemTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={1}>
                 {item.title}
@@ -110,7 +169,7 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
                 {item.mediaType === 'movie' ? 'Movie' : 'TV Series'} • {item.year}
               </Text>
             </View>
-          </TouchableOpacity>
+          </View>
         ))}
       </View>
     </View>
@@ -179,7 +238,7 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   gridItem: {
-    width: '46%', // Simple 2-column grid for mobile
+    width: '46%',
     marginBottom: 24,
   },
   posterWrapper: {
