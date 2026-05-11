@@ -658,18 +658,18 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       Linking.openURL(`https://www.imdb.com/title/${result.imdbId}/`);
                     }}
-                    style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
+                    style={[styles.ratingBadgeCompact, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
                     accessibilityRole="button"
                     accessibilityLabel={`View ${result.title} on IMDb`}
                   >
-                    <Text style={styles.ratingBadgeIcon}>⭐</Text>
-                    <View>
-                      <View style={styles.ratingBadgeHeader}>
-                        <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>IMDb</Text>
-                        <Ionicons name="open-outline" size={10} color={colors.onSurfaceVariant} style={{ marginLeft: 4 }} />
-                      </View>
-                      <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.imdbRating}</Text>
-                    </View>
+                    <Image 
+                      source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/c/cc/IMDb_logo_2016.png' }} 
+                      style={styles.ratingLogoImdb} 
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.ratingValueCompact, { color: colors.onSurface, ...typography.titleLg }]}>
+                      {result.omdbRatings.imdbRating.split('/')[0]}
+                    </Text>
                   </TouchableOpacity>
                 )}
                 {result.omdbRatings.rottenTomatoes && (
@@ -678,18 +678,18 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       Linking.openURL(`https://www.rottentomatoes.com/search?search=${encodeURIComponent(result.title || '')}`);
                     }}
-                    style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
+                    style={[styles.ratingBadgeCompact, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
                     accessibilityRole="button"
                     accessibilityLabel={`Search ${result.title} on Rotten Tomatoes`}
                   >
-                    <Text style={styles.ratingBadgeIcon}>🍅</Text>
-                    <View>
-                      <View style={styles.ratingBadgeHeader}>
-                        <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Rotten Tomatoes</Text>
-                        <Ionicons name="open-outline" size={10} color={colors.onSurfaceVariant} style={{ marginLeft: 4 }} />
-                      </View>
-                      <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.rottenTomatoes}</Text>
-                    </View>
+                    <Image 
+                      source={{ uri: 'https://www.rottentomatoes.com/assets/pizza-pie/images/icons/tomatometer/certified_fresh.7521128548c.png' }} 
+                      style={styles.ratingLogoRt} 
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.ratingValueCompact, { color: colors.onSurface, ...typography.titleLg }]}>
+                      {result.omdbRatings.rottenTomatoes.replace('%', '')}
+                    </Text>
                   </TouchableOpacity>
                 )}
                 {result.omdbRatings.metascore && (
@@ -698,18 +698,18 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       Linking.openURL(`https://www.metacritic.com/search/all/${encodeURIComponent(result.title || '')}/results`);
                     }}
-                    style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
+                    style={[styles.ratingBadgeCompact, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
                     accessibilityRole="button"
                     accessibilityLabel={`Search ${result.title} on Metacritic`}
                   >
-                    <Text style={styles.ratingBadgeIcon}>🛡️</Text>
-                    <View>
-                      <View style={styles.ratingBadgeHeader}>
-                        <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Metascore</Text>
-                        <Ionicons name="open-outline" size={10} color={colors.onSurfaceVariant} style={{ marginLeft: 4 }} />
-                      </View>
-                      <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.metascore}</Text>
-                    </View>
+                    <Image 
+                      source={{ uri: 'https://www.metacritic.com/images/icons/metacritic-icon.png' }} 
+                      style={styles.ratingLogoMeta} 
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.ratingValueCompact, { color: colors.onSurface, ...typography.titleLg }]}>
+                      {result.omdbRatings.metascore}
+                    </Text>
                   </TouchableOpacity>
                 )}
               </ScrollView>
@@ -1444,15 +1444,32 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingRight: 4,
   },
-  ratingBadge: {
+  ratingBadgeCompact: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    minWidth: 140,
+    marginRight: 4,
+  },
+  ratingLogoImdb: {
+    width: 32,
+    height: 16,
+  },
+  ratingLogoRt: {
+    width: 22,
+    height: 22,
+  },
+  ratingLogoMeta: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+  },
+  ratingValueCompact: {
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   ratingBadgeHeader: {
     flexDirection: 'row',
