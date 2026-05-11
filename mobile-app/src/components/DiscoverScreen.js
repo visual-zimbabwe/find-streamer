@@ -1228,17 +1228,73 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem, onTogg
   }
 
   if (!hasSearched) {
-    return (
-      <View style={styles.stateBox}>
-        <View style={[styles.stateIconCircle, { backgroundColor: c.primary + '15' }]}>
-          <Ionicons name="telescope-outline" size={48} color={c.primary} />
+    // ── Trending (Trakt) default feed ──────────────────────────────────────
+    const { trendingResults, trendingLoading, trendingError } = vm;
+
+    if (trendingLoading) {
+      return (
+        <View style={styles.resultsSection}>
+          <View style={styles.resultsHeader}>
+            <Text style={[{ color: c.onSurface, ...typography.titleLg, fontWeight: '800' }]}>
+              🔥 Trending Now
+            </Text>
+          </View>
+          <ResultsSkeleton count={4} />
         </View>
-        <Text style={[{ color: c.onSurface, ...typography.titleLg, textAlign: 'center', marginBottom: 8 }]}>
-          Set your filters
-        </Text>
-        <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center' }]}>
-          Adjust the filters above and tap{'\n'}"Search" to explore.
-        </Text>
+      );
+    }
+
+    if (trendingError || trendingResults.length === 0) {
+      return (
+        <View style={styles.stateBox}>
+          <View style={[styles.stateIconCircle, { backgroundColor: c.primary + '15' }]}>
+            <Ionicons name="telescope-outline" size={48} color={c.primary} />
+          </View>
+          <Text style={[{ color: c.onSurface, ...typography.titleLg, textAlign: 'center', marginBottom: 8 }]}>
+            Set your filters
+          </Text>
+          <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center' }]}>
+            {trendingError
+              ? 'Trending unavailable. Adjust filters above and tap "Search" to explore.'
+              : 'Adjust the filters above and tap{"\n"}"Search" to explore.'}
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.resultsSection}>
+        <View style={styles.resultsHeader}>
+          <View>
+            <Text style={[{ color: c.onSurface, ...typography.titleLg, fontWeight: '800' }]}>
+              🔥 Trending Now
+            </Text>
+            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>
+              What people are watching right now
+            </Text>
+          </View>
+          <View style={[styles.countBadge, { backgroundColor: c.primary + '20', borderRadius: 99 }]}>
+            <Text style={[{ color: c.primary, ...typography.labelSm, fontWeight: '700' }]}>
+              Live
+            </Text>
+          </View>
+        </View>
+        <View style={styles.grid}>
+          {trendingResults.map((item) => (
+            <DiscoverCard
+              key={`${item.tmdbId}-${item.mediaType}`}
+              item={item}
+              colors={c}
+              typography={typography}
+              radii={radii}
+              onPress={() => onSelectItem(item)}
+              onQuickSave={() => onToggleWatchlist?.(item)}
+              isSaved={watchlistIds.includes(item.tmdbId)}
+              watchers={item.watchers}
+              trendingRank={item.trendingRank}
+            />
+          ))}
+        </View>
       </View>
     );
   }
@@ -1358,7 +1414,7 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem, onTogg
 
 const SWIPE_THRESHOLD = 64; // px to trigger quick-save
 
-function DiscoverCard({ item, colors: c, typography, radii, onPress, onQuickSave, isSaved }) {
+function DiscoverCard({ item, colors: c, typography, radii, onPress, onQuickSave, isSaved, watchers, trendingRank }) {
   const omdb = item.omdbRatings || {};
   const imdbRating = omdb.imdbRating ? omdb.imdbRating.replace('/10', '') : null;
   const rottenTomatoes = omdb.rottenTomatoes || null;
@@ -1450,6 +1506,13 @@ function DiscoverCard({ item, colors: c, typography, radii, onPress, onQuickSave
           <View style={styles.cardMetaRow}>
             <Ionicons name={item.mediaType === 'movie' ? 'film-outline' : 'tv-outline'} size={11} color={c.onSurfaceVariant} />
             <Text style={[{ color: c.onSurfaceVariant, fontSize: 10, fontWeight: '600', marginLeft: 4 }]}>{item.year}</Text>
+            {watchers > 0 && (
+              <View style={[styles.watchersBadge, { backgroundColor: c.primary + '18' }]}>
+                <Text style={{ color: c.primary, fontSize: 9, fontWeight: '800' }}>
+                  🔥 {watchers >= 1000 ? `${(watchers / 1000).toFixed(1)}k` : watchers}
+                </Text>
+              </View>
+            )}
           </View>
           {hasOmdbMetadata && (
             <View style={styles.omdbBadgeRow}>
@@ -1740,6 +1803,7 @@ const styles = StyleSheet.create({
   ratingBadge: { position: 'absolute', top: 8, left: 8, paddingHorizontal: 7, paddingVertical: 3 },
   cardTitle: { marginBottom: 2 },
   cardMetaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  watchersBadge: { marginLeft: 8, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
   omdbBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   omdbPill: { paddingHorizontal: 5, paddingVertical: 3, minHeight: 20, justifyContent: 'center' },
   imdbPillText: { color: '#141414', fontSize: 9, fontWeight: '900' },

@@ -1023,3 +1023,41 @@ export async function fetchPersonFilmography(personId, personName, role) {
 
   return { personName, role, results, profileUrl };
 }
+
+// ─── Trakt Enrichment ─────────────────────────────────────────────────────────
+
+/**
+ * Enrich a list of raw Trakt items with TMDB poster/backdrop/synopsis/rating.
+ * Input shape:  [{ mediaType, tmdbId, imdbId, title, year, watchers, trendingRank }]
+ * Output shape: same + { posterUrl, backdropUrl, synopsis, rating, ratingValue, genres }
+ */
+export async function enrichTraktItems(items = []) {
+  if (!items.length) return [];
+
+  return mapWithConcurrency(items, 4, async (item) => {
+    try {
+      const data = await tmdbGet(`/${item.mediaType}/${item.tmdbId}`, {
+        language: 'en-US',
+      });
+      return {
+        ...item,
+        synopsis: (data.overview || '').trim() || 'No synopsis available.',
+        posterUrl: data.poster_path
+          ? `https://image.tmdb.org/t/p/w500${data.poster_path}`
+          : null,
+        backdropUrl: data.backdrop_path
+          ? `https://image.tmdb.org/t/p/original${data.backdrop_path}`
+          : null,
+        ratingValue: data.vote_average || 0,
+        rating:
+          typeof data.vote_average === 'number'
+            ? `${data.vote_average.toFixed(1)}/10`
+            : 'N/A',
+        genres: (data.genres || []).map((g) => g.name).join(', ') || null,
+      };
+    } catch {
+      // TMDB enrichment is best-effort — return the bare Trakt item on failure
+      return item;
+    }
+  });
+}

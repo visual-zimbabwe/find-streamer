@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
-import { fetchGenres, discoverTitles, enrichDiscoverResults, fetchLanguages, fetchDiscoverCountries } from './tmdb';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { fetchGenres, discoverTitles, enrichDiscoverResults, fetchLanguages, fetchDiscoverCountries, enrichTraktItems } from './tmdb';
+import { fetchTraktTrending } from './trakt';
 import { resolvePreset, LANGUAGE_TO_COUNTRY_PRESET } from './languagePresets';
 import { codesForCountryPreset, findCountryPreset } from './countryPresets';
 import { classifyAppError } from './errors';
@@ -56,6 +57,11 @@ export function useDiscoverViewModel() {
   const [errorInfo, setErrorInfo] = useState(null);
   const [loadMoreError, setLoadMoreError] = useState(null);
   const [validationError, setValidationError] = useState(null);
+
+  // ── Trending (Trakt) ───────────────────────────────────────────────────────
+  const [trendingResults, setTrendingResults] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(false);
+  const [trendingError, setTrendingError] = useState(null);
 
   // Linked-preset banner: set when a language preset maps to a country preset
   // and the user is on the TV view. Shape: { presetId, label } | null
@@ -286,6 +292,29 @@ export function useDiscoverViewModel() {
     setValidationError(null);
   }, []);
 
+  // ── Trending Loader ────────────────────────────────────────────────────────
+
+  const loadTrending = useCallback(async (mediaType) => {
+    setTrendingLoading(true);
+    setTrendingError(null);
+    try {
+      const raw = await fetchTraktTrending(mediaType, 20);
+      const enriched = await enrichTraktItems(raw);
+      setTrendingResults(enriched.filter((item) => item.posterUrl)); // only show items with posters
+    } catch (e) {
+      setTrendingError(e?.message || 'Unable to load trending titles.');
+      setTrendingResults([]);
+    } finally {
+      setTrendingLoading(false);
+    }
+  }, []);
+
+  // Auto-reload trending whenever mediaType changes
+  useEffect(() => {
+    loadTrending(filters.mediaType);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.mediaType]);
+
   // ── Validation ─────────────────────────────────────────────────────────────
 
   function validate(f) {
@@ -430,6 +459,11 @@ export function useDiscoverViewModel() {
     totalResults,
     hasMore,
     hasSearched,
+
+    trendingResults,
+    trendingLoading,
+    trendingError,
+    loadTrending,
 
     loading,
     loadingMore,
