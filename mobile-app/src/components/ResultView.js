@@ -728,6 +728,28 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             );
           })()}
 
+          {result.productionCompanies && result.productionCompanies.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>PRODUCTION COMPANIES</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.productionScroll}
+              >
+                {result.productionCompanies.map((company) => (
+                  <View key={company.id} style={[styles.productionTile, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '33' }]}>
+                    <Image
+                      source={{ uri: company.logoUrl }}
+                      style={styles.productionLogo}
+                      resizeMode="contain"
+                      accessibilityLabel={`${company.name} logo`}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           {hasSeasonDetails && (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>SEASONS & EPISODES</Text>
@@ -1577,5 +1599,23 @@ const styles = StyleSheet.create({
   awardsRaw: {
     lineHeight: 22,
     fontStyle: 'italic',
+  },
+  // ── Production Companies ────────────────────────────────────────────────
+  productionScroll: {
+    gap: 12,
+    paddingRight: 24,
+  },
+  productionTile: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 80,
+    minWidth: 120,
+  },
+  productionLogo: {
+    width: 80,
+    height: 40,
   },
 });

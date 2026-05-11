@@ -308,6 +308,13 @@ async function getTitleMetadata(mediaType, tmdbId) {
       : [],
     seasons,
     trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : 'N/A',
+    productionCompanies: (data.production_companies || [])
+      .filter((company) => company.logo_path)
+      .map((company) => ({
+        id: company.id,
+        name: company.name,
+        logoUrl: `https://image.tmdb.org/t/p/w200${company.logo_path}`,
+      })),
   };
 }
 
