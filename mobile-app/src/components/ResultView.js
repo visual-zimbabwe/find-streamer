@@ -652,23 +652,45 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.ratingsRow}
               >
-                {result.omdbRatings.imdbRating && (
-                  <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
+                {result.omdbRatings.imdbRating && result.imdbId && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Linking.openURL(`https://www.imdb.com/title/${result.imdbId}/`);
+                    }}
+                    style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View ${result.title} on IMDb`}
+                  >
                     <Text style={styles.ratingBadgeIcon}>⭐</Text>
                     <View>
-                      <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>IMDb</Text>
+                      <View style={styles.ratingBadgeHeader}>
+                        <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>IMDb</Text>
+                        <Ionicons name="open-outline" size={10} color={colors.onSurfaceVariant} style={{ marginLeft: 4 }} />
+                      </View>
                       <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.imdbRating}</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 )}
                 {result.omdbRatings.rottenTomatoes && (
-                  <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Linking.openURL(`https://www.rottentomatoes.com/search?search=${encodeURIComponent(result.title || '')}`);
+                    }}
+                    style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Search ${result.title} on Rotten Tomatoes`}
+                  >
                     <Text style={styles.ratingBadgeIcon}>🍅</Text>
                     <View>
-                      <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Rotten Tomatoes</Text>
+                      <View style={styles.ratingBadgeHeader}>
+                        <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Rotten Tomatoes</Text>
+                        <Ionicons name="open-outline" size={10} color={colors.onSurfaceVariant} style={{ marginLeft: 4 }} />
+                      </View>
                       <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.rottenTomatoes}</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 )}
                 {result.omdbRatings.metascore && (
                   <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
@@ -858,34 +880,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   accessibilityLabel={`Watch trailer for ${result.title}`}
                 >
                   <Ionicons name="play" size={16} color={colors.onPrimary} />
-                  <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>TRAILER</Text>
-                </TouchableOpacity>
-              )}
-
-              {result.imdbId && (
-                <TouchableOpacity
-                  style={[styles.imdbButton, { backgroundColor: '#F5C518', borderColor: '#D4A800' }]}
-                  onPress={() => Linking.openURL(`https://www.imdb.com/title/${result.imdbId}/`)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open ${result.title} on IMDb`}
-                >
-                  <Text style={[styles.imdbButtonText, { ...typography.labelSm }]}>IMDb</Text>
-                </TouchableOpacity>
-              )}
-
-              {result.imdbId && (
-                <TouchableOpacity
-                  style={[styles.rtButton, { backgroundColor: '#FA320A', borderColor: '#C82400' }]}
-                  onPress={() => {
-                    const slug = result.title
-                      ? result.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
-                      : '';
-                    Linking.openURL(`https://www.rottentomatoes.com/search?search=${encodeURIComponent(result.title || '')}`);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Search ${result.title} on Rotten Tomatoes`}
-                >
-                  <Text style={[styles.rtButtonText, { ...typography.labelSm }]}>🍅 RT</Text>
+                  <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>WATCH TRAILER</Text>
                 </TouchableOpacity>
               )}
 
@@ -1446,7 +1441,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
-    minWidth: 130,
+    minWidth: 140,
+  },
+  ratingBadgeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   ratingBadgeIcon: {
     fontSize: 24,

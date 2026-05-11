@@ -24,7 +24,10 @@
         "backgroundColor": "#000000"
       },
       "package": "kkadogo.findstreamer.com",
-      "usesCleartextTraffic": false
+      "usesCleartextTraffic": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-asset",
@@ -42,6 +45,7 @@
     ],
     "extra": {
       "eas": {
+        "projectId": "a621383d-729c-459f-908d-f2d114e57ca6"
       }
     },
     "owner": "kkadogo"
