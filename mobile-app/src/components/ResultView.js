@@ -499,9 +499,34 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             {hasWriter && (
             <View style={styles.metaItem}>
               <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>WRITER</Text>
-              <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={3}>
-                {writerText}
-              </Text>
+              {peopleSections.crewPeople.filter(p => p.role === 'writer').length > 0 ? (
+                <View style={styles.personLinkRow}>
+                  {peopleSections.crewPeople.filter(p => p.role === 'writer').map((person, idx, arr) => (
+                    <React.Fragment key={person.id || person.name}>
+                      {person.id ? (
+                        <TouchableOpacity
+                          onPress={() => onPersonPress?.(person.id, person.name, 'movie')}
+                          accessibilityRole="button"
+                          accessibilityLabel={`View work by ${person.name}`}
+                        >
+                          <Text style={[styles.metaText, styles.personLink, { color: colors.primary, ...typography.bodyMd }]}>
+                            {person.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{person.name}</Text>
+                      )}
+                      {idx < arr.length - 1 && (
+                        <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{', '}</Text>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={3}>
+                  {writerText}
+                </Text>
+              )}
             </View>
             )}
           </View>
@@ -532,11 +557,11 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   <TouchableOpacity
                     key={personKey(person, index)}
                     style={styles.personCard}
-                    onPress={() => person.id && person.role !== 'writer' ? onPersonPress?.(person.id, person.name, person.role === 'creator' ? 'tv' : 'movie') : null}
-                    disabled={!person.id || person.role === 'writer'}
-                    accessibilityRole={person.id && person.role !== 'writer' ? 'button' : 'text'}
-                    accessibilityLabel={person.id && person.role !== 'writer' ? `View work by ${person.name}` : person.name}
-                    activeOpacity={person.id && person.role !== 'writer' ? 0.78 : 1}
+                    onPress={() => person.id ? onPersonPress?.(person.id, person.name, person.role === 'creator' ? 'tv' : 'movie') : null}
+                    disabled={!person.id}
+                    accessibilityRole={person.id ? 'button' : 'text'}
+                    accessibilityLabel={person.id ? `View work by ${person.name}` : person.name}
+                    activeOpacity={person.id ? 0.78 : 1}
                   >
                     <View style={[styles.avatarRing, { borderColor: colors.primary + '66', backgroundColor: colors.primaryContainer }]}>
                       {person.profileUrl ? (
