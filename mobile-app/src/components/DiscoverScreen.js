@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
   Animated,
   ActivityIndicator,
+  Dimensions,
   Modal,
   PanResponder,
   ScrollView,
@@ -40,8 +41,14 @@ const SORT_OPTIONS_TV = [
   { value: 'first_air_date.asc',   label: 'Oldest First' },
 ];
 
-// ─── Rating Steps ──────────────────────────────────────────────────────────────
-const RATING_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+// ─── Genre Icons ───────────────────────────────────────────────────────────────
+const GENRE_ICONS = {
+  28: '⚡', 12: '🗺️', 16: '🎨', 35: '😂', 80: '🔫', 99: '📽️',
+  18: '🎭', 10751: '👨‍👩‍👧', 14: '🧙', 36: '📜', 27: '👻', 10402: '🎵',
+  9648: '🔍', 10749: '💕', 878: '🚀', 53: '😰', 10752: '⚔️', 37: '🤠',
+  10759: '⚡', 10762: '🎨', 10763: '📰', 10764: '🎪', 10765: '🧙',
+  10766: '💕', 10767: '🎙️', 10768: '⚔️',
+};
 
 function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {
   if (!selectedCodes.length) return emptyLabel;
@@ -193,6 +200,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [moreFiltersVisible, setMoreFiltersVisible] = useState(false);
+  const [genreSheetVisible, setGenreSheetVisible] = useState(false);
   const previousMediaTypeRef = useRef(vm.filters.mediaType);
 
   // Sort options depend on mediaType
@@ -308,23 +316,20 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
 
         <Divider color={c.outlineVariant} />
 
-        {/* ── Genre Filter Groups ── */}
-        <GenreFilterSection
+        {/* ── Genre Filter ── */}
+        <View style={styles.sectionRow}>
+          <SectionLabel label="Genres" colors={c} typography={typography} />
+          {(vm.filters.genreIds.length > 0 || vm.filters.excludeGenreIds.length > 0 || vm.filters.excludeSmartTags.length > 0) && (
+            <TouchableOpacity onPress={() => { vm.updateFilter('genreIds', []); vm.updateFilter('excludeGenreIds', []); vm.updateFilter('excludeSmartTags', []); }} accessibilityRole="button" accessibilityLabel="Clear all genre filters">
+              <Text style={[{ color: c.primary, ...typography.labelSm }]}>Clear all</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <HorizontalGenreScroll
           genres={vm.genres}
-          genresLoading={vm.genresLoading}
           genreIds={vm.filters.genreIds}
-          genreLogic={vm.filters.genreLogic}
           excludeGenreIds={vm.filters.excludeGenreIds}
-          excludeSmartTags={vm.filters.excludeSmartTags}
-          onToggleInclude={vm.toggleGenre}
-          onToggleExclude={vm.toggleExcludeGenre}
-          onToggleSmartTag={vm.toggleSmartTag}
-          onUpdateGenreLogic={(v) => vm.updateFilter('genreLogic', v)}
-          onClearAll={() => {
-            vm.updateFilter('genreIds', []);
-            vm.updateFilter('excludeGenreIds', []);
-            vm.updateFilter('excludeSmartTags', []);
-          }}
+          onOpenSheet={() => setGenreSheetVisible(true)}
           colors={c}
           typography={typography}
           radii={radii}
@@ -333,34 +338,14 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         <Divider color={c.outlineVariant} />
 
         {/* ── Minimum Rating ── */}
-        <SectionLabel
-          label={`Minimum Rating: ${vm.filters.minRating > 0 ? vm.filters.minRating.toFixed(1) : 'Any'}`}
+        <SectionLabel label="Minimum Rating" colors={c} typography={typography} />
+        <RatingSlider
+          value={vm.filters.minRating}
+          onChange={(v) => vm.updateFilter('minRating', v)}
           colors={c}
           typography={typography}
+          radii={radii}
         />
-        <View style={styles.ratingRow}>
-          {RATING_STEPS.map((step) => {
-            const active = vm.filters.minRating === step;
-            return (
-              <TouchableOpacity
-                key={step}
-                style={[
-                  styles.ratingDot,
-                  { borderRadius: radii.full, borderColor: c.outlineVariant + '40' },
-                  active ? { backgroundColor: c.primary } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1 },
-                ]}
-                onPress={() => vm.updateFilter('minRating', step)}
-                accessibilityRole="button"
-                accessibilityLabel={step === 0 ? 'Any minimum rating' : `Minimum rating ${step}`}
-                accessibilityState={{ selected: active }}
-              >
-                <Text style={[{ color: active ? c.onPrimary : c.onSurfaceVariant, fontSize: 10, fontWeight: '700' }]}>
-                  {step}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
 
         <Divider color={c.outlineVariant} />
 
@@ -489,6 +474,26 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         onSelectItem={onSelectItem}
         onToggleWatchlist={onToggleWatchlist}
         watchlistIds={watchlistIds}
+      />
+
+      {/* ── Genre Bottom-Sheet ── */}
+      <GenreBottomSheet
+        visible={genreSheetVisible}
+        onClose={() => setGenreSheetVisible(false)}
+        genres={vm.genres}
+        genresLoading={vm.genresLoading}
+        genreIds={vm.filters.genreIds}
+        genreLogic={vm.filters.genreLogic}
+        excludeGenreIds={vm.filters.excludeGenreIds}
+        excludeSmartTags={vm.filters.excludeSmartTags}
+        onToggleInclude={vm.toggleGenre}
+        onToggleExclude={vm.toggleExcludeGenre}
+        onToggleSmartTag={vm.toggleSmartTag}
+        onUpdateGenreLogic={(v) => vm.updateFilter('genreLogic', v)}
+        onClearAll={() => { vm.updateFilter('genreIds', []); vm.updateFilter('excludeGenreIds', []); vm.updateFilter('excludeSmartTags', []); }}
+        colors={c}
+        typography={typography}
+        radii={radii}
       />
 
       {/* ── More Filters Bottom-Sheet ── */}
@@ -675,6 +680,205 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         radii={radii}
       />
     </ScrollView>
+  );
+}
+
+// ─── Rating Slider ────────────────────────────────────────────────────────────
+
+function RatingSlider({ value, onChange, colors: c, typography, radii }) {
+  const SLIDER_MAX = 10;
+  const STEP = 0.5;
+  const [trackWidth, setTrackWidth] = useState(Dimensions.get('window').width - 80);
+  const thumbAnim = useRef(new Animated.Value((value / SLIDER_MAX) * (Dimensions.get('window').width - 80))).current;
+  const tooltipOpacity = useRef(new Animated.Value(0)).current;
+  const gestureStartX = useRef(0);
+  const lastHapticVal = useRef(value);
+
+  useEffect(() => {
+    thumbAnim.setValue((value / SLIDER_MAX) * trackWidth);
+  }, [value, trackWidth]);
+
+  const snap = (v) => Math.max(0, Math.min(SLIDER_MAX, Math.round(v / STEP) * STEP));
+
+  const pan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: (e) => {
+      const tapX = Math.max(0, Math.min(e.nativeEvent.locationX, trackWidth));
+      const snapped = snap((tapX / trackWidth) * SLIDER_MAX);
+      gestureStartX.current = (snapped / SLIDER_MAX) * trackWidth;
+      thumbAnim.setValue(gestureStartX.current);
+      onChange(snapped);
+      lastHapticVal.current = snapped;
+      Animated.timing(tooltipOpacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+    },
+    onPanResponderMove: (_, g) => {
+      const newX = Math.max(0, Math.min(gestureStartX.current + g.dx, trackWidth));
+      const snapped = snap((newX / trackWidth) * SLIDER_MAX);
+      thumbAnim.setValue((snapped / SLIDER_MAX) * trackWidth);
+      if (Math.abs(snapped - lastHapticVal.current) >= STEP) {
+        lastHapticVal.current = snapped;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onChange(snapped);
+      }
+    },
+    onPanResponderRelease: () => {
+      Animated.timing(tooltipOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+    },
+  })).current;
+
+  const fillWidth = thumbAnim.interpolate({ inputRange: [0, trackWidth > 0 ? trackWidth : 1], outputRange: [0, trackWidth > 0 ? trackWidth : 1], extrapolate: 'clamp' });
+  const thumbTranslate = thumbAnim.interpolate({ inputRange: [0, trackWidth > 0 ? trackWidth : 1], outputRange: [-12, (trackWidth > 0 ? trackWidth : 1) - 12], extrapolate: 'clamp' });
+  const starColor = value >= 8 ? '#FFD700' : value >= 6 ? '#FFA500' : value >= 4 ? '#87CEEB' : c.onSurfaceVariant;
+
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 }}>
+        <Ionicons name={value >= 1 ? 'star' : 'star-outline'} size={20} color={starColor} />
+        <Text style={[{ color: c.onSurface, ...typography.titleMd, fontWeight: '800' }]}>
+          {value === 0 ? 'Any Rating' : `${value.toFixed(1)}+ Stars`}
+        </Text>
+        {value > 0 && (
+          <TouchableOpacity onPress={() => onChange(0)} accessibilityRole="button" accessibilityLabel="Clear rating filter">
+            <Ionicons name="close-circle" size={18} color={c.onSurfaceVariant} />
+          </TouchableOpacity>
+        )}
+      </View>
+      <View
+        style={[sliderStyles.track, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full }]}
+        onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+        {...pan.panHandlers}
+      >
+        <Animated.View style={[sliderStyles.fill, { width: fillWidth, backgroundColor: c.primary, borderRadius: radii.full }]} />
+        <Animated.View style={[sliderStyles.thumb, { transform: [{ translateX: thumbTranslate }], backgroundColor: c.surface, borderColor: c.primary }]}>
+          <Animated.View style={[sliderStyles.tooltip, { backgroundColor: c.primary, borderRadius: radii.sm, opacity: tooltipOpacity }]}>
+            <Text style={{ color: c.onPrimary, fontSize: 11, fontWeight: '900' }}>{value.toFixed(1)}</Text>
+          </Animated.View>
+        </Animated.View>
+      </View>
+      <View style={sliderStyles.scaleRow}>
+        {[0, 2, 4, 6, 8, 10].map((n) => (
+          <Text key={n} style={{ color: c.onSurfaceVariant, fontSize: 10, fontWeight: '600' }}>{n}</Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ─── Horizontal Genre Scroll ───────────────────────────────────────────────────
+
+function HorizontalGenreScroll({ genres, genreIds, excludeGenreIds, onOpenSheet, colors: c, typography, radii }) {
+  const hasSelections = genreIds.length > 0 || excludeGenreIds.length > 0;
+  const totalActive = genreIds.length + excludeGenreIds.length;
+
+  const sorted = useMemo(() => {
+    const included = genres.filter((g) => genreIds.includes(g.id));
+    const excluded = genres.filter((g) => excludeGenreIds.includes(g.id));
+    const rest = genres.filter((g) => !genreIds.includes(g.id) && !excludeGenreIds.includes(g.id));
+    return [...included, ...excluded, ...rest];
+  }, [genres, genreIds, excludeGenreIds]);
+
+  return (
+    <View style={{ marginBottom: 4 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={genreScrollStyles.row}>
+        <TouchableOpacity
+          style={[genreScrollStyles.chip, { borderRadius: radii.full, backgroundColor: hasSelections ? c.primary + '18' : c.surfaceContainerHigh, borderWidth: 1, borderColor: hasSelections ? c.primary : c.outlineVariant + '40' }]}
+          onPress={onOpenSheet}
+          accessibilityRole="button"
+          accessibilityLabel="Open genre filter sheet"
+        >
+          <Ionicons name="options-outline" size={14} color={hasSelections ? c.primary : c.onSurfaceVariant} style={{ marginRight: 5 }} />
+          <Text style={[{ color: hasSelections ? c.primary : c.onSurface, ...typography.labelSm, fontWeight: '800' }]}>
+            Genres{totalActive > 0 ? ` (${totalActive})` : ''}
+          </Text>
+          <Ionicons name="chevron-down-outline" size={12} color={hasSelections ? c.primary : c.onSurfaceVariant} style={{ marginLeft: 4 }} />
+        </TouchableOpacity>
+
+        {sorted.slice(0, 12).map((genre) => {
+          const included = genreIds.includes(genre.id);
+          const excluded = excludeGenreIds.includes(genre.id);
+          const icon = GENRE_ICONS[genre.id] || '🎬';
+          let bg = c.surfaceContainerHigh;
+          let border = c.outlineVariant + '40';
+          let textColor = c.onSurfaceVariant;
+          if (included) { bg = c.primary; border = c.primary; textColor = c.onPrimary; }
+          if (excluded) { bg = c.error + '22'; border = c.error + '66'; textColor = c.error; }
+          return (
+            <TouchableOpacity
+              key={genre.id}
+              style={[genreScrollStyles.chip, { borderRadius: radii.full, backgroundColor: bg, borderWidth: 1, borderColor: border }]}
+              onPress={onOpenSheet}
+              accessibilityRole="button"
+              accessibilityLabel={`${included ? 'Included' : excluded ? 'Excluded' : ''} genre ${genre.name}`}
+            >
+              <Text style={{ fontSize: 12, marginRight: 5 }}>{icon}</Text>
+              <Text style={[{ color: textColor, ...typography.labelSm, fontWeight: included || excluded ? '800' : '600' }]}>{genre.name}</Text>
+              {included && <Ionicons name="checkmark" size={12} color={c.onPrimary} style={{ marginLeft: 3 }} />}
+              {excluded && <Ionicons name="close" size={12} color={c.error} style={{ marginLeft: 3 }} />}
+            </TouchableOpacity>
+          );
+        })}
+
+        {sorted.length > 12 && (
+          <TouchableOpacity
+            style={[genreScrollStyles.chip, { borderRadius: radii.full, backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' }]}
+            onPress={onOpenSheet}
+            accessibilityRole="button"
+            accessibilityLabel="View all genres"
+          >
+            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>+{sorted.length - 12} more</Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Genre Bottom Sheet ────────────────────────────────────────────────────────
+
+function GenreBottomSheet({ visible, onClose, genres, genresLoading, genreIds, genreLogic, excludeGenreIds, excludeSmartTags, onToggleInclude, onToggleExclude, onToggleSmartTag, onUpdateGenreLogic, onClearAll, colors: c, typography, radii }) {
+  const insets = useSafeAreaInsets();
+  const totalActive = genreIds.length + excludeGenreIds.length + excludeSmartTags.length;
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={pickerStyles.overlay}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <View style={[pickerStyles.sheet, { backgroundColor: c.surface, borderRadius: radii.xl, paddingBottom: insets.bottom + 24, maxHeight: '90%' }]}>
+            <View style={pickerStyles.sheetHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[{ color: c.onSurface, ...typography.titleMd, fontWeight: '700' }]}>Genre Filters</Text>
+                {totalActive > 0 && (
+                  <Text style={[{ color: c.primary, ...typography.labelSm, marginTop: 2 }]}>
+                    {genreIds.length > 0 ? `${genreIds.length} included` : ''}{genreIds.length > 0 && (excludeGenreIds.length + excludeSmartTags.length) > 0 ? ' · ' : ''}{(excludeGenreIds.length + excludeSmartTags.length) > 0 ? `${excludeGenreIds.length + excludeSmartTags.length} excluded` : ''}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="Close genre sheet">
+                <Text style={[{ color: c.primary, ...typography.labelSm, fontWeight: '800' }]}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <GenreFilterSection
+                genres={genres}
+                genresLoading={genresLoading}
+                genreIds={genreIds}
+                genreLogic={genreLogic}
+                excludeGenreIds={excludeGenreIds}
+                excludeSmartTags={excludeSmartTags}
+                onToggleInclude={onToggleInclude}
+                onToggleExclude={onToggleExclude}
+                onToggleSmartTag={onToggleSmartTag}
+                onUpdateGenreLogic={onUpdateGenreLogic}
+                onClearAll={onClearAll}
+                colors={c}
+                typography={typography}
+                radii={radii}
+              />
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
   );
 }
 
@@ -1286,6 +1490,69 @@ function Divider({ color }) {
   return <View style={[styles.divider, { backgroundColor: color + '20' }]} />;
 }
 
+// ─── Slider Styles ────────────────────────────────────────────────────────────
+
+const sliderStyles = StyleSheet.create({
+  track: {
+    height: 8,
+    width: '100%',
+    justifyContent: 'center',
+    overflow: 'visible',
+    marginBottom: 8,
+  },
+  fill: {
+    position: 'absolute',
+    left: 0,
+    height: 8,
+  },
+  thumb: {
+    position: 'absolute',
+    top: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2.5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+    alignItems: 'center',
+  },
+  tooltip: {
+    position: 'absolute',
+    bottom: 30,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    minWidth: 36,
+    alignItems: 'center',
+  },
+  scaleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingHorizontal: 2,
+  },
+});
+
+// ─── Genre Scroll Styles ──────────────────────────────────────────────────────
+
+const genreScrollStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+    paddingRight: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 36,
+  },
+});
+
 // ─── Picker Sheet Styles ───────────────────────────────────────────────────────
 
 const pickerStyles = StyleSheet.create({
@@ -1400,9 +1667,6 @@ const styles = StyleSheet.create({
   hScroll: { marginBottom: 4 },
   hChipRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   clearGenres: { marginTop: 8, alignSelf: 'flex-start' },
-
-  ratingRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 4 },
-  ratingDot: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
 
   moreFiltersBtn: {
     flexDirection: 'row',
