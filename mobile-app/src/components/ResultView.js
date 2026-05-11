@@ -255,6 +255,9 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const remainingCastCount = Math.max(peopleSections.castPeople.length - visibleCastPeople.length, 0);
   const providerSummary = result.providerSummary || [];
   const providerCount = providerSummary.reduce((sum, provider) => sum + (provider.count || 0), 0);
+  const displaySynopsis = (result.synopsis && result.synopsis !== 'No synopsis available.') 
+    ? result.synopsis 
+    : (result.omdbRatings?.plot || result.synopsis || 'No synopsis available.');
   const meshColors = colors.meshColors || [
     colors.primary,
     colors.surfaceContainerHighest,
@@ -726,9 +729,9 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               activeOpacity={0.8}
             >
               <Text style={[styles.synopsis, { color: colors.onSurface, ...typography.bodyLg }]}>
-                {isSynopsisExpanded || (result.synopsis?.length || 0) <= 250
-                  ? result.synopsis
-                  : `${result.synopsis.substring(0, 250)}...`}
+                {isSynopsisExpanded || (displaySynopsis?.length || 0) <= 250
+                  ? displaySynopsis
+                  : `${displaySynopsis.substring(0, 250)}...`}
               </Text>
             </TouchableOpacity>
           </View>
@@ -976,6 +979,40 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   </View>
                 ))}
               </View>
+            </View>
+          )}
+
+          {/* More From This Cast & Crew */}
+          {result.moreFromCastAndCrew && result.moreFromCastAndCrew.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>MORE FROM THIS CAST & CREW</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.similarScroll}
+              >
+                {result.moreFromCastAndCrew.map((item) => (
+                  <TouchableOpacity
+                    key={item.tmdbId}
+                    style={styles.similarItem}
+                    onPress={() => onSelectSimilar(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open details for ${item.title}`}
+                  >
+                    <View style={[styles.similarPoster, { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}>
+                      <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
+                      {item.omdbRatings?.imdbRating && (
+                        <View style={[styles.similarRating, { backgroundColor: '#F5C518' }]}>
+                          <Text style={{ color: '#000000', fontSize: 10, fontWeight: '800' }}>IMDb {item.omdbRatings.imdbRating.split('/')[0]}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.similarTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
 

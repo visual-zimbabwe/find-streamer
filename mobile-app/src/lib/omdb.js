@@ -8,6 +8,7 @@ const EMPTY_OMDB_RATINGS = {
   rated: null,
   writer: null,
   actors: null,
+  plot: null,
 };
 const _omdbRatingsCache = new Map();
 
@@ -52,7 +53,10 @@ export async function fetchOmdbRatings(imdbId) {
     const actors =
       data.Actors && data.Actors !== 'N/A' ? data.Actors : null;
 
-    const ratings = { imdbRating, rottenTomatoes, metascore, awards, rated, writer, actors };
+    const plot =
+      data.Plot && data.Plot !== 'N/A' ? data.Plot : null;
+
+    const ratings = { imdbRating, rottenTomatoes, metascore, awards, rated, writer, actors, plot };
     _omdbRatingsCache.set(imdbId, ratings);
     return ratings;
   } catch {

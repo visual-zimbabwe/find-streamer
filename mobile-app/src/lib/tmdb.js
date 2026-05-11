@@ -888,6 +888,48 @@ export async function fetchNowPlayingMovies() {
 
 // ─── Resolution ─────────────────────────────────────────────────────────────
 
+async function getMoreFromCastAndCrew(personIds, currentTmdbId) {
+  if (!personIds || personIds.length === 0) return [];
+  try {
+    const data = await tmdbGet(`/discover/movie`, {
+      with_people: personIds.slice(0, 10).join('|'),
+      sort_by: 'vote_average.desc',
+      'vote_count.gte': 100,
+      include_adult: false,
+      language: 'en-US',
+      page: 1,
+    });
+
+    const rawItems = (data.results || [])
+      .filter(item => item.id !== currentTmdbId && item.poster_path)
+      .slice(0, 12); 
+
+    const mapped = rawItems.map(item => ({
+      mediaType: 'movie',
+      tmdbId: item.id,
+      title: item.title || item.name || '(Untitled)',
+      year: (item.release_date || '').slice(0, 4) || 'N/A',
+      posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+      ratingValue: item.vote_average || 0,
+      rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+    }));
+
+    const enriched = await enrichDiscoverResults(mapped);
+
+    enriched.sort((a, b) => {
+      const aRatingStr = a.omdbRatings?.imdbRating || '0/10';
+      const bRatingStr = b.omdbRatings?.imdbRating || '0/10';
+      const aRating = parseFloat(aRatingStr.split('/')[0]) || 0;
+      const bRating = parseFloat(bRatingStr.split('/')[0]) || 0;
+      return bRating - aRating;
+    });
+
+    return enriched.slice(0, 5);
+  } catch (error) {
+    return [];
+  }
+}
+
 export async function resolveMatch(query, match) {
   const [metadata, credits, similar, availability, countryNames] = await Promise.all([
     getTitleMetadata(match.mediaType, match.tmdbId),
@@ -897,8 +939,16 @@ export async function resolveMatch(query, match) {
     getCountryNames(),
   ]);
 
-  // Fetch OMDb ratings using the IMDB ID returned by TMDB metadata.
-  const omdbRatings = await fetchOmdbRatings(metadata.imdbId || null);
+  const personIds = Array.from(new Set([
+    ...credits.directorPersons.map(p => p.id),
+    ...credits.writerPersons.map(p => p.id),
+    ...credits.starringPersons.map(p => p.id),
+  ])).filter(Boolean);
+
+  const [omdbRatings, moreFromCastAndCrew] = await Promise.all([
+    fetchOmdbRatings(metadata.imdbId || null),
+    getMoreFromCastAndCrew(personIds, match.tmdbId)
+  ]);
 
   const rows = toRows(availability, countryNames);
   const serviceLogos = availability.logos || {};
@@ -909,6 +959,7 @@ export async function resolveMatch(query, match) {
     ...metadata,
     ...credits,
     similar,
+    moreFromCastAndCrew,
     rows,
     providerSummary: buildProviderSummary(rows, serviceLogos),
     serviceLogos: Object.fromEntries(
