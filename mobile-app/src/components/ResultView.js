@@ -246,10 +246,6 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const runtimeLabel = formatRuntime(result.runtimeMinutes, result.mediaType);
   const hasRating = hasValue(result.rating);
   const hasGenres = hasValue(result.genres);
-  const hasDirector = !isTv && hasValue(result.director);
-  const hasCreatedBy = isTv && (hasValue(result.createdBy) || result.createdByPersons?.length > 0);
-  const writerText = hasValue(result.omdbRatings?.writer) ? result.omdbRatings.writer : result.writer;
-  const hasWriter = hasValue(writerText);
   const hasPeople = peopleSections.crewPeople.length > 0 || peopleSections.castPeople.length > 0;
   const visibleCastPeople = showAllCast ? peopleSections.castPeople : peopleSections.castPeople.slice(0, 10);
   const remainingCastCount = Math.max(peopleSections.castPeople.length - visibleCastPeople.length, 0);
@@ -541,89 +537,6 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             <Animated.View style={[styles.meshOrb, styles.meshOrbC, meshC]} />
             <View style={[styles.meshVeil, { backgroundColor: colors.background + 'D9' }]} />
           </View>
-
-          {(hasDirector || hasCreatedBy || hasWriter) && (
-          <View style={styles.metaGrid}>
-            {(hasDirector || hasCreatedBy) && (
-            <View style={styles.metaItem}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                {isTv ? 'CREATED BY' : 'DIRECTOR'}
-              </Text>
-              {isTv ? (
-                result.createdByPersons && result.createdByPersons.length > 0 ? (
-                  <View style={styles.personLinkRow}>
-                    {result.createdByPersons.map((person, idx) => (
-                      <React.Fragment key={person.id}>
-                        <TouchableOpacity
-                          onPress={() => onPersonPress?.(person.id, person.name, 'tv')}
-                          accessibilityRole="button"
-                          accessibilityLabel={`View shows created by ${person.name}`}
-                        >
-                          <Text style={[styles.metaText, styles.personLink, { color: colors.primary, ...typography.bodyMd }]}>
-                            {person.name}
-                          </Text>
-                        </TouchableOpacity>
-                        {idx < result.createdByPersons.length - 1 && (
-                          <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{', '}</Text>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </View>
-                ) : (
-                  <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{result.createdBy}</Text>
-                )
-              ) : (
-                result.directorId ? (
-                  <TouchableOpacity
-                    onPress={() => onPersonPress?.(result.directorId, result.director, 'movie')}
-                    accessibilityRole="button"
-                    accessibilityLabel={`View films directed by ${result.director}`}
-                  >
-                    <Text style={[styles.metaText, styles.personLink, { color: colors.primary, ...typography.bodyMd }]}>
-                      {result.director}
-                    </Text>
-                  </TouchableOpacity>
-                ) : (
-                  <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{result.director}</Text>
-                )
-              )}
-            </View>
-            )}
-            {hasWriter && (
-            <View style={styles.metaItem}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>WRITER</Text>
-              {peopleSections.crewPeople.filter(p => p.role === 'writer').length > 0 ? (
-                <View style={styles.personLinkRow}>
-                  {peopleSections.crewPeople.filter(p => p.role === 'writer').map((person, idx, arr) => (
-                    <React.Fragment key={person.id || person.name}>
-                      {person.id ? (
-                        <TouchableOpacity
-                          onPress={() => onPersonPress?.(person.id, person.name, 'movie')}
-                          accessibilityRole="button"
-                          accessibilityLabel={`View work by ${person.name}`}
-                        >
-                          <Text style={[styles.metaText, styles.personLink, { color: colors.primary, ...typography.bodyMd }]}>
-                            {person.name}
-                          </Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{person.name}</Text>
-                      )}
-                      {idx < arr.length - 1 && (
-                        <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]}>{', '}</Text>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </View>
-              ) : (
-                <Text style={[styles.metaText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={3}>
-                  {writerText}
-                </Text>
-              )}
-            </View>
-            )}
-          </View>
-          )}
 
           {hasPeople && (
             <View style={styles.section}>
