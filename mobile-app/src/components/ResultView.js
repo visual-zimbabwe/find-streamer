@@ -737,9 +737,6 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 {isSynopsisExpanded || (result.synopsis?.length || 0) <= 250
                   ? result.synopsis
                   : `${result.synopsis.substring(0, 250)}...`}
-                {!isSynopsisExpanded && (result.synopsis?.length || 0) > 250 && (
-                  <Text style={{ color: colors.primary, ...typography.labelSm }}> Read More</Text>
-                )}
               </Text>
             </TouchableOpacity>
           </View>
