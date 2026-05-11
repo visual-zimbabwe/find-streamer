@@ -1,7 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { ActivityIndicator, Animated, Easing, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 
@@ -14,9 +13,6 @@ export function SearchPanel({
   recentViewed,
   onPickSuggestion,
   onPickRecentViewed,
-  onSurpriseMe,
-  surpriseLoading,
-  surpriseEnabled = true,
   filter,
   onFilterChange,
   hideHistory,
@@ -31,44 +27,7 @@ export function SearchPanel({
   const { colors, spacing, typography, radii } = theme;
   const visibleTypeResults = typeResults ? typeResults.slice(0, 10) : [];
   const hasSearchText = (value || '').length > 0;
-  const shuffleSpin = useRef(new Animated.Value(0)).current;
   const hasRecentViewed = recentViewed && recentViewed.length > 0;
-
-  useEffect(() => {
-    if (!surpriseLoading) {
-      shuffleSpin.stopAnimation();
-      shuffleSpin.setValue(0);
-      return undefined;
-    }
-
-    const loop = Animated.loop(
-      Animated.timing(shuffleSpin, {
-        toValue: 1,
-        duration: 520,
-        easing: Easing.inOut(Easing.quad),
-        useNativeDriver: true,
-      })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [shuffleSpin, surpriseLoading]);
-
-  const shuffleIconStyle = {
-    transform: [
-      {
-        rotate: shuffleSpin.interpolate({
-          inputRange: [0, 1],
-          outputRange: ['0deg', '360deg'],
-        }),
-      },
-      {
-        scale: shuffleSpin.interpolate({
-          inputRange: [0, 0.5, 1],
-          outputRange: [1, 1.16, 1],
-        }),
-      },
-    ],
-  };
 
   return (
     <View style={styles.container}>
@@ -202,41 +161,7 @@ export function SearchPanel({
         </TouchableOpacity>
       </View>
 
-      {!hideHistory && onSurpriseMe && (
-        <View style={styles.surpriseWrapper}>
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={onSurpriseMe}
-            disabled={loading || surpriseLoading || !surpriseEnabled}
-            accessibilityRole="button"
-            accessibilityLabel="Surprise me with a recommended movie or show"
-            accessibilityHint="Picks a highly rated random title similar to your Highly Recommend watchlist"
-            accessibilityState={{ busy: Boolean(surpriseLoading), disabled: loading || surpriseLoading || !surpriseEnabled }}
-          >
-            <LinearGradient
-              colors={surpriseEnabled ? ['#ff7a59', '#ffcf33', '#20d6b5'] : [colors.surfaceContainerHigh, colors.surfaceContainerHighest]}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={[styles.surpriseButton, { borderRadius: radii.xl, opacity: loading || !surpriseEnabled ? 0.72 : 1 }]}
-            >
-              <View style={styles.surpriseCopy}>
-                <Text style={[styles.surpriseEyebrow, { color: surpriseEnabled ? '#1c1710' : colors.onSurfaceVariant, ...typography.labelSm }]}>
-                  SURPRISE ROULETTE
-                </Text>
-                <Text style={[styles.surpriseTitle, { color: surpriseEnabled ? '#111111' : colors.onSurface, ...typography.titleLg }]}>
-                  {surpriseLoading ? 'Shuffling...' : 'Surprise Me'}
-                </Text>
-                <Text style={[styles.surpriseSubtitle, { color: surpriseEnabled ? 'rgba(17,17,17,0.72)' : colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
-                  {surpriseEnabled ? 'A highly rated wild card based on your favorites.' : 'Save favorites under Highly Recommend to unlock this.'}
-                </Text>
-              </View>
-              <Animated.View style={[styles.surpriseIcon, shuffleIconStyle]}>
-                <Ionicons name={surpriseLoading ? 'dice-outline' : 'sparkles'} size={28} color={surpriseEnabled ? '#111111' : colors.onSurfaceVariant} />
-              </Animated.View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      )}
+
 
       {!hideHistory && hasRecentViewed && (
         <View style={styles.suggestionsWrapper}>
@@ -362,50 +287,6 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontWeight: '600',
     letterSpacing: 0.5,
-  },
-  surpriseWrapper: {
-    marginTop: 28,
-  },
-  surpriseButton: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    minHeight: 116,
-    overflow: 'hidden',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    shadowColor: '#ffb23f',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.22,
-    shadowRadius: 22,
-    elevation: 5,
-  },
-  surpriseCopy: {
-    flex: 1,
-    minWidth: 0,
-    paddingRight: 14,
-  },
-  surpriseEyebrow: {
-    fontWeight: '900',
-    letterSpacing: 1.2,
-    marginBottom: 4,
-  },
-  surpriseTitle: {
-    fontWeight: '900',
-    marginBottom: 2,
-  },
-  surpriseSubtitle: {
-    fontWeight: '700',
-    lineHeight: 19,
-  },
-  surpriseIcon: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.36)',
-    borderColor: 'rgba(255,255,255,0.5)',
-    borderRadius: 30,
-    borderWidth: 1,
-    height: 60,
-    justifyContent: 'center',
-    width: 60,
   },
   liveResults: {
     marginTop: 8,

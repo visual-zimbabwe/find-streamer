@@ -1,7 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { StyleSheet, View, ScrollView, Keyboard, BackHandler, Modal, Text, TouchableOpacity } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View, ScrollView, Keyboard, BackHandler, Modal, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme, ThemeProvider } from './src/theme/ThemeProvider';
@@ -17,7 +18,7 @@ import { FilmographyScreen } from './src/components/FilmographyScreen';
 import { StatePanel } from './src/components/StatePanel';
 import { EmptyState } from './src/components/EmptyState';
 import { ErrorBanner } from './src/components/ErrorBanner';
-import { searchTitleCandidates, searchLiveCandidates, resolveMatch, fetchPersonFilmography, fetchSurpriseRecommendation } from './src/lib/tmdb';
+import { searchTitleCandidates, searchLiveCandidates, resolveMatch, fetchPersonFilmography, fetchSurpriseRecommendation, fetchSurpriseByGenre } from './src/lib/tmdb';
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
 import { useVoiceSearch } from './src/lib/useVoiceSearch';
 import { loadRecentSearches, saveRecentSearches, loadRecentViewed, saveRecentViewed, loadWatchlist, saveWatchlist } from './src/lib/storage';
@@ -33,6 +34,24 @@ export default function App() {
     </ThemeProvider>
   );
 }
+
+// Genre list for the Surprise Me picker (TMDB genre IDs)
+const QUICK_SURPRISE_GENRES = [
+  { id: 28,    mediaType: 'movie', label: '⚡ Action' },
+  { id: 35,    mediaType: 'movie', label: '😂 Comedy' },
+  { id: 18,    mediaType: 'movie', label: '🎭 Drama' },
+  { id: 27,    mediaType: 'movie', label: '😱 Horror' },
+  { id: 878,   mediaType: 'movie', label: '🚀 Sci-Fi' },
+  { id: 53,    mediaType: 'movie', label: '🔪 Thriller' },
+  { id: 16,    mediaType: 'movie', label: '✨ Animation' },
+  { id: 10749, mediaType: 'movie', label: '💕 Romance' },
+  { id: 99,    mediaType: 'movie', label: '📽 Documentary' },
+  { id: 80,    mediaType: 'movie', label: '🔫 Crime' },
+  { id: 14,    mediaType: 'movie', label: '🧙 Fantasy' },
+  { id: 10759, mediaType: 'tv',    label: '⚔️ Action & Adventure (TV)' },
+  { id: 10765, mediaType: 'tv',    label: '🧬 Sci-Fi & Fantasy (TV)' },
+  { id: 9648,  mediaType: 'tv',    label: '🔍 Mystery (TV)' },
+];
 
 function MobileApp() {
   const { theme, resolvedMode } = useTheme();
@@ -54,6 +73,7 @@ function MobileApp() {
   const [recentViewed, setRecentViewed] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
   const [surpriseLoading, setSurpriseLoading] = useState(false);
+  const [surprisePickerVisible, setSurprisePickerVisible] = useState(false);
   const [pendingWatchlistItem, setPendingWatchlistItem] = useState(null); // { ...item, _isReCategorize: bool }
   const [filter, setFilter] = useState(null); // 'movie' | 'tv' | null
   const [typeResults, setTypeResults] = useState([]);
@@ -64,6 +84,7 @@ function MobileApp() {
   const [filmographyResults, setFilmographyResults] = useState([]);
   const [filmographyLoading, setFilmographyLoading] = useState(false);
   const discoverVm = useDiscoverViewModel();
+  const insets = useSafeAreaInsets();
 
   const showToast = useCallback((message, options = {}) => {
     setToast({
@@ -134,15 +155,19 @@ function MobileApp() {
     if (error) {
       setError(null);
       setErrorInfo(null);
-      // Usually stay on current view unless it was a fatal search error
-      if (activeView === 'results' && results.length === 0) {
+      if (activeView === 'search' && results.length === 0) {
         setActiveView('search');
       }
       return;
     }
 
     if (navigationHistory.length === 0) {
-      // Fallback: if we are somehow in a subview with no history, return to search
+      // If on search with results visible, clear them to go back to home state
+      if (activeView === 'search' && results.length > 0) {
+        setResults([]);
+        setQuery('');
+        return;
+      }
       if (activeView !== 'search' || activeTab !== 'search') {
         setActiveTab('search');
         setActiveView('search');
@@ -169,7 +194,8 @@ function MobileApp() {
   useEffect(() => {
     const onBackPress = () => {
       // If we are at the root with no history and no error, allow app to close
-      if (activeView === 'search' && activeTab === 'search' && !error && navigationHistory.length === 0) {
+      // Allow app to close only when on search home with no results, no history, no error
+      if (activeView === 'search' && activeTab === 'search' && !error && navigationHistory.length === 0 && results.length === 0) {
         return false;
       }
       
@@ -333,7 +359,6 @@ function MobileApp() {
 
       setResults(candidates);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      navigateTo('results', { results: candidates });
       setActiveTab('search');
       setFilter(null); // Reset filter on new search
       
@@ -343,7 +368,6 @@ function MobileApp() {
       const classified = classifyAppError(err);
       if (classified.code === 'NO_RESULTS') {
         setResults([]);
-        navigateTo('results', { results: [] });
         setActiveTab('search');
         setFilter(null);
         await rememberSearch(searchQuery);
@@ -417,6 +441,24 @@ function MobileApp() {
       setSurpriseLoading(false);
     }
   }, [watchlist, clearTypeResults, navigateTo, rememberViewed, handleRequestError]);
+
+  const handleSurpriseByGenre = useCallback(async (genreId, mediaType) => {
+    setSurprisePickerVisible(false);
+    setSurpriseLoading(true);
+    clearTypeResults();
+    Keyboard.dismiss();
+    try {
+      const pick = await fetchSurpriseByGenre(genreId, mediaType);
+      const fullResult = await resolveMatch(pick.title, pick);
+      await rememberViewed(fullResult);
+      navigateTo('detail', { selectedResult: fullResult });
+      setOfflineBanner(null);
+    } catch (err) {
+      handleRequestError(err, 'No surprise picks found for that genre.');
+    } finally {
+      setSurpriseLoading(false);
+    }
+  }, [clearTypeResults, navigateTo, rememberViewed, handleRequestError]);
 
   const handleToggleWatchlist = async (result) => {
     const existingItem = watchlist.find(item => item.tmdbId === result.tmdbId);
@@ -602,7 +644,7 @@ function MobileApp() {
     [watchlist]
   );
 
-  const showBack = activeView === 'results' || activeView === 'detail' || activeView === 'settings' || activeView === 'filmography';
+  const showBack = activeView === 'detail' || activeView === 'settings' || activeView === 'filmography';
   const showLoading = loading && activeView !== 'detail' && activeView !== 'discover';
 
   return (
@@ -628,83 +670,91 @@ function MobileApp() {
         ) : (
           <>
             {activeView === 'search' && (
-              <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
-                <SearchPanel 
-                  value={query} 
-                  onChangeText={handleQueryChange} 
-                  onSubmit={() => handleSearch()} 
-                  loading={loading}
-                  recentSearches={recentSearches}
-                  recentViewed={recentViewed}
-                  onPickSuggestion={handleSearch}
-                  onPickRecentViewed={handleSelectMatch}
-                  onSurpriseMe={handleSurpriseMe}
-                  surpriseLoading={surpriseLoading}
-                  surpriseEnabled={hasHighlyRecommendedSeeds}
-                  filter={filter}
-                  onFilterChange={setFilter}
-                  typeResults={typeResults}
-                  typeLoading={typeLoading}
-                  onTypeSelect={handleTypeSelect}
-                  onVoicePress={toggleVoiceSearch}
-                  voiceListening={voiceListening}
-                />
-              </ScrollView>
-            )}
-            
-            {activeView === 'results' && (
-              <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-                <SearchPanel 
-                  value={query} 
-                  onChangeText={handleQueryChange} 
-                  onSubmit={() => handleSearch()} 
-                  loading={loading}
-                  hideHistory={true}
-                  hideHero={true}
-                  onSurpriseMe={handleSurpriseMe}
-                  surpriseLoading={surpriseLoading}
-                  surpriseEnabled={hasHighlyRecommendedSeeds}
-                  filter={filter}
-                  onFilterChange={setFilter}
-                  typeResults={typeResults}
-                  typeLoading={typeLoading}
-                  onTypeSelect={handleTypeSelect}
-                  onVoicePress={toggleVoiceSearch}
-                  voiceListening={voiceListening}
-                />
-                <MatchResults 
-                  matches={filteredResults} 
-                  onSelect={handleSelectMatch} 
-                  onToggleWatchlist={handleToggleWatchlist}
-                  watchlistIds={watchlist.map(item => item.tmdbId)}
-                />
-                {filteredResults.length === 0 && (
-                  <EmptyState
-                    variant="empty"
-                    title="No matches found"
-                    description={filter
-                      ? `We couldn't find any ${filter === 'movie' ? 'movies' : 'TV shows'} for "${query}".`
-                      : `We couldn't find any matches for "${query}".`}
-                    primaryAction={filter ? {
-                      label: 'Clear Filters',
-                      icon: 'close-circle-outline',
-                      onPress: () => setFilter(null),
-                      accessibilityLabel: 'Clear result filters',
-                    } : {
-                      label: 'Check Spelling',
-                      icon: 'create-outline',
-                      onPress: () => setActiveView('search'),
-                      accessibilityLabel: 'Edit search text',
-                    }}
-                    secondaryAction={{
-                      label: 'Discover',
-                      onPress: () => handleTabPress('discover'),
-                      accessibilityLabel: 'Go to Discover',
-                    }}
-                    compact
+              <View style={{ flex: 1 }}>
+                <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
+                  <SearchPanel
+                    value={query}
+                    onChangeText={handleQueryChange}
+                    onSubmit={() => handleSearch()}
+                    loading={loading}
+                    recentSearches={recentSearches}
+                    recentViewed={recentViewed}
+                    onPickSuggestion={handleSearch}
+                    onPickRecentViewed={handleSelectMatch}
+                    filter={filter}
+                    onFilterChange={setFilter}
+                    hideHistory={results.length > 0}
+                    hideHero={results.length > 0}
+                    typeResults={typeResults}
+                    typeLoading={typeLoading}
+                    onTypeSelect={handleTypeSelect}
+                    onVoicePress={toggleVoiceSearch}
+                    voiceListening={voiceListening}
                   />
-                )}
-              </ScrollView>
+                  {results.length > 0 && (
+                    <>
+                      <MatchResults
+                        matches={filteredResults}
+                        onSelect={handleSelectMatch}
+                        onToggleWatchlist={handleToggleWatchlist}
+                        watchlistIds={watchlist.map(item => item.tmdbId)}
+                      />
+                      {filteredResults.length === 0 && (
+                        <EmptyState
+                          variant="empty"
+                          title="No matches found"
+                          description={filter
+                            ? `We couldn't find any ${filter === 'movie' ? 'movies' : 'TV shows'} for "${query}".`
+                            : `We couldn't find any matches for "${query}".`}
+                          primaryAction={filter ? {
+                            label: 'Clear Filters',
+                            icon: 'close-circle-outline',
+                            onPress: () => setFilter(null),
+                            accessibilityLabel: 'Clear result filters',
+                          } : {
+                            label: 'Check Spelling',
+                            icon: 'create-outline',
+                            onPress: () => { setResults([]); setQuery(''); },
+                            accessibilityLabel: 'Edit search text',
+                          }}
+                          secondaryAction={{
+                            label: 'Discover',
+                            onPress: () => handleTabPress('discover'),
+                            accessibilityLabel: 'Go to Discover',
+                          }}
+                          compact
+                        />
+                      )}
+                    </>
+                  )}
+                </ScrollView>
+
+                {/* Surprise Me Floating Action Button */}
+                <TouchableOpacity
+                  style={[styles.surpriseFab, { bottom: insets.bottom + 88 }]}
+                  onPress={() => setSurprisePickerVisible(true)}
+                  disabled={surpriseLoading}
+                  activeOpacity={0.88}
+                  accessibilityRole="button"
+                  accessibilityLabel="Surprise Me – pick a random movie or show"
+                  accessibilityState={{ busy: Boolean(surpriseLoading) }}
+                >
+                  <LinearGradient
+                    colors={['#ff7a59', '#ffcf33', '#20d6b5']}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={styles.surpriseFabGradient}
+                  >
+                    {surpriseLoading
+                      ? <ActivityIndicator color="#111" size="small" />
+                      : <Ionicons name="sparkles" size={22} color="#111" />
+                    }
+                    <Text style={styles.surpriseFabLabel}>
+                      {surpriseLoading ? 'Shuffling…' : 'Surprise'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
             )}
             
             {activeView === 'detail' && (
@@ -753,6 +803,68 @@ function MobileApp() {
           </>
         )}
       </View>
+
+      {/* Surprise Me Picker Modal */}
+      <Modal
+        visible={surprisePickerVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSurprisePickerVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.categorySheet, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '4D', borderRadius: radii.xl }]}>
+            <View style={styles.categoryHeader}>
+              <View style={styles.categoryTitleBlock}>
+                <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>SURPRISE ROULETTE</Text>
+                <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]}>🎲 Surprise Me</Text>
+              </View>
+              <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.surfaceContainerHighest }]} onPress={() => setSurprisePickerVisible(false)} accessibilityRole="button" accessibilityLabel="Close surprise picker">
+                <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Watchlist-based quick surprise */}
+            <TouchableOpacity
+              style={[styles.surpriseQuickBtn, { backgroundColor: hasHighlyRecommendedSeeds ? colors.primary + '18' : colors.surfaceContainerHigh, borderColor: hasHighlyRecommendedSeeds ? colors.primary + '55' : colors.outlineVariant + '40', borderRadius: radii.lg }]}
+              onPress={() => { setSurprisePickerVisible(false); handleSurpriseMe(); }}
+              disabled={!hasHighlyRecommendedSeeds}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Surprise me based on my favorites"
+            >
+              <Ionicons name="heart-outline" size={20} color={hasHighlyRecommendedSeeds ? colors.primary : colors.onSurfaceVariant} />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[{ color: hasHighlyRecommendedSeeds ? colors.primary : colors.onSurface, fontWeight: '800', ...typography.bodyLg }]}>Based on My Favorites</Text>
+                <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>{hasHighlyRecommendedSeeds ? 'Picks from your Highly Recommend list' : 'Add to Highly Recommend to unlock'}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={hasHighlyRecommendedSeeds ? colors.primary : colors.onSurfaceVariant} />
+            </TouchableOpacity>
+
+            <View style={styles.surpriseDivider}>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.outlineVariant + '30' }} />
+              <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginHorizontal: 12 }]}>OR PICK A GENRE</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.outlineVariant + '30' }} />
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 260 }}>
+              <View style={styles.genreGrid}>
+                {QUICK_SURPRISE_GENRES.map((genre) => (
+                  <TouchableOpacity
+                    key={`${genre.id}-${genre.mediaType}`}
+                    style={[styles.genreChip, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '40', borderRadius: radii.lg }]}
+                    onPress={() => handleSurpriseByGenre(genre.id, genre.mediaType)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Surprise me with ${genre.label}`}
+                  >
+                    <Text style={[{ color: colors.onSurface, fontWeight: '700', textAlign: 'center', ...typography.bodyMd }]}>{genre.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         transparent
@@ -879,7 +991,54 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // Account for BottomNav
+    paddingBottom: 180, // extra room for FAB above BottomNav
+  },
+  surpriseFab: {
+    position: 'absolute',
+    right: 20,
+    shadowColor: '#ffb23f',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.38,
+    shadowRadius: 18,
+    elevation: 8,
+    borderRadius: 28,
+  },
+  surpriseFabGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 28,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    gap: 7,
+  },
+  surpriseFabLabel: {
+    color: '#111',
+    fontWeight: '900',
+    fontSize: 14,
+    letterSpacing: -0.2,
+  },
+  surpriseQuickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  surpriseDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  genreGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  genreChip: {
+    width: '47%',
+    padding: 14,
+    borderWidth: 1,
+    alignItems: 'center',
   },
   modalOverlay: {
     flex: 1,

@@ -188,9 +188,11 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const c = colors;
+  const insets = useSafeAreaInsets();
 
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
+  const [moreFiltersVisible, setMoreFiltersVisible] = useState(false);
   const previousMediaTypeRef = useRef(vm.filters.mediaType);
 
   // Sort options depend on mediaType
@@ -201,6 +203,25 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const displayedSortBy = validSortValues.includes(vm.filters.sortBy)
     ? vm.filters.sortBy
     : 'popularity.desc';
+
+  // Compute whether any advanced filter is active (for the More Filters badge)
+  const advancedFilterActive =
+    vm.filters.activePreset != null ||
+    (vm.filters.languageCodes || []).length > 0 ||
+    !!vm.filters.excludeEnglish ||
+    vm.filters.activeCountryPreset != null ||
+    (vm.filters.originCountries || []).length > 0 ||
+    (vm.filters.sortBy && vm.filters.sortBy !== 'popularity.desc');
+
+  const advancedFilterSummary = [
+    vm.filters.activePreset ? findPreset(vm.filters.activePreset)?.label : null,
+    (vm.filters.languageCodes || []).length > 0 ? langLabel : null,
+    vm.filters.excludeEnglish ? 'Excl. English' : null,
+    vm.filters.activeCountryPreset ? findCountryPreset(vm.filters.activeCountryPreset)?.label : null,
+    vm.filters.sortBy && vm.filters.sortBy !== 'popularity.desc'
+      ? sortOptions.find((o) => o.value === vm.filters.sortBy)?.label
+      : null,
+  ].filter(Boolean).join(' · ');
 
   // Load genres when mediaType changes; reset genre selections that might not apply
   useEffect(() => {
@@ -343,263 +364,48 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
 
         <Divider color={c.outlineVariant} />
 
-        {/* ── Language Presets ── */}
-        <SectionLabel label="Language Presets" colors={c} typography={typography} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.hScroll, { marginBottom: 12 }]}>
-          <View style={styles.hChipRow}>
-            {SPECIAL_PRESETS.map((preset) => {
-              const active = vm.filters.activePreset === preset.id;
-              return (
-                <TouchableOpacity
-                  key={preset.id}
-                  style={[
-                    styles.chip,
-                    { borderRadius: radii.full },
-                    active
-                      ? { backgroundColor: c.secondaryContainer, borderWidth: 1, borderColor: c.secondary }
-                      : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' },
-                  ]}
-                  onPress={() => active ? vm.clearPreset() : vm.applyPreset(preset.id)}
-                >
-                  <Text style={[styles.chipText, { color: active ? c.onSecondaryContainer : c.onSurfaceVariant, ...typography.labelSm }]}>
-                    {preset.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-            {REGION_PRESETS.map((preset) => {
-              const active = vm.filters.activePreset === preset.id;
-              return (
-                <TouchableOpacity
-                  key={preset.id}
-                  style={[
-                    styles.chip,
-                    { borderRadius: radii.full },
-                    active
-                      ? { backgroundColor: c.primary }
-                      : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' },
-                  ]}
-                  onPress={() => active ? vm.clearPreset() : vm.applyPreset(preset.id)}
-                >
-                  <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
-                    {preset.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </ScrollView>
-
-        {/* Preset Description / Smart Filter Note */}
-        {vm.filters.activePreset && (
-          <View style={[genreStyles.infoBanner, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderLeftColor: c.primary, marginBottom: 16 }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[{ color: c.onSurface, ...typography.labelSm, fontWeight: '700', marginBottom: 2 }]}>
-                {findPreset(vm.filters.activePreset)?.label}
-              </Text>
-              <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
-                {findPreset(vm.filters.activePreset)?.description}
-              </Text>
-              {findPreset(vm.filters.activePreset)?.smartFilter && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-                  <Ionicons name="sparkles-outline" size={12} color={c.primary} style={{ marginRight: 4 }} />
-                  <Text style={[{ color: c.primary, ...typography.labelSm, fontWeight: '700' }]}>SMART FILTER</Text>
-                </View>
-              )}
-              {findPreset(vm.filters.activePreset)?.smartFilterNote && (
-                <Text style={[{ color: c.onSurfaceVariant, fontSize: 11, fontStyle: 'italic', marginTop: 4 }]}>
-                  {findPreset(vm.filters.activePreset).smartFilterNote}
-                </Text>
-              )}
-            </View>
-            <TouchableOpacity onPress={() => vm.clearPreset()} style={{ marginLeft: 8 }}>
-              <Ionicons name="close-circle" size={20} color={c.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ── Linked Country Preset Banner (TV only, automatic) ── */}
-        {vm.pendingCountryLink && vm.filters.mediaType === 'tv' && (
-          <View style={[
-            genreStyles.infoBanner,
-            {
-              backgroundColor: c.secondaryContainer,
-              borderRadius: radii.md,
-              borderLeftColor: c.secondary,
-              marginBottom: 16,
-              alignItems: 'center',
-            },
-          ]}>
-            <Ionicons name="link-outline" size={16} color={c.onSecondaryContainer} style={{ marginRight: 10, marginTop: 1 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={[{ color: c.onSecondaryContainer, ...typography.labelSm, fontWeight: '700', marginBottom: 2 }]}>
-                Also filter by origin country?
-              </Text>
-              <Text style={[{ color: c.onSecondaryContainer, ...typography.labelSm, opacity: 0.8 }]}>
-                Narrow TV results to shows from {vm.pendingCountryLink.label} countries.
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                <TouchableOpacity
-                  style={[{ backgroundColor: c.secondary, borderRadius: radii.full, paddingHorizontal: 14, paddingVertical: 6 }]}
-                  onPress={vm.acceptCountryLink}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Yes, also filter by ${vm.pendingCountryLink.label} countries`}
-                >
-                  <Text style={[{ color: c.onSecondary, ...typography.labelSm, fontWeight: '800' }]}>Yes, link it</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[{ backgroundColor: c.secondaryContainer, borderRadius: radii.full, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: c.secondary + '60' }]}
-                  onPress={vm.dismissCountryLink}
-                  accessibilityRole="button"
-                  accessibilityLabel="No, keep language filter only"
-                >
-                  <Text style={[{ color: c.onSecondaryContainer, ...typography.labelSm, fontWeight: '700' }]}>No thanks</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
-
-        <Divider color={c.outlineVariant} />
-
-        {/* ── Advanced Language Filter ── */}
-        <View style={styles.sectionRow}>
-          <SectionLabel label="Advanced Language Filter" colors={c} typography={typography} />
-          {vm.filters.activePreset && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Ionicons name="flash-outline" size={12} color={c.primary} />
-              <Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>PRESET ACTIVE</Text>
-            </View>
-          )}
-        </View>
+        {/* ── More Filters ── */}
         <TouchableOpacity
-          style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activePreset ? c.primary + '40' : c.outlineVariant + '40' }]}
-          onPress={() => setLangModalVisible(true)}
+          style={[
+            styles.moreFiltersBtn,
+            {
+              backgroundColor: advancedFilterActive ? c.primary + '15' : c.surfaceContainerHigh,
+              borderRadius: radii.md,
+              borderColor: advancedFilterActive ? c.primary + '55' : c.outlineVariant + '40',
+            },
+          ]}
+          onPress={() => setMoreFiltersVisible(true)}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={`Original language, ${langLabel}`}
+          accessibilityLabel="Open advanced filter options: language, sort order and country"
         >
-          <Ionicons name="language-outline" size={16} color={selectedLanguageCodes.length || vm.filters.excludeEnglish ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
-          <Text style={[{ flex: 1, color: (selectedLanguageCodes.length || vm.filters.excludeEnglish) ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
-            {vm.filters.activePreset ? findPreset(vm.filters.activePreset).label : langLabel}
-          </Text>
-          {(selectedLanguageCodes.length > 0 || vm.filters.excludeEnglish) && (
-            <TouchableOpacity
-              onPress={() => vm.clearPreset()}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Clear selected languages"
-            >
-              <Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} />
-            </TouchableOpacity>
-          )}
-          <Ionicons name="chevron-down-outline" size={16} color={c.onSurfaceVariant} style={{ marginLeft: 4 }} />
-        </TouchableOpacity>
-
-        {/* ── Origin Country (TV only) ── */}
-        {vm.filters.mediaType === 'tv' && (
-          <>
-            <Divider color={c.outlineVariant} />
-
-            {/* Section label + clear */}
-            <View style={styles.sectionRow}>
-              <SectionLabel label="Country Presets" colors={c} typography={typography} />
-              {vm.filters.activeCountryPreset && (
-                <TouchableOpacity
-                  onPress={() => vm.clearCountryPreset()}
-                  accessibilityRole="button"
-                  accessibilityLabel="Clear country preset"
-                >
-                  <Text style={[{ color: c.primary, ...typography.labelSm }]}>Clear</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Continent chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.hScroll, { marginBottom: 12 }]}>
-              <View style={styles.hChipRow}>
-                {COUNTRY_PRESETS.map((preset) => {
-                  const active = vm.filters.activeCountryPreset === preset.id;
-                  return (
-                    <TouchableOpacity
-                      key={preset.id}
-                      style={[
-                        styles.chip,
-                        { borderRadius: radii.full },
-                        active
-                          ? { backgroundColor: c.primary }
-                          : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' },
-                      ]}
-                      onPress={() => active ? vm.clearCountryPreset() : vm.applyCountryPreset(preset.id)}
-                      activeOpacity={0.8}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Filter countries by ${preset.label}`}
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
-                        {preset.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-
-            {/* Active preset description banner */}
-            {vm.filters.activeCountryPreset && (
-              <View style={[genreStyles.infoBanner, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderLeftColor: c.primary, marginBottom: 16 }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[{ color: c.onSurface, ...typography.labelSm, fontWeight: '700', marginBottom: 2 }]}>
-                    {findCountryPreset(vm.filters.activeCountryPreset)?.label}
-                  </Text>
-                  <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
-                    {findCountryPreset(vm.filters.activeCountryPreset)?.description}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => vm.clearCountryPreset()} style={{ marginLeft: 8 }}>
-                  <Ionicons name="close-circle" size={20} color={c.onSurfaceVariant} />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Origin Country section label + picker */}
-            <View style={styles.sectionRow}>
-              <SectionLabel label="Origin Country (TV)" colors={c} typography={typography} />
-              {vm.filters.activeCountryPreset && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name="flash-outline" size={12} color={c.primary} />
-                  <Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>PRESET ACTIVE</Text>
-                </View>
-              )}
-            </View>
-            <TouchableOpacity
-              style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activeCountryPreset ? c.primary + '40' : c.outlineVariant + '40' }]}
-              onPress={() => setCountryModalVisible(true)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={`Origin country, ${countryLabel}`}
-            >
-              <Ionicons name="globe-outline" size={16} color={selectedOriginCountries.length ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
-              <Text style={[{ flex: 1, color: selectedOriginCountries.length ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
-                {vm.filters.activeCountryPreset && !selectedOriginCountries.length
-                  ? `All ${findCountryPreset(vm.filters.activeCountryPreset)?.label} countries`
-                  : countryLabel}
+          <Ionicons
+            name="options-outline"
+            size={18}
+            color={advancedFilterActive ? c.primary : c.onSurfaceVariant}
+            style={{ marginRight: 10 }}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={[{ color: advancedFilterActive ? c.primary : c.onSurface, ...typography.bodyMd, fontWeight: '700' }]}>
+              Language, Sort &amp; Country
+            </Text>
+            {advancedFilterSummary ? (
+              <Text style={[{ color: c.primary, ...typography.labelSm, marginTop: 2 }]} numberOfLines={1}>
+                {advancedFilterSummary}
               </Text>
-              {selectedOriginCountries.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => vm.updateFilter('originCountries', [])}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Clear selected countries"
-                >
-                  <Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} />
-                </TouchableOpacity>
-              )}
-              <Ionicons name="chevron-down-outline" size={16} color={c.onSurfaceVariant} style={{ marginLeft: 4 }} />
-            </TouchableOpacity>
-          </>
-        )}
-
+            ) : (
+              <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>
+                Tap to configure
+              </Text>
+            )}
+          </View>
+          {advancedFilterActive && (
+            <View style={[{ backgroundColor: c.primary, borderRadius: radii.sm, paddingHorizontal: 7, paddingVertical: 3, marginRight: 8 }]}>
+              <Text style={{ color: c.onPrimary, fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>ACTIVE</Text>
+            </View>
+          )}
+          <Ionicons name="chevron-forward-outline" size={16} color={advancedFilterActive ? c.primary : c.onSurfaceVariant} />
+        </TouchableOpacity>
         <Divider color={c.outlineVariant} />
 
         {/* ── Release Year Range ── */}
@@ -630,38 +436,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           </View>
         </View>
 
-        <Divider color={c.outlineVariant} />
 
-        {/* ── Sort By ── */}
-        <SectionLabel label="Sort By" colors={c} typography={typography} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-          <View style={styles.hChipRow}>
-            {sortOptions.map((opt) => {
-              const active = displayedSortBy === opt.value;
-              return (
-                <TouchableOpacity
-                  key={opt.value}
-                  style={[
-                    styles.chip,
-                    { borderRadius: radii.full },
-                    active
-                      ? { backgroundColor: c.primary }
-                      : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' },
-                  ]}
-                  onPress={() => vm.updateFilter('sortBy', opt.value)}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Sort by ${opt.label}`}
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </ScrollView>
 
         {/* ── Validation Error ── */}
         {vm.validationError && (
@@ -715,6 +490,154 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         onToggleWatchlist={onToggleWatchlist}
         watchlistIds={watchlistIds}
       />
+
+      {/* ── More Filters Bottom-Sheet ── */}
+      <Modal
+        visible={moreFiltersVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setMoreFiltersVisible(false)}
+      >
+        <View style={pickerStyles.overlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1, justifyContent: 'flex-end' }}
+          >
+            <View style={[pickerStyles.sheet, { backgroundColor: c.surface, borderRadius: radii.xl, paddingBottom: insets.bottom + 24, maxHeight: '90%' }]}>
+              <View style={pickerStyles.sheetHeader}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[{ color: c.onSurface, ...typography.titleMd, fontWeight: '700' }]}>More Filters</Text>
+                  {advancedFilterSummary ? (
+                    <Text style={[{ color: c.primary, ...typography.labelSm, marginTop: 2 }]} numberOfLines={1}>{advancedFilterSummary}</Text>
+                  ) : null}
+                </View>
+                <TouchableOpacity onPress={() => setMoreFiltersVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="Close more filters">
+                  <Text style={[{ color: c.primary, ...typography.labelSm, fontWeight: '800' }]}>Done</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                {/* Language Presets */}
+                <SectionLabel label="Language Presets" colors={c} typography={typography} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.hScroll, { marginBottom: 12 }]}>
+                  <View style={styles.hChipRow}>
+                    {SPECIAL_PRESETS.map((preset) => {
+                      const active = vm.filters.activePreset === preset.id;
+                      return (
+                        <TouchableOpacity key={preset.id} style={[styles.chip, { borderRadius: radii.full }, active ? { backgroundColor: c.secondaryContainer, borderWidth: 1, borderColor: c.secondary } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' }]} onPress={() => active ? vm.clearPreset() : vm.applyPreset(preset.id)}>
+                          <Text style={[styles.chipText, { color: active ? c.onSecondaryContainer : c.onSurfaceVariant, ...typography.labelSm }]}>{preset.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {REGION_PRESETS.map((preset) => {
+                      const active = vm.filters.activePreset === preset.id;
+                      return (
+                        <TouchableOpacity key={preset.id} style={[styles.chip, { borderRadius: radii.full }, active ? { backgroundColor: c.primary } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' }]} onPress={() => active ? vm.clearPreset() : vm.applyPreset(preset.id)}>
+                          <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>{preset.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+
+                {vm.filters.activePreset && (
+                  <View style={[genreStyles.infoBanner, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderLeftColor: c.primary, marginBottom: 16 }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[{ color: c.onSurface, ...typography.labelSm, fontWeight: '700', marginBottom: 2 }]}>{findPreset(vm.filters.activePreset)?.label}</Text>
+                      <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>{findPreset(vm.filters.activePreset)?.description}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => vm.clearPreset()} style={{ marginLeft: 8 }}><Ionicons name="close-circle" size={20} color={c.onSurfaceVariant} /></TouchableOpacity>
+                  </View>
+                )}
+
+                {vm.pendingCountryLink && vm.filters.mediaType === 'tv' && (
+                  <View style={[genreStyles.infoBanner, { backgroundColor: c.secondaryContainer, borderRadius: radii.md, borderLeftColor: c.secondary, marginBottom: 16, alignItems: 'center' }]}>
+                    <Ionicons name="link-outline" size={16} color={c.onSecondaryContainer} style={{ marginRight: 10 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[{ color: c.onSecondaryContainer, ...typography.labelSm, fontWeight: '700', marginBottom: 2 }]}>Also filter by origin country?</Text>
+                      <Text style={[{ color: c.onSecondaryContainer, ...typography.labelSm, opacity: 0.8 }]}>Narrow TV results to shows from {vm.pendingCountryLink.label} countries.</Text>
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                        <TouchableOpacity style={[{ backgroundColor: c.secondary, borderRadius: radii.full, paddingHorizontal: 14, paddingVertical: 6 }]} onPress={vm.acceptCountryLink} accessibilityRole="button" accessibilityLabel={`Yes, also filter by ${vm.pendingCountryLink.label} countries`}><Text style={[{ color: c.onSecondary, ...typography.labelSm, fontWeight: '800' }]}>Yes, link it</Text></TouchableOpacity>
+                        <TouchableOpacity style={[{ backgroundColor: c.secondaryContainer, borderRadius: radii.full, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: c.secondary + '60' }]} onPress={vm.dismissCountryLink} accessibilityRole="button" accessibilityLabel="No, keep language filter only"><Text style={[{ color: c.onSecondaryContainer, ...typography.labelSm, fontWeight: '700' }]}>No thanks</Text></TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                <Divider color={c.outlineVariant} />
+
+                {/* Advanced Language Filter */}
+                <View style={styles.sectionRow}>
+                  <SectionLabel label="Advanced Language Filter" colors={c} typography={typography} />
+                  {vm.filters.activePreset && (<View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Ionicons name="flash-outline" size={12} color={c.primary} /><Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>PRESET ACTIVE</Text></View>)}
+                </View>
+                <TouchableOpacity style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activePreset ? c.primary + '40' : c.outlineVariant + '40' }]} onPress={() => setLangModalVisible(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Original language, ${langLabel}`}>
+                  <Ionicons name="language-outline" size={16} color={selectedLanguageCodes.length || vm.filters.excludeEnglish ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
+                  <Text style={[{ flex: 1, color: (selectedLanguageCodes.length || vm.filters.excludeEnglish) ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>{vm.filters.activePreset ? findPreset(vm.filters.activePreset).label : langLabel}</Text>
+                  {(selectedLanguageCodes.length > 0 || vm.filters.excludeEnglish) && (<TouchableOpacity onPress={() => vm.clearPreset()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Clear selected languages"><Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} /></TouchableOpacity>)}
+                  <Ionicons name="chevron-down-outline" size={16} color={c.onSurfaceVariant} style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+
+                {/* Origin Country — TV only */}
+                {vm.filters.mediaType === 'tv' && (
+                  <>
+                    <Divider color={c.outlineVariant} />
+                    <View style={styles.sectionRow}>
+                      <SectionLabel label="Country Presets" colors={c} typography={typography} />
+                      {vm.filters.activeCountryPreset && (<TouchableOpacity onPress={() => vm.clearCountryPreset()} accessibilityRole="button" accessibilityLabel="Clear country preset"><Text style={[{ color: c.primary, ...typography.labelSm }]}>Clear</Text></TouchableOpacity>)}
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.hScroll, { marginBottom: 12 }]}>
+                      <View style={styles.hChipRow}>
+                        {COUNTRY_PRESETS.map((preset) => {
+                          const active = vm.filters.activeCountryPreset === preset.id;
+                          return (
+                            <TouchableOpacity key={preset.id} style={[styles.chip, { borderRadius: radii.full }, active ? { backgroundColor: c.primary } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' }]} onPress={() => active ? vm.clearCountryPreset() : vm.applyCountryPreset(preset.id)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Filter countries by ${preset.label}`} accessibilityState={{ selected: active }}>
+                              <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>{preset.label}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
+                    {vm.filters.activeCountryPreset && (
+                      <View style={[genreStyles.infoBanner, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderLeftColor: c.primary, marginBottom: 16 }]}>
+                        <View style={{ flex: 1 }}><Text style={[{ color: c.onSurface, ...typography.labelSm, fontWeight: '700', marginBottom: 2 }]}>{findCountryPreset(vm.filters.activeCountryPreset)?.label}</Text><Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>{findCountryPreset(vm.filters.activeCountryPreset)?.description}</Text></View>
+                        <TouchableOpacity onPress={() => vm.clearCountryPreset()} style={{ marginLeft: 8 }}><Ionicons name="close-circle" size={20} color={c.onSurfaceVariant} /></TouchableOpacity>
+                      </View>
+                    )}
+                    <View style={styles.sectionRow}>
+                      <SectionLabel label="Origin Country (TV)" colors={c} typography={typography} />
+                      {vm.filters.activeCountryPreset && (<View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Ionicons name="flash-outline" size={12} color={c.primary} /><Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>PRESET ACTIVE</Text></View>)}
+                    </View>
+                    <TouchableOpacity style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activeCountryPreset ? c.primary + '40' : c.outlineVariant + '40' }]} onPress={() => setCountryModalVisible(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Origin country, ${countryLabel}`}>
+                      <Ionicons name="globe-outline" size={16} color={selectedOriginCountries.length ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
+                      <Text style={[{ flex: 1, color: selectedOriginCountries.length ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>{vm.filters.activeCountryPreset && !selectedOriginCountries.length ? `All ${findCountryPreset(vm.filters.activeCountryPreset)?.label} countries` : countryLabel}</Text>
+                      {selectedOriginCountries.length > 0 && (<TouchableOpacity onPress={() => vm.updateFilter('originCountries', [])} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Clear selected countries"><Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} /></TouchableOpacity>)}
+                      <Ionicons name="chevron-down-outline" size={16} color={c.onSurfaceVariant} style={{ marginLeft: 4 }} />
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                <Divider color={c.outlineVariant} />
+
+                {/* Sort By */}
+                <SectionLabel label="Sort By" colors={c} typography={typography} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.hScroll, { marginBottom: 8 }]}>
+                  <View style={styles.hChipRow}>
+                    {sortOptions.map((opt) => {
+                      const active = displayedSortBy === opt.value;
+                      return (
+                        <TouchableOpacity key={opt.value} style={[styles.chip, { borderRadius: radii.full }, active ? { backgroundColor: c.primary } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' }]} onPress={() => vm.updateFilter('sortBy', opt.value)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Sort by ${opt.label}`} accessibilityState={{ selected: active }}>
+                          <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>{opt.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       {/* ── Language Picker Modal ── */}
       <SearchablePickerModal
@@ -1481,6 +1404,14 @@ const styles = StyleSheet.create({
   ratingRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 4 },
   ratingDot: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
 
+  moreFiltersBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
   pickerButton: {
     flexDirection: 'row',
     alignItems: 'center',

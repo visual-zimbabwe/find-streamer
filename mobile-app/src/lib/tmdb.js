@@ -455,6 +455,46 @@ export async function fetchSurpriseRecommendation(seedItems = []) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+/**
+ * Picks a random high-rated title in a specific genre.
+ * genreId: TMDB genre id (e.g. 27 for Horror)
+ * mediaType: 'movie' | 'tv'
+ */
+export async function fetchSurpriseByGenre(genreId, mediaType = 'movie') {
+  // Fetch two random pages from popular high-rated titles in the genre
+  const page = Math.floor(Math.random() * 4) + 1; // pages 1-4
+  const params = {
+    sort_by: 'vote_average.desc',
+    with_genres: String(genreId),
+    'vote_count.gte': 200,
+    'vote_average.gte': 6.5,
+    include_adult: false,
+    language: 'en-US',
+    page,
+  };
+
+  const data = await tmdbGet(`/discover/${mediaType}`, params);
+  const items = (data.results || []).filter((item) => item.poster_path);
+
+  if (!items.length) {
+    throw createAppError('No titles found for that genre right now.', 'NO_RESULTS');
+  }
+
+  const pick = items[Math.floor(Math.random() * Math.min(items.length, 12))];
+  const dateValue = pick.release_date || pick.first_air_date || '';
+  return {
+    mediaType,
+    tmdbId: pick.id,
+    title: pick.title || pick.name || '(Untitled)',
+    year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+    synopsis: (pick.overview || '').trim() || 'No synopsis available.',
+    posterUrl: `https://image.tmdb.org/t/p/w500${pick.poster_path}`,
+    backdropUrl: pick.backdrop_path ? `https://image.tmdb.org/t/p/original${pick.backdrop_path}` : null,
+    ratingValue: pick.vote_average || 0,
+    rating: typeof pick.vote_average === 'number' ? `${pick.vote_average.toFixed(1)}/10` : 'N/A',
+  };
+}
+
 async function getProviderCountries(mediaType, tmdbId) {
   const cacheKey = `${mediaType}:${tmdbId}`;
   if (_providerCountryCache.has(cacheKey)) return _providerCountryCache.get(cacheKey);
