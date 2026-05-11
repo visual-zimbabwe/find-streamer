@@ -110,6 +110,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const [shareCountries, setShareCountries] = useState(null);
   const [showAllCast, setShowAllCast] = useState(false);
   const [trailerVisible, setTrailerVisible] = useState(false);
+  const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
 
   // ── Dynamic poster palette ───────────────────────────────────────────────
   const { palette } = usePosterTheme(result?.posterUrl);
@@ -129,6 +130,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
 
   useEffect(() => {
     setShowAllCast(false);
+    setIsSynopsisExpanded(false);
   }, [result?.tmdbId]);
 
   useEffect(() => {
@@ -724,9 +726,22 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
 
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>SYNOPSIS</Text>
-            <Text style={[styles.synopsis, { color: colors.onSurface, ...typography.bodyLg }]}>
-              {result.synopsis}
-            </Text>
+            <TouchableOpacity 
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setIsSynopsisExpanded(!isSynopsisExpanded);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.synopsis, { color: colors.onSurface, ...typography.bodyLg }]}>
+                {isSynopsisExpanded || (result.synopsis?.length || 0) <= 250
+                  ? result.synopsis
+                  : `${result.synopsis.substring(0, 250)}...`}
+                {!isSynopsisExpanded && (result.synopsis?.length || 0) > 250 && (
+                  <Text style={{ color: colors.primary, ...typography.labelSm }}> Read More</Text>
+                )}
+              </Text>
+            </TouchableOpacity>
           </View>
 
 
