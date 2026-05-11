@@ -104,14 +104,6 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
         >
           <View style={[styles.posterWrapper, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
             <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
-            <TouchableOpacity
-              style={[styles.removeButton, { backgroundColor: colors.surface + 'cc' }]}
-              onPress={() => onRemove(item.tmdbId)}
-              accessibilityRole="button"
-              accessibilityLabel={`Remove ${item.title} from watchlist`}
-            >
-              <Ionicons name="trash-outline" size={18} color={colors.error} />
-            </TouchableOpacity>
           </View>
           <View style={styles.info}>
             <Text style={[styles.itemTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
@@ -661,16 +653,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  removeButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
   info: {
     flex: 1,
     gap: 8,
