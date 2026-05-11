@@ -397,18 +397,104 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           />
 
           <Animated.View style={[styles.heroContent, heroContentMotion]}>
-            <View style={styles.metaRow}>
+            <View style={styles.heroMetaStack}>
               {hasGenres && (
-                <View style={[styles.genreBadge, { backgroundColor: colors.primary + '55' }]}>
-                  <Text style={[styles.genreText, { color: '#ffffff', ...typography.labelSm }]}>{result.genres}</Text>
+                <View style={[styles.genreBadge, { backgroundColor: colors.primary + '33' }]}>
+                  <Text style={[styles.genreText, { color: '#ffffff', ...typography.labelSm }]} numberOfLines={1}>
+                    {result.genres}
+                  </Text>
                 </View>
               )}
-              {hasRating && (
-                <View style={styles.ratingRow}>
-                  <Ionicons name="star" size={14} color={colors.primary} />
-                  <Text style={[styles.ratingText, { color: '#ffffff', ...typography.labelSm }]}>{result.rating}</Text>
-                </View>
-              )}
+
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={styles.heroRatingsStrip}
+              >
+                {hasRating && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Linking.openURL(`https://www.themoviedb.org/${result.mediaType === 'tv' ? 'tv' : 'movie'}/${result.tmdbId}`);
+                    }}
+                    style={styles.heroRatingItem}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View ${result.title} on TMDB`}
+                  >
+                    <Image 
+                      source={{ uri: 'https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.png' }} 
+                      style={styles.ratingLogoTmdb} 
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.heroRatingText, { ...typography.labelSm }]}>
+                      {result.rating.toString().split('/')[0]}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {result.omdbRatings?.imdbRating && result.imdbId && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Linking.openURL(`https://www.imdb.com/title/${result.imdbId}/`);
+                    }}
+                    style={styles.heroRatingItem}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View ${result.title} on IMDb`}
+                  >
+                    <Image 
+                      source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/c/cc/IMDb_logo_2016.png' }} 
+                      style={styles.ratingLogoImdbHero} 
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.heroRatingText, { ...typography.labelSm }]}>
+                      {result.omdbRatings.imdbRating.split('/')[0]}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {result.omdbRatings?.rottenTomatoes && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Linking.openURL(`https://www.rottentomatoes.com/search?search=${encodeURIComponent(result.title || '')}`);
+                    }}
+                    style={styles.heroRatingItem}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Search ${result.title} on Rotten Tomatoes`}
+                  >
+                    <Image 
+                      source={{ uri: 'https://www.rottentomatoes.com/assets/pizza-pie/images/icons/tomatometer/certified_fresh.7521128548c.png' }} 
+                      style={styles.ratingLogoRtHero} 
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.heroRatingText, { ...typography.labelSm }]}>
+                      {result.omdbRatings.rottenTomatoes.replace('%', '')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {result.omdbRatings?.metascore && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Linking.openURL(`https://www.metacritic.com/search/all/${encodeURIComponent(result.title || '')}/results`);
+                    }}
+                    style={styles.heroRatingItem}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Search ${result.title} on Metacritic`}
+                  >
+                    <Image 
+                      source={{ uri: 'https://www.metacritic.com/images/icons/metacritic-icon.png' }} 
+                      style={styles.ratingLogoMetaHero} 
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.heroRatingText, { ...typography.labelSm }]}>
+                      {result.omdbRatings.metascore}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
             </View>
 
             {/* Title stays white — it always sits on top of the backdrop image */}
@@ -643,78 +729,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             </Text>
           </View>
 
-          {/* ─── Ratings ─────────────────────────────────────────────────── */}
-          {result.omdbRatings && (result.omdbRatings.imdbRating || result.omdbRatings.rottenTomatoes || result.omdbRatings.metascore) && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>RATINGS</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.ratingsRow}
-              >
-                {result.omdbRatings.imdbRating && result.imdbId && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      Linking.openURL(`https://www.imdb.com/title/${result.imdbId}/`);
-                    }}
-                    style={[styles.ratingBadgeCompact, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`View ${result.title} on IMDb`}
-                  >
-                    <Image 
-                      source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/c/cc/IMDb_logo_2016.png' }} 
-                      style={styles.ratingLogoImdb} 
-                      resizeMode="contain"
-                    />
-                    <Text style={[styles.ratingValueCompact, { color: colors.onSurface, ...typography.titleLg }]}>
-                      {result.omdbRatings.imdbRating.split('/')[0]}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {result.omdbRatings.rottenTomatoes && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      Linking.openURL(`https://www.rottentomatoes.com/search?search=${encodeURIComponent(result.title || '')}`);
-                    }}
-                    style={[styles.ratingBadgeCompact, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Search ${result.title} on Rotten Tomatoes`}
-                  >
-                    <Image 
-                      source={{ uri: 'https://www.rottentomatoes.com/assets/pizza-pie/images/icons/tomatometer/certified_fresh.7521128548c.png' }} 
-                      style={styles.ratingLogoRt} 
-                      resizeMode="contain"
-                    />
-                    <Text style={[styles.ratingValueCompact, { color: colors.onSurface, ...typography.titleLg }]}>
-                      {result.omdbRatings.rottenTomatoes.replace('%', '')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {result.omdbRatings.metascore && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      Linking.openURL(`https://www.metacritic.com/search/all/${encodeURIComponent(result.title || '')}/results`);
-                    }}
-                    style={[styles.ratingBadgeCompact, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Search ${result.title} on Metacritic`}
-                  >
-                    <Image 
-                      source={{ uri: 'https://www.metacritic.com/images/icons/metacritic-icon.png' }} 
-                      style={styles.ratingLogoMeta} 
-                      resizeMode="contain"
-                    />
-                    <Text style={[styles.ratingValueCompact, { color: colors.onSurface, ...typography.titleLg }]}>
-                      {result.omdbRatings.metascore}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </ScrollView>
-            </View>
-          )}
+
 
           {/* ─── Awards ──────────────────────────────────────────────────── */}
           {result.omdbRatings?.awards && (() => {
@@ -1037,20 +1052,61 @@ const styles = StyleSheet.create({
     left: 24,
     right: 24,
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  heroMetaStack: {
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   genreBadge: {
+    alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   genreText: {
     fontWeight: '800',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  heroRatingsStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingRight: 20,
+  },
+  heroRatingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  heroRatingText: {
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: -0.2,
+  },
+  ratingLogoTmdb: {
+    width: 28,
+    height: 12,
+  },
+  ratingLogoImdbHero: {
+    width: 24,
+    height: 12,
+  },
+  ratingLogoRtHero: {
+    width: 14,
+    height: 14,
+  },
+  ratingLogoMetaHero: {
+    width: 14,
+    height: 14,
+    borderRadius: 2,
   },
   ratingRow: {
     flexDirection: 'row',
