@@ -9,7 +9,7 @@ export function SettingsView() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>APPEARANCE</Text>
+        <Text style={[styles.sectionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Appearance</Text>
         <View style={[styles.card, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
           <TouchableOpacity 
             style={[styles.row, preference === 'light' && { backgroundColor: colors.surfaceContainerHigh }]} 
@@ -47,7 +47,7 @@ export function SettingsView() {
       </View>
 
       <View style={styles.footer}>
-        <Text style={[styles.version, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>TROVA V2.4.1 (BUILD 882)</Text>
+        <Text style={[styles.version, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Trova v2.4.1 (Build 882)</Text>
       </View>
     </ScrollView>
   );
@@ -66,7 +66,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.5,
     marginBottom: 16,
-    textTransform: 'uppercase',
   },
   card: {
     overflow: 'hidden',

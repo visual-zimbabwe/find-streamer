@@ -423,7 +423,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     accessibilityLabel={`View ${result.title} on TMDB`}
                   >
                     <View style={styles.badgeTmdb}>
-                      <Text style={styles.badgeTmdbText}>TMDB</Text>
+                      <Text style={styles.badgeTmdbText}>Tmdb</Text>
                     </View>
                     <Text style={[styles.heroRatingText, { ...typography.labelSm }]}>
                       {result.rating.toString().split('/')[0]}
@@ -541,7 +541,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           {hasPeople && (
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 0 }]}>CAST & CREW</Text>
+                <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 0 }]}>Cast & Crew</Text>
                 {remainingCastCount > 0 && (
                   <TouchableOpacity
                     onPress={() => setShowAllCast(true)}
@@ -549,7 +549,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     accessibilityLabel={`Show ${remainingCastCount} more cast members`}
                     style={[styles.seeAllButton, { borderColor: colors.primary + '66', backgroundColor: colors.primaryContainer }]}
                   >
-                    <Text style={[styles.seeAllText, { color: colors.primary, ...typography.labelSm }]}>SEE ALL</Text>
+                    <Text style={[styles.seeAllText, { color: colors.primary, ...typography.labelSm }]}>See All</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -633,7 +633,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           )}
 
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>SYNOPSIS</Text>
+            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Synopsis</Text>
             <TouchableOpacity 
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -657,7 +657,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             const hasBadges = parsed.badges && parsed.badges.length > 0;
             return (
               <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>AWARDS & RECOGNITION</Text>
+                <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Awards & Recognition</Text>
 
                 {/* Per-ceremony badge tiles */}
                 {hasBadges && (
@@ -676,7 +676,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                       >
                         <Text style={styles.awardTileIcon}>{badge.icon}</Text>
                         <Text style={[styles.awardTileLabel, { color: badge.color, ...typography.labelSm }]}>
-                          {badge.label.toUpperCase()}
+                          {badge.label}
                         </Text>
                         {badge.won != null && (
                           <View style={[styles.awardWonPill, { backgroundColor: badge.color + '22', borderColor: badge.color + '66' }]}>
@@ -703,7 +703,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     {parsed.totalWins != null && (
                       <View style={styles.awardsStat}>
                         <Text style={[styles.awardsStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{parsed.totalWins}</Text>
-                        <Text style={[styles.awardsStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>TOTAL WINS</Text>
+                        <Text style={[styles.awardsStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Total Wins</Text>
                       </View>
                     )}
                     {parsed.totalWins != null && parsed.totalNoms != null && (
@@ -712,7 +712,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     {parsed.totalNoms != null && (
                       <View style={styles.awardsStat}>
                         <Text style={[styles.awardsStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{parsed.totalNoms}</Text>
-                        <Text style={[styles.awardsStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>NOMINATIONS</Text>
+                        <Text style={[styles.awardsStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Nominations</Text>
                       </View>
                     )}
                   </View>
@@ -730,7 +730,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
 
           {result.productionCompanies && result.productionCompanies.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>PRODUCTION COMPANIES</Text>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Production Companies</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -752,13 +752,13 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
 
           {hasSeasonDetails && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>SEASONS & EPISODES</Text>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Seasons & Episodes</Text>
               <View style={[styles.seriesStats, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26', borderRadius: radii.xl }]}>
                 <View style={styles.seriesStat}>
                   <Ionicons name="albums-outline" size={22} color={colors.primary} />
                   <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{seasonCount}</Text>
                   <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                    {seasonCount === 1 ? 'SEASON' : 'SEASONS'}
+                    {seasonCount === 1 ? 'Season' : 'Seasons'}
                   </Text>
                 </View>
                 <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
@@ -766,7 +766,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   <Ionicons name="play-circle-outline" size={22} color={colors.primary} />
                   <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{episodeCount}</Text>
                   <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                    {episodeCount === 1 ? 'EPISODE' : 'EPISODES'}
+                    {episodeCount === 1 ? 'Episode' : 'Episodes'}
                   </Text>
                 </View>
                 {result.runtimeMinutes && (
@@ -777,7 +777,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                       <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>
                         {`${result.runtimeMinutes}m`}
                       </Text>
-                      <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>AVG LENGTH</Text>
+                      <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Avg Length</Text>
                     </View>
                   </>
                 )}
@@ -808,7 +808,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           )}
 
           <View style={[styles.streamingCard, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl, borderColor: colors.outlineVariant + '26' }]}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurface, ...typography.labelSm, marginBottom: 24 }]}>WHERE TO STREAM</Text>
+            <Text style={[styles.sectionLabel, { color: colors.onSurface, ...typography.labelSm, marginBottom: 24 }]}>Where to Stream</Text>
             {result.providerAvailabilityConfidence === 'show' && isTv && (
               <Text style={[styles.providerNote, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
                 TV availability is estimated from show-level provider data.
@@ -848,7 +848,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   accessibilityLabel={`Watch trailer for ${result.title}`}
                 >
                   <Ionicons name="play" size={16} color={colors.onPrimary} />
-                  <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>WATCH TRAILER</Text>
+                  <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>Watch Trailer</Text>
                 </TouchableOpacity>
               )}
 
@@ -889,7 +889,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           {/* Detailed Country View */}
           {result.rows && result.rows.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>GLOBAL AVAILABILITY</Text>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Global Availability</Text>
 
               <View style={[styles.table, { borderColor: colors.outlineVariant + '26' }]}>
                 {result.rows.map((row, index) => (
@@ -920,7 +920,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           {/* More From This Cast & Crew */}
           {result.moreFromCastAndCrew && result.moreFromCastAndCrew.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>MORE FROM THIS CAST & CREW</Text>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>More From This Cast & Crew</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -954,7 +954,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           {/* More Like This */}
           {result.similar && result.similar.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>MORE LIKE THIS</Text>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>More Like This</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1040,7 +1040,6 @@ const styles = StyleSheet.create({
   genreText: {
     fontWeight: '800',
     letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
   heroRatingsStrip: {
     flexDirection: 'row',
@@ -1257,7 +1256,6 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontWeight: '800',
-    textTransform: 'uppercase',
   },
   metaGrid: {
     flexDirection: 'row',
@@ -1324,7 +1322,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     minHeight: 32,
     textAlign: 'center',
-    textTransform: 'uppercase',
   },
   seriesStats: {
     borderWidth: 1,
@@ -1378,7 +1375,6 @@ const styles = StyleSheet.create({
   },
   seasonMeta: {
     fontWeight: '700',
-    textTransform: 'uppercase',
   },
   actionRow: {
     flexDirection: 'row',

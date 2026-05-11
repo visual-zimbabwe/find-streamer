@@ -815,7 +815,7 @@ function MobileApp() {
           <View style={[styles.categorySheet, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '4D', borderRadius: radii.xl }]}>
             <View style={styles.categoryHeader}>
               <View style={styles.categoryTitleBlock}>
-                <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>SURPRISE ROULETTE</Text>
+                <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>Surprise Roulette</Text>
                 <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]}>🎲 Surprise Me</Text>
               </View>
               <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.surfaceContainerHighest }]} onPress={() => setSurprisePickerVisible(false)} accessibilityRole="button" accessibilityLabel="Close surprise picker">
@@ -842,7 +842,7 @@ function MobileApp() {
 
             <View style={styles.surpriseDivider}>
               <View style={{ flex: 1, height: 1, backgroundColor: colors.outlineVariant + '30' }} />
-              <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginHorizontal: 12 }]}>OR PICK A GENRE</Text>
+              <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginHorizontal: 12 }]}>Or Pick a Genre</Text>
               <View style={{ flex: 1, height: 1, backgroundColor: colors.outlineVariant + '30' }} />
             </View>
 
@@ -877,7 +877,7 @@ function MobileApp() {
             <View style={styles.categoryHeader}>
               <View style={styles.categoryTitleBlock}>
                 <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>
-                  {pendingWatchlistItem?._isReCategorize ? 'MOVE TO CATEGORY' : 'SAVE TO WATCHLIST'}
+                  {pendingWatchlistItem?._isReCategorize ? 'Move to Category' : 'Save to Watchlist'}
                 </Text>
                 <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
                   {pendingWatchlistItem?.title}
@@ -924,7 +924,7 @@ function MobileApp() {
                         </Text>
                         {isCurrent && (
                           <View style={[styles.currentBadge, { backgroundColor: colors.primary + '22' }]}>
-                            <Text style={[styles.currentBadgeText, { color: colors.primary, ...typography.labelSm }]}>CURRENT</Text>
+                            <Text style={[styles.currentBadgeText, { color: colors.primary, ...typography.labelSm }]}>Current</Text>
                           </View>
                         )}
                       </View>

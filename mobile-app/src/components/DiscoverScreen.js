@@ -386,7 +386,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           </View>
           {advancedFilterActive && (
             <View style={[{ backgroundColor: c.primary, borderRadius: radii.sm, paddingHorizontal: 7, paddingVertical: 3, marginRight: 8 }]}>
-              <Text style={{ color: c.onPrimary, fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>ACTIVE</Text>
+              <Text style={{ color: c.onPrimary, fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>Active</Text>
             </View>
           )}
           <Ionicons name="chevron-forward-outline" size={16} color={advancedFilterActive ? c.primary : c.onSurfaceVariant} />
@@ -574,7 +574,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
                 {/* Advanced Language Filter */}
                 <View style={styles.sectionRow}>
                   <SectionLabel label="Advanced Language Filter" colors={c} typography={typography} />
-                  {vm.filters.activePreset && (<View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Ionicons name="flash-outline" size={12} color={c.primary} /><Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>PRESET ACTIVE</Text></View>)}
+                  {vm.filters.activePreset && (<View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Ionicons name="flash-outline" size={12} color={c.primary} /><Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>Preset Active</Text></View>)}
                 </View>
                 <TouchableOpacity style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activePreset ? c.primary + '40' : c.outlineVariant + '40' }]} onPress={() => setLangModalVisible(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Original language, ${langLabel}`}>
                   <Ionicons name="language-outline" size={16} color={selectedLanguageCodes.length || vm.filters.excludeEnglish ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
@@ -611,7 +611,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
                     )}
                     <View style={styles.sectionRow}>
                       <SectionLabel label="Origin Country (TV)" colors={c} typography={typography} />
-                      {vm.filters.activeCountryPreset && (<View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Ionicons name="flash-outline" size={12} color={c.primary} /><Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>PRESET ACTIVE</Text></View>)}
+                      {vm.filters.activeCountryPreset && (<View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Ionicons name="flash-outline" size={12} color={c.primary} /><Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>Preset Active</Text></View>)}
                     </View>
                     <TouchableOpacity style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activeCountryPreset ? c.primary + '40' : c.outlineVariant + '40' }]} onPress={() => setCountryModalVisible(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Origin country, ${countryLabel}`}>
                       <Ionicons name="globe-outline" size={16} color={selectedOriginCountries.length ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
@@ -1544,7 +1544,7 @@ function DiscoverCard({ item, colors: c, typography, radii, onPress, onQuickSave
 function SectionLabel({ label, colors, typography }) {
   return (
     <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-      {label.toUpperCase()}
+      {label}
     </Text>
   );
 }

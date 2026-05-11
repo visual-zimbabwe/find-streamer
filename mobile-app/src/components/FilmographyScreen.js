@@ -16,7 +16,7 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
   const { colors, typography, radii } = theme;
 
   // role: 'movie' = director, 'tv' = creator, 'cast' = actor
-  const roleLabel = role === 'cast' ? 'STARRING IN' : role === 'movie' ? 'DIRECTED BY' : 'CREATED BY';
+  const roleLabel = role === 'cast' ? 'Starring In' : role === 'movie' ? 'Directed By' : 'Created By';
   const countText = `${results.length} title${results.length !== 1 ? 's' : ''}`;
 
   const renderItem = ({ item, index }) => {

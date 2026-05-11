@@ -165,7 +165,7 @@ export function SearchPanel({
 
       {!hideHistory && hasRecentViewed && (
         <View style={styles.suggestionsWrapper}>
-          <Text style={[styles.suggestionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>RECENTLY VIEWED</Text>
+          <Text style={[styles.suggestionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Recently Viewed</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -202,7 +202,7 @@ export function SearchPanel({
 
       {!hideHistory && !hasRecentViewed && recentSearches && recentSearches.length > 0 && (
         <View style={styles.suggestionsWrapper}>
-          <Text style={[styles.suggestionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>RECENT SEARCHES</Text>
+          <Text style={[styles.suggestionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Recent Searches</Text>
           <View style={styles.suggestionChips}>
             {recentSearches.map((item) => (
               <TouchableOpacity

@@ -124,7 +124,7 @@ export const ShareCard = forwardRef(function ShareCard({ result, selectedCountri
         {/* Type pill */}
         <View style={[styles.typePill, { backgroundColor: accent + '26' }]}>
           <Ionicons name={isTv ? 'tv-outline' : 'film-outline'} size={10} color={accent} />
-          <Text style={[styles.typeText, { color: accent }]}>{isTv ? 'TV SERIES' : 'MOVIE'}</Text>
+          <Text style={[styles.typeText, { color: accent }]}>{isTv ? 'TV Series' : 'Movie'}</Text>
         </View>
 
         {/* Title */}
@@ -150,7 +150,7 @@ export const ShareCard = forwardRef(function ShareCard({ result, selectedCountri
         {/* Streaming section */}
         {availableProviders.length > 0 ? (
           <View style={styles.streamingSection}>
-            <Text style={[styles.streamLabel, { color: onVariant }]}>WHERE TO STREAM</Text>
+            <Text style={[styles.streamLabel, { color: onVariant }]}>Where to Stream</Text>
             <View style={styles.providerList}>
               {availableProviders.map(p => {
                 const countries = countriesFor(p.key);
@@ -181,7 +181,7 @@ export const ShareCard = forwardRef(function ShareCard({ result, selectedCountri
           </View>
         ) : (
           <View style={styles.streamingSection}>
-            <Text style={[styles.streamLabel, { color: onVariant }]}>NOT CURRENTLY STREAMING</Text>
+            <Text style={[styles.streamLabel, { color: onVariant }]}>Not Currently Streaming</Text>
           </View>
         )}
 
@@ -193,7 +193,7 @@ export const ShareCard = forwardRef(function ShareCard({ result, selectedCountri
           </View>
           <View style={styles.qrWrap}>
             <ShareQrCode value={deepLink} color="#0a0e14" backgroundColor="#ffffff" />
-            <Text style={[styles.qrLabel, { color: onVariant }]}>SCAN</Text>
+            <Text style={[styles.qrLabel, { color: onVariant }]}>Scan</Text>
           </View>
         </View>
       </View>

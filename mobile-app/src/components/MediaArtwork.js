@@ -93,6 +93,5 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.7,
     textAlign: 'center',
-    textTransform: 'uppercase',
   },
 });

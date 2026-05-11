@@ -78,7 +78,7 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
         ]}
       >
         <Ionicons name="trash-outline" size={22} color={colors.error} />
-        <Text style={[styles.swipeActionText, { color: colors.error, ...typography.labelSm }]}>REMOVE</Text>
+        <Text style={[styles.swipeActionText, { color: colors.error, ...typography.labelSm }]}>Remove</Text>
       </Animated.View>
       <Animated.View
         style={[
@@ -87,7 +87,7 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
           { opacity: watchedOpacity, backgroundColor: colors.primary + '18', borderRadius: radii.xl },
         ]}
       >
-        <Text style={[styles.swipeActionText, { color: colors.primary, ...typography.labelSm }]}>WATCHED</Text>
+        <Text style={[styles.swipeActionText, { color: colors.primary, ...typography.labelSm }]}>Watched</Text>
         <Ionicons name="checkmark-circle-outline" size={22} color={colors.primary} />
       </Animated.View>
 
@@ -230,7 +230,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
 
       <View style={[styles.randomPanel, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '55', borderRadius: radii.xl }]}>
         <View style={styles.randomCopy}>
-          <Text style={[styles.randomEyebrow, { color: colors.primary, ...typography.labelSm }]}>RANDOM PICK</Text>
+          <Text style={[styles.randomEyebrow, { color: colors.primary, ...typography.labelSm }]}>Random Pick</Text>
           <Text style={[styles.randomTitle, { color: colors.onSurface, ...typography.titleLg }]}>What should I watch?</Text>
           <Text style={[styles.randomSubtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
             Shuffle your saved titles when decision fatigue hits.
@@ -243,7 +243,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
           accessibilityLabel="Pick a random title from your watchlist"
         >
           <Ionicons name="shuffle" size={18} color={colors.onPrimary} />
-          <Text style={[styles.randomButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>PICK</Text>
+          <Text style={[styles.randomButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>Pick</Text>
         </TouchableOpacity>
         {randomPick && (
           <Animated.View
@@ -260,7 +260,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
           >
             <MediaArtwork uri={randomPick.posterUrl} style={[styles.randomPoster, { borderRadius: radii.md }]} accessibilityLabel={`${randomPick.title} poster`} title={randomPick.title} />
             <View style={styles.randomResultCopy}>
-              <Text style={[styles.randomResultLabel, { color: colors.primary, ...typography.labelSm }]}>TONIGHT'S PICK</Text>
+              <Text style={[styles.randomResultLabel, { color: colors.primary, ...typography.labelSm }]}>Tonight's Pick</Text>
               <Text style={[styles.randomResultTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>{randomPick.title}</Text>
               <Text style={[styles.randomResultMeta, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
                 {randomPick.year} • {getWatchlistCategory(randomPick.watchlistCategoryId).label}
@@ -295,7 +295,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
             <View style={styles.categoryHeadingText}>
               <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]}>Now Playing</Text>
               <Text style={[styles.categoryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                {nowPlayingLoading ? 'LOADING…' : nowPlayingError ? 'UNAVAILABLE' : `${nowPlaying.length} ${nowPlaying.length === 1 ? 'TITLE' : 'TITLES'}`}
+                {nowPlayingLoading ? 'Loading…' : nowPlayingError ? 'Unavailable' : `${nowPlaying.length} ${nowPlaying.length === 1 ? 'Title' : 'Titles'}`}
               </Text>
             </View>
             <View style={[styles.categoryToggle, { borderColor: colors.outlineVariant }]}>
@@ -346,7 +346,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
                   </View>
                   <View style={styles.info}>
                     <View style={styles.badgeRow}>
-                      <Text style={[styles.mediaType, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>MOVIE</Text>
+                      <Text style={[styles.mediaType, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Movie</Text>
                     </View>
                     <Text style={[styles.itemTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
                       {item.title}
@@ -386,7 +386,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
                 <View style={styles.categoryHeadingText}>
                   <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]}>{category.label}</Text>
                   <Text style={[styles.categoryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                    {category.totalCount} {category.totalCount === 1 ? 'TITLE' : 'TITLES'}
+                    {category.totalCount} {category.totalCount === 1 ? 'Title' : 'Titles'}
                   </Text>
                 </View>
                 <View style={[styles.categoryToggle, { borderColor: colors.outlineVariant }]}>
@@ -416,7 +416,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
                           >
                             <Ionicons name={group.icon} size={14} color={colors.onSurfaceVariant} />
                             <Text style={[styles.mediaGroupLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                              {group.label.toUpperCase()}
+                              {group.label}
                             </Text>
                             <Text style={[styles.mediaGroupCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
                               {group.data.length}

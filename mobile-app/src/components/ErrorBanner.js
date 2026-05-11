@@ -116,7 +116,6 @@ const styles = StyleSheet.create({
   title: {
     fontWeight: '900',
     letterSpacing: 0.7,
-    textTransform: 'uppercase',
   },
   message: {
     lineHeight: 18,
@@ -124,7 +123,6 @@ const styles = StyleSheet.create({
   action: {
     fontWeight: '900',
     letterSpacing: 0.7,
-    textTransform: 'uppercase',
   },
   dismiss: {
     alignItems: 'center',
