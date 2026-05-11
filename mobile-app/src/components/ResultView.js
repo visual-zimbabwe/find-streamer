@@ -637,7 +637,11 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           {result.omdbRatings && (result.omdbRatings.imdbRating || result.omdbRatings.rottenTomatoes || result.omdbRatings.metascore) && (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>RATINGS</Text>
-              <View style={styles.ratingsRow}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.ratingsRow}
+              >
                 {result.omdbRatings.imdbRating && (
                   <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
                     <Text style={styles.ratingBadgeIcon}>⭐</Text>
@@ -665,7 +669,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     </View>
                   </View>
                 )}
-              </View>
+              </ScrollView>
             </View>
           )}
 
@@ -1385,8 +1389,8 @@ const styles = StyleSheet.create({
   },
   ratingsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
+    paddingRight: 4,
   },
   ratingBadge: {
     flexDirection: 'row',
@@ -1396,7 +1400,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
-    flex: 1,
     minWidth: 130,
   },
   ratingBadgeIcon: {

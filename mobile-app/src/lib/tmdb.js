@@ -247,10 +247,16 @@ export async function searchLiveCandidates(query) {
 }
 
 async function getTitleMetadata(mediaType, tmdbId) {
-  const data = await tmdbGet(`/${mediaType}/${tmdbId}`, {
-    language: 'en-US',
-    append_to_response: 'videos',
-  });
+  // For TV shows, /tv/{id} does NOT include imdb_id — we need external_ids.
+  const [data, externalIds] = await Promise.all([
+    tmdbGet(`/${mediaType}/${tmdbId}`, {
+      language: 'en-US',
+      append_to_response: 'videos',
+    }),
+    mediaType === 'tv'
+      ? tmdbGet(`/tv/${tmdbId}/external_ids`).catch(() => ({}))
+      : Promise.resolve(null),
+  ]);
 
   const dateValue = data.release_date || data.first_air_date || '';
   const year = dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A';
@@ -278,12 +284,15 @@ async function getTitleMetadata(mediaType, tmdbId) {
   if (!trailer) trailer = youtubeVideos.find((video) => video.type === 'Trailer');
   if (!trailer && youtubeVideos.length) trailer = youtubeVideos[0];
 
+  // Movies: imdb_id is in the main response. TV: must come from external_ids.
+  const imdbId = data.imdb_id || externalIds?.imdb_id || null;
+
   return {
     year,
     genres: genres.length ? genres.join(', ') : 'N/A',
     rating,
     runtimeMinutes,
-    imdbId: data.imdb_id || null,
+    imdbId,
     numberOfSeasons: mediaType === 'tv' ? data.number_of_seasons || seasons.length : null,
     numberOfEpisodes: mediaType === 'tv' ? data.number_of_episodes || seasons.reduce((total, season) => total + season.episodeCount, 0) : null,
     createdBy: mediaType === 'tv'
