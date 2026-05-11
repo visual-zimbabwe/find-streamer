@@ -693,13 +693,24 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   </TouchableOpacity>
                 )}
                 {result.omdbRatings.metascore && (
-                  <View style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Linking.openURL(`https://www.metacritic.com/search/all/${encodeURIComponent(result.title || '')}/results`);
+                    }}
+                    style={[styles.ratingBadge, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26' }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Search ${result.title} on Metacritic`}
+                  >
                     <Text style={styles.ratingBadgeIcon}>🛡️</Text>
                     <View>
-                      <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Metascore</Text>
+                      <View style={styles.ratingBadgeHeader}>
+                        <Text style={[styles.ratingBadgeLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Metascore</Text>
+                        <Ionicons name="open-outline" size={10} color={colors.onSurfaceVariant} style={{ marginLeft: 4 }} />
+                      </View>
                       <Text style={[styles.ratingBadgeValue, { color: colors.onSurface, ...typography.titleLg }]}>{result.omdbRatings.metascore}</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 )}
               </ScrollView>
             </View>
