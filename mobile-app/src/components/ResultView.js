@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
-import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert } from 'react-native';
+import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -777,12 +777,30 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               >
                 {result.productionCompanies.map((company) => (
                   <View key={company.id} style={styles.productionTile}>
-                    <Image
-                      source={{ uri: company.logoUrl }}
-                      style={styles.productionLogo}
-                      resizeMode="contain"
-                      accessibilityLabel={`${company.name} logo`}
-                    />
+                    <View
+                      style={[
+                        styles.productionLogoHaloBase,
+                        Platform.OS === 'ios' ? styles.productionLogoHaloOuterIos : styles.productionLogoHaloOuterAndroid,
+                      ]}
+                    >
+                      {Platform.OS === 'ios' ? (
+                        <View style={[styles.productionLogoHaloBase, styles.productionLogoHaloInnerIos]}>
+                          <Image
+                            source={{ uri: company.logoUrl }}
+                            style={styles.productionLogo}
+                            resizeMode="contain"
+                            accessibilityLabel={`${company.name} logo`}
+                          />
+                        </View>
+                      ) : (
+                        <Image
+                          source={{ uri: company.logoUrl }}
+                          style={styles.productionLogo}
+                          resizeMode="contain"
+                          accessibilityLabel={`${company.name} logo`}
+                        />
+                      )}
+                    </View>
                   </View>
                 ))}
               </ScrollView>
@@ -1432,6 +1450,7 @@ const styles = StyleSheet.create({
   productionScroll: {
     gap: 12,
     paddingRight: 24,
+    paddingVertical: 6,
   },
   productionTile: {
     padding: 12,
@@ -1439,6 +1458,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 80,
     minWidth: 120,
+    overflow: 'visible',
+  },
+  productionLogoHaloBase: {
+    width: 80,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productionLogoHaloOuterIos: {
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 3,
+  },
+  productionLogoHaloInnerIos: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.45,
+    shadowRadius: 4,
+  },
+  productionLogoHaloOuterAndroid: {
+    elevation: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
   },
   productionLogo: {
     width: 80,
