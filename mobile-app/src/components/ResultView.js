@@ -580,6 +580,61 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             <View style={[styles.meshVeil, { backgroundColor: colors.background + 'D9' }]} />
           </View>
 
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Synopsis</Text>
+            <TouchableOpacity 
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setIsSynopsisExpanded(!isSynopsisExpanded);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.synopsis, { color: colors.onSurface, ...typography.bodyLg }]}>
+                {isSynopsisExpanded || (displaySynopsis?.length || 0) <= 250
+                  ? displaySynopsis
+                  : `${displaySynopsis.substring(0, 250)}...`}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {hasSeasonDetails && (
+            <View style={styles.section}>
+              {result.runtimeMinutes && (
+                <View style={styles.seriesStats}>
+                  <View style={styles.seriesStat}>
+                    <Ionicons name="timer-outline" size={22} color={colors.primary} />
+                    <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>
+                      {`${result.runtimeMinutes}m`}
+                    </Text>
+                    <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Avg Length</Text>
+                  </View>
+                </View>
+              )}
+
+              {result.seasons?.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.seasonsScroll}
+                >
+                  {result.seasons.map((season) => (
+                    <View key={season.id || season.seasonNumber} style={styles.seasonCard}>
+                      <MediaArtwork uri={season.posterUrl} style={styles.seasonPoster} accessibilityLabel={`${season.name} poster`} title={season.name} icon="tv-outline" />
+                      <View style={styles.seasonBody}>
+                        <Text style={[styles.seasonName, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+                          {season.name}
+                        </Text>
+                        <Text style={[styles.seasonMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                          {season.year} • {pluralize(season.episodeCount, 'episode')}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          )}
+
           {hasPeople && (
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
@@ -674,23 +729,6 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             </View>
           )}
 
-          <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Synopsis</Text>
-            <TouchableOpacity 
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setIsSynopsisExpanded(!isSynopsisExpanded);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.synopsis, { color: colors.onSurface, ...typography.bodyLg }]}>
-                {isSynopsisExpanded || (displaySynopsis?.length || 0) <= 250
-                  ? displaySynopsis
-                  : `${displaySynopsis.substring(0, 250)}...`}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
 
 
           {/* ─── Awards ──────────────────────────────────────────────────── */}
@@ -748,45 +786,6 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   </View>
                 ))}
               </ScrollView>
-            </View>
-          )}
-
-          {hasSeasonDetails && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Seasons & Episodes</Text>
-              {result.runtimeMinutes && (
-                <View style={styles.seriesStats}>
-                  <View style={styles.seriesStat}>
-                    <Ionicons name="timer-outline" size={22} color={colors.primary} />
-                    <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>
-                      {`${result.runtimeMinutes}m`}
-                    </Text>
-                    <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Avg Length</Text>
-                  </View>
-                </View>
-              )}
-
-              {result.seasons?.length > 0 && (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.seasonsScroll}
-                >
-                  {result.seasons.map((season) => (
-                    <View key={season.id || season.seasonNumber} style={styles.seasonCard}>
-                      <MediaArtwork uri={season.posterUrl} style={styles.seasonPoster} accessibilityLabel={`${season.name} poster`} title={season.name} icon="tv-outline" />
-                      <View style={styles.seasonBody}>
-                        <Text style={[styles.seasonName, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
-                          {season.name}
-                        </Text>
-                        <Text style={[styles.seasonMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                          {season.year} • {pluralize(season.episodeCount, 'episode')}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
             </View>
           )}
 
