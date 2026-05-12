@@ -494,7 +494,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             {/* Title stays white — it always sits on top of the backdrop image */}
             <Text style={[styles.title, { color: '#ffffff', ...typography.displayLg }]}>{result.title}</Text>
 
-            <View style={styles.infoRow}>
+            <View style={[styles.infoRow, { alignItems: 'center' }]}>
               <View style={styles.infoPill}>
                 <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.75)" />
                 <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>{result.year}</Text>
@@ -521,6 +521,29 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     {result.omdbRatings.rated}
                   </Text>
                 </View>
+              )}
+              <TouchableOpacity
+                style={styles.infoPill}
+                onPress={() => setShareSheetVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Share ${result.title}`}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="share-social-outline" size={18} color="rgba(255,255,255,0.85)" />
+              </TouchableOpacity>
+              {result.trailer && result.trailer !== 'N/A' && (
+                <TouchableOpacity
+                  style={styles.infoPill}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setTrailerVisible(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Watch trailer for ${result.title}`}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="logo-youtube" size={20} color="rgba(255,255,255,0.85)" />
+                </TouchableOpacity>
               )}
             </View>
           </Animated.View>
@@ -835,27 +858,13 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             ))}
 
             <View style={styles.actionRow}>
-              {result.trailer && result.trailer !== 'N/A' && (
-                <TouchableOpacity
-                  style={[styles.watchButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setTrailerVisible(true);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Watch trailer for ${result.title}`}
-                >
-                  <Ionicons name="play" size={16} color={colors.onPrimary} />
-                  <Text style={[styles.watchButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>Watch Trailer</Text>
-                </TouchableOpacity>
-              )}
-
               <TouchableOpacity
                 style={[
-                  styles.bookmarkButton,
+                  styles.watchButton,
                   {
                     backgroundColor: isInWatchlist ? colors.primary : colors.primaryContainer,
-                    borderColor: colors.primary + '66',
+                    shadowColor: isInWatchlist ? colors.primary : 'transparent',
+                    elevation: isInWatchlist ? 4 : 0,
                   },
                 ]}
                 onPress={() => {
@@ -868,18 +877,12 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               >
                 <Ionicons
                   name={isInWatchlist ? "bookmark" : "bookmark-outline"}
-                  size={24}
+                  size={20}
                   color={isInWatchlist ? colors.onPrimary : colors.primary}
                 />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.bookmarkButton, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '4D' }]}
-                onPress={() => setShareSheetVisible(true)}
-                accessibilityRole="button"
-                accessibilityLabel={`Share ${result.title}`}
-              >
-                <Ionicons name="share-social-outline" size={24} color={colors.onSurfaceVariant} />
+                <Text style={[styles.watchButtonText, { color: isInWatchlist ? colors.onPrimary : colors.primary, ...typography.labelSm }]}>
+                  {isInWatchlist ? 'In Watchlist' : 'Add to Watchlist'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
