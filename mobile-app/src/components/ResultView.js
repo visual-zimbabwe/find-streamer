@@ -547,7 +547,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     onPress={() => setShowAllCast(true)}
                     accessibilityRole="button"
                     accessibilityLabel={`Show ${remainingCastCount} more cast members`}
-                    style={[styles.seeAllButton, { borderColor: colors.primary + '66', backgroundColor: colors.primaryContainer }]}
+                    style={styles.seeAllButton}
                   >
                     <Text style={[styles.seeAllText, { color: colors.primary, ...typography.labelSm }]}>See All</Text>
                   </TouchableOpacity>
@@ -569,7 +569,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     accessibilityLabel={person.id ? `View work by ${person.name}` : person.name}
                     activeOpacity={person.id ? 0.78 : 1}
                   >
-                    <View style={[styles.avatarRing, { borderColor: colors.primary + '66', backgroundColor: colors.primaryContainer }]}>
+                    <View style={[styles.avatarRing, !person.profileUrl && { backgroundColor: colors.primaryContainer }]}>
                       {person.profileUrl ? (
                         <MediaArtwork
                           uri={person.profileUrl}
@@ -604,7 +604,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     accessibilityLabel={person.id ? `View filmography for ${person.name}` : person.name}
                     activeOpacity={person.id ? 0.78 : 1}
                   >
-                    <View style={[styles.avatarRing, { borderColor: colors.outlineVariant + '55', backgroundColor: colors.surfaceContainerHigh }]}>
+                    <View style={[styles.avatarRing, !person.profileUrl && { backgroundColor: colors.surfaceContainerHigh }]}>
                       {person.profileUrl ? (
                         <MediaArtwork
                           uri={person.profileUrl}
@@ -669,10 +669,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     {parsed.badges.map((badge) => (
                       <View
                         key={badge.key}
-                        style={[
-                          styles.awardTile,
-                          { backgroundColor: badge.bg, borderColor: badge.color + '55' },
-                        ]}
+                        style={styles.awardTile}
                       >
                         <Text style={styles.awardTileIcon}>{badge.icon}</Text>
                         <Text style={[styles.awardTileLabel, { color: badge.color, ...typography.labelSm }]}>
@@ -699,7 +696,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
 
                 {/* Grand-total pill */}
                 {(parsed.totalWins != null || parsed.totalNoms != null) && (
-                  <View style={[styles.awardsSummary, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '33' }]}>
+                  <View style={styles.awardsSummary}>
                     {parsed.totalWins != null && (
                       <View style={styles.awardsStat}>
                         <Text style={[styles.awardsStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{parsed.totalWins}</Text>
@@ -737,7 +734,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 contentContainerStyle={styles.productionScroll}
               >
                 {result.productionCompanies.map((company) => (
-                  <View key={company.id} style={[styles.productionTile, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '33' }]}>
+                  <View key={company.id} style={styles.productionTile}>
                     <Image
                       source={{ uri: company.logoUrl }}
                       style={styles.productionLogo}
@@ -753,7 +750,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           {hasSeasonDetails && (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Seasons & Episodes</Text>
-              <View style={[styles.seriesStats, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '26', borderRadius: radii.xl }]}>
+              <View style={styles.seriesStats}>
                 <View style={styles.seriesStat}>
                   <Ionicons name="albums-outline" size={22} color={colors.primary} />
                   <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{seasonCount}</Text>
@@ -790,7 +787,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   contentContainerStyle={styles.seasonsScroll}
                 >
                   {result.seasons.map((season) => (
-                    <View key={season.id || season.seasonNumber} style={[styles.seasonCard, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant + '26', borderRadius: radii.md }]}>
+                    <View key={season.id || season.seasonNumber} style={styles.seasonCard}>
                       <MediaArtwork uri={season.posterUrl} style={styles.seasonPoster} accessibilityLabel={`${season.name} poster`} title={season.name} icon="tv-outline" />
                       <View style={styles.seasonBody}>
                         <Text style={[styles.seasonName, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
@@ -807,8 +804,8 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             </View>
           )}
 
-          <View style={[styles.streamingCard, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl, borderColor: colors.outlineVariant + '26' }]}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurface, ...typography.labelSm, marginBottom: 24 }]}>Where to Stream</Text>
+          <View style={styles.streamingCard}>
+            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 24 }]}>Where to Stream</Text>
             {result.providerAvailabilityConfidence === 'show' && isTv && (
               <Text style={[styles.providerNote, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
                 TV availability is estimated from show-level provider data.
@@ -816,7 +813,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             )}
 
             {providerCount === 0 ? (
-              <View style={[styles.providerEmpty, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '33', borderRadius: radii.md }]}>
+              <View style={styles.providerEmpty}>
                 <Ionicons name="bookmark-outline" size={20} color={colors.primary} />
                 <Text style={[styles.providerEmptyText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
                   Not currently available to stream in the tracked countries. Add it to Watchlist to check again later.
@@ -891,9 +888,9 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Global Availability</Text>
 
-              <View style={[styles.table, { borderColor: colors.outlineVariant + '26' }]}>
+              <View style={styles.table}>
                 {result.rows.map((row, index) => (
-                  <View key={row.code} style={[styles.tableRow, index % 2 === 0 ? { backgroundColor: colors.surfaceContainerLow } : null]}>
+                  <View key={row.code} style={styles.tableRow}>
                     <Text style={[styles.countryName, { color: colors.onSurface, ...typography.bodyMd }]}>{row.country}</Text>
                     <View style={styles.providerBadges}>
                       {providerSummary.map((provider) =>
@@ -934,7 +931,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     accessibilityRole="button"
                     accessibilityLabel={`Open details for ${item.title}`}
                   >
-                    <View style={[styles.similarPoster, { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}>
+                    <View style={[styles.similarPoster, { borderRadius: radii.md }]}>
                       <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
                       {item.omdbRatings?.imdbRating && (
                         <View style={[styles.similarRating, { backgroundColor: '#F5C518' }]}>
@@ -968,7 +965,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     accessibilityRole="button"
                     accessibilityLabel={`Open details for ${item.title}`}
                   >
-                    <View style={[styles.similarPoster, { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}>
+                    <View style={[styles.similarPoster, { borderRadius: radii.md }]}>
                       <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
                       <View style={styles.similarRating}>
                         <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>{item.rating}</Text>
@@ -1200,9 +1197,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   streamingCard: {
-    padding: 24,
     marginBottom: 40,
-    borderWidth: 1,
   },
   providerRow: {
     flexDirection: 'row',
@@ -1234,11 +1229,9 @@ const styles = StyleSheet.create({
   },
   providerEmpty: {
     alignItems: 'flex-start',
-    borderWidth: 1,
     flexDirection: 'row',
     gap: 12,
     marginBottom: 18,
-    padding: 14,
   },
   providerEmptyText: {
     flex: 1,
@@ -1278,8 +1271,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   seeAllButton: {
-    borderRadius: 999,
-    borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
@@ -1298,7 +1289,6 @@ const styles = StyleSheet.create({
   avatarRing: {
     alignItems: 'center',
     borderRadius: 38,
-    borderWidth: 1.5,
     height: 76,
     justifyContent: 'center',
     marginBottom: 10,
@@ -1324,7 +1314,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   seriesStats: {
-    borderWidth: 1,
     flexDirection: 'row',
     marginBottom: 16,
     paddingVertical: 18,
@@ -1351,7 +1340,6 @@ const styles = StyleSheet.create({
     paddingRight: 40,
   },
   seasonCard: {
-    borderWidth: 1,
     overflow: 'hidden',
     width: 150,
   },
@@ -1464,8 +1452,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   table: {
-    borderWidth: 1,
-    borderRadius: 12,
     overflow: 'hidden',
   },
   tableRow: {
@@ -1546,8 +1532,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   awardTile: {
-    borderWidth: 1,
-    borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 16,
     alignItems: 'center',
@@ -1575,8 +1559,6 @@ const styles = StyleSheet.create({
   },
   awardsSummary: {
     flexDirection: 'row',
-    borderRadius: 16,
-    borderWidth: 1,
     paddingVertical: 18,
     marginTop: 4,
   },
@@ -1602,8 +1584,6 @@ const styles = StyleSheet.create({
     paddingRight: 24,
   },
   productionTile: {
-    borderWidth: 1,
-    borderRadius: 16,
     padding: 12,
     alignItems: 'center',
     justifyContent: 'center',
