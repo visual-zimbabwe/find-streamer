@@ -246,6 +246,16 @@ export async function searchLiveCandidates(query) {
     .slice(0, 10);
 }
 
+export async function searchPersonByName(name) {
+  const data = await tmdbGet('/search/person', {
+    query: name,
+    include_adult: false,
+    language: 'en-US',
+    page: 1,
+  });
+  return data.results?.[0] || null;
+}
+
 async function getTitleMetadata(mediaType, tmdbId) {
   // For TV shows, /tv/{id} does NOT include imdb_id — we need external_ids.
   const [data, externalIds] = await Promise.all([

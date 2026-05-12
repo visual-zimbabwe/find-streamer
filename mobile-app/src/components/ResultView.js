@@ -11,6 +11,7 @@ import { MediaArtwork } from './MediaArtwork';
 import { ShareCard } from './ShareCard';
 import { ShareOptionsSheet } from './ShareOptionsSheet';
 import { TrailerModal } from './TrailerModal';
+import { searchPersonByName } from '../lib/tmdb';
 import { scale, verticalScale, screenHeight } from '../utils/responsive';
 
 function pluralize(count, singular, plural = `${singular}s`) {
@@ -144,6 +145,28 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
     setShowAllCast(false);
     setIsSynopsisExpanded(false);
   }, [result?.tmdbId]);
+
+  const handlePersonPressWithFallback = useCallback(async (person, role) => {
+    if (!onPersonPress) return;
+
+    if (person.id) {
+      onPersonPress(person.id, person.name, role);
+      return;
+    }
+
+    // Fallback: search for the person by name to get their TMDB ID
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const found = await searchPersonByName(person.name);
+      if (found && found.id) {
+        onPersonPress(found.id, person.name, role);
+      } else {
+        Alert.alert('Person Not Found', `We couldn't find a filmography for "${person.name}" on TMDb.`);
+      }
+    } catch (err) {
+      Alert.alert('Search Failed', 'Unable to search for this person. Please check your connection.');
+    }
+  }, [onPersonPress]);
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -680,18 +703,16 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     key={personKey(person, index)}
                     style={styles.personCard}
                     onPress={() => {
-                      if (!person.id || !onPersonPress) return;
                       const filmographyRole = person.role === 'creator'
                         ? 'tv'
                         : person.role === 'writer'
                           ? 'writer'
                           : 'movie';
-                      onPersonPress(person.id, person.name, filmographyRole);
+                      handlePersonPressWithFallback(person, filmographyRole);
                     }}
-                    disabled={!person.id}
-                    accessibilityRole={person.id ? 'button' : 'text'}
-                    accessibilityLabel={person.id ? `View work by ${person.name}` : person.name}
-                    activeOpacity={person.id ? 0.78 : 1}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View work by ${person.name}`}
+                    activeOpacity={0.78}
                   >
                     <View style={[styles.avatarRing, !person.profileUrl && { backgroundColor: colors.primaryContainer }]}>
                       {person.profileUrl ? (
@@ -722,11 +743,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   <TouchableOpacity
                     key={personKey(person, index)}
                     style={styles.personCard}
-                    onPress={() => person.id ? onPersonPress?.(person.id, person.name, 'cast') : null}
-                    disabled={!person.id}
-                    accessibilityRole={person.id ? 'button' : 'text'}
-                    accessibilityLabel={person.id ? `View filmography for ${person.name}` : person.name}
-                    activeOpacity={person.id ? 0.78 : 1}
+                    onPress={() => handlePersonPressWithFallback(person, 'cast')}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View filmography for ${person.name}`}
+                    activeOpacity={0.78}
                   >
                     <View style={[styles.avatarRing, !person.profileUrl && { backgroundColor: colors.surfaceContainerHigh }]}>
                       {person.profileUrl ? (
