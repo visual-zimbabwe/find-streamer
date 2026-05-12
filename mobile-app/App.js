@@ -53,6 +53,19 @@ const QUICK_SURPRISE_GENRES = [
   { id: 9648,  mediaType: 'tv',    label: '🔍 Mystery (TV)' },
 ];
 
+/** Align with ResultView: TMDB synopsis unless placeholder, else OMDb plot. */
+function mergeResolvedSynopsisIntoWatchlistRow(row, fullResult) {
+  const nextSynopsis =
+    (fullResult.synopsis && fullResult.synopsis !== 'No synopsis available.')
+      ? fullResult.synopsis
+      : (fullResult.omdbRatings?.plot || fullResult.synopsis || row.synopsis || '');
+  return {
+    ...row,
+    synopsis: (nextSynopsis && String(nextSynopsis).trim()) || row.synopsis,
+    ...(fullResult.omdbRatings ? { omdbRatings: fullResult.omdbRatings } : {}),
+  };
+}
+
 function MobileApp() {
   const { theme, resolvedMode } = useTheme();
   const { colors, typography, radii } = theme;
@@ -308,6 +321,34 @@ function MobileApp() {
     await saveRecentViewed(nextViewed);
   }, [recentViewed]);
 
+  const syncWatchlistFromResolvedDetail = useCallback(async (fullResult) => {
+    if (!fullResult?.tmdbId || !fullResult?.mediaType) return;
+    let toPersist = null;
+    setWatchlist((prev) => {
+      const idx = prev.findIndex(
+        (w) => w.tmdbId === fullResult.tmdbId && w.mediaType === fullResult.mediaType
+      );
+      if (idx < 0) return prev;
+      const prevRow = prev[idx];
+      const merged = mergeResolvedSynopsisIntoWatchlistRow(prevRow, fullResult);
+      const same =
+        merged.synopsis === prevRow.synopsis &&
+        (merged.omdbRatings?.plot || '') === (prevRow.omdbRatings?.plot || '') &&
+        (merged.omdbRatings?.imdbRating || '') === (prevRow.omdbRatings?.imdbRating || '');
+      if (same) return prev;
+      toPersist = [...prev];
+      toPersist[idx] = merged;
+      return toPersist;
+    });
+    if (toPersist) {
+      try {
+        await saveWatchlist(toPersist);
+      } catch {
+        // In-memory list is updated; next explicit watchlist edit will retry storage.
+      }
+    }
+  }, []);
+
   // Selecting a live suggestion goes straight to the detail view
   const handleTypeSelect = useCallback(async (match) => {
     clearTypeResults();
@@ -325,6 +366,7 @@ function MobileApp() {
     try {
       const fullResult = await resolveMatch(match.title, match);
       await rememberViewed(fullResult);
+      await syncWatchlistFromResolvedDetail(fullResult);
       navigateTo('detail', { selectedResult: fullResult });
       setOfflineBanner(null);
     } catch (err) {
@@ -332,7 +374,7 @@ function MobileApp() {
     } finally {
       setLoading(false);
     }
-  }, [clearTypeResults, handlePersonPress, navigateTo, rememberSearch, rememberViewed, handleRequestError]);
+  }, [clearTypeResults, handlePersonPress, navigateTo, rememberSearch, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
   const handleSearch = useCallback(async (searchQuery = query) => {
     if (!searchQuery.trim()) return;
@@ -385,6 +427,7 @@ function MobileApp() {
     try {
       const fullResult = await resolveMatch(query, match);
       await rememberViewed(fullResult);
+      await syncWatchlistFromResolvedDetail(fullResult);
       navigateTo('detail', { selectedResult: fullResult });
       setOfflineBanner(null);
     } catch (err) {
@@ -392,7 +435,7 @@ function MobileApp() {
     } finally {
       setLoading(false);
     }
-  }, [query, navigateTo, rememberViewed, handleRequestError]);
+  }, [query, navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
   // Called when a card in DiscoverScreen is tapped
   const handleSelectDiscoverItem = useCallback(async (item) => {
@@ -401,6 +444,7 @@ function MobileApp() {
       // Pass empty string as query — detail screen uses item.title as fallback
       const fullResult = await resolveMatch(item.title, item);
       await rememberViewed(fullResult);
+      await syncWatchlistFromResolvedDetail(fullResult);
       navigateTo('detail', { selectedResult: fullResult });
       setOfflineBanner(null);
     } catch (err) {
@@ -408,13 +452,14 @@ function MobileApp() {
     } finally {
       setLoading(false);
     }
-  }, [navigateTo, rememberViewed, handleRequestError]);
+  }, [navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
   const handleSelectFilmographyItem = useCallback(async (item) => {
     setLoading(true);
     try {
       const fullResult = await resolveMatch(item.title, item);
       await rememberViewed(fullResult);
+      await syncWatchlistFromResolvedDetail(fullResult);
       navigateTo('detail', { selectedResult: fullResult });
       setOfflineBanner(null);
     } catch (err) {
@@ -422,7 +467,7 @@ function MobileApp() {
     } finally {
       setLoading(false);
     }
-  }, [navigateTo, rememberViewed, handleRequestError]);
+  }, [navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
   const handleSurpriseMe = useCallback(async () => {
     const seeds = watchlist.filter((item) => getWatchlistCategory(item.watchlistCategoryId).id === 'highly_recommend');
@@ -433,6 +478,7 @@ function MobileApp() {
       const pick = await fetchSurpriseRecommendation(seeds);
       const fullResult = await resolveMatch(pick.title, pick);
       await rememberViewed(fullResult);
+      await syncWatchlistFromResolvedDetail(fullResult);
       navigateTo('detail', { selectedResult: fullResult });
       setOfflineBanner(null);
     } catch (err) {
@@ -440,7 +486,7 @@ function MobileApp() {
     } finally {
       setSurpriseLoading(false);
     }
-  }, [watchlist, clearTypeResults, navigateTo, rememberViewed, handleRequestError]);
+  }, [watchlist, clearTypeResults, navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
   const handleSurpriseByGenre = useCallback(async (genreId, mediaType) => {
     setSurprisePickerVisible(false);
@@ -451,6 +497,7 @@ function MobileApp() {
       const pick = await fetchSurpriseByGenre(genreId, mediaType);
       const fullResult = await resolveMatch(pick.title, pick);
       await rememberViewed(fullResult);
+      await syncWatchlistFromResolvedDetail(fullResult);
       navigateTo('detail', { selectedResult: fullResult });
       setOfflineBanner(null);
     } catch (err) {
@@ -458,7 +505,7 @@ function MobileApp() {
     } finally {
       setSurpriseLoading(false);
     }
-  }, [clearTypeResults, navigateTo, rememberViewed, handleRequestError]);
+  }, [clearTypeResults, navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
   const handleToggleWatchlist = async (result) => {
     const existingItem = watchlist.find(item => item.tmdbId === result.tmdbId);

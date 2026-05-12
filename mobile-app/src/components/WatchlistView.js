@@ -9,6 +9,14 @@ import { fetchNowPlayingMovies } from '../lib/tmdb';
 import { classifyAppError } from '../lib/errors';
 import { scale, verticalScale } from '../utils/responsive';
 
+/** Match ResultView: TMDB overview, else OMDb plot (detail fetches this; watchlist rows may only store one). */
+function synopsisForCard(item) {
+  if (!item) return '';
+  const s = item.synopsis;
+  if (s && s !== 'No synopsis available.') return s;
+  return item.omdbRatings?.plot || s || '';
+}
+
 function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typography, radii }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const SWIPE_THRESHOLD = 88;
@@ -116,7 +124,7 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
               <Text style={{ color: colors.onSurfaceVariant }}>• {item.year}</Text>
             </View>
             <Text style={[styles.synopsis, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
-              {item.synopsis}
+              {synopsisForCard(item)}
             </Text>
           </View>
         </TouchableOpacity>
@@ -358,7 +366,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
                       <Text style={{ color: colors.onSurfaceVariant }}>• {item.year}</Text>
                     </View>
                     <Text style={[styles.synopsis, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
-                      {item.synopsis}
+                      {synopsisForCard(item)}
                     </Text>
                   </View>
                 </TouchableOpacity>
