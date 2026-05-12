@@ -1,17 +1,23 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
+
+/** Android WebView default UA contains "; wv)" — YouTube often blocks embedded playback for that client. */
+const YOUTUBE_WEBVIEW_USER_AGENT_ANDROID =
+  'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.4472.114 Mobile Safari/537.36';
 
 /**
  * Extracts the YouTube video ID from any standard YouTube URL.
@@ -25,41 +31,26 @@ function extractYouTubeId(url) {
   return match ? match[1] : null;
 }
 
-function buildYouTubeEmbedHtml(videoId) {
-  const origin = 'https://www.youtube.com';
-  const embedUrl =
-    `${origin}/embed/${videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1&origin=${encodeURIComponent(origin)}`;
+/**
+ * Direct embed URL (loaded as the WebView document URL).
+ * Do not add `origin=` here: it must match the real document origin; a mismatch triggers YouTube 152/153 in WebViews.
+ */
+function buildYouTubeEmbedUri(videoId) {
+  const q = new URLSearchParams({
+    autoplay: '1',
+    playsinline: '1',
+    rel: '0',
+    modestbranding: '1',
+  });
+  return `https://www.youtube.com/embed/${videoId}?${q.toString()}`;
+}
 
-  return `
-<!doctype html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <style>
-      html,
-      body,
-      iframe {
-        margin: 0;
-        width: 100%;
-        height: 100%;
-        background: #000;
-      }
-
-      body {
-        overflow: hidden;
-      }
-    </style>
-  </head>
-  <body>
-    <iframe
-      src="${embedUrl}"
-      title="YouTube trailer player"
-      frameborder="0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowfullscreen>
-    </iframe>
-  </body>
-</html>`;
+/** YouTube expects a valid https Referer for embed config (see react-native-webview#3889). */
+function getYouTubeEmbedReferer() {
+  const cfg = Constants.expoConfig;
+  const host = cfg?.android?.package ?? cfg?.ios?.bundleIdentifier;
+  if (host) return `https://${host}`;
+  return 'https://kkadogo.findstreamer.com';
 }
 
 /**
@@ -79,7 +70,8 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
 
   const videoId = extractYouTubeId(trailerUrl);
   const youtubeUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : trailerUrl;
-  const embedHtml = videoId ? buildYouTubeEmbedHtml(videoId) : null;
+  const embedUri = videoId ? buildYouTubeEmbedUri(videoId) : null;
+  const embedReferer = useMemo(() => getYouTubeEmbedReferer(), []);
 
   const handleClose = useCallback(() => {
     setWebLoading(true); // reset for next open
@@ -124,7 +116,7 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
 
         {/* Player */}
         <View style={styles.playerWrapper}>
-          {embedHtml ? (
+          {embedUri ? (
             <>
               {webLoading && (
                 <View style={[styles.loaderOverlay, { backgroundColor: colors.surface }]}>
@@ -137,9 +129,10 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
               <WebView
                 style={styles.webview}
                 source={{
-                  html: embedHtml,
-                  baseUrl: 'https://www.youtube.com',
+                  uri: embedUri,
+                  headers: { Referer: embedReferer },
                 }}
+                userAgent={Platform.OS === 'android' ? YOUTUBE_WEBVIEW_USER_AGENT_ANDROID : undefined}
                 allowsFullscreenVideo
                 allowsInlineMediaPlayback
                 domStorageEnabled
