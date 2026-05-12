@@ -1,7 +1,11 @@
 ## Current Phase
-Watchlist Experience & Organization — Grouping by media type and sorting by rating.
+Responsive Design & Fluid Sizing — Adapting UI elements to scale consistently across all device screen sizes.
 
 ## Completed Tasks
+- [x] **Responsive Foundation:** Created `src/utils/responsive.js` offering dynamic calculations (`scale`, `verticalScale`, `scaleFont`) based on screen width/height ratios and pixel density.
+- [x] **Theme Modernization:** Updated `theme/tokens.js` to define fluid spacings, radii, and typography using the new responsive utilities instead of rigid numbers.
+- [x] **Component Adaptability:** Refactored fixed dimensions in `ResultView`, `WatchlistView`, and `SkeletonLoaders` to utilize percentage-based layouts or `scale`/`verticalScale`, preventing stretching on large devices and clipping on small phones.
+- [x] **Safe Area Verification:** Ensured `SafeAreaView` from `react-native-safe-area-context` is consistently acting as the root layout provider in `App.js` to handle device notches and bezels.
 - [x] Initialized project link with `eas project:init` after removing defunct `projectId`.
 - [x] Fixed "Entity not authorized" error in EAS CLI by re-authenticating and re-linking.
 - [x] Initiated Android preview build (`eas build --platform android --profile preview`).

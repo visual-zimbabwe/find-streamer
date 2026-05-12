@@ -7,6 +7,7 @@ import { MediaArtwork } from './MediaArtwork';
 import { WATCHLIST_CATEGORIES, getWatchlistCategory } from '../lib/watchlistCategories';
 import { fetchNowPlayingMovies } from '../lib/tmdb';
 import { classifyAppError } from '../lib/errors';
+import { scale, verticalScale } from '../utils/responsive';
 
 function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typography, radii }) {
   const translateX = useRef(new Animated.Value(0)).current;
@@ -518,9 +519,9 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   randomPoster: {
-    height: 82,
+    height: verticalScale(82),
     overflow: 'hidden',
-    width: 56,
+    width: scale(56),
   },
   randomResultCopy: {
     flex: 1,
@@ -540,9 +541,9 @@ const styles = StyleSheet.create({
   randomOpenButton: {
     alignItems: 'center',
     borderWidth: 1,
-    height: 48,
+    height: verticalScale(48),
     justifyContent: 'center',
-    width: 48,
+    width: scale(48),
   },
   categoryStack: {
     gap: 36,
@@ -558,10 +559,10 @@ const styles = StyleSheet.create({
   },
   categoryIcon: {
     alignItems: 'center',
-    borderRadius: 20,
-    height: 40,
+    borderRadius: scale(20),
+    height: scale(40),
     justifyContent: 'center',
-    width: 40,
+    width: scale(40),
   },
   categoryHeadingText: {
     flex: 1,
@@ -575,11 +576,11 @@ const styles = StyleSheet.create({
   },
   categoryToggle: {
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: scale(18),
     borderWidth: 1,
-    height: 36,
+    height: scale(36),
     justifyContent: 'center',
-    width: 36,
+    width: scale(36),
   },
   groupStack: {
     gap: 28,
@@ -618,10 +619,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: scale(18),
     position: 'absolute',
     top: 0,
-    width: 132,
+    width: scale(132),
   },
   swipeRemoveAction: {
     left: 0,
@@ -639,7 +640,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   posterWrapper: {
-    width: 120,
+    width: scale(120),
     aspectRatio: 2 / 3,
     overflow: 'hidden',
     position: 'relative',

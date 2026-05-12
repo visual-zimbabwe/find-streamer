@@ -1,66 +1,68 @@
+import { scale, scaleFont } from '../utils/responsive';
+
 export const spacing = {
-  1: 4,
-  2: 8,
-  3: 12,
-  4: 16,
-  5: 20,
-  6: 24,
-  7: 28,
-  8: 32,
-  10: 40,
-  12: 48,
-  14: 56,
+  1: scale(4),
+  2: scale(8),
+  3: scale(12),
+  4: scale(16),
+  5: scale(20),
+  6: scale(24),
+  7: scale(28),
+  8: scale(32),
+  10: scale(40),
+  12: scale(48),
+  14: scale(56),
 };
 
 export const radii = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 24,
+  sm: scale(4),
+  md: scale(8),
+  lg: scale(12),
+  xl: scale(24),
   full: 9999,
 };
 
 export const typography = {
   displayLg: {
-    fontSize: 56,
-    lineHeight: 64,
+    fontSize: scaleFont(56),
+    lineHeight: scaleFont(64),
     fontWeight: '800',
     letterSpacing: -1.12,
     fontFamily: 'System', // Placeholder for Manrope
   },
   headlineLg: {
-    fontSize: 32,
-    lineHeight: 40,
+    fontSize: scaleFont(32),
+    lineHeight: scaleFont(40),
     fontWeight: '700',
     fontFamily: 'System', // Placeholder for Manrope
   },
   headlineMd: {
-    fontSize: 28,
-    lineHeight: 36,
+    fontSize: scaleFont(28),
+    lineHeight: scaleFont(36),
     fontWeight: '700',
     fontFamily: 'System', // Placeholder for Manrope
   },
   titleLg: {
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: scaleFont(22),
+    lineHeight: scaleFont(28),
     fontWeight: '700',
     fontFamily: 'System', // Placeholder for Manrope
   },
   bodyLg: {
-    fontSize: 18,
-    lineHeight: 28,
+    fontSize: scaleFont(18),
+    lineHeight: scaleFont(28),
     fontWeight: '400',
     fontFamily: 'System', // Placeholder for Inter
   },
   bodyMd: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: scaleFont(14),
+    lineHeight: scaleFont(20),
     fontWeight: '400',
     fontFamily: 'System', // Placeholder for Inter
   },
   labelSm: {
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: scaleFont(11),
+    lineHeight: scaleFont(16),
     fontWeight: '600',
     letterSpacing: 0.5,
     fontFamily: 'System', // Placeholder for Inter

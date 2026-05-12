@@ -11,6 +11,7 @@ import { MediaArtwork } from './MediaArtwork';
 import { ShareCard } from './ShareCard';
 import { ShareOptionsSheet } from './ShareOptionsSheet';
 import { TrailerModal } from './TrailerModal';
+import { scale, verticalScale, screenHeight } from '../utils/responsive';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
@@ -76,7 +77,7 @@ function formatRuntime(minutes, mediaType) {
   return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
 
-const HERO_HEIGHT = 600;
+const HERO_HEIGHT = verticalScale(600);
 
 function splitPeople(value) {
   if (!hasValue(value)) return [];
@@ -1284,16 +1285,16 @@ const styles = StyleSheet.create({
   },
   personCard: {
     alignItems: 'center',
-    width: 92,
+    width: scale(92),
   },
   avatarRing: {
     alignItems: 'center',
-    borderRadius: 38,
-    height: 76,
+    borderRadius: scale(38),
+    height: scale(76),
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: scale(10),
     overflow: 'hidden',
-    width: 76,
+    width: scale(76),
   },
   personAvatar: {
     height: '100%',
@@ -1341,7 +1342,7 @@ const styles = StyleSheet.create({
   },
   seasonCard: {
     overflow: 'hidden',
-    width: 150,
+    width: scale(150),
   },
   seasonPoster: {
     width: '100%',
@@ -1372,9 +1373,9 @@ const styles = StyleSheet.create({
   watchButton: {
     flex: 1,
     flexDirection: 'row',
-    gap: 8,
-    height: 56,
-    borderRadius: 12,
+    gap: scale(8),
+    height: verticalScale(56),
+    borderRadius: scale(12),
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
@@ -1387,17 +1388,17 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   bookmarkButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
+    width: scale(56),
+    height: verticalScale(56),
+    borderRadius: scale(12),
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   imdbButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
+    width: scale(56),
+    height: verticalScale(56),
+    borderRadius: scale(12),
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1408,9 +1409,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   rtButton: {
-    width: 64,
-    height: 56,
-    borderRadius: 12,
+    width: scale(64),
+    height: verticalScale(56),
+    borderRadius: scale(12),
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1426,10 +1427,10 @@ const styles = StyleSheet.create({
     paddingRight: 40,
   },
   similarItem: {
-    width: 120,
+    width: scale(120),
   },
   similarPoster: {
-    width: 120,
+    width: scale(120),
     aspectRatio: 2 / 3,
     overflow: 'hidden',
     position: 'relative',

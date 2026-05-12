@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-
+import { scale, verticalScale } from '../utils/responsive';
 /**
  * A single skeleton block with a horizontal shimmer sweep animation.
  */
@@ -110,12 +110,12 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   titleLine: {
-    height: 14,
-    marginBottom: 6,
+    height: verticalScale(14),
+    marginBottom: scale(6),
     width: '82%',
   },
   metaLine: {
-    height: 11,
+    height: verticalScale(11),
     width: '54%',
   },
 
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   detailHero: {
     width: '100%',
-    height: 420,
+    height: verticalScale(420),
     borderRadius: 0,
   },
   detailBody: {
@@ -133,14 +133,14 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   detailTitle: {
-    height: 36,
+    height: verticalScale(36),
     width: '80%',
-    borderRadius: 10,
+    borderRadius: scale(10),
   },
   detailSubtitle: {
-    height: 18,
+    height: verticalScale(18),
     width: '55%',
-    borderRadius: 8,
+    borderRadius: scale(8),
   },
   detailPills: {
     flexDirection: 'row',
@@ -148,9 +148,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   detailPill: {
-    height: 28,
-    width: 72,
-    borderRadius: 20,
+    height: verticalScale(28),
+    width: scale(72),
+    borderRadius: scale(20),
   },
   detailSynopsisLine: {
     height: 14,
