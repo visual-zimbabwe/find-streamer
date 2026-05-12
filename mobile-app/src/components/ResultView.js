@@ -242,8 +242,8 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
 
   const isTv = result.mediaType === 'tv';
   const seasonCount = result.numberOfSeasons || result.seasons?.length || 0;
-  const episodeCount = result.numberOfEpisodes || 0;
-  const hasSeasonDetails = isTv && (seasonCount > 0 || episodeCount > 0 || result.seasons?.length > 0);
+  const hasSeasonDetails =
+    isTv && ((result.seasons?.length ?? 0) > 0 || Boolean(result.runtimeMinutes));
   const runtimeLabel = formatRuntime(result.runtimeMinutes, result.mediaType);
   const hasRating = hasValue(result.rating);
   const hasGenres = hasValue(result.genres);
@@ -754,35 +754,17 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           {hasSeasonDetails && (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Seasons & Episodes</Text>
-              <View style={styles.seriesStats}>
-                <View style={styles.seriesStat}>
-                  <Ionicons name="albums-outline" size={22} color={colors.primary} />
-                  <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{seasonCount}</Text>
-                  <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                    {seasonCount === 1 ? 'Season' : 'Seasons'}
-                  </Text>
+              {result.runtimeMinutes && (
+                <View style={styles.seriesStats}>
+                  <View style={styles.seriesStat}>
+                    <Ionicons name="timer-outline" size={22} color={colors.primary} />
+                    <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>
+                      {`${result.runtimeMinutes}m`}
+                    </Text>
+                    <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Avg Length</Text>
+                  </View>
                 </View>
-                <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
-                <View style={styles.seriesStat}>
-                  <Ionicons name="play-circle-outline" size={22} color={colors.primary} />
-                  <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{episodeCount}</Text>
-                  <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                    {episodeCount === 1 ? 'Episode' : 'Episodes'}
-                  </Text>
-                </View>
-                {result.runtimeMinutes && (
-                  <>
-                    <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
-                    <View style={styles.seriesStat}>
-                      <Ionicons name="timer-outline" size={22} color={colors.primary} />
-                      <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>
-                        {`${result.runtimeMinutes}m`}
-                      </Text>
-                      <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Avg Length</Text>
-                    </View>
-                  </>
-                )}
-              </View>
+              )}
 
               {result.seasons?.length > 0 && (
                 <ScrollView
@@ -1223,10 +1205,6 @@ const styles = StyleSheet.create({
   seriesStatLabel: {
     fontWeight: '800',
     textAlign: 'center',
-  },
-  seriesDivider: {
-    width: 1,
-    marginVertical: 6,
   },
   seasonsScroll: {
     gap: 12,
