@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   StyleSheet,
   Text,
@@ -19,9 +20,46 @@ import { useTheme } from '../theme/ThemeProvider';
 function extractYouTubeId(url) {
   if (!url) return null;
   const match = url.match(
-    /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+    /(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
   );
   return match ? match[1] : null;
+}
+
+function buildYouTubeEmbedHtml(videoId) {
+  const origin = 'https://www.youtube.com';
+  const embedUrl =
+    `${origin}/embed/${videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1&origin=${encodeURIComponent(origin)}`;
+
+  return `
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <style>
+      html,
+      body,
+      iframe {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
+
+      body {
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <iframe
+      src="${embedUrl}"
+      title="YouTube trailer player"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowfullscreen>
+    </iframe>
+  </body>
+</html>`;
 }
 
 /**
@@ -40,15 +78,17 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
   const [webLoading, setWebLoading] = useState(true);
 
   const videoId = extractYouTubeId(trailerUrl);
-  // Use the no-cookie embed URL + autoplay for a cleaner experience
-  const embedUrl = videoId
-    ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`
-    : null;
+  const youtubeUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : trailerUrl;
+  const embedHtml = videoId ? buildYouTubeEmbedHtml(videoId) : null;
 
   const handleClose = useCallback(() => {
     setWebLoading(true); // reset for next open
     onClose?.();
   }, [onClose]);
+
+  const handleOpenYouTube = useCallback(() => {
+    if (youtubeUrl) Linking.openURL(youtubeUrl);
+  }, [youtubeUrl]);
 
   if (!visible) return null;
 
@@ -84,7 +124,7 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
 
         {/* Player */}
         <View style={styles.playerWrapper}>
-          {embedUrl ? (
+          {embedHtml ? (
             <>
               {webLoading && (
                 <View style={[styles.loaderOverlay, { backgroundColor: colors.surface }]}>
@@ -96,13 +136,31 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
               )}
               <WebView
                 style={styles.webview}
-                source={{ uri: embedUrl }}
+                source={{
+                  html: embedHtml,
+                  baseUrl: 'https://www.youtube.com',
+                }}
                 allowsFullscreenVideo
+                allowsInlineMediaPlayback
+                domStorageEnabled
+                thirdPartyCookiesEnabled
                 mediaPlaybackRequiresUserAction={false}
                 javaScriptEnabled
+                javaScriptCanOpenWindowsAutomatically
                 onLoadEnd={() => setWebLoading(false)}
                 onError={() => setWebLoading(false)}
               />
+              <TouchableOpacity
+                style={[styles.youtubeBtn, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.full }]}
+                onPress={handleOpenYouTube}
+                accessibilityRole="button"
+                accessibilityLabel="Watch trailer on YouTube"
+              >
+                <Ionicons name="logo-youtube" size={18} color={colors.primary} />
+                <Text style={[styles.youtubeBtnText, { color: colors.onSurface, ...typography.labelSm }]}>
+                  YouTube
+                </Text>
+              </TouchableOpacity>
             </>
           ) : (
             <View style={[styles.errorBox, { backgroundColor: colors.surfaceContainer }]}>
@@ -110,6 +168,19 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
               <Text style={[styles.errorText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
                 Trailer unavailable
               </Text>
+              {youtubeUrl ? (
+                <TouchableOpacity
+                  style={[styles.errorAction, { backgroundColor: colors.primary, borderRadius: radii.full }]}
+                  onPress={handleOpenYouTube}
+                  accessibilityRole="button"
+                  accessibilityLabel="Watch trailer on YouTube"
+                >
+                  <Ionicons name="logo-youtube" size={18} color={colors.onPrimary} />
+                  <Text style={[styles.errorActionText, { color: colors.onPrimary, ...typography.labelMd }]}>
+                    Watch on YouTube
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           )}
         </View>
@@ -165,6 +236,19 @@ const styles = StyleSheet.create({
   loaderText: {
     fontWeight: '600',
   },
+  youtubeBtn: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    height: 38,
+  },
+  youtubeBtnText: {
+    fontWeight: '700',
+  },
   errorBox: {
     flex: 1,
     alignItems: 'center',
@@ -173,5 +257,16 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontWeight: '600',
+  },
+  errorAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    height: 42,
+    marginTop: 4,
+  },
+  errorActionText: {
+    fontWeight: '700',
   },
 });
