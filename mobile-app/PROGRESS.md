@@ -40,6 +40,11 @@ Responsive Design & Fluid Sizing — Adapting UI elements to scale consistently 
   - Enhanced UI hierarchy: added sub-group headers with icons (`film-outline`, `tv-outline`) and dividers.
   - Fixed category header count to reflect the `totalCount` of all items in sub-groups.
 
+- [x] **Person Search Fallback** — Enhanced cast/crew interactivity:
+  - `src/lib/tmdb.js` — Added `searchPersonByName(name)` to allow finding TMDB IDs for persons when only a name string is available (e.g. from OMDb data).
+  - `src/components/ResultView.js` — Cast and crew members without a TMDB ID are now tappable. Clicking one triggers a fallback search to find their ID before navigating to their filmography.
+  - Added visual haptic feedback and user-friendly alerts when a person cannot be found or the search fails.
+
 ## Active Bugs
 - None.
 
@@ -59,6 +64,7 @@ Responsive Design & Fluid Sizing — Adapting UI elements to scale consistently 
 - **Sort options:** Media-type aware — Revenue hidden for TV; date sort params switch between `primary_release_date.*` (movies) and `first_air_date.*` (TV).
 - **Language Presets:** Uses a dedicated `languagePresets.js` mapping layer instead of raw ISO codes. "Exclude English" is simulated by including all non-English languages in `with_original_language` since TMDB lacks a `without_original_language` parameter.
 - **Smart Filters:** Labeled with ✨ icons and explanatory text when TMDB's language/genre data is imprecise (e.g., Arabic, Sub-Saharan Africa, Latin America).
+- **Person Search Fallback:** Uses `/3/search/person` with a single result limit to resolve IDs for name-only actor/crew strings, bridging the gap between OMDb-sourced cast lists and TMDB filmography data.
 
 - **Session History:**
 - **2026-03-24:** Resolved EAS permission error by removing the old `projectId` from `app.json` and re-initializing the project. Successfully started the Android build.
@@ -67,3 +73,4 @@ Responsive Design & Fluid Sizing — Adapting UI elements to scale consistently 
 - **2026-05-02 (session 1):** Added director/creator tappable links (FilmographyScreen) for movies and TV shows.
 - **2026-05-02 (session 2):** Extended to starring actors — all 5 top-billed cast members are tappable; clicking one shows their full filmography (movies + TV shows combined) via TMDB combined_credits API.
 - **2026-05-06:** Implemented Watchlist sub-grouping (Movies vs TV) and rating-based sorting. Added visual dividers and group headers to the Watchlist view.
+- **2026-05-12:** Implemented person-search fallback for cast members without a TMDB ID. Users can now open filmographies for name-only actor strings by performing an automatic background search.
