@@ -545,6 +545,23 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   <Ionicons name="logo-youtube" size={20} color="rgba(255,255,255,0.85)" />
                 </TouchableOpacity>
               )}
+              <TouchableOpacity
+                style={styles.infoPill}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onToggleWatchlist(result);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={isInWatchlist ? `Remove ${result.title} from watchlist` : `Add ${result.title} to watchlist`}
+                accessibilityState={{ selected: isInWatchlist }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons 
+                  name={isInWatchlist ? "bookmark" : "bookmark-outline"} 
+                  size={20} 
+                  color="rgba(255,255,255,0.85)" 
+                />
+              </TouchableOpacity>
             </View>
           </Animated.View>
         </View>
@@ -857,34 +874,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               </View>
             ))}
 
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[
-                  styles.watchButton,
-                  {
-                    backgroundColor: isInWatchlist ? colors.primary : colors.primaryContainer,
-                    shadowColor: isInWatchlist ? colors.primary : 'transparent',
-                    elevation: isInWatchlist ? 4 : 0,
-                  },
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  onToggleWatchlist(result);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={isInWatchlist ? `Remove ${result.title} from watchlist` : `Add ${result.title} to watchlist`}
-                accessibilityState={{ selected: isInWatchlist }}
-              >
-                <Ionicons
-                  name={isInWatchlist ? "bookmark" : "bookmark-outline"}
-                  size={20}
-                  color={isInWatchlist ? colors.onPrimary : colors.primary}
-                />
-                <Text style={[styles.watchButtonText, { color: isInWatchlist ? colors.onPrimary : colors.primary, ...typography.labelSm }]}>
-                  {isInWatchlist ? 'In Watchlist' : 'Add to Watchlist'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+
           </View>
 
           {/* Detailed Country View */}
