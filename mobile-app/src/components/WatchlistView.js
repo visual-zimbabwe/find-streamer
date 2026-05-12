@@ -17,6 +17,12 @@ function synopsisForCard(item) {
   return item.omdbRatings?.plot || s || '';
 }
 
+/** Match ResultView hero strip: numeric part only (no "/10"). */
+function tmdbRatingNumber(rating) {
+  if (rating == null || rating === '') return '';
+  return String(rating).split('/')[0];
+}
+
 function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typography, radii }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const SWIPE_THRESHOLD = 88;
@@ -119,8 +125,12 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
               {item.title}
             </Text>
             <View style={styles.meta}>
-              <Ionicons name="star" size={14} color={colors.primary} />
-              <Text style={{ color: colors.primary }}>{item.rating}</Text>
+              <View style={styles.metaTmdbRating}>
+                <View style={styles.badgeTmdb}>
+                  <Text style={styles.badgeTmdbText}>Tmdb</Text>
+                </View>
+                <Text style={{ color: colors.primary, fontWeight: '900', ...typography.labelSm }}>{tmdbRatingNumber(item.rating)}</Text>
+              </View>
               <Text style={{ color: colors.onSurfaceVariant }}>• {item.year}</Text>
             </View>
             <Text style={[styles.synopsis, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
@@ -361,8 +371,12 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
                       {item.title}
                     </Text>
                     <View style={styles.meta}>
-                      <Ionicons name="star" size={14} color={colors.primary} />
-                      <Text style={{ color: colors.primary }}>{item.rating}</Text>
+                      <View style={styles.metaTmdbRating}>
+                        <View style={styles.badgeTmdb}>
+                          <Text style={styles.badgeTmdbText}>Tmdb</Text>
+                        </View>
+                        <Text style={{ color: colors.primary, fontWeight: '900', ...typography.labelSm }}>{tmdbRatingNumber(item.rating)}</Text>
+                      </View>
                       <Text style={{ color: colors.onSurfaceVariant }}>• {item.year}</Text>
                     </View>
                     <Text style={[styles.synopsis, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
@@ -682,6 +696,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  metaTmdbRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  badgeTmdb: {
+    backgroundColor: '#0d253f',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#01b4e4',
+  },
+  badgeTmdbText: {
+    color: '#01b4e4',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   synopsis: {
     lineHeight: 22,
