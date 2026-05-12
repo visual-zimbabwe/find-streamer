@@ -23,48 +23,48 @@ function hasValue(value) {
   return Boolean(text) && !['N/A', 'Undefined', 'undefined', 'Unknown Genre'].includes(text);
 }
 
-// ── Award badge definitions ───────────────────────────────────────────────
+// ── Award logo definitions ────────────────────────────────────────────────
 const AWARD_DEFS = [
-  { key: 'oscar', label: 'Oscar', icon: '🏆', regex: /oscar/i, color: '#C9A84C', bg: '#3A2E14' },
-  { key: 'globe', label: 'Golden Globe', icon: '🌐', regex: /golden globe/i, color: '#C9A84C', bg: '#2E2E14' },
-  { key: 'bafta', label: 'BAFTA', icon: '🎭', regex: /bafta/i, color: '#9B59B6', bg: '#2A1A3A' },
-  { key: 'emmy', label: 'Emmy', icon: '📡', regex: /emmy/i, color: '#3498DB', bg: '#0D2236' },
-  { key: 'sag', label: 'SAG Award', icon: '🎬', regex: /screen actors guild|sag award/i, color: '#E74C3C', bg: '#2A0E0E' },
-  { key: 'critics', label: 'Critics Choice', icon: '✍️', regex: /critics.{0,6}choice/i, color: '#27AE60', bg: '#0E2A16' },
+  {
+    key: 'oscar',
+    label: 'Oscars',
+    regex: /oscars?|academy awards?/i,
+    winRegex: /won\s+(\d+)\s+(?:oscars?|academy awards?)/i,
+    logoUri: 'https://images.ctfassets.net/mqgaq446dh9d/1hRNcghUHboflQc5dN5lhO/f331d2533a40ce9f53d25eecf77adaf4/oscars_logo_white_mode.jpg?fm=jpg&q=80&w=768',
+  },
+  {
+    key: 'emmy',
+    label: 'Emmys',
+    regex: /emmys?|emmy awards?/i,
+    winRegex: /won\s+(\d+)\s+(?:primetime\s+|daytime\s+|international\s+)?(?:emmys?|emmy awards?)/i,
+    logoUri: 'https://www.televisionacademy.com/build/assets/tva-logo.png',
+  },
+  {
+    key: 'globe',
+    label: 'Golden Globes',
+    regex: /golden globes?(?: awards?)?/i,
+    winRegex: /won\s+(\d+)\s+golden globes?(?: awards?)?/i,
+    logoUri: 'https://goldenglobes.com/wp-content/uploads/2025/12/default-stacked.jpg',
+  },
 ];
 
 /**
- * Parse the raw OMDb Awards string and return an array of detected award badges.
- * Each badge has: key, label, icon, color, bg, won (number|null), nominated (number|null).
+ * Parse the raw OMDb Awards string and return only official-logo awards with wins.
  */
 function parseAwards(awardsStr) {
-  if (!awardsStr) return [];
+  if (!awardsStr) return { badges: [] };
   const badges = [];
 
   for (const def of AWARD_DEFS) {
     if (!def.regex.test(awardsStr)) continue;
+    const wonMatch = awardsStr.match(def.winRegex);
+    const won = wonMatch ? parseInt(wonMatch[1], 10) : null;
+    if (!won) continue;
 
-    // Look for "Won N <award>" or "Nominated for N <award>"
-    const wonMatch = awardsStr.match(new RegExp(`won\\s+(\\d+)\\s+${def.key === 'oscar' ? 'oscar' : def.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'));
-    const nomMatch = awardsStr.match(new RegExp(`nominated for\\s+(\\d+)\\s+${def.key === 'oscar' ? 'oscar' : def.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'));
-
-    badges.push({
-      ...def,
-      won: wonMatch ? parseInt(wonMatch[1], 10) : null,
-      nominated: nomMatch ? parseInt(nomMatch[1], 10) : null,
-    });
+    badges.push({ ...def, won });
   }
 
-  // Also extract the grand total wins & nominations (e.g. "83 wins & 215 nominations total")
-  const totalWonMatch = awardsStr.match(/(\d+)\s+win/i);
-  const totalNomMatch = awardsStr.match(/(\d+)\s+nomination/i);
-
-  return {
-    badges,
-    totalWins: totalWonMatch ? parseInt(totalWonMatch[1], 10) : null,
-    totalNoms: totalNomMatch ? parseInt(totalNomMatch[1], 10) : null,
-    raw: awardsStr,
-  };
+  return { badges };
 }
 
 function formatRuntime(minutes, mediaType) {
@@ -697,72 +697,34 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           {result.omdbRatings?.awards && (() => {
             const parsed = parseAwards(result.omdbRatings.awards);
             const hasBadges = parsed.badges && parsed.badges.length > 0;
+            if (!hasBadges) return null;
+
             return (
               <View style={styles.section}>
                 <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Awards & Recognition</Text>
 
-                {/* Per-ceremony badge tiles */}
-                {hasBadges && (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.awardsScroll}
-                  >
-                    {parsed.badges.map((badge) => (
-                      <View
-                        key={badge.key}
-                        style={styles.awardTile}
-                      >
-                        <Text style={styles.awardTileIcon}>{badge.icon}</Text>
-                        <Text style={[styles.awardTileLabel, { color: badge.color, ...typography.labelSm }]}>
-                          {badge.label}
-                        </Text>
-                        {badge.won != null && (
-                          <View style={[styles.awardWonPill, { backgroundColor: badge.color + '22', borderColor: badge.color + '66' }]}>
-                            <Text style={[styles.awardWonText, { color: badge.color, ...typography.labelSm }]}>
-                              🏅 {badge.won} {badge.won === 1 ? 'Win' : 'Wins'}
-                            </Text>
-                          </View>
-                        )}
-                        {badge.nominated != null && badge.won == null && (
-                          <View style={[styles.awardWonPill, { backgroundColor: badge.color + '11', borderColor: badge.color + '44' }]}>
-                            <Text style={[styles.awardWonText, { color: badge.color + 'CC', ...typography.labelSm }]}>
-                              📋 Nominated
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    ))}
-                  </ScrollView>
-                )}
-
-                {/* Grand-total pill */}
-                {(parsed.totalWins != null || parsed.totalNoms != null) && (
-                  <View style={styles.awardsSummary}>
-                    {parsed.totalWins != null && (
-                      <View style={styles.awardsStat}>
-                        <Text style={[styles.awardsStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{parsed.totalWins}</Text>
-                        <Text style={[styles.awardsStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Total Wins</Text>
-                      </View>
-                    )}
-                    {parsed.totalWins != null && parsed.totalNoms != null && (
-                      <View style={[styles.seriesDivider, { backgroundColor: colors.outlineVariant + '33' }]} />
-                    )}
-                    {parsed.totalNoms != null && (
-                      <View style={styles.awardsStat}>
-                        <Text style={[styles.awardsStatValue, { color: colors.onSurface, ...typography.titleLg }]}>{parsed.totalNoms}</Text>
-                        <Text style={[styles.awardsStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Nominations</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {/* Raw awards text as a caption */}
-                {!hasBadges && (
-                  <Text style={[styles.awardsRaw, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                    {parsed.raw}
-                  </Text>
-                )}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.awardsScroll}
+                >
+                  {parsed.badges.map((badge) => (
+                    <View
+                      key={badge.key}
+                      style={styles.awardTile}
+                    >
+                      <Image
+                        source={{ uri: badge.logoUri }}
+                        style={styles.awardLogo}
+                        resizeMode="contain"
+                        accessibilityLabel={`${badge.label} logo`}
+                      />
+                      <Text style={[styles.awardWonText, { color: colors.onSurface, ...typography.labelSm }]}>
+                        {badge.won} {badge.won === 1 ? 'Win' : 'Wins'}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
               </View>
             );
           })()}
@@ -1474,51 +1436,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   awardTile: {
+    justifyContent: 'center',
     paddingHorizontal: 18,
     paddingVertical: 16,
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     minWidth: 120,
   },
-  awardTileIcon: {
-    fontSize: 32,
-  },
-  awardTileLabel: {
-    fontWeight: '900',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-  awardWonPill: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    alignItems: 'center',
+  awardLogo: {
+    width: 86,
+    height: 54,
   },
   awardWonText: {
     fontWeight: '800',
     letterSpacing: 0.3,
-  },
-  awardsSummary: {
-    flexDirection: 'row',
-    paddingVertical: 18,
-    marginTop: 4,
-  },
-  awardsStat: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  awardsStatValue: {
-    fontWeight: '900',
-  },
-  awardsStatLabel: {
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  awardsRaw: {
-    lineHeight: 22,
-    fontStyle: 'italic',
   },
   // ── Production Companies ────────────────────────────────────────────────
   productionScroll: {
