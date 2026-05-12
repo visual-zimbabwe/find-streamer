@@ -251,7 +251,6 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const visibleCastPeople = showAllCast ? peopleSections.castPeople : peopleSections.castPeople.slice(0, 10);
   const remainingCastCount = Math.max(peopleSections.castPeople.length - visibleCastPeople.length, 0);
   const providerSummary = result.providerSummary || [];
-  const providerCount = providerSummary.reduce((sum, provider) => sum + (provider.count || 0), 0);
   const displaySynopsis = (result.synopsis && result.synopsis !== 'No synopsis available.') 
     ? result.synopsis 
     : (result.omdbRatings?.plot || result.synopsis || 'No synopsis available.');
@@ -845,38 +844,6 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             </View>
           )}
 
-          <View style={styles.streamingCard}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 24 }]}>Where to Stream</Text>
-            {result.providerAvailabilityConfidence === 'show' && isTv && (
-              <Text style={[styles.providerNote, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                TV availability is estimated from show-level provider data.
-              </Text>
-            )}
-
-            {providerCount === 0 ? (
-              <View style={styles.providerEmpty}>
-                <Ionicons name="bookmark-outline" size={20} color={colors.primary} />
-                <Text style={[styles.providerEmptyText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                  Not currently available to stream in the tracked countries. Add it to Watchlist to check again later.
-                </Text>
-              </View>
-            ) : providerSummary.map((provider) => (
-              <View key={provider.key} style={styles.providerRow}>
-                <View style={styles.providerInfo}>
-                  <View style={[styles.providerIcon, { backgroundColor: colors.surfaceContainerHighest }]}>
-                    <Ionicons name="film-outline" size={20} color={colors.primary} />
-                  </View>
-                  <Text style={[styles.providerName, { color: colors.onSurface, ...typography.bodyLg }]}>{provider.label}</Text>
-                </View>
-                <Text style={[styles.providerStatus, { color: provider.count > 0 ? colors.primary : colors.onSurfaceVariant, ...typography.labelSm }]}>
-                  {provider.count > 0 ? `Available in ${provider.count} countries` : 'Not available'}
-                </Text>
-              </View>
-            ))}
-
-
-          </View>
-
           {/* Detailed Country View */}
           {result.rows && result.rows.length > 0 && (
             <View style={styles.section}>
@@ -1189,47 +1156,6 @@ const styles = StyleSheet.create({
   synopsis: {
     fontWeight: '300',
     lineHeight: 28,
-  },
-  streamingCard: {
-    marginBottom: 40,
-  },
-  providerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  providerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  providerIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  providerName: {
-    fontWeight: '600',
-  },
-  providerStatus: {
-    fontWeight: '600',
-  },
-  providerNote: {
-    marginBottom: 18,
-    lineHeight: 20,
-  },
-  providerEmpty: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 18,
-  },
-  providerEmptyText: {
-    flex: 1,
-    lineHeight: 20,
   },
   legend: {
     flexDirection: 'row',
