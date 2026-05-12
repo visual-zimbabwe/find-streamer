@@ -15,8 +15,14 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
 
-  // role: 'movie' = director, 'tv' = creator, 'cast' = actor
-  const roleLabel = role === 'cast' ? 'Starring In' : role === 'movie' ? 'Directed By' : 'Created By';
+  // role: 'movie' = director, 'tv' = creator, 'cast' = actor, 'writer' = writing credits
+  const roleLabel = role === 'cast'
+    ? 'Starring In'
+    : role === 'writer'
+      ? 'Writing Credits'
+      : role === 'movie'
+        ? 'Directed By'
+        : 'Created By';
   const countText = `${results.length} title${results.length !== 1 ? 's' : ''}`;
 
   const renderItem = ({ item, index }) => {
@@ -36,7 +42,7 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
             <Text style={styles.ratingText}>{item.rating}</Text>
           </View>
           {/* Movie / TV badge — only shown for 'cast' since items can be mixed */}
-          {role === 'cast' && (
+          {(role === 'cast' || role === 'writer') && (
             <View style={[styles.typeBadge, { backgroundColor: colors.primary + 'CC' }]}>
               <Ionicons name={mediaIcon} size={10} color="#fff" />
             </View>
@@ -61,7 +67,11 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
           {profileUrl ? (
             <MediaArtwork uri={profileUrl} style={styles.avatarImage} accessibilityLabel={`${personName} profile photo`} title={personName} icon="person-outline" compactFallback />
           ) : (
-            <Ionicons name={role === 'cast' ? 'star' : 'person'} size={26} color={colors.primary} />
+            <Ionicons
+              name={role === 'cast' ? 'star' : role === 'writer' ? 'create-outline' : 'person'}
+              size={26}
+              color={colors.primary}
+            />
           )}
         </View>
         <View style={styles.headerText}>

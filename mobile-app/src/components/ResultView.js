@@ -87,6 +87,17 @@ function splitPeople(value) {
     .filter(Boolean);
 }
 
+/** Loose match for OMDb vs TMDB display names (spacing, punctuation, diacritics). */
+function normalizePersonName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]+/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function initialsForName(name = '') {
   const initials = name
     .split(/\s+/)
@@ -193,6 +204,24 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
     const writerNames = omdbWriterNames.length ? omdbWriterNames : tmdbWriterNames;
     const writerPersons = current.writerPersons || [];
 
+    const writerPeople = writerPersons.length
+      ? writerPersons.map((person) => ({
+        ...person,
+        role: 'writer',
+        roleLabel: person.job || 'Writer',
+      }))
+      : writerNames.map((name) => {
+        const match = writerPersons.find(
+          (person) => normalizePersonName(person.name) === normalizePersonName(name),
+        );
+        return {
+          ...(match || {}),
+          name,
+          role: 'writer',
+          roleLabel: match?.job || 'Writer',
+        };
+      });
+
     const directorPeople = current.mediaType === 'tv'
       ? (current.createdByPersons || []).map((person) => ({
         ...person,
@@ -205,16 +234,6 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           role: 'director',
           roleLabel: 'Director',
         }));
-
-    const writerPeople = writerNames.map((name) => {
-      const match = writerPersons.find((person) => person.name === name);
-      return {
-        ...(match || {}),
-        name,
-        role: 'writer',
-        roleLabel: match?.job || 'Writer',
-      };
-    });
 
     const tmdbCast = current.castPersons?.length
       ? current.castPersons
@@ -660,7 +679,15 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   <TouchableOpacity
                     key={personKey(person, index)}
                     style={styles.personCard}
-                    onPress={() => person.id ? onPersonPress?.(person.id, person.name, person.role === 'creator' ? 'tv' : 'movie') : null}
+                    onPress={() => {
+                      if (!person.id || !onPersonPress) return;
+                      const filmographyRole = person.role === 'creator'
+                        ? 'tv'
+                        : person.role === 'writer'
+                          ? 'writer'
+                          : 'movie';
+                      onPersonPress(person.id, person.name, filmographyRole);
+                    }}
                     disabled={!person.id}
                     accessibilityRole={person.id ? 'button' : 'text'}
                     accessibilityLabel={person.id ? `View work by ${person.name}` : person.name}

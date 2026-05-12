@@ -333,14 +333,15 @@ function uniquePeople(people = []) {
   });
 }
 
+const WRITER_CREW_JOBS = new Set(['Writer', 'Screenplay', 'Story', 'Teleplay', 'Novel', 'Characters']);
+
 async function getCredits(mediaType, tmdbId) {
   const data = await tmdbGet(`/${mediaType}/${tmdbId}/credits`);
 
   const crew = data.crew || [];
   const directors = uniquePeople(crew.filter((person) => person.job === 'Director'));
   const director = directors[0] ?? crew.find((person) => person.department === 'Directing');
-  const writerJobs = new Set(['Writer', 'Screenplay', 'Story', 'Teleplay', 'Novel', 'Characters']);
-  const writers = uniquePeople(crew.filter((person) => writerJobs.has(person.job))).slice(0, 6);
+  const writers = uniquePeople(crew.filter((person) => WRITER_CREW_JOBS.has(person.job))).slice(0, 12);
   const fullCast = (data.cast || [])
     .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
   const topCast = fullCast.slice(0, 5);
@@ -983,13 +984,13 @@ export async function resolveMatch(query, match) {
 // ─── Filmography ─────────────────────────────────────────────────────────────
 
 /**
- * Fetch all movies directed by, or TV shows created by, a specific TMDB person.
+ * Fetch filmography for a TMDB person.
  * @param {number} personId  TMDB person ID
  * @param {string} personName Display name
- * @param {'movie'|'tv'} mediaType
+ * @param {'movie'|'tv'|'cast'|'writer'} role  Director (movie), TV creator, actor, or writer credits
  */
 export async function fetchPersonFilmography(personId, personName, role) {
-  // role: 'movie' (director), 'tv' (creator), or 'cast' (actor starring in movies/shows)
+  // role: 'movie' (director), 'tv' (creator), 'cast' (actor), or 'writer' (writing credits)
   let items;
   let resolvedMediaType; // used to set mediaType on result items
 
@@ -1032,6 +1033,44 @@ export async function fetchPersonFilmography(personId, personName, role) {
     const profileUrl = personData.profile_path ? `https://image.tmdb.org/t/p/w185${personData.profile_path}` : null;
 
     return { personName, role: 'cast', results, profileUrl };
+  }
+
+  if (role === 'writer') {
+    const data = await tmdbGet(`/person/${personId}/combined_credits`, { language: 'en-US' });
+    const crewCredits = (data.crew || [])
+      .filter((c) => WRITER_CREW_JOBS.has(c.job))
+      .filter((c) => c.media_type === 'movie' || c.media_type === 'tv')
+      .filter((c) => (c.vote_count ?? 0) >= 5);
+
+    const seen = new Set();
+    const unique = crewCredits.filter((item) => {
+      const key = `${item.media_type}:${item.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    unique.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+
+    const results = unique.map((item) => {
+      const dateValue = item.release_date || item.first_air_date || '';
+      return {
+        mediaType: item.media_type,
+        tmdbId: item.id,
+        title: item.title || item.name || '(Untitled)',
+        year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+        synopsis: (item.overview || '').trim() || 'No synopsis available.',
+        posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+        backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+        ratingValue: item.vote_average || 0,
+        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+      };
+    });
+
+    const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
+    const profileUrl = personData.profile_path ? `https://image.tmdb.org/t/p/w185${personData.profile_path}` : null;
+
+    return { personName, role: 'writer', results, profileUrl };
   }
 
   // Director / Creator path
