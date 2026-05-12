@@ -251,6 +251,8 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const visibleCastPeople = showAllCast ? peopleSections.castPeople : peopleSections.castPeople.slice(0, 10);
   const remainingCastCount = Math.max(peopleSections.castPeople.length - visibleCastPeople.length, 0);
   const providerSummary = result.providerSummary || [];
+  const hasAvailabilityRows = (result.rows || []).length > 0;
+  const hasAvailabilityData = Array.isArray(result.rows);
   const displaySynopsis = (result.synopsis && result.synopsis !== 'No synopsis available.') 
     ? result.synopsis 
     : (result.omdbRatings?.plot || result.synopsis || 'No synopsis available.');
@@ -845,33 +847,42 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           )}
 
           {/* Detailed Country View */}
-          {result.rows && result.rows.length > 0 && (
+          {hasAvailabilityData && (
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Global Availability</Text>
 
-              <View style={styles.table}>
-                {result.rows.map((row, index) => (
-                  <View key={row.code} style={styles.tableRow}>
-                    <Text style={[styles.countryName, { color: colors.onSurface, ...typography.bodyMd }]}>{row.country}</Text>
-                    <View style={styles.providerBadges}>
-                      {providerSummary.map((provider) =>
-                        row.providers[provider.key] ? (
-                          provider.logoUrl ? (
-                            <Image
-                              key={provider.key}
-                              source={{ uri: provider.logoUrl }}
-                              style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
-                              accessibilityLabel={provider.label}
-                            />
-                          ) : (
-                            <View key={provider.key} style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
-                          )
-                        ) : null
-                      )}
+              {hasAvailabilityRows ? (
+                <View style={styles.table}>
+                  {result.rows.map((row) => (
+                    <View key={row.code} style={styles.tableRow}>
+                      <Text style={[styles.countryName, { color: colors.onSurface, ...typography.bodyMd }]}>{row.country}</Text>
+                      <View style={styles.providerBadges}>
+                        {providerSummary.map((provider) =>
+                          row.providers[provider.key] ? (
+                            provider.logoUrl ? (
+                              <Image
+                                key={provider.key}
+                                source={{ uri: provider.logoUrl }}
+                                style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
+                                accessibilityLabel={provider.label}
+                              />
+                            ) : (
+                              <View key={provider.key} style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
+                            )
+                          ) : null
+                        )}
+                      </View>
                     </View>
-                  </View>
-                ))}
-              </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.availabilityEmpty}>
+                  <Ionicons name="earth-outline" size={22} color={colors.onSurfaceVariant} />
+                  <Text style={[styles.availabilityEmptyText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+                    Not listed on Netflix, Prime Video, or HBO Max in any country right now.
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -1373,6 +1384,17 @@ const styles = StyleSheet.create({
   },
   table: {
     overflow: 'hidden',
+  },
+  availabilityEmpty: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  availabilityEmptyText: {
+    flex: 1,
+    fontWeight: '500',
+    lineHeight: 22,
   },
   tableRow: {
     flexDirection: 'row',
