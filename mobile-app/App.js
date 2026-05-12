@@ -798,7 +798,7 @@ function MobileApp() {
             )}
 
             {activeView === 'settings' && (
-              <SettingsView />
+              <SettingsView watchlist={watchlist} persistWatchlistChange={persistWatchlistChange} />
             )}
           </>
         )}

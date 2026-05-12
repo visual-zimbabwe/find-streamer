@@ -27,6 +27,7 @@ test('core interactive surfaces expose accessibility roles and labels', () => {
     'src/components/DiscoverScreen.js',
     'src/components/MatchResults.js',
     'src/components/ResultView.js',
+    'src/components/SettingsView.js',
     'src/components/WatchlistView.js',
   ];
 
