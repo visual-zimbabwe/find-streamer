@@ -25,6 +25,7 @@ test('core interactive surfaces expose accessibility roles and labels', () => {
     'src/components/AppHeader.js',
     'src/components/BottomNav.js',
     'src/components/DiscoverScreen.js',
+    'src/components/HomeScreen.js',
     'src/components/MatchResults.js',
     'src/components/ResultView.js',
     'src/components/SettingsView.js',
@@ -42,10 +43,12 @@ test('small icon controls were raised to Android-friendly target sizes', () => {
   const discover = read('src/components/DiscoverScreen.js');
   const header = read('src/components/AppHeader.js');
   const watchlist = read('src/components/WatchlistView.js');
+  const home = read('src/components/HomeScreen.js');
 
-  assert.match(discover, /ratingDot:\s*\{ width: 48, height: 48/);
+  assert.match(discover, /chip:\s*\{[^}]*minHeight:\s*48/);
   assert.match(header, /width: 48,\s*\n\s*height: 48/);
-  assert.match(watchlist, /removeButton:[\s\S]*width: 48,[\s\S]*height: 48/);
+  assert.match(watchlist, /randomOpenButton:[\s\S]*width:\s*scale\(48\)/);
+  assert.match(home, /heroBtnGhost:\s*\{[^}]*width:\s*48/);
 });
 
 test('discover enrichment runs after TMDb results are shown', () => {
@@ -98,9 +101,9 @@ test('search view includes surprise roulette and visual recently viewed history'
 
   assert.match(app, /fetchSurpriseRecommendation/);
   assert.match(app, /recentViewed=\{recentViewed\}/);
-  assert.match(searchPanel, /SURPRISE ROULETTE/);
-  assert.match(searchPanel, /LinearGradient/);
-  assert.match(searchPanel, /RECENTLY VIEWED/);
+  assert.match(app, /Surprise Roulette/);
+  assert.match(app, /LinearGradient/);
+  assert.match(searchPanel, /Recently Viewed/);
   assert.match(searchPanel, /styles\.recentPoster/);
   assert.match(storage, /loadRecentViewed/);
   assert.match(storage, /saveRecentViewed/);

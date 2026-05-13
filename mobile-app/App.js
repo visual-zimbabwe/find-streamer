@@ -14,6 +14,7 @@ import { ResultView } from './src/components/ResultView';
 import { SettingsView } from './src/components/SettingsView';
 import { WatchlistView } from './src/components/WatchlistView';
 import { DiscoverScreen } from './src/components/DiscoverScreen';
+import { HomeScreen } from './src/components/HomeScreen';
 import { FilmographyScreen } from './src/components/FilmographyScreen';
 import { StatePanel } from './src/components/StatePanel';
 import { EmptyState } from './src/components/EmptyState';
@@ -70,8 +71,8 @@ function MobileApp() {
   const { theme, resolvedMode } = useTheme();
   const { colors, typography, radii } = theme;
 
-  const [activeView, setActiveView] = useState('search');
-  const [activeTab, setActiveTab] = useState('search');
+  const [activeView, setActiveView] = useState('home');
+  const [activeTab, setActiveTab] = useState('home');
   const [navigationHistory, setNavigationHistory] = useState([]);
   
   const [query, setQuery] = useState('');
@@ -175,15 +176,16 @@ function MobileApp() {
     }
 
     if (navigationHistory.length === 0) {
-      // If on search with results visible, clear them to go back to home state
+      // If on search with results visible, clear them first
       if (activeView === 'search' && results.length > 0) {
         setResults([]);
         setQuery('');
         return;
       }
-      if (activeView !== 'search' || activeTab !== 'search') {
-        setActiveTab('search');
-        setActiveView('search');
+      // From any other root tab/screen, return to the Home tab
+      if (!(activeView === 'home' && activeTab === 'home')) {
+        setActiveTab('home');
+        setActiveView('home');
         setQuery('');
       }
       return;
@@ -207,8 +209,11 @@ function MobileApp() {
   useEffect(() => {
     const onBackPress = () => {
       // If we are at the root with no history and no error, allow app to close
-      // Allow app to close only when on search home with no results, no history, no error
-      if (activeView === 'search' && activeTab === 'search' && !error && navigationHistory.length === 0 && results.length === 0) {
+      const atHomeRoot =
+        activeView === 'home' && activeTab === 'home' && !error && navigationHistory.length === 0;
+      const atSearchRoot =
+        activeView === 'search' && activeTab === 'search' && !error && navigationHistory.length === 0 && results.length === 0;
+      if (atHomeRoot || atSearchRoot) {
         return false;
       }
       
@@ -219,7 +224,7 @@ function MobileApp() {
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [activeView, activeTab, error, handleBack, navigationHistory]);
+  }, [activeView, activeTab, error, handleBack, navigationHistory, results.length]);
 
   // Initialization
   useEffect(() => {
@@ -672,7 +677,9 @@ function MobileApp() {
   const handleTabPress = (tab) => {
     setActiveTab(tab);
     setNavigationHistory([]); // Reset stack when switching tabs
-    if (tab === 'search') {
+    if (tab === 'home') {
+      setActiveView('home');
+    } else if (tab === 'search') {
       setActiveView('search');
     } else if (tab === 'discover') {
       setActiveView('discover');
@@ -692,7 +699,7 @@ function MobileApp() {
   );
 
   const showBack = activeView === 'detail' || activeView === 'settings' || activeView === 'filmography';
-  const showLoading = loading && activeView !== 'detail' && activeView !== 'discover';
+  const showLoading = loading && activeView !== 'detail' && activeView !== 'discover' && activeView !== 'home';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -716,6 +723,14 @@ function MobileApp() {
           />
         ) : (
           <>
+            {activeView === 'home' && (
+              <HomeScreen
+                watchlist={watchlist}
+                onSelectItem={handleSelectDiscoverItem}
+                onToggleWatchlist={handleToggleWatchlist}
+              />
+            )}
+
             {activeView === 'search' && (
               <View style={{ flex: 1 }}>
                 <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
