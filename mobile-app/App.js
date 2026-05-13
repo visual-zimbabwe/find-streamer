@@ -19,7 +19,7 @@ import { FilmographyScreen } from './src/components/FilmographyScreen';
 import { StatePanel } from './src/components/StatePanel';
 import { EmptyState } from './src/components/EmptyState';
 import { ErrorBanner } from './src/components/ErrorBanner';
-import { searchTitleCandidates, searchLiveCandidates, resolveMatch, fetchPersonFilmography, fetchSurpriseRecommendation, fetchSurpriseByGenre } from './src/lib/tmdb';
+import { searchTitleCandidates, searchLiveCandidates, resolveMatch, fetchPersonFilmography, fetchProductionCompanyCatalog, fetchSurpriseRecommendation, fetchSurpriseByGenre } from './src/lib/tmdb';
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
 import { useVoiceSearch } from './src/lib/useVoiceSearch';
 import { loadRecentSearches, saveRecentSearches, loadRecentViewed, saveRecentViewed, loadWatchlist, saveWatchlist } from './src/lib/storage';
@@ -305,6 +305,23 @@ function MobileApp() {
       setOfflineBanner(null);
     } catch (err) {
       handleRequestError(err, 'Unable to fetch filmography.');
+    } finally {
+      setFilmographyLoading(false);
+    }
+  }, [navigateTo, handleRequestError]);
+
+  const handleCompanyPress = useCallback(async (companyId, companyName, logoUrl) => {
+    setFilmographyLoading(true);
+    setFilmographyPerson({ id: companyId, name: companyName, role: 'company', profileUrl: logoUrl || null });
+    setFilmographyResults([]);
+    navigateTo('filmography');
+    try {
+      const { results, profileUrl } = await fetchProductionCompanyCatalog(companyId, companyName, logoUrl);
+      setFilmographyResults(results);
+      setFilmographyPerson(prev => ({ ...prev, profileUrl: profileUrl ?? prev.profileUrl }));
+      setOfflineBanner(null);
+    } catch (err) {
+      handleRequestError(err, 'Unable to load titles from this studio.');
     } finally {
       setFilmographyLoading(false);
     }
@@ -827,6 +844,7 @@ function MobileApp() {
                 isInWatchlist={watchlist.some(item => item.tmdbId === selectedResult?.tmdbId)}
                 onSelectSimilar={handleSelectMatch}
                 onPersonPress={handlePersonPress}
+                onCompanyPress={handleCompanyPress}
               />
             )}
             

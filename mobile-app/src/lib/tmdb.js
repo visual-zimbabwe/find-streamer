@@ -1136,6 +1136,55 @@ export async function fetchPersonFilmography(personId, personName, role) {
   return { personName, role, results, profileUrl };
 }
 
+/**
+ * Movies and TV where the given company appears in production_companies,
+ * merged and sorted by TMDb vote average (highest first).
+ */
+export async function fetchProductionCompanyCatalog(companyId, companyName, logoUrl) {
+  const baseParams = {
+    with_companies: companyId,
+    language: 'en-US',
+    sort_by: 'vote_average.desc',
+    'vote_count.gte': 5,
+    include_adult: false,
+    page: 1,
+  };
+
+  const [movieData, tvData] = await Promise.all([
+    tmdbGet('/discover/movie', baseParams),
+    tmdbGet('/discover/tv', baseParams),
+  ]);
+
+  const mapRow = (item, mediaType) => {
+    const dateValue = item.release_date || item.first_air_date || '';
+    const vote = item.vote_average;
+    return {
+      mediaType,
+      tmdbId: item.id,
+      title: item.title || item.name || '(Untitled)',
+      year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+      synopsis: (item.overview || '').trim() || 'No synopsis available.',
+      posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+      backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+      ratingValue: vote || 0,
+      rating: typeof vote === 'number' ? `${vote.toFixed(1)}/10` : 'N/A',
+    };
+  };
+
+  const movies = (movieData.results || []).map((item) => mapRow(item, 'movie'));
+  const shows = (tvData.results || []).map((item) => mapRow(item, 'tv'));
+  const combined = [...movies, ...shows];
+
+  combined.sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
+
+  return {
+    personName: companyName,
+    role: 'company',
+    results: combined,
+    profileUrl: logoUrl || null,
+  };
+}
+
 // ─── Trakt Enrichment ─────────────────────────────────────────────────────────
 
 /**

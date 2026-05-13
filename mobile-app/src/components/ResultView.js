@@ -24,6 +24,14 @@ function hasValue(value) {
   return Boolean(text) && !['N/A', 'Undefined', 'undefined', 'Unknown Genre'].includes(text);
 }
 
+/** TMDb-style ratings on cards: show `7.6` not `7.6/10`. */
+function ratingForCard(rating) {
+  if (rating == null || rating === '') return '';
+  const s = String(rating);
+  if (s === 'N/A') return 'N/A';
+  return s.split('/')[0];
+}
+
 // ── Award logo definitions ────────────────────────────────────────────────
 const AWARD_DEFS = [
   {
@@ -113,7 +121,7 @@ function personKey(person, index) {
   return `${person.role || 'person'}-${person.id || person.name}-${index}`;
 }
 
-export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, onSelectSimilar, onPersonPress }) {
+export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, onSelectSimilar, onPersonPress, onCompanyPress }) {
   const { theme } = useTheme();
   const { typography, radii } = theme;
   const shareCardRef = useRef(null);
@@ -823,7 +831,20 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 contentContainerStyle={styles.productionScroll}
               >
                 {result.productionCompanies.map((company) => (
-                  <View key={company.id} style={styles.productionTile}>
+                  <TouchableOpacity
+                    key={company.id}
+                    style={styles.productionTile}
+                    onPress={() => {
+                      if (!onCompanyPress) return;
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      onCompanyPress(company.id, company.name, company.logoUrl);
+                    }}
+                    disabled={!onCompanyPress}
+                    activeOpacity={0.78}
+                    accessibilityRole="button"
+                    accessibilityLabel={onCompanyPress ? `View titles from ${company.name}` : undefined}
+                    accessibilityState={{ disabled: !onCompanyPress }}
+                  >
                     <View
                       style={[
                         styles.productionLogoHaloBase,
@@ -848,7 +869,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                         />
                       )}
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             </View>
@@ -915,7 +936,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                       <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
                       {item.omdbRatings?.imdbRating && (
                         <View style={[styles.similarRating, { backgroundColor: '#F5C518' }]}>
-                          <Text style={{ color: '#000000', fontSize: 10, fontWeight: '800' }}>IMDb {item.omdbRatings.imdbRating.split('/')[0]}</Text>
+                          <Text style={{ color: '#000000', fontSize: 10, fontWeight: '800' }}>IMDb {ratingForCard(item.omdbRatings.imdbRating)}</Text>
                         </View>
                       )}
                     </View>
@@ -948,7 +969,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     <View style={[styles.similarPoster, { borderRadius: radii.md }]}>
                       <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
                       <View style={styles.similarRating}>
-                        <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>{item.rating}</Text>
+                        <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>{ratingForCard(item.rating)}</Text>
                       </View>
                     </View>
                     <Text style={[styles.similarTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>

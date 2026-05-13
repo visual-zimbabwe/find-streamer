@@ -11,18 +11,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 
+function ratingForCard(rating) {
+  if (rating == null || rating === '') return '';
+  const s = String(rating);
+  if (s === 'N/A') return 'N/A';
+  return s.split('/')[0];
+}
+
 export function FilmographyScreen({ personName, role, results = [], onSelectItem, loading, profileUrl }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
 
-  // role: 'movie' = director, 'tv' = creator, 'cast' = actor, 'writer' = writing credits
+  // role: 'movie' = director, 'tv' = creator, 'cast' = actor, 'writer' = writing credits, 'company' = production company
   const roleLabel = role === 'cast'
     ? 'Starring In'
     : role === 'writer'
       ? 'Writing Credits'
-      : role === 'movie'
-        ? 'Directed By'
-        : 'Created By';
+      : role === 'company'
+        ? 'Titles From'
+        : role === 'movie'
+          ? 'Directed By'
+          : 'Created By';
   const countText = `${results.length} title${results.length !== 1 ? 's' : ''}`;
 
   const renderItem = ({ item, index }) => {
@@ -39,10 +48,10 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
           <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
           {/* Rating badge */}
           <View style={styles.ratingBadge}>
-            <Text style={styles.ratingText}>{item.rating}</Text>
+            <Text style={styles.ratingText}>{ratingForCard(item.rating)}</Text>
           </View>
-          {/* Movie / TV badge — only shown for 'cast' since items can be mixed */}
-          {(role === 'cast' || role === 'writer') && (
+          {/* Movie / TV badge — mixed lists: cast, writer, company */}
+          {(role === 'cast' || role === 'writer' || role === 'company') && (
             <View style={[styles.typeBadge, { backgroundColor: colors.primary + 'CC' }]}>
               <Ionicons name={mediaIcon} size={10} color="#fff" />
             </View>
@@ -68,7 +77,7 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
             <MediaArtwork uri={profileUrl} style={styles.avatarImage} accessibilityLabel={`${personName} profile photo`} title={personName} icon="person-outline" compactFallback />
           ) : (
             <Ionicons
-              name={role === 'cast' ? 'star' : role === 'writer' ? 'create-outline' : 'person'}
+              name={role === 'cast' ? 'star' : role === 'writer' ? 'create-outline' : role === 'company' ? 'business-outline' : 'person'}
               size={26}
               color={colors.primary}
             />
