@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -19,6 +19,105 @@ import {
   parseWatchlistImportJson,
   stringifyWatchlistExport,
 } from '../lib/watchlistBackup';
+import {
+  formatQuotaLine,
+  formatResetHint,
+  getRateQuotaSnapshot,
+  subscribeRateQuota,
+} from '../lib/apiRateQuota';
+
+function ApiQuotaPanel({ colors, typography, spacing, radii }) {
+  const [quota, setQuota] = useState(getRateQuotaSnapshot);
+
+  useEffect(() => subscribeRateQuota(setQuota), []);
+
+  const { tmdb, trakt, omdb } = quota;
+
+  const row = (key, title, bodyLines) => (
+    <View key={key}>
+      <View style={{ paddingVertical: spacing[4], paddingHorizontal: spacing[5] }}>
+        <Text style={[typography.bodyLg, { color: colors.onSurface, fontWeight: '600' }]}>{title}</Text>
+        {bodyLines.map((line, i) => (
+          <Text
+            key={i}
+            style={[
+              i === 0 ? typography.bodyMd : typography.labelSm,
+              {
+                color: line.tone === 'error' ? colors.error : colors.onSurfaceVariant,
+                marginTop: i === 0 ? spacing[2] : spacing[1],
+                lineHeight: i === 0 ? 20 : 16,
+              },
+            ]}
+          >
+            {line.text}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+
+  const linesFor = (state) => {
+    const out = [];
+    if (state.rateLimitedAt) {
+      const wait =
+        state.retryAfterSec != null && Number.isFinite(state.retryAfterSec)
+          ? ` The service asked to wait about ${state.retryAfterSec}s before trying again.`
+          : '';
+      out.push({ text: `A rate limit (HTTP 429) was hit recently.${wait}`, tone: 'error' });
+    }
+    const q = formatQuotaLine(state);
+    if (q) out.push({ text: q, tone: 'default' });
+    else if (!state.rateLimitedAt && state.lastUpdated && state.sessionRequests === undefined) {
+      out.push({
+        text: 'The last successful call did not include quota headers; limits may still apply on the provider side.',
+        tone: 'default',
+      });
+    } else if (!state.rateLimitedAt && !state.lastUpdated) {
+      out.push({
+        text: 'No data yet. Search or open titles and values will update from API responses.',
+        tone: 'default',
+      });
+    }
+    const resetHint = formatResetHint(state.resetEpochSec);
+    if (resetHint && !state.rateLimitedAt) out.push({ text: resetHint, tone: 'default' });
+    if (out.length === 0) {
+      out.push({ text: 'No quota details available for the last response.', tone: 'default' });
+    }
+    return out;
+  };
+
+  const omdbLines = () => {
+    const out = [];
+    if (omdb.rateLimitedAt) {
+      const wait =
+        omdb.retryAfterSec != null && Number.isFinite(omdb.retryAfterSec)
+          ? ` Retry after about ${omdb.retryAfterSec}s.`
+          : '';
+      out.push({ text: `A rate limit (HTTP 429) was hit recently.${wait}`, tone: 'error' });
+    }
+    const q = formatQuotaLine(omdb);
+    if (q) out.push({ text: q, tone: 'default' });
+    out.push({
+      text: `This session: ${omdb.sessionRequests ?? 0} request(s) (unique titles are cached).`,
+      tone: 'default',
+    });
+    out.push({
+      text: `Typical free tier: about ${omdb.documentedDailyMax ?? 1000} calls per day. ${omdb.documentedNote || ''}`,
+      tone: 'default',
+    });
+    return out;
+  };
+
+  return (
+    <View style={[styles.card, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
+      {row('tmdb', 'The Movie Database (TMDB)', linesFor(tmdb))}
+      <View style={[styles.divider, { backgroundColor: colors.outlineVariant + '26' }]} />
+      {row('trakt', 'Trakt', linesFor(trakt))}
+      <View style={[styles.divider, { backgroundColor: colors.outlineVariant + '26' }]} />
+      {row('omdb', 'OMDb', omdbLines())}
+    </View>
+  );
+}
 
 export function SettingsView({ watchlist = [], persistWatchlistChange }) {
   const { theme, preference, setPreference } = useTheme();
@@ -239,6 +338,17 @@ export function SettingsView({ watchlist = [], persistWatchlistChange }) {
             )}
           </TouchableOpacity>
         </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>API rate limits</Text>
+        <Text
+          style={[styles.sectionHint, { color: colors.onSurfaceVariant, ...typography.bodyMd, marginBottom: spacing[4] }]}
+        >
+          Live figures come from each provider's response headers when they expose them. If you see a 429 message,
+          wait for the suggested time before refreshing.
+        </Text>
+        <ApiQuotaPanel colors={colors} typography={typography} spacing={spacing} radii={radii} />
       </View>
 
       <View style={styles.footer}>

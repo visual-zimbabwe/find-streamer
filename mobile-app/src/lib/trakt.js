@@ -3,6 +3,8 @@
 // Register a FREE app at https://trakt.tv/oauth/applications/new to get your
 // Client ID, then paste it below. The app only needs Read access.
 //
+import { recordRateQuota429, recordRateQuotaFromResponse } from './apiRateQuota';
+
 const TRAKT_CLIENT_ID = 'e7246bfdab489b1f604eb6bfbed9518c7402a3476fad3edb50537228fde96ef9';
 const TRAKT_BASE = 'https://api.trakt.tv';
 
@@ -27,9 +29,14 @@ async function traktGet(pathname, params = {}) {
     if (response.status === 401) {
       throw new Error('Invalid Trakt API key. Add your Client ID in src/lib/trakt.js.');
     }
+    if (response.status === 429) {
+      recordRateQuota429('trakt', response);
+      throw new Error('Trakt rate limit reached. Try again in a few minutes.');
+    }
     throw new Error(`Trakt API error: ${response.status}`);
   }
 
+  recordRateQuotaFromResponse('trakt', response);
   return response.json();
 }
 

@@ -1,3 +1,4 @@
+import { recordRateQuota429, recordRateQuotaFromResponse } from './apiRateQuota';
 import { fetchOmdbRatings } from './omdb';
 import { NON_ENGLISH_CODES } from './languagePresets';
 import { createAppError, isRetryableStatus, retryWithBackoff } from './errors';
@@ -115,6 +116,9 @@ async function tmdbGet(pathname, params = {}) {
 
     if (!response.ok) {
       const status = response.status;
+      if (status === 429) {
+        recordRateQuota429('tmdb', response);
+      }
       let message = '';
       try {
         message = await response.text();
@@ -131,6 +135,7 @@ async function tmdbGet(pathname, params = {}) {
       throw createAppError('Something went wrong while loading movie data. Please try again.', 'TMDB_ERROR', { status, rawMessage: message });
     }
 
+    recordRateQuotaFromResponse('tmdb', response);
     return response.json();
   }, {
     retries: 2,

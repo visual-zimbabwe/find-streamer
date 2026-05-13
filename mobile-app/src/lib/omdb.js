@@ -1,3 +1,5 @@
+import { bumpOmdbSessionRequestCount, recordRateQuota429, recordRateQuotaFromResponse } from './apiRateQuota';
+
 const OMDB_API_KEY = 'cd05d48b';
 const OMDB_BASE = 'https://www.omdbapi.com/';
 const EMPTY_OMDB_RATINGS = {
@@ -27,8 +29,15 @@ export async function fetchOmdbRatings(imdbId) {
   try {
     const url = `${OMDB_BASE}?i=${encodeURIComponent(imdbId)}&apikey=${OMDB_API_KEY}`;
     const response = await fetch(url, { headers: { accept: 'application/json' } });
-    if (!response.ok) return EMPTY_OMDB_RATINGS;
+    if (!response.ok) {
+      if (response.status === 429) {
+        recordRateQuota429('omdb', response);
+      }
+      return EMPTY_OMDB_RATINGS;
+    }
 
+    recordRateQuotaFromResponse('omdb', response);
+    bumpOmdbSessionRequestCount();
     const data = await response.json();
     if (data.Response === 'False') return EMPTY_OMDB_RATINGS;
 
