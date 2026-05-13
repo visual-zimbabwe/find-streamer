@@ -65,7 +65,7 @@ function takeUniqueTop(items, limit) {
 /**
  * Build up to HOME_SPOTLIGHT_MAX items: watchlist (priority categories) → Trakt movies → Trakt TV → TMDB top-rated movies.
  */
-export async function buildHomeSpotlight(watchlist = []) {
+export async function buildHomeSpotlight(watchlist = [], watchRegion = null, watchProviders = []) {
   const pool = [];
   const seen = new Set();
 
@@ -113,6 +113,8 @@ export async function buildHomeSpotlight(watchlist = []) {
     const { results } = await discoverTitles({
       mediaType: 'movie',
       sortBy: 'vote_average.desc',
+      watchRegion,
+      watchProviders,
       page: 1,
     });
     const sorted = sortByTmdbRatingDesc(results);
@@ -139,12 +141,14 @@ export async function fetchHomeTraktTrendingRail() {
   return takeUniqueTop(sorted, HOME_RAIL_LIMIT);
 }
 
-export async function fetchHomeTmdbRail(def) {
+export async function fetchHomeTmdbRail(def, watchRegion = null, watchProviders = []) {
   const { results } = await discoverTitles({
     mediaType: def.mediaType,
     genreIds: def.genreIds,
     languageCodes: def.languageCodes || [],
     sortBy: 'vote_average.desc',
+    watchRegion,
+    watchProviders,
     page: 1,
   });
   return sortByTmdbRatingDesc(results).slice(0, HOME_RAIL_LIMIT);

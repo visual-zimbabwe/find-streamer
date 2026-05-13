@@ -114,8 +114,11 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   const [tmdbRails, setTmdbRails] = useState({});
   const [railsLoading, setRailsLoading] = useState(true);
 
-  // 'all' | 'movie' | 'tv'
   const [mediaFilter, setMediaFilter] = useState('all');
+
+  // Streaming availability state
+  const [region, setRegion] = useState('US');
+  const [activeProviders, setActiveProviders] = useState([8, 9, 1899, 384]); // Netflix, Prime, Max
 
   // heroItem is derived after filteredSpotlight is computed (below); placeholder null until then
   // (computed further down once filteredSpotlight is available)
@@ -125,7 +128,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     (async () => {
       setHeroLoading(true);
       try {
-        const items = await buildHomeSpotlight(watchlist);
+        const items = await buildHomeSpotlight(watchlist, region, activeProviders);
         if (!cancelled) {
           setSpotlight(items.slice(0, HOME_SPOTLIGHT_MAX));
           setHeroIndex(0);
@@ -142,7 +145,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     return () => {
       cancelled = true;
     };
-  }, [watchlist]);
+  }, [watchlist, region, activeProviders]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,7 +156,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
           fetchHomeTraktTrendingRail().catch(() => []),
           fetchHomeNowPlayingRail().catch(() => []),
           ...HOME_TMDB_RAILS.map((def) =>
-            fetchHomeTmdbRail(def).then((rows) => ({ id: def.id, rows })).catch(() => ({ id: def.id, rows: [] }))
+            fetchHomeTmdbRail(def, region, activeProviders).then((rows) => ({ id: def.id, rows })).catch(() => ({ id: def.id, rows: [] }))
           ),
         ]);
         if (cancelled) return;
@@ -171,7 +174,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [region, activeProviders]);
 
   // Keep a ref so the rotation interval always sees the current filtered length
   const filteredLengthRef = useRef(spotlight.length);
@@ -372,6 +375,34 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
                 </Text>
               </TouchableOpacity>
             );
+          })}
+        </View>
+
+        {/* Temporary Provider Toggles */}
+        <View style={[styles.glassBar, { marginTop: 8, paddingHorizontal: 12, paddingVertical: 6 }]}>
+          <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600', marginRight: 4 }}>
+            {region} Services:
+          </Text>
+          {[{ id: 8, name: 'Netflix', color: '#E50914' }, { id: 9, name: 'Prime', color: '#00A8E1' }, { id: 1899, name: 'Max', color: '#002BE7' }].map(provider => {
+            const isActive = activeProviders.includes(provider.id);
+            return (
+              <TouchableOpacity
+                key={provider.id}
+                style={{
+                  paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginLeft: 4,
+                  backgroundColor: isActive ? provider.color : 'rgba(255,255,255,0.1)'
+                }}
+                onPress={() => {
+                  setActiveProviders(prev => prev.includes(provider.id) 
+                    ? prev.filter(p => p !== provider.id) 
+                    : [...prev, provider.id, ...(provider.id === 1899 ? [384] : [])]);
+                }}
+              >
+                <Text style={{ color: isActive ? '#fff' : 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700' }}>
+                  {provider.name}
+                </Text>
+              </TouchableOpacity>
+            )
           })}
         </View>
       </View>

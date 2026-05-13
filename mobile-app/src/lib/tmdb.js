@@ -784,6 +784,8 @@ export async function discoverTitles(filters = {}) {
     toYear = null,
     sortBy = 'popularity.desc',
     excludeEnglish = false,
+    watchRegion = null,
+    watchProviders = [],
     page = 1,
   } = filters;
 
@@ -793,6 +795,11 @@ export async function discoverTitles(filters = {}) {
     include_adult: false,
     page,
   };
+
+  if (watchRegion && watchProviders.length > 0) {
+    params.watch_region = watchRegion;
+    params.with_watch_providers = watchProviders.join('|');
+  }
 
   // ── Include genres ──────────────────────────────────────────────────────────
   if (genreIds.length > 0) {
