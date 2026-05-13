@@ -303,8 +303,8 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const providerSummary = result.providerSummary || [];
   const hasAvailabilityRows = (result.rows || []).length > 0;
   const hasAvailabilityData = Array.isArray(result.rows);
-  const displaySynopsis = (result.synopsis && result.synopsis !== 'No synopsis available.') 
-    ? result.synopsis 
+  const displaySynopsis = (result.synopsis && result.synopsis !== 'No synopsis available.')
+    ? result.synopsis
     : (result.omdbRatings?.plot || result.synopsis || 'No synopsis available.');
   const meshColors = colors.meshColors || [
     colors.primary,
@@ -459,9 +459,9 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 </View>
               )}
 
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.heroRatingsStrip}
               >
                 {hasRating && (
@@ -475,7 +475,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     accessibilityLabel={`View ${result.title} on TMDB`}
                   >
                     <View style={styles.badgeTmdb}>
-                      <Text style={styles.badgeTmdbText}>Tmdb</Text>
+                      <Text style={styles.badgeTmdbText}>TMDb</Text>
                     </View>
                     <Text style={[styles.heroRatingText, { ...typography.labelSm }]}>
                       {result.rating.toString().split('/')[0]}
@@ -607,10 +607,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 accessibilityState={{ selected: isInWatchlist }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons 
-                  name={isInWatchlist ? "bookmark" : "bookmark-outline"} 
-                  size={20} 
-                  color="rgba(255,255,255,0.85)" 
+                <Ionicons
+                  name={isInWatchlist ? "bookmark" : "bookmark-outline"}
+                  size={20}
+                  color="rgba(255,255,255,0.85)"
                 />
               </TouchableOpacity>
             </View>
@@ -632,7 +632,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
 
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Synopsis</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setIsSynopsisExpanded(!isSynopsisExpanded);

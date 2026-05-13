@@ -127,7 +127,7 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
             <View style={styles.meta}>
               <View style={styles.metaTmdbRating}>
                 <View style={styles.badgeTmdb}>
-                  <Text style={styles.badgeTmdbText}>Tmdb</Text>
+                  <Text style={styles.badgeTmdbText}>TMDb</Text>
                 </View>
                 <Text style={{ color: colors.primary, fontWeight: '900', ...typography.labelSm }}>{tmdbRatingNumber(item.rating)}</Text>
               </View>
@@ -198,9 +198,9 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
 
   if (!items || items.length === 0) {
     return (
-      <StatePanel 
-        type="empty" 
-        title="Your Watchlist" 
+      <StatePanel
+        type="empty"
+        title="Your Watchlist"
         description="You have no titles saved yet. Explore movies and add them to your collection."
       />
     );
@@ -373,7 +373,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
                     <View style={styles.meta}>
                       <View style={styles.metaTmdbRating}>
                         <View style={styles.badgeTmdb}>
-                          <Text style={styles.badgeTmdbText}>Tmdb</Text>
+                          <Text style={styles.badgeTmdbText}>TMDb</Text>
                         </View>
                         <Text style={{ color: colors.primary, fontWeight: '900', ...typography.labelSm }}>{tmdbRatingNumber(item.rating)}</Text>
                       </View>

@@ -20,9 +20,7 @@ export function AppHeader({ onBack, showBack, onSettingsPress }) {
             <Ionicons name="chevron-back" size={24} color={colors.onSurface} />
           </TouchableOpacity>
         )}
-        <View style={[styles.iconPlaceholder, { backgroundColor: colors.surfaceContainerHighest }]}>
-          <Ionicons name="film" size={18} color={colors.primary} />
-        </View>
+
         <Text style={[styles.logo, { color: colors.primary, ...typography.headlineMd }]}>Trova</Text>
       </View>
       <TouchableOpacity 
@@ -58,13 +56,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconPlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
   logo: {
     fontWeight: '900',
     letterSpacing: -1.5,
