@@ -140,26 +140,6 @@ export function SearchPanel({
         </View>
       )}
 
-      <View style={styles.filterToggles}>
-        <TouchableOpacity 
-          style={[styles.filterChip, filter === 'movie' ? { backgroundColor: colors.primary } : { backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.outlineVariant + '26' }]}
-          onPress={() => onFilterChange(filter === 'movie' ? null : 'movie')}
-          accessibilityRole="button"
-          accessibilityLabel="Filter movies"
-          accessibilityState={{ selected: filter === 'movie' }}
-        >
-          <Text style={[styles.filterLabel, { color: filter === 'movie' ? colors.onPrimary : colors.onSurfaceVariant, ...typography.labelSm }]}>Movies</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.filterChip, filter === 'tv' ? { backgroundColor: colors.primary } : { backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.outlineVariant + '26' }]}
-          onPress={() => onFilterChange(filter === 'tv' ? null : 'tv')}
-          accessibilityRole="button"
-          accessibilityLabel="Filter TV shows"
-          accessibilityState={{ selected: filter === 'tv' }}
-        >
-          <Text style={[styles.filterLabel, { color: filter === 'tv' ? colors.onPrimary : colors.onSurfaceVariant, ...typography.labelSm }]}>TV Shows</Text>
-        </TouchableOpacity>
-      </View>
 
 
 
@@ -272,22 +252,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginLeft: 2,
   },
-  filterToggles: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  filterChip: {
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    borderRadius: 20,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  filterLabel: {
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
+
   liveResults: {
     marginTop: 8,
     overflow: 'hidden',

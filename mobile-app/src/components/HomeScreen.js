@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   Dimensions,
   FlatList,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -112,7 +114,11 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   const [tmdbRails, setTmdbRails] = useState({});
   const [railsLoading, setRailsLoading] = useState(true);
 
-  const heroItem = spotlight[heroIndex] || null;
+  // 'all' | 'movie' | 'tv'
+  const [mediaFilter, setMediaFilter] = useState('all');
+
+  // heroItem is derived after filteredSpotlight is computed (below); placeholder null until then
+  // (computed further down once filteredSpotlight is available)
 
   useEffect(() => {
     let cancelled = false;
@@ -167,18 +173,26 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     };
   }, []);
 
+  // Keep a ref so the rotation interval always sees the current filtered length
+  const filteredLengthRef = useRef(spotlight.length);
+  useEffect(() => {
+    filteredLengthRef.current = spotlight.length;
+  }, [spotlight.length]);
+
   useEffect(() => {
     if (spotlight.length <= 1) return undefined;
     const tick = setInterval(() => {
       if (pausedRef.current) return;
       setHeroIndex((i) => {
-        const next = (i + 1) % spotlight.length;
+        const len = filteredLengthRef.current || 1;
+        const next = (i + 1) % len;
         heroListRef.current?.scrollToIndex({ index: next, animated: true });
         return next;
       });
     }, HOME_HERO_ROTATION_MS);
     return () => clearInterval(tick);
   }, [spotlight.length]);
+
 
   const pauseHero = useCallback(() => {
     pausedRef.current = true;
@@ -199,25 +213,71 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     []
   );
 
+  // Android back handler: if a filter is active, pressing back resets it to 'all'
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (mediaFilter !== 'all') {
+        setMediaFilter('all');
+        return true; // consume the event
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [mediaFilter]);
+
   const watchlistRows = useMemo(() => {
     return WATCHLIST_CATEGORIES.map((category) => {
-      const items = (watchlist || []).filter(
-        (w) => getWatchlistCategory(w.watchlistCategoryId).id === category.id
-      );
+      const items = (watchlist || []).filter((w) => {
+        if (mediaFilter !== 'all' && w.mediaType !== mediaFilter) return false;
+        return getWatchlistCategory(w.watchlistCategoryId).id === category.id;
+      });
       const sorted = [...items].sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
       return { category, items: sorted };
     }).filter((row) => row.items.length > 0);
-  }, [watchlist]);
+  }, [watchlist, mediaFilter]);
+
+  const filteredSpotlight = useMemo(() => {
+    if (mediaFilter === 'all') return spotlight;
+    return spotlight.filter((it) => it.mediaType === mediaFilter);
+  }, [spotlight, mediaFilter]);
+
+  const heroItem = filteredSpotlight[heroIndex] || null;
+
+  const filteredNowPlaying = useMemo(() => {
+    if (mediaFilter === 'all' || mediaFilter === 'movie') return nowPlayingRail;
+    return null; // now-playing is movies-only
+  }, [nowPlayingRail, mediaFilter]);
+
+  const filteredTrakt = useMemo(() => {
+    if (!traktRail) return null;
+    if (mediaFilter === 'all') return traktRail;
+    return traktRail.filter((it) => it.mediaType === mediaFilter);
+  }, [traktRail, mediaFilter]);
+
+  const filteredTmdbRails = useMemo(() => {
+    if (mediaFilter === 'all') return HOME_TMDB_RAILS;
+    return HOME_TMDB_RAILS.filter((def) => def.mediaType === mediaFilter);
+  }, [mediaFilter]);
 
   const onHeroMomentumEnd = useCallback(
     (e) => {
       const x = e.nativeEvent.contentOffset.x;
-      const i = Math.min(spotlight.length - 1, Math.max(0, Math.round(x / WINDOW_W)));
+      const i = Math.min(filteredSpotlight.length - 1, Math.max(0, Math.round(x / WINDOW_W)));
       setHeroIndex(i);
       scheduleResumeHero();
     },
-    [spotlight.length, scheduleResumeHero]
+    [filteredSpotlight.length, scheduleResumeHero]
   );
+
+  // Sync heroIndex when filteredSpotlight changes (filter switch or spotlight load)
+  useEffect(() => {
+    filteredLengthRef.current = filteredSpotlight.length;
+    setHeroIndex(0);
+    requestAnimationFrame(() => {
+      heroListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    });
+  }, [filteredSpotlight.length, mediaFilter]);
 
   const renderHeroPage = useCallback(
     ({ item }) => {
@@ -270,13 +330,58 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     [heroH, insets.bottom, onSelectItem, typography]
   );
 
+  const TYPE_PILLS = [
+    { key: 'all',   label: 'All' },
+    { key: 'movie', label: 'Movies' },
+    { key: 'tv',    label: 'TV Shows' },
+  ];
+
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + 112 }]}
-      showsVerticalScrollIndicator={false}
-      nestedScrollEnabled
-    >
+    <View style={styles.rootWrap}>
+      {/* ── Floating liquid-glass type filter ─────────────────────────── */}
+      <View
+        style={[
+          styles.floatingBar,
+          { top: insets.top + 12 },
+        ]}
+        pointerEvents="box-none"
+      >
+        <View style={styles.glassBar}>
+          {TYPE_PILLS.map(({ key, label }) => {
+            const active = mediaFilter === key;
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[
+                  styles.typePill,
+                  active && styles.typePillActive,
+                ]}
+                onPress={() => setMediaFilter(key)}
+                activeOpacity={0.78}
+                accessibilityRole="button"
+                accessibilityLabel={`Show ${label}`}
+                accessibilityState={{ selected: active }}
+              >
+                <Text
+                  style={[
+                    styles.typePillText,
+                    active ? styles.typePillTextActive : { color: 'rgba(255,255,255,0.72)' },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + 112 }]}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+      >
       <View
         style={[styles.heroShell, { height: heroH }]}
         accessible
@@ -290,12 +395,12 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
           <View style={[styles.heroLoading, { backgroundColor: colors.surfaceContainerHighest }]}>
             <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading spotlight" />
           </View>
-        ) : spotlight.length ? (
+        ) : filteredSpotlight.length ? (
           <>
             <FlatList
               ref={heroListRef}
               style={styles.heroList}
-              data={spotlight}
+              data={filteredSpotlight}
               horizontal
               pagingEnabled
               nestedScrollEnabled
@@ -318,14 +423,14 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
                 }, 350);
               }}
             />
-            {spotlight.length > 1 ? (
+            {filteredSpotlight.length > 1 ? (
               <View
                 style={[styles.heroDotsOverlay, { paddingBottom: 10 + insets.bottom * 0.25 }]}
                 pointerEvents="box-none"
                 accessibilityLabel="Spotlight pages"
               >
                 <View style={styles.dotsRow}>
-                  {spotlight.map((_, i) => (
+                  {filteredSpotlight.map((_, i) => (
                     <TouchableOpacity
                       key={`dot-${i}`}
                       style={styles.heroDotHit}
@@ -338,7 +443,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
                       }}
                       hitSlop={10}
                       accessibilityRole="button"
-                      accessibilityLabel={`Show spotlight item ${i + 1} of ${spotlight.length}`}
+                      accessibilityLabel={`Show spotlight item ${i + 1} of ${filteredSpotlight.length}`}
                     >
                       <View
                         style={[
@@ -375,10 +480,10 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
         />
       ))}
 
-      {!railsLoading && nowPlayingRail?.length ? (
+      {!railsLoading && filteredNowPlaying?.length ? (
         <ContentRail
           title="Now playing in theaters"
-          data={nowPlayingRail}
+          data={filteredNowPlaying}
           colors={colors}
           typography={typography}
           radii={radii}
@@ -386,10 +491,10 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
         />
       ) : null}
 
-      {!railsLoading && traktRail?.length ? (
+      {!railsLoading && filteredTrakt?.length ? (
         <ContentRail
           title="Trending on Trakt"
-          data={traktRail}
+          data={filteredTrakt}
           colors={colors}
           typography={typography}
           radii={radii}
@@ -397,7 +502,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
         />
       ) : null}
 
-      {HOME_TMDB_RAILS.map((def) => (
+      {filteredTmdbRails.map((def) => (
         <ContentRail
           key={def.id}
           title={def.title}
@@ -414,13 +519,60 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
           <ActivityIndicator color={colors.primary} />
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  rootWrap: { flex: 1 },
   scroll: { flex: 1 },
   scrollInner: { paddingTop: 0 },
+
+  /* ── Floating liquid-glass type filter ───────────── */
+  floatingBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10,
+    // pointerEvents not needed here; individual children are touchable
+  },
+  glassBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(20, 20, 30, 0.52)',
+    borderRadius: 32,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    // Android elevation for a glass-card shadow
+    elevation: 18,
+    // iOS shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.32,
+    shadowRadius: 18,
+  },
+  typePill: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 26,
+  },
+  typePillActive: {
+    backgroundColor: 'rgba(255,255,255,0.96)',
+  },
+  typePillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  typePillTextActive: {
+    color: '#0d0d14',
+  },
+
   heroShell: {
     width: WINDOW_W,
     position: 'relative',
