@@ -1228,73 +1228,17 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem, onTogg
   }
 
   if (!hasSearched) {
-    // ── Trending (Trakt) default feed ──────────────────────────────────────
-    const { trendingResults, trendingLoading, trendingError } = vm;
-
-    if (trendingLoading) {
-      return (
-        <View style={styles.resultsSection}>
-          <View style={styles.resultsHeader}>
-            <Text style={[{ color: c.onSurface, ...typography.titleLg, fontWeight: '800' }]}>
-              🔥 Trending Now
-            </Text>
-          </View>
-          <ResultsSkeleton count={4} />
-        </View>
-      );
-    }
-
-    if (trendingError || trendingResults.length === 0) {
-      return (
-        <View style={styles.stateBox}>
-          <View style={[styles.stateIconCircle, { backgroundColor: c.primary + '15' }]}>
-            <Ionicons name="telescope-outline" size={48} color={c.primary} />
-          </View>
-          <Text style={[{ color: c.onSurface, ...typography.titleLg, textAlign: 'center', marginBottom: 8 }]}>
-            Set your filters
-          </Text>
-          <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center' }]}>
-            {trendingError
-              ? 'Trending unavailable. Adjust filters above and tap "Search" to explore.'
-              : 'Adjust the filters above and tap{"\n"}"Search" to explore.'}
-          </Text>
-        </View>
-      );
-    }
-
     return (
-      <View style={styles.resultsSection}>
-        <View style={styles.resultsHeader}>
-          <View>
-            <Text style={[{ color: c.onSurface, ...typography.titleLg, fontWeight: '800' }]}>
-              🔥 Trending Now
-            </Text>
-            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>
-              What people are watching right now
-            </Text>
-          </View>
-          <View style={[styles.countBadge, { backgroundColor: c.primary + '20', borderRadius: 99 }]}>
-            <Text style={[{ color: c.primary, ...typography.labelSm, fontWeight: '700' }]}>
-              Live
-            </Text>
-          </View>
+      <View style={styles.stateBox}>
+        <View style={[styles.stateIconCircle, { backgroundColor: c.primary + '15' }]}>
+          <Ionicons name="telescope-outline" size={48} color={c.primary} />
         </View>
-        <View style={styles.grid}>
-          {trendingResults.map((item) => (
-            <DiscoverCard
-              key={`${item.tmdbId}-${item.mediaType}`}
-              item={item}
-              colors={c}
-              typography={typography}
-              radii={radii}
-              onPress={() => onSelectItem(item)}
-              onQuickSave={() => onToggleWatchlist?.(item)}
-              isSaved={watchlistIds.includes(item.tmdbId)}
-              watchers={item.watchers}
-              trendingRank={item.trendingRank}
-            />
-          ))}
-        </View>
+        <Text style={[{ color: c.onSurface, ...typography.titleLg, textAlign: 'center', marginBottom: 8 }]}>
+          Set your filters
+        </Text>
+        <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center' }]}>
+          Adjust the filters above and tap "Search" to explore.
+        </Text>
       </View>
     );
   }

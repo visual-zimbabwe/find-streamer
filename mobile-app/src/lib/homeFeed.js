@@ -15,13 +15,29 @@ const SPOTLIGHT_CATEGORY_ORDER = [
   'watched',
 ];
 
-/** Curated discover rows: TMDB vote_average.desc, top HOME_RAIL_LIMIT client-side. */
+/** Curated genre rails — one Movie + one TV rail per popular TMDb genre, English‑first. */
 export const HOME_TMDB_RAILS = [
-  { id: 'sci_fi_movies', title: 'Sci‑Fi standouts', mediaType: 'movie', genreIds: [878] },
-  { id: 'drama_movies', title: 'Drama picks', mediaType: 'movie', genreIds: [18] },
-  { id: 'thriller_movies', title: 'Thriller night', mediaType: 'movie', genreIds: [53] },
-  { id: 'comedy_movies', title: 'Comedy favorites', mediaType: 'movie', genreIds: [35] },
-  { id: 'tv_drama', title: 'TV drama', mediaType: 'tv', genreIds: [18] },
+  // ── Action ──────────────────────────────────────────────────────────────────
+  { id: 'action_movies',   title: 'Action movies',          mediaType: 'movie', genreIds: [28],    languageCodes: ['en'] },
+  { id: 'action_tv',       title: 'Action & adventure TV',  mediaType: 'tv',    genreIds: [10759], languageCodes: ['en'] },
+  // ── Drama ───────────────────────────────────────────────────────────────────
+  { id: 'drama_movies',    title: 'Drama movies',           mediaType: 'movie', genreIds: [18],    languageCodes: ['en'] },
+  { id: 'drama_tv',        title: 'Drama series',           mediaType: 'tv',    genreIds: [18],    languageCodes: ['en'] },
+  // ── Comedy ──────────────────────────────────────────────────────────────────
+  { id: 'comedy_movies',   title: 'Comedy movies',          mediaType: 'movie', genreIds: [35],    languageCodes: ['en'] },
+  { id: 'comedy_tv',       title: 'Comedy series',          mediaType: 'tv',    genreIds: [35],    languageCodes: ['en'] },
+  // ── Thriller / Crime ────────────────────────────────────────────────────────
+  { id: 'thriller_movies', title: 'Thriller movies',        mediaType: 'movie', genreIds: [53],    languageCodes: ['en'] },
+  { id: 'crime_tv',        title: 'Crime series',           mediaType: 'tv',    genreIds: [80],    languageCodes: ['en'] },
+  // ── Sci‑Fi ──────────────────────────────────────────────────────────────────
+  { id: 'scifi_movies',    title: 'Sci‑Fi movies',          mediaType: 'movie', genreIds: [878],   languageCodes: ['en'] },
+  { id: 'scifi_tv',        title: 'Sci‑Fi & fantasy TV',    mediaType: 'tv',    genreIds: [10765], languageCodes: ['en'] },
+  // ── Horror ──────────────────────────────────────────────────────────────────
+  { id: 'horror_movies',   title: 'Horror movies',          mediaType: 'movie', genreIds: [27],    languageCodes: ['en'] },
+  { id: 'horror_tv',       title: 'Horror & thriller TV',   mediaType: 'tv',    genreIds: [9648],  languageCodes: ['en'] },
+  // ── Crime / Mystery ─────────────────────────────────────────────────────────
+  { id: 'crime_movies',    title: 'Crime movies',           mediaType: 'movie', genreIds: [80],    languageCodes: ['en'] },
+  { id: 'mystery_tv',      title: 'Mystery & thriller TV',  mediaType: 'tv',    genreIds: [10765, 9648], languageCodes: ['en'] },
 ];
 
 function dedupeKey(item) {
@@ -127,6 +143,7 @@ export async function fetchHomeTmdbRail(def) {
   const { results } = await discoverTitles({
     mediaType: def.mediaType,
     genreIds: def.genreIds,
+    languageCodes: def.languageCodes || [],
     sortBy: 'vote_average.desc',
     page: 1,
   });
