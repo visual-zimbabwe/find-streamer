@@ -345,30 +345,32 @@ function MobileApp() {
 
   const syncWatchlistFromResolvedDetail = useCallback(async (fullResult) => {
     if (!fullResult?.tmdbId || !fullResult?.mediaType) return;
-    let toPersist = null;
     setWatchlist((prev) => {
       const idx = prev.findIndex(
         (w) => w.tmdbId === fullResult.tmdbId && w.mediaType === fullResult.mediaType
       );
       if (idx < 0) return prev;
+      
       const prevRow = prev[idx];
       const merged = mergeResolvedSynopsisIntoWatchlistRow(prevRow, fullResult);
+      
       const same =
         merged.synopsis === prevRow.synopsis &&
         (merged.omdbRatings?.plot || '') === (prevRow.omdbRatings?.plot || '') &&
         (merged.omdbRatings?.imdbRating || '') === (prevRow.omdbRatings?.imdbRating || '');
+        
       if (same) return prev;
-      toPersist = [...prev];
+      
+      const toPersist = [...prev];
       toPersist[idx] = merged;
+      
+      // Fire-and-forget save since we're inside the updater and can't await cleanly here
+      saveWatchlist(toPersist).catch(() => {
+        // In-memory list is updated; next explicit watchlist edit will retry storage.
+      });
+      
       return toPersist;
     });
-    if (toPersist) {
-      try {
-        await saveWatchlist(toPersist);
-      } catch {
-        // In-memory list is updated; next explicit watchlist edit will retry storage.
-      }
-    }
   }, []);
 
   // Selecting a live suggestion goes straight to the detail view
