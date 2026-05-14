@@ -287,7 +287,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
         >
           <MediaArtwork
             uri={backdrop}
-            style={StyleSheet.absoluteFill}
+            style={[StyleSheet.absoluteFill, { width: WINDOW_W, height: heroH }]}
             resizeMode="cover"
             accessibilityLabel={`Backdrop for ${item.title}`}
             title={item.title}
@@ -378,15 +378,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
       >
-      <View
-        style={[styles.heroShell, { height: heroH }]}
-        accessible
-        accessibilityLabel={
-          heroItem
-            ? `Spotlight: ${heroItem.title}. Swipe sideways for more, or tap to open details.`
-            : 'Spotlight loading'
-        }
-      >
+      <View style={[styles.heroShell, { height: heroH }]}>
         {heroLoading ? (
           <View style={[styles.heroLoading, { backgroundColor: colors.surfaceContainerHighest }]}>
             <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading spotlight" />
