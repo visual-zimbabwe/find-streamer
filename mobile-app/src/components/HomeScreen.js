@@ -287,7 +287,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
         >
           <MediaArtwork
             uri={backdrop}
-            style={[StyleSheet.absoluteFill, { width: WINDOW_W, height: heroH }]}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: WINDOW_W, height: heroH }}
             resizeMode="cover"
             accessibilityLabel={`Backdrop for ${item.title}`}
             title={item.title}
@@ -376,7 +376,6 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
         style={styles.scroll}
         contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + 112 }]}
         showsVerticalScrollIndicator={false}
-        nestedScrollEnabled
       >
       <View style={[styles.heroShell, { height: heroH }]}>
         {heroLoading ? (
@@ -391,8 +390,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
               data={filteredSpotlight}
               horizontal
               pagingEnabled
-              nestedScrollEnabled
-              showsHorizontalScrollIndicator
+              showsHorizontalScrollIndicator={false}
               keyExtractor={(it) => `${it.mediaType || 'movie'}-${it.tmdbId}`}
               renderItem={renderHeroPage}
               getItemLayout={(_, index) => ({
@@ -566,7 +564,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  heroList: { flexGrow: 0, flexShrink: 0, flex: 1 },
+  heroList: { width: WINDOW_W, flexGrow: 0, flexShrink: 0 },
   heroPage: { position: 'relative', overflow: 'hidden' },
   heroDotsOverlay: {
     position: 'absolute',
