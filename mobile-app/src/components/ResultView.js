@@ -484,8 +484,18 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           <Animated.View style={[styles.parallaxArtwork, heroTransform]}>
             <MediaArtwork
               uri={result.backdropUrl || result.posterUrl}
-              style={styles.backdrop}
+              style={[styles.backdrop, { position: 'absolute', opacity: 0.7 }]}
               resizeMode="cover"
+            />
+            {Platform.OS === 'ios' ? (
+              <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.65)' }]} />
+            )}
+            <MediaArtwork
+              uri={result.backdropUrl || result.posterUrl}
+              style={styles.backdrop}
+              resizeMode="contain"
               accessibilityLabel={`${result.title} artwork`}
               title={result.title}
             />
