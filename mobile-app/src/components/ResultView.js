@@ -603,13 +603,15 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   return (
     <>
       {/* Off-screen share card – captured by ViewShot, never visible to the user */}
-      <ViewShot
-        ref={shareCardRef}
-        options={{ format: 'png', quality: 1 }}
-        style={styles.offScreen}
-      >
-        <ShareCard result={result} selectedCountries={shareCountries} themeColors={colors} />
-      </ViewShot>
+      <View style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} pointerEvents="none">
+        <ViewShot
+          ref={shareCardRef}
+          options={{ format: 'png', quality: 1 }}
+          style={{ width: 420 }}
+        >
+          <ShareCard result={result} selectedCountries={shareCountries} themeColors={colors} />
+        </ViewShot>
+      </View>
 
 
       <TrailerModal
