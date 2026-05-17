@@ -23,21 +23,7 @@ const TABS = [
   { id: 'settings',  label: 'Settings',  icon: 'settings-outline', iconActive: 'settings'  },
 ];
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTAINER_HORIZONTAL_MARGIN = 20;
-const CONTAINER_WIDTH = SCREEN_WIDTH - CONTAINER_HORIZONTAL_MARGIN * 2;
-const TAB_COUNT = TABS.length;
-const TAB_WIDTH = CONTAINER_WIDTH / TAB_COUNT;
-
-// Pill spans each tab column with a small inset on each side
-const PILL_H_INSET = 6;
-const PILL_WIDTH = TAB_WIDTH - PILL_H_INSET * 2;
-const PILL_HEIGHT = 44;
-const PILL_TOP_OFFSET = 12; // Centered vertically in 68px container
-
-function getPillX(index) {
-  return index * TAB_WIDTH + PILL_H_INSET;
-}
 
 export function BottomNav({ activeTab, onTabPress }) {
   const { theme } = useTheme();
@@ -46,9 +32,6 @@ export function BottomNav({ activeTab, onTabPress }) {
   const { visible } = useBottomNavVisibility();
 
   const activeIndex = TABS.findIndex((t) => t.id === activeTab);
-
-  // Animated value for the pill's horizontal position
-  const pillX = useRef(new Animated.Value(getPillX(Math.max(activeIndex, 0)))).current;
 
   // Animated value for entire bottom nav translation (hide/show on scroll)
   const translateY = useRef(new Animated.Value(0)).current;
@@ -76,16 +59,7 @@ export function BottomNav({ activeTab, onTabPress }) {
   useEffect(() => {
     if (activeIndex === -1) return;
 
-    // 1. Slide pill to active tab
-    Animated.spring(pillX, {
-      toValue: getPillX(activeIndex),
-      useNativeDriver: true,
-      damping: 18,
-      stiffness: 220,
-      mass: 0.9,
-    }).start();
-
-    // 2. Animate each tab icon
+    // Animate each tab icon
     TABS.forEach((_, i) => {
       const isActive = i === activeIndex;
       Animated.parallel([
@@ -135,21 +109,7 @@ export function BottomNav({ activeTab, onTabPress }) {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* ── Sliding pill ─────────────────────────────────────── */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.pill,
-          {
-            backgroundColor: colors.primaryContainer,
-            borderRadius: radii.lg + 4,
-            top: PILL_TOP_OFFSET,
-            width: PILL_WIDTH,
-            height: PILL_HEIGHT,
-            transform: [{ translateX: pillX }],
-          },
-        ]}
-      />
+
 
       {/* ── Tab items ─────────────────────────────────────────── */}
       {TABS.map((tab, i) => {
@@ -217,10 +177,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     overflow: 'hidden',
   },
-  pill: {
-    position: 'absolute',
-    left: 0,
-  },
+
   navItem: {
     flex: 1,
     alignItems: 'center',
