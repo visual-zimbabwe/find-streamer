@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert, Platform } from 'react-native';
+import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -255,6 +256,15 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const { show: showSheet, dismiss: dismissSheet } = useBottomSheet();
   const shareCardRef = useRef(null);
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  const scrollHandler = useRef(
+    Animated.event(
+      [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+      { useNativeDriver: true }
+    )
+  ).current;
+
+  const bottomNavScroll = useBottomNavScroll(scrollHandler);
   // Sticky header appears after hero scrolls out of view
   const stickyOpacity = scrollY.interpolate({
     inputRange: [HERO_HEIGHT - 100, HERO_HEIGHT],
@@ -647,11 +657,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
       <Animated.ScrollView
         style={[styles.container, { opacity: paletteOpacity, backgroundColor: colors.background }]}
         contentInsetAdjustmentBehavior="never"
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
-        scrollEventThrottle={16}
+        {...bottomNavScroll}
       >
         <View style={styles.heroSection}>
           <Animated.View style={[styles.parallaxArtwork, heroTransform]}>

@@ -20,6 +20,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 import MorphingText from '../lib/expo-morphing-text/components/morphing-text';
 import { WATCHLIST_CATEGORIES, getWatchlistCategory } from '../lib/watchlistCategories';
+import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import {
   HOME_HERO_RESUME_DELAY_MS,
   HOME_HERO_ROTATION_MS,
@@ -103,6 +104,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
   const heroH = verticalScale(400);
+  const bottomNavScroll = useBottomNavScroll();
 
   const [spotlight, setSpotlight] = useState([]);
   const [heroLoading, setHeroLoading] = useState(true);
@@ -385,6 +387,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
         style={styles.scroll}
         contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + 112 }]}
         showsVerticalScrollIndicator={false}
+        {...bottomNavScroll}
       >
       <View style={[styles.heroShell, { height: heroH }]}>
         {heroLoading ? (

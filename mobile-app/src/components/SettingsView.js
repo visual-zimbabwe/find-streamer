@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -123,6 +124,7 @@ export function SettingsView({ watchlist = [], persistWatchlistChange }) {
   const { theme, preference, setPreference } = useTheme();
   const { colors, spacing, typography, radii } = theme;
   const [backupBusy, setBackupBusy] = useState(false);
+  const bottomNavScroll = useBottomNavScroll();
 
   const handleExportWatchlist = async () => {
     const baseDir = FileSystem.cacheDirectory;
@@ -252,7 +254,7 @@ export function SettingsView({ watchlist = [], persistWatchlistChange }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 120 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 120 }} {...bottomNavScroll}>
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Appearance</Text>
         <View style={[styles.card, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>

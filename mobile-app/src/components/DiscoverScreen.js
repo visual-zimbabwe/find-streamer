@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
+import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { EmptyState } from './EmptyState';
 import { ResultsSkeleton } from './SkeletonLoaders';
 import { REGION_PRESETS, SPECIAL_PRESETS, findPreset } from '../lib/languagePresets';
@@ -198,6 +199,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const c = colors;
   const insets = useSafeAreaInsets();
   const { show: showSheet, dismiss: dismissSheet } = useBottomSheet();
+  const bottomNavScroll = useBottomNavScroll();
   const moreFiltersSheetIdRef = useRef(null);
   const genreSheetIdRef = useRef(null);
 
@@ -335,6 +337,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
       style={[styles.root, { backgroundColor: c.background }]}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      {...bottomNavScroll}
     >
       {/* ── Page Header ── */}
       <View style={styles.pageHeader}>

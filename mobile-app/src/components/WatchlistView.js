@@ -10,6 +10,7 @@ import { classifyAppError } from '../lib/errors';
 import { scale, verticalScale } from '../utils/responsive';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 
 /** Match ResultView: TMDB overview, else OMDb plot (detail fetches this; watchlist rows may only store one). */
 function synopsisForCard(item) {
@@ -149,6 +150,15 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  const scrollHandler = useRef(
+    Animated.event(
+      [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+      { useNativeDriver: true }
+    )
+  ).current;
+
+  const bottomNavScroll = useBottomNavScroll(scrollHandler);
   const fabOpen = useRef(new Animated.Value(0)).current;
   const [fabExpanded, setFabExpanded] = useState(false);
   const [randomPick, setRandomPick] = useState(null);
@@ -281,11 +291,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
       <Animated.ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
-        scrollEventThrottle={16}
+        {...bottomNavScroll}
       >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.onSurface, ...typography.headlineLg }]}>My Watchlist</Text>

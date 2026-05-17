@@ -27,6 +27,7 @@ import { loadRecentSearches, saveRecentSearches, loadRecentViewed, saveRecentVie
 import { ToastivaProvider, toastiva } from 'toastiva';
 import { getWatchlistCategory, WATCHLIST_CATEGORIES } from './src/lib/watchlistCategories';
 import { classifyAppError } from './src/lib/errors';
+import { BottomNavVisibilityProvider, useBottomNavScroll } from './src/context/BottomNavVisibilityContext';
 
 export default function App() {
   return (
@@ -34,7 +35,9 @@ export default function App() {
       <SafeAreaProvider>
         <ToastivaProvider position="top-center">
           <BottomSheetProvider>
-            <MobileApp />
+            <BottomNavVisibilityProvider>
+              <MobileApp />
+            </BottomNavVisibilityProvider>
           </BottomSheetProvider>
         </ToastivaProvider>
       </SafeAreaProvider>
@@ -104,6 +107,7 @@ function MobileApp() {
   const [filmographyLoading, setFilmographyLoading] = useState(false);
   const discoverVm = useDiscoverViewModel();
   const insets = useSafeAreaInsets();
+  const bottomNavScrollProps = useBottomNavScroll();
 
   const showToast = useCallback((message, options = {}) => {
     const icon = options.icon || 'alert-circle-outline';
@@ -697,7 +701,7 @@ function MobileApp() {
 
             {activeView === 'search' && (
               <View style={{ flex: 1 }}>
-                <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
+                <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent} {...bottomNavScrollProps}>
                   <SearchPanel
                     value={query}
                     onChangeText={handleQueryChange}

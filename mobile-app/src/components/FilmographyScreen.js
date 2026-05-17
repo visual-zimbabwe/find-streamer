@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
+import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 
 function ratingForCard(rating) {
   if (rating == null || rating === '') return '';
@@ -21,6 +22,7 @@ function ratingForCard(rating) {
 export function FilmographyScreen({ personName, role, results = [], onSelectItem, loading, profileUrl }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
+  const bottomNavScroll = useBottomNavScroll();
 
   // role: 'movie' = director, 'tv' = creator, 'cast' = actor, 'writer' = writing credits, 'company' = production company
   const roleLabel = role === 'cast'
@@ -121,6 +123,7 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
           numColumns={2}
           contentContainerStyle={styles.grid}
           showsVerticalScrollIndicator={false}
+          {...bottomNavScroll}
         />
       )}
     </View>
