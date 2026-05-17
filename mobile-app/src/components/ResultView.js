@@ -652,7 +652,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           <Animated.View style={[styles.parallaxArtwork, heroTransform]}>
             <MediaArtwork
               uri={result.backdropUrl || result.posterUrl}
-              style={[styles.backdrop, { position: 'absolute', opacity: 0.7 }]}
+              style={[styles.backdrop, StyleSheet.absoluteFill, { opacity: 0.7 }]}
               resizeMode="cover"
             />
             {Platform.OS === 'ios' ? (
@@ -662,7 +662,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             )}
             <MediaArtwork
               uri={result.backdropUrl || result.posterUrl}
-              style={styles.backdrop}
+              style={[styles.backdrop, StyleSheet.absoluteFill]}
               resizeMode="cover"
               accessibilityLabel={`${result.title} artwork`}
               title={result.title}
@@ -1260,10 +1260,13 @@ const styles = StyleSheet.create({
     height: HERO_HEIGHT,
     width: '100%',
     position: 'relative',
-    overflow: 'hidden',
   },
   parallaxArtwork: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: -60,
+    bottom: -60,
+    left: 0,
+    right: 0,
   },
   backdrop: {
     width: '100%',
