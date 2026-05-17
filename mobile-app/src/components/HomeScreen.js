@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
+import MorphingText from '../lib/expo-morphing-text/components/morphing-text';
 import { WATCHLIST_CATEGORIES, getWatchlistCategory } from '../lib/watchlistCategories';
 import {
   HOME_HERO_RESUME_DELAY_MS,
@@ -302,9 +303,20 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
           />
           <LinearGradient colors={['rgba(0,0,0,0.55)', 'transparent']} style={styles.heroTopScrim} />
           <View style={[styles.heroContent, { paddingBottom: 52 + insets.bottom * 0.2 }]}>
-            <Text style={[styles.heroTitle, { color: '#fff', ...typography.headlineLg }]} numberOfLines={2}>
-              {item.title}
-            </Text>
+            <MorphingText
+              text={item.title}
+              fontSize={typography.headlineLg.fontSize || 32}
+              color="#fff"
+              fontStyle={{
+                fontWeight: '800',
+                textShadowColor: 'rgba(0,0,0,0.45)',
+                textShadowOffset: { width: 0, height: 1 },
+                textShadowRadius: 6,
+                letterSpacing: typography.headlineLg.letterSpacing,
+              }}
+              style={{ flexWrap: 'wrap' }}
+              animationDuration={300}
+            />
             <View style={styles.heroMetaRow}>
               <Text style={[styles.heroMeta, { ...typography.bodyMd }]}>{item.year}</Text>
               {item.ratingValue > 0 && (
@@ -345,32 +357,26 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
         pointerEvents="box-none"
       >
         <View style={styles.glassBar}>
-          {TYPE_PILLS.map(({ key, label }) => {
-            const active = mediaFilter === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[
-                  styles.typePill,
-                  active && styles.typePillActive,
-                ]}
-                onPress={() => setMediaFilter(key)}
-                activeOpacity={0.78}
-                accessibilityRole="button"
-                accessibilityLabel={`Show ${label}`}
-                accessibilityState={{ selected: active }}
-              >
-                <Text
-                  style={[
-                    styles.typePillText,
-                    active ? styles.typePillTextActive : { color: 'rgba(255,255,255,0.72)' },
-                  ]}
-                >
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          <TouchableOpacity
+            style={styles.typePillCycle}
+            onPress={() => {
+              const keys = TYPE_PILLS.map(p => p.key);
+              const nextIdx = (keys.indexOf(mediaFilter) + 1) % keys.length;
+              setMediaFilter(keys[nextIdx]);
+            }}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel={`Filter: ${TYPE_PILLS.find(p => p.key === mediaFilter)?.label}`}
+          >
+            <Ionicons name="filter" size={14} color="#0d0d14" style={{ marginRight: 6 }} />
+            <MorphingText
+              text={TYPE_PILLS.find(p => p.key === mediaFilter)?.label || 'All'}
+              fontSize={13}
+              color="#0d0d14"
+              fontStyle={{ fontWeight: '700', letterSpacing: 0.3 }}
+              animationDuration={300}
+            />
+          </TouchableOpacity>
         </View>
 
       </View>
@@ -545,21 +551,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.32,
     shadowRadius: 18,
   },
-  typePill: {
+  typePillCycle: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 26,
-  },
-  typePillActive: {
     backgroundColor: 'rgba(255,255,255,0.96)',
-  },
-  typePillText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  typePillTextActive: {
-    color: '#0d0d14',
   },
 
   heroShell: {
