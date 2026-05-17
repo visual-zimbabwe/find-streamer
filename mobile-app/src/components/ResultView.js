@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react'
 import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { ProgressiveBlur } from './ProgressiveBlur';
 import * as Haptics from 'expo-haptics';
 import ViewShot from 'react-native-view-shot';
@@ -128,6 +129,17 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const { typography, radii } = theme;
   const shareCardRef = useRef(null);
   const scrollY = useRef(new Animated.Value(0)).current;
+  // Sticky header appears after hero scrolls out of view
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [HERO_HEIGHT - 100, HERO_HEIGHT],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const stickyTranslateY = scrollY.interpolate({
+    inputRange: [HERO_HEIGHT - 100, HERO_HEIGHT],
+    outputRange: [-16, 0],
+    extrapolate: 'clamp',
+  });
   const meshShift = useRef(new Animated.Value(0)).current;
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const [shareCountries, setShareCountries] = useState(null);
@@ -427,6 +439,39 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
         onClose={() => setTrailerVisible(false)}
       />
 
+      {/* ── Collapsing sticky title bar ─────────────────────── */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.stickyTitleBar,
+          {
+            opacity: stickyOpacity,
+            transform: [{ translateY: stickyTranslateY }],
+            backgroundColor: colors.background + 'F0',
+            borderBottomColor: colors.outlineVariant + '33',
+          },
+        ]}
+      >
+        {Platform.OS === 'android' ? (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background + 'D9' }]} />
+        ) : (
+          <BlurView intensity={48} tint="dark" style={StyleSheet.absoluteFill} />
+        )}
+        <View style={styles.stickyTitleContent}>
+          <Text
+            style={[styles.stickyTitle, { color: colors.onSurface, ...typography.titleMd }]}
+            numberOfLines={1}
+          >
+            {result?.title}
+          </Text>
+          {result?.year ? (
+            <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+              {result.year}
+            </Text>
+          ) : null}
+        </View>
+      </Animated.View>
+
       <Animated.ScrollView
         style={[styles.container, { opacity: paletteOpacity, backgroundColor: colors.background }]}
         onScroll={Animated.event(
@@ -607,6 +652,11 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 style={styles.infoPill}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  if (isInWatchlist) {
+                    toastiva.info('Already saved — tap to manage');
+                  } else {
+                    toastiva.success('Adding to Watchlist…');
+                  }
                   onToggleWatchlist(result);
                 }}
                 accessibilityRole="button"
@@ -1004,6 +1054,28 @@ const styles = StyleSheet.create({
     opacity: 0,
     pointerEvents: 'none',
   },
+  stickyTitleBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 56,
+    zIndex: 20,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  stickyTitleContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 10,
+    height: '100%',
+  },
+  stickyTitle: {
+    fontWeight: '800',
+    flex: 1,
+  },
   heroSection: {
     height: HERO_HEIGHT,
     width: '100%',
@@ -1011,7 +1083,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   parallaxArtwork: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: -40,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   backdrop: {
     width: '100%',

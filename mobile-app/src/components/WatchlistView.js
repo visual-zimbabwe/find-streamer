@@ -9,6 +9,7 @@ import { fetchNowPlayingMovies } from '../lib/tmdb';
 import { classifyAppError } from '../lib/errors';
 import { scale, verticalScale } from '../utils/responsive';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 
 /** Match ResultView: TMDB overview, else OMDb plot (detail fetches this; watchlist rows may only store one). */
 function synopsisForCard(item) {
@@ -144,10 +145,12 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
   );
 }
 
-export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
+export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrowseMovies, onBrowseTV }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const scrollY = useRef(new Animated.Value(0)).current;
+  const fabOpen = useRef(new Animated.Value(0)).current;
+  const [fabExpanded, setFabExpanded] = useState(false);
   const [randomPick, setRandomPick] = useState(null);
   const pickScale = useRef(new Animated.Value(0.96)).current;
   const pickOpacity = useRef(new Animated.Value(0)).current;
@@ -159,6 +162,18 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
   const [nowPlaying, setNowPlaying] = useState([]);
   const [nowPlayingLoading, setNowPlayingLoading] = useState(true);
   const [nowPlayingError, setNowPlayingError] = useState(null);
+
+  const toggleFab = () => {
+    const toValue = fabExpanded ? 0 : 1;
+    Animated.spring(fabOpen, {
+      toValue,
+      damping: 15,
+      stiffness: 200,
+      useNativeDriver: true,
+    }).start();
+    setFabExpanded(!fabExpanded);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
   const pickableItems = useMemo(
     () => (items || []).filter((item) => getWatchlistCategory(item.watchlistCategoryId).id !== 'watched'),
@@ -511,6 +526,47 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
         })}
       </View>
       </Animated.ScrollView>
+
+      {/* ── FAB ───────────────────────── */}
+      <View style={styles.fabShell} pointerEvents="box-none">
+        {/* Action 1 – Browse Movies */}
+        <Animated.View style={{
+          position: 'absolute',
+          opacity: fabOpen,
+          transform: [{ translateY: fabOpen.interpolate({ inputRange: [0,1], outputRange: [0, -64] }) }],
+        }}>
+          <TouchableOpacity style={[styles.fabMini, { backgroundColor: colors.surfaceContainer }]}
+            onPress={() => { toggleFab(); onBrowseMovies?.(); }}
+            accessibilityLabel="Browse movies">
+            <Ionicons name="film-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Action 2 – Browse TV */}
+        <Animated.View style={{
+          position: 'absolute',
+          opacity: fabOpen,
+          transform: [{ translateY: fabOpen.interpolate({ inputRange: [0,1], outputRange: [0, -120] }) }],
+        }}>
+          <TouchableOpacity style={[styles.fabMini, { backgroundColor: colors.surfaceContainer }]}
+            onPress={() => { toggleFab(); onBrowseTV?.(); }}
+            accessibilityLabel="Browse TV shows">
+            <Ionicons name="tv-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Main FAB button */}
+        <TouchableOpacity
+          style={[styles.fabMain, { backgroundColor: colors.primary }]}
+          onPress={toggleFab}
+          accessibilityRole="button"
+          accessibilityLabel="Quick actions"
+        >
+          <Animated.View style={{ transform: [{ rotate: fabOpen.interpolate({ inputRange: [0,1], outputRange: ['0deg', '45deg'] }) }] }}>
+            <Ionicons name="add" size={28} color={colors.onPrimary} />
+          </Animated.View>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -775,5 +831,36 @@ const styles = StyleSheet.create({
   inlineRetryText: {
     flex: 1,
     fontWeight: '700',
+  },
+  fabShell: {
+    position: 'absolute',
+    bottom: 100,       // above BottomNav
+    right: 24,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  fabMain: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  fabMini: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
 });

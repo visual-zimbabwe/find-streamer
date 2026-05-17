@@ -791,6 +791,8 @@ function MobileApp() {
                 onRemove={handleRemoveWatchlistItem}
                 onMarkWatched={handleMarkWatched}
                 onSelect={handleSelectMatch}
+                onBrowseMovies={() => handleTabPress('discover')}
+                onBrowseTV={() => handleTabPress('discover')}
               />
             )}
 
