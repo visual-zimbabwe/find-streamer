@@ -266,21 +266,38 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
       {
         useNativeDriver: true,
         listener: (event) => {
+          if (!event || !event.nativeEvent || !event.nativeEvent.contentOffset) return;
           const currentOffset = event.nativeEvent.contentOffset.y;
           const diff = currentOffset - lastOffset.current;
-          const contentHeight = event.nativeEvent.contentSize.height;
-          const layoutHeight = event.nativeEvent.layoutMeasurement.height;
-          const maxOffset = contentHeight - layoutHeight;
+          
+          const contentSize = event.nativeEvent.contentSize;
+          const layoutMeasurement = event.nativeEvent.layoutMeasurement;
 
-          if (currentOffset <= 50) {
-            setBottomNavVisible(true);
-          } else if (currentOffset >= maxOffset - 50) {
-            setBottomNavVisible(true);
-          } else if (Math.abs(diff) > 12) {
-            if (diff > 0) {
-              setBottomNavVisible(false);
-            } else {
+          if (contentSize && layoutMeasurement) {
+            const contentHeight = contentSize.height;
+            const layoutHeight = layoutMeasurement.height;
+            const maxOffset = contentHeight - layoutHeight;
+
+            if (currentOffset <= 50) {
               setBottomNavVisible(true);
+            } else if (!isNaN(maxOffset) && currentOffset >= maxOffset - 50) {
+              setBottomNavVisible(true);
+            } else if (Math.abs(diff) > 12) {
+              if (diff > 0) {
+                setBottomNavVisible(false);
+              } else {
+                setBottomNavVisible(true);
+              }
+            }
+          } else {
+            if (currentOffset <= 50) {
+              setBottomNavVisible(true);
+            } else if (Math.abs(diff) > 12) {
+              if (diff > 0) {
+                setBottomNavVisible(false);
+              } else {
+                setBottomNavVisible(true);
+              }
             }
           }
           lastOffset.current = currentOffset;

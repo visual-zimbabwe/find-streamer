@@ -10,7 +10,7 @@ import { classifyAppError } from '../lib/errors';
 import { scale, verticalScale } from '../utils/responsive';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
+import { useBottomNavScroll, useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
@@ -154,14 +154,54 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
 
+  const { setVisible: setBottomNavVisible } = useBottomNavVisibility();
+  const lastOffset = useRef(0);
+
   const scrollHandler = useRef(
     Animated.event(
       [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-      { useNativeDriver: true }
+      {
+        useNativeDriver: true,
+        listener: (event) => {
+          if (!event || !event.nativeEvent || !event.nativeEvent.contentOffset) return;
+          const currentOffset = event.nativeEvent.contentOffset.y;
+          const diff = currentOffset - lastOffset.current;
+          
+          const contentSize = event.nativeEvent.contentSize;
+          const layoutMeasurement = event.nativeEvent.layoutMeasurement;
+
+          if (contentSize && layoutMeasurement) {
+            const contentHeight = contentSize.height;
+            const layoutHeight = layoutMeasurement.height;
+            const maxOffset = contentHeight - layoutHeight;
+
+            if (currentOffset <= 50) {
+              setBottomNavVisible(true);
+            } else if (!isNaN(maxOffset) && currentOffset >= maxOffset - 50) {
+              setBottomNavVisible(true);
+            } else if (Math.abs(diff) > 12) {
+              if (diff > 0) {
+                setBottomNavVisible(false);
+              } else {
+                setBottomNavVisible(true);
+              }
+            }
+          } else {
+            if (currentOffset <= 50) {
+              setBottomNavVisible(true);
+            } else if (Math.abs(diff) > 12) {
+              if (diff > 0) {
+                setBottomNavVisible(false);
+              } else {
+                setBottomNavVisible(true);
+              }
+            }
+          }
+          lastOffset.current = currentOffset;
+        }
+      }
     )
   ).current;
-
-  const bottomNavScroll = useBottomNavScroll(scrollHandler);
   const fabOpen = useRef(new Animated.Value(0)).current;
   const [fabExpanded, setFabExpanded] = useState(false);
   const [randomPick, setRandomPick] = useState(null);
@@ -297,7 +337,8 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
           styles.content,
           { paddingBottom: insets.bottom > 0 ? insets.bottom + 160 : 160 }
         ]}
-        {...bottomNavScroll}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
       >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.onSurface, ...typography.headlineLg }]}>My Watchlist</Text>

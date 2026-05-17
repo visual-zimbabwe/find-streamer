@@ -29,35 +29,77 @@ export function useBottomNavScroll(customOnScroll) {
   const isScrollingRef = useRef(false);
 
   const onScroll = (event) => {
-    const currentOffset = event.nativeEvent.contentOffset.y;
+    if (!event || !event.nativeEvent) {
+      if (customOnScroll) {
+        try {
+          customOnScroll(event);
+        } catch (e) {
+          // Ignore custom scroll handler errors
+        }
+      }
+      return;
+    }
+
+    const contentOffset = event.nativeEvent.contentOffset;
+    if (!contentOffset) {
+      if (customOnScroll) {
+        try {
+          customOnScroll(event);
+        } catch (e) {
+          // Ignore
+        }
+      }
+      return;
+    }
+
+    const currentOffset = contentOffset.y;
     const diff = currentOffset - lastOffset.current;
 
-    // Avoid updates on bounce/rubber-banding at top or bottom boundaries
-    const contentHeight = event.nativeEvent.contentSize.height;
-    const layoutHeight = event.nativeEvent.layoutMeasurement.height;
-    const maxOffset = contentHeight - layoutHeight;
+    const contentSize = event.nativeEvent.contentSize;
+    const layoutMeasurement = event.nativeEvent.layoutMeasurement;
 
-    if (currentOffset <= 50) {
-      // Near top of screen, always show
-      setVisible(true);
-    } else if (currentOffset >= maxOffset - 50) {
-      // Near bottom of screen, always show so they can navigate
-      setVisible(true);
-    } else if (Math.abs(diff) > 12) {
-      // Significant scroll event
-      if (diff > 0) {
-        // Scrolling down -> Hide
-        setVisible(false);
-      } else {
-        // Scrolling up -> Show
+    if (contentSize && layoutMeasurement) {
+      const contentHeight = contentSize.height;
+      const layoutHeight = layoutMeasurement.height;
+      const maxOffset = contentHeight - layoutHeight;
+
+      if (currentOffset <= 50) {
+        // Near top of screen, always show
         setVisible(true);
+      } else if (!isNaN(maxOffset) && currentOffset >= maxOffset - 50) {
+        // Near bottom of screen, always show so they can navigate
+        setVisible(true);
+      } else if (Math.abs(diff) > 12) {
+        // Significant scroll event
+        if (diff > 0) {
+          // Scrolling down -> Hide
+          setVisible(false);
+        } else {
+          // Scrolling up -> Show
+          setVisible(true);
+        }
+      }
+    } else {
+      // Fallback if layout measurements are not available yet
+      if (currentOffset <= 50) {
+        setVisible(true);
+      } else if (Math.abs(diff) > 12) {
+        if (diff > 0) {
+          setVisible(false);
+        } else {
+          setVisible(true);
+        }
       }
     }
 
     lastOffset.current = currentOffset;
 
     if (customOnScroll) {
-      customOnScroll(event);
+      try {
+        customOnScroll(event);
+      } catch (e) {
+        // Ignore
+      }
     }
   };
 
