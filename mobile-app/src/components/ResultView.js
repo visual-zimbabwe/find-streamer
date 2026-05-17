@@ -1253,7 +1253,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 84,
+    paddingLeft: 24,
     paddingRight: 80,
     gap: 10,
     height: '100%',

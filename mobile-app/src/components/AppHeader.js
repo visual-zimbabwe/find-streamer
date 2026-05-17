@@ -26,17 +26,6 @@ export function AppHeader({ onBack, showBack, onSettingsPress, transparent }) {
   return (
     <View style={[styles.header, { backgroundColor: transparent ? 'transparent' : colors.background }]}>
       <View style={styles.brand}>
-        {showBack && (
-          <TouchableOpacity
-            onPress={onBack}
-            style={[styles.backButton, { backgroundColor: colors.surfaceContainer, borderRadius: radii.full }]}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.onSurface} />
-          </TouchableOpacity>
-        )}
-
         {!showBack && (
           <View style={styles.titleContainer}>
             <Text style={[styles.logo, { color: colors.primary, ...typography.headlineMd }]}>Trova</Text>
