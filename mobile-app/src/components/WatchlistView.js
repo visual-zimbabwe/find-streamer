@@ -11,6 +11,8 @@ import { scale, verticalScale } from '../utils/responsive';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 /** Match ResultView: TMDB overview, else OMDb plot (detail fetches this; watchlist rows may only store one). */
 function synopsisForCard(item) {
@@ -149,6 +151,7 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
 export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrowseMovies, onBrowseTV }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
+  const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const scrollHandler = useRef(
@@ -290,7 +293,10 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
 
       <Animated.ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom > 0 ? insets.bottom + 160 : 160 }
+        ]}
         {...bottomNavScroll}
       >
       <View style={styles.header}>
@@ -534,17 +540,17 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
       </Animated.ScrollView>
 
       {/* ── FAB ───────────────────────── */}
-      <View style={styles.fabShell} pointerEvents="box-none">
+      <View style={[styles.fabShell, { bottom: insets.bottom > 0 ? insets.bottom + 92 : 96 }]} pointerEvents="box-none">
         {/* Action 1 – Browse Movies */}
         <Animated.View style={{
           position: 'absolute',
           opacity: fabOpen,
-          transform: [{ translateY: fabOpen.interpolate({ inputRange: [0,1], outputRange: [0, -64] }) }],
+          transform: [{ translateY: fabOpen.interpolate({ inputRange: [0,1], outputRange: [0, -56] }) }],
         }}>
           <TouchableOpacity style={[styles.fabMini, { backgroundColor: colors.surfaceContainer }]}
             onPress={() => { toggleFab(); onBrowseMovies?.(); }}
             accessibilityLabel="Browse movies">
-            <Ionicons name="film-outline" size={20} color={colors.primary} />
+            <Ionicons name="film-outline" size={18} color={colors.primary} />
           </TouchableOpacity>
         </Animated.View>
 
@@ -552,12 +558,12 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
         <Animated.View style={{
           position: 'absolute',
           opacity: fabOpen,
-          transform: [{ translateY: fabOpen.interpolate({ inputRange: [0,1], outputRange: [0, -120] }) }],
+          transform: [{ translateY: fabOpen.interpolate({ inputRange: [0,1], outputRange: [0, -106] }) }],
         }}>
           <TouchableOpacity style={[styles.fabMini, { backgroundColor: colors.surfaceContainer }]}
             onPress={() => { toggleFab(); onBrowseTV?.(); }}
             accessibilityLabel="Browse TV shows">
-            <Ionicons name="tv-outline" size={20} color={colors.primary} />
+            <Ionicons name="tv-outline" size={18} color={colors.primary} />
           </TouchableOpacity>
         </Animated.View>
 
@@ -569,7 +575,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
           accessibilityLabel="Quick actions"
         >
           <Animated.View style={{ transform: [{ rotate: fabOpen.interpolate({ inputRange: [0,1], outputRange: ['0deg', '45deg'] }) }] }}>
-            <Ionicons name="add" size={28} color={colors.onPrimary} />
+            <Ionicons name="add" size={24} color={colors.onPrimary} />
           </Animated.View>
         </TouchableOpacity>
       </View>
@@ -840,15 +846,14 @@ const styles = StyleSheet.create({
   },
   fabShell: {
     position: 'absolute',
-    bottom: 100,       // above BottomNav
     right: 24,
     alignItems: 'center',
-    zIndex: 20,
+    zIndex: 99,
   },
   fabMain: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 8,
@@ -858,9 +863,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   fabMini: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 6,
