@@ -508,15 +508,15 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
     transform: [
       {
         translateY: scrollY.interpolate({
-          inputRange: [-120, 0, HERO_HEIGHT],
-          outputRange: [-30, 0, HERO_HEIGHT * 0.22],
+          inputRange: [-HERO_HEIGHT, 0, HERO_HEIGHT],
+          outputRange: [HERO_HEIGHT, 0, HERO_HEIGHT * 0.22],
           extrapolate: 'clamp',
         }),
       },
       {
         scale: scrollY.interpolate({
-          inputRange: [-120, 0, HERO_HEIGHT],
-          outputRange: [1.2, 1, 1.12],
+          inputRange: [-HERO_HEIGHT, 0, HERO_HEIGHT],
+          outputRange: [2.0, 1, 1.05],
           extrapolate: 'clamp',
         }),
       },
@@ -646,6 +646,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
 
       <Animated.ScrollView
         style={[styles.container, { opacity: paletteOpacity, backgroundColor: colors.background }]}
+        contentInsetAdjustmentBehavior="never"
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: true }
@@ -1269,9 +1270,9 @@ const styles = StyleSheet.create({
   parallaxArtwork: {
     position: 'absolute',
     top: -60,
-    bottom: -60,
     left: 0,
     right: 0,
+    height: HERO_HEIGHT + 120,
   },
   backdrop: {
     width: '100%',
