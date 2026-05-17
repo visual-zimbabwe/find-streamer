@@ -617,17 +617,17 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           {
             opacity: stickyOpacity,
             transform: [{ translateY: stickyTranslateY }],
-            backgroundColor: colors.background + 'F0',
+            backgroundColor: colors.background,
             borderBottomColor: colors.outlineVariant + '33',
-            height: 56 + (insets.top || 0),
+            height: 64 + (insets.top || 0),
             paddingTop: insets.top || 0,
           },
         ]}
       >
         {Platform.OS === 'android' ? (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background + 'D9' }]} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
         ) : (
-          <BlurView intensity={48} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
         )}
         <View style={styles.stickyTitleContent}>
           <Text
@@ -1244,7 +1244,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 56,
+    height: 64,
     zIndex: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
@@ -1253,8 +1253,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 72,
-    paddingRight: 64,
+    paddingLeft: 84,
+    paddingRight: 80,
     gap: 10,
     height: '100%',
   },
