@@ -65,6 +65,7 @@ Responsive Design & Fluid Sizing — Adapting UI elements to scale consistently 
 - **Language Presets:** Uses a dedicated `languagePresets.js` mapping layer instead of raw ISO codes. "Exclude English" is simulated by including all non-English languages in `with_original_language` since TMDB lacks a `without_original_language` parameter.
 - **Smart Filters:** Labeled with ✨ icons and explanatory text when TMDB's language/genre data is imprecise (e.g., Arabic, Sub-Saharan Africa, Latin America).
 - **Person Search Fallback:** Uses `/3/search/person` with a single result limit to resolve IDs for name-only actor/crew strings, bridging the gap between OMDb-sourced cast lists and TMDB filmography data.
+- **Worklet Dependency:** Re-added `react-native-worklets` as a required peer dependency since the application uses `react-native-reanimated` v4.2.1, which delegates worklet multithreading to the standalone `react-native-worklets` library.
 
 - **Session History:**
 - **2026-03-24:** Resolved EAS permission error by removing the old `projectId` from `app.json` and re-initializing the project. Successfully started the Android build.
@@ -74,3 +75,4 @@ Responsive Design & Fluid Sizing — Adapting UI elements to scale consistently 
 - **2026-05-02 (session 2):** Extended to starring actors — all 5 top-billed cast members are tappable; clicking one shows their full filmography (movies + TV shows combined) via TMDB combined_credits API.
 - **2026-05-06:** Implemented Watchlist sub-grouping (Movies vs TV) and rating-based sorting. Added visual dividers and group headers to the Watchlist view.
 - **2026-05-12:** Implemented person-search fallback for cast members without a TMDB ID. Users can now open filmographies for name-only actor strings by performing an automatic background search.
+- **2026-05-17:** Resolved Android EAS bundling failure (`Cannot find module 'react-native-worklets/plugin'`) by installing `react-native-worklets` via `npx expo install`, aligning it with Reanimated v4.2.1's peer dependency requirements, and verified successful bundling.
