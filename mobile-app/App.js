@@ -18,6 +18,7 @@ import { HomeScreen } from './src/components/HomeScreen';
 import { FilmographyScreen } from './src/components/FilmographyScreen';
 import { StatePanel } from './src/components/StatePanel';
 import { EmptyState } from './src/components/EmptyState';
+import { BottomSheetProvider, BottomSheetPortal } from './src/components/StackBottomSheet';
 import { ErrorBanner } from './src/components/ErrorBanner';
 import { searchTitleCandidates, searchLiveCandidates, resolveMatch, fetchPersonFilmography, fetchProductionCompanyCatalog, fetchSurpriseRecommendation, fetchSurpriseByGenre } from './src/lib/tmdb';
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
@@ -32,7 +33,9 @@ export default function App() {
     <ThemeProvider>
       <SafeAreaProvider>
         <ToastivaProvider position="top-center">
-          <MobileApp />
+          <BottomSheetProvider>
+            <MobileApp />
+          </BottomSheetProvider>
         </ToastivaProvider>
       </SafeAreaProvider>
     </ThemeProvider>
@@ -1008,6 +1011,9 @@ function MobileApp() {
       />
 
       <BottomNav activeTab={activeTab} onTabPress={handleTabPress} />
+
+      {/* BottomSheetPortal — renders stacked sheets above everything */}
+      <BottomSheetPortal />
     </View>
   );
 }

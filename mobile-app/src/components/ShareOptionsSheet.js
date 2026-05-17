@@ -22,18 +22,27 @@ import {
  *   onClose()        – dismiss without sharing
  *   onShare(selected) – called with { serviceKey: [code, ...] }
  */
-export function ShareOptionsSheet({ visible, result, onClose, onShare }) {
+/**
+ * ShareOptionsSheetContent — inner content for the share-options bottom sheet.
+ * Designed to be pushed via useBottomSheet().show() rather than a Modal.
+ *
+ * Props:
+ *   result           – full resolved result from resolveMatch()
+ *   onClose()        – dismiss the sheet
+ *   onShare(selected) – called with { serviceKey: [code, ...] }
+ */
+export function ShareOptionsSheetContent({ result, onClose, onShare }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
 
   const [selected, setSelected] = useState({});
 
-  // Reset selections whenever the sheet opens for a new title.
+  // Reset selections whenever the result changes.
   useEffect(() => {
-    if (visible && result) {
+    if (result) {
       setSelected(buildDefaultSelectedCountries(result.providerSummary, result.rows));
     }
-  }, [visible, result?.tmdbId]);
+  }, [result?.tmdbId]);
 
   const toggleCountry = useCallback((serviceKey, code) => {
     setSelected(prev => {
@@ -52,6 +61,129 @@ export function ShareOptionsSheet({ visible, result, onClose, onShare }) {
   const availableProviders = (result?.providerSummary || []).filter(p => p.count > 0);
 
   return (
+    <View style={{ flex: 1 }}>
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.eyebrow, { color: colors.primary, ...typography.labelSm }]}>
+            SHARE CARD
+          </Text>
+          <Text style={[styles.title, { color: colors.onSurface, ...typography.titleLg }]}>
+            Choose Countries
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+            Up to 2 per service
+          </Text>
+        </View>
+      </View>
+
+      {/* ── Service sections ────────────────────────────────────── */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={styles.body}
+        contentContainerStyle={styles.bodyContent}
+      >
+        {availableProviders.map((provider, idx) => {
+          const countries = getAvailableCountriesForService(result.rows, provider.key);
+          const sel = selected[provider.key] || [];
+          const color = SERVICE_COLORS[provider.key];
+          const isLast = idx === availableProviders.length - 1;
+
+          return (
+            <View
+              key={provider.key}
+              style={[
+                styles.serviceSection,
+                !isLast && { borderBottomWidth: 1, borderBottomColor: colors.outlineVariant + '26' },
+              ]}
+            >
+              {/* Service row */}
+              <View style={styles.serviceHeader}>
+                <View style={[styles.serviceIconWrap, { backgroundColor: color + '22', borderRadius: radii.md }]}>
+                  {provider.logoUrl ? (
+                    <Image
+                      source={{ uri: provider.logoUrl }}
+                      style={styles.serviceLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Ionicons
+                      name={SERVICE_ICONS[provider.key] || 'play-circle'}
+                      size={16}
+                      color={color}
+                    />
+                  )}
+                </View>
+                <Text style={[styles.serviceName, { color: colors.onSurface, ...typography.bodyLg }]}>
+                  {provider.label}
+                </Text>
+                <Text style={[
+                  styles.selCount,
+                  { color: sel.length === 2 ? color : colors.onSurfaceVariant, ...typography.labelSm },
+                ]}>
+                  {sel.length}/2
+                </Text>
+              </View>
+
+              {/* Country chips */}
+              <View style={styles.chipsWrap}>
+                {countries.map(code => {
+                  const isSel = sel.includes(code);
+                  return (
+                    <TouchableOpacity
+                      key={code}
+                      onPress={() => toggleCountry(provider.key, code)}
+                      activeOpacity={0.75}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: isSel ? color + '22' : colors.surfaceContainerHigh,
+                          borderColor: isSel ? color : colors.outlineVariant + '44',
+                          borderRadius: radii.md,
+                        },
+                      ]}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: isSel }}
+                      accessibilityLabel={`${shortName(code)} on ${provider.label}`}
+                    >
+                      {isSel && <Ionicons name="checkmark" size={11} color={color} />}
+                      <Text style={[styles.chipText, { color: isSel ? color : colors.onSurfaceVariant }]}>
+                        {shortName(code)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          );
+        })}
+      </ScrollView>
+
+      {/* ── CTA ────────────────────────────────────────────────── */}
+      <TouchableOpacity
+        style={[styles.shareBtn, { backgroundColor: colors.primary, borderRadius: radii.lg }]}
+        onPress={() => onShare(selected)}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Generate and share card"
+      >
+        <Ionicons name="share-social-outline" size={18} color={colors.onPrimary} />
+        <Text style={[styles.shareBtnText, { color: colors.onPrimary, ...typography.labelSm }]}>
+          GENERATE & SHARE
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+/**
+ * Legacy wrapper kept for compatibility — wraps ShareOptionsSheetContent in a Modal.
+ * New code should push ShareOptionsSheetContent via useBottomSheet().show() instead.
+ */
+export function ShareOptionsSheet({ visible, result, onClose, onShare }) {
+  const { theme } = useTheme();
+  const { colors, radii } = theme;
+  return (
     <Modal
       transparent
       animationType="slide"
@@ -64,130 +196,14 @@ export function ShareOptionsSheet({ visible, result, onClose, onShare }) {
           borderColor: colors.outlineVariant + '4D',
           borderRadius: radii.xl,
         }]}>
-
-          {/* ── Header ─────────────────────────────────────────────── */}
-          <View style={styles.header}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.eyebrow, { color: colors.primary, ...typography.labelSm }]}>
-                SHARE CARD
-              </Text>
-              <Text style={[styles.title, { color: colors.onSurface, ...typography.titleLg }]}>
-                Choose Countries
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                Up to 2 per service
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.closeBtn, { backgroundColor: colors.surfaceContainerHighest }]}
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-
-          {/* ── Service sections ────────────────────────────────────── */}
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            style={styles.body}
-            contentContainerStyle={styles.bodyContent}
-          >
-            {availableProviders.map((provider, idx) => {
-              const countries = getAvailableCountriesForService(result.rows, provider.key);
-              const sel = selected[provider.key] || [];
-              const color = SERVICE_COLORS[provider.key];
-              const isLast = idx === availableProviders.length - 1;
-
-              return (
-                <View
-                  key={provider.key}
-                  style={[
-                    styles.serviceSection,
-                    !isLast && { borderBottomWidth: 1, borderBottomColor: colors.outlineVariant + '26' },
-                  ]}
-                >
-                  {/* Service row */}
-                  <View style={styles.serviceHeader}>
-                    <View style={[styles.serviceIconWrap, { backgroundColor: color + '22', borderRadius: radii.md }]}>
-                      {provider.logoUrl ? (
-                        <Image
-                          source={{ uri: provider.logoUrl }}
-                          style={styles.serviceLogo}
-                          resizeMode="contain"
-                        />
-                      ) : (
-                        <Ionicons
-                          name={SERVICE_ICONS[provider.key] || 'play-circle'}
-                          size={16}
-                          color={color}
-                        />
-                      )}
-                    </View>
-                    <Text style={[styles.serviceName, { color: colors.onSurface, ...typography.bodyLg }]}>
-                      {provider.label}
-                    </Text>
-                    <Text style={[
-                      styles.selCount,
-                      { color: sel.length === 2 ? color : colors.onSurfaceVariant, ...typography.labelSm },
-                    ]}>
-                      {sel.length}/2
-                    </Text>
-                  </View>
-
-                  {/* Country chips */}
-                  <View style={styles.chipsWrap}>
-                    {countries.map(code => {
-                      const isSel = sel.includes(code);
-                      return (
-                        <TouchableOpacity
-                          key={code}
-                          onPress={() => toggleCountry(provider.key, code)}
-                          activeOpacity={0.75}
-                          style={[
-                            styles.chip,
-                            {
-                              backgroundColor: isSel ? color + '22' : colors.surfaceContainerHigh,
-                              borderColor: isSel ? color : colors.outlineVariant + '44',
-                              borderRadius: radii.md,
-                            },
-                          ]}
-                          accessibilityRole="checkbox"
-                          accessibilityState={{ checked: isSel }}
-                          accessibilityLabel={`${shortName(code)} on ${provider.label}`}
-                        >
-                          {isSel && <Ionicons name="checkmark" size={11} color={color} />}
-                          <Text style={[styles.chipText, { color: isSel ? color : colors.onSurfaceVariant }]}>
-                            {shortName(code)}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              );
-            })}
-          </ScrollView>
-
-          {/* ── CTA ────────────────────────────────────────────────── */}
-          <TouchableOpacity
-            style={[styles.shareBtn, { backgroundColor: colors.primary, borderRadius: radii.lg }]}
-            onPress={() => onShare(selected)}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Generate and share card"
-          >
-            <Ionicons name="share-social-outline" size={18} color={colors.onPrimary} />
-            <Text style={[styles.shareBtnText, { color: colors.onPrimary, ...typography.labelSm }]}>
-              GENERATE & SHARE
-            </Text>
-          </TouchableOpacity>
+          <ShareOptionsSheetContent result={result} onClose={onClose} onShare={onShare} />
         </View>
       </View>
     </Modal>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   overlay: {

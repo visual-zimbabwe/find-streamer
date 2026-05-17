@@ -12,10 +12,12 @@ import { useTheme } from '../theme/ThemeProvider';
 import { usePosterTheme } from '../lib/usePosterTheme';
 import { MediaArtwork } from './MediaArtwork';
 import { ShareCard } from './ShareCard';
-import { ShareOptionsSheet } from './ShareOptionsSheet';
+import { ShareOptionsSheetContent } from './ShareOptionsSheet';
 import { TrailerModal } from './TrailerModal';
-import { searchPersonByName } from '../lib/tmdb';
+import { searchPersonByName, fetchPersonFilmography } from '../lib/tmdb';
 import { scale, verticalScale, screenHeight } from '../utils/responsive';
+import { useBottomSheet } from './StackBottomSheet';
+import { ShareOptionsSheetContent } from './ShareOptionsSheet';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
@@ -124,9 +126,132 @@ function personKey(person, index) {
   return `${person.role || 'person'}-${person.id || person.name}-${index}`;
 }
 
+
+// ─── Actor Sheet Content ─────────────────────────────────────────────────────
+/**
+ * Lightweight filmography peek sheet pushed onto the stack when an actor card
+ * is long-pressed. Shows a loading state, then the first 8 credits.
+ * "See full filmography" calls onPersonPress to navigate to the full screen.
+ */
+function ActorFilmographySheetContent({ person, role, colors, typography, radii, onPersonPress, onDismiss }) {
+  const [credits, setCredits] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const { results } = await fetchPersonFilmography(person.id, person.name, role);
+        if (!cancelled) setCredits(results.slice(0, 10));
+      } catch {
+        if (!cancelled) setError('Could not load filmography.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [person.id, person.name, role]);
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Actor identity row */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+        {person.profileUrl ? (
+          <Image
+            source={{ uri: person.profileUrl }}
+            style={{ width: 52, height: 52, borderRadius: 26, marginRight: 12 }}
+          />
+        ) : (
+          <View style={{
+            width: 52, height: 52, borderRadius: 26, marginRight: 12,
+            backgroundColor: (colors?.primaryContainer ?? '#2a2a4a'),
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Text style={{ color: colors?.primary ?? '#8888ff', fontWeight: '700' }}>
+              {initialsForName(person.name)}
+            </Text>
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }} numberOfLines={1}>
+            {person.name}
+          </Text>
+          {person.roleLabel ? (
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+              {person.roleLabel}
+            </Text>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          onPress={() => {
+            onDismiss();
+            if (onPersonPress) onPersonPress(person.id, person.name, role);
+          }}
+          style={{
+            paddingHorizontal: 14, paddingVertical: 7,
+            borderRadius: 20,
+            backgroundColor: (colors?.primary ?? '#6060e0') + '28',
+            borderWidth: 1,
+            borderColor: (colors?.primary ?? '#6060e0') + '55',
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`See full filmography for ${person.name}`}
+        >
+          <Text style={{ color: colors?.primary ?? '#6060e0', fontWeight: '800', fontSize: 12 }}>
+            Full →
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Credits list */}
+      {loading ? (
+        <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>Loading filmography…</Text>
+        </View>
+      ) : error ? (
+        <Text style={{ color: '#ff6b6b', fontSize: 13, textAlign: 'center' }}>{error}</Text>
+      ) : credits.length === 0 ? (
+        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, textAlign: 'center' }}>No credits found.</Text>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+          {credits.map((item, i) => (
+            <View
+              key={`${item.tmdbId}-${item.mediaType}-${i}`}
+              style={{
+                flexDirection: 'row', alignItems: 'center',
+                paddingVertical: 9,
+                borderBottomWidth: i < credits.length - 1 ? StyleSheet.hairlineWidth : 0,
+                borderBottomColor: 'rgba(255,255,255,0.07)',
+              }}
+            >
+              <Image
+                source={{ uri: item.posterUrl }}
+                style={{ width: 36, height: 54, borderRadius: 6, marginRight: 12, backgroundColor: '#111' }}
+                resizeMode="cover"
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 2 }}>
+                  {[item.year, item.character && `as ${item.character}`].filter(Boolean).join(' · ')}
+                </Text>
+              </View>
+              <Ionicons name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'} size={14} color="rgba(255,255,255,0.3)" />
+            </View>
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
 export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, onSelectSimilar, onPersonPress, onCompanyPress }) {
   const { theme } = useTheme();
   const { typography, radii } = theme;
+  const { show: showSheet, dismiss: dismissSheet } = useBottomSheet();
   const shareCardRef = useRef(null);
   const scrollY = useRef(new Animated.Value(0)).current;
   // Sticky header appears after hero scrolls out of view
@@ -141,11 +266,11 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
     extrapolate: 'clamp',
   });
   const meshShift = useRef(new Animated.Value(0)).current;
-  const [shareSheetVisible, setShareSheetVisible] = useState(false);
   const [shareCountries, setShareCountries] = useState(null);
   const [showAllCast, setShowAllCast] = useState(false);
   const [trailerVisible, setTrailerVisible] = useState(false);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
+  const shareSheetIdRef = useRef(null);
 
   // ── Dynamic poster palette ───────────────────────────────────────────────
   const { palette } = usePosterTheme(result?.posterUrl);
@@ -189,6 +314,31 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
       Alert.alert('Search Failed', 'Unable to search for this person. Please check your connection.');
     }
   }, [onPersonPress]);
+
+  /** Long-press an actor card → push a filmography peek sheet */
+  const handleActorLongPress = useCallback((person, role) => {
+    if (!person.id) return; // need an ID to fetch filmography
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    let sheetId;
+    const content = (
+      <ActorFilmographySheetContent
+        person={person}
+        role={role}
+        colors={colors}
+        typography={typography}
+        radii={radii}
+        onPersonPress={onPersonPress}
+        onDismiss={() => dismissSheet(sheetId)}
+      />
+    );
+    sheetId = showSheet(content, {
+      title: `⭐ ${person.name}`,
+      size: 'large',
+      scrollable: false,
+      showCloseButton: true,
+      dismissOnBackdrop: true,
+    });
+  }, [colors, typography, radii, onPersonPress, showSheet, dismissSheet]);
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -237,12 +387,37 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   }, [result]);
 
   const handleShareConfirm = useCallback(async (selectedCountries) => {
-    setShareSheetVisible(false);
+    // Dismiss the share options sheet
+    if (shareSheetIdRef.current) {
+      dismissSheet(shareSheetIdRef.current);
+      shareSheetIdRef.current = null;
+    }
     setShareCountries(selectedCountries);
     // Wait one frame for ShareCard to re-render with the new countries.
     await new Promise(resolve => setTimeout(resolve, 120));
     await doCapture();
-  }, [doCapture]);
+  }, [doCapture, dismissSheet]);
+
+  const handleOpenShareSheet = useCallback(() => {
+    const sheetId = showSheet(
+      <ShareOptionsSheetContent
+        result={result}
+        onClose={() => {
+          dismissSheet(sheetId);
+          shareSheetIdRef.current = null;
+        }}
+        onShare={handleShareConfirm}
+      />,
+      {
+        title: '🎴 Share Card',
+        size: 'large',
+        scrollable: true,
+        showCloseButton: true,
+        dismissOnBackdrop: true,
+      }
+    );
+    shareSheetIdRef.current = sheetId;
+  }, [result, showSheet, dismissSheet, handleShareConfirm]);
 
   const peopleSections = useMemo(() => {
     const current = result || {};
@@ -425,12 +600,6 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
         <ShareCard result={result} selectedCountries={shareCountries} themeColors={colors} />
       </ViewShot>
 
-      <ShareOptionsSheet
-        visible={shareSheetVisible}
-        result={result}
-        onClose={() => setShareSheetVisible(false)}
-        onShare={handleShareConfirm}
-      />
 
       <TrailerModal
         visible={trailerVisible}
@@ -495,7 +664,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             <MediaArtwork
               uri={result.backdropUrl || result.posterUrl}
               style={styles.backdrop}
-              resizeMode="contain"
+              resizeMode="cover"
               accessibilityLabel={`${result.title} artwork`}
               title={result.title}
             />
@@ -637,7 +806,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               )}
               <TouchableOpacity
                 style={styles.infoPill}
-                onPress={() => setShareSheetVisible(true)}
+                onPress={handleOpenShareSheet}
                 accessibilityRole="button"
                 accessibilityLabel={`Share ${result.title}`}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -819,8 +988,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                     key={personKey(person, index)}
                     style={styles.personCard}
                     onPress={() => handlePersonPressWithFallback(person, 'cast')}
+                    onLongPress={() => handleActorLongPress(person, 'cast')}
+                    delayLongPress={400}
                     accessibilityRole="button"
-                    accessibilityLabel={`View filmography for ${person.name}`}
+                    accessibilityLabel={`View filmography for ${person.name}. Long press for a quick preview.`}
                     activeOpacity={0.78}
                   >
                     <View style={[styles.avatarRing, !person.profileUrl && { backgroundColor: colors.surfaceContainerHigh }]}>
