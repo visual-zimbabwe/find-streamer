@@ -37,16 +37,18 @@ export function AppHeader({ onBack, showBack, onSettingsPress, transparent }) {
           </TouchableOpacity>
         )}
 
-        <View style={styles.titleContainer}>
-          <Text style={[styles.logo, { color: colors.primary, ...typography.headlineMd }]}>Trova</Text>
-          <MorphingText
-            text={TAGLINES[taglineIndex]}
-            fontSize={12}
-            color={colors.onSurfaceVariant}
-            animationDuration={300}
-            fontStyle={{ fontWeight: '500' }}
-          />
-        </View>
+        {!showBack && (
+          <View style={styles.titleContainer}>
+            <Text style={[styles.logo, { color: colors.primary, ...typography.headlineMd }]}>Trova</Text>
+            <MorphingText
+              text={TAGLINES[taglineIndex]}
+              fontSize={12}
+              color={colors.onSurfaceVariant}
+              animationDuration={300}
+              fontStyle={{ fontWeight: '500' }}
+            />
+          </View>
+        )}
       </View>
       <TouchableOpacity 
         style={[styles.button, { backgroundColor: 'transparent' }]}

@@ -17,6 +17,7 @@ import { TrailerModal } from './TrailerModal';
 import { searchPersonByName, fetchPersonFilmography } from '../lib/tmdb';
 import { scale, verticalScale, screenHeight } from '../utils/responsive';
 import { useBottomSheet } from './StackBottomSheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
@@ -250,6 +251,7 @@ function ActorFilmographySheetContent({ person, role, colors, typography, radii,
 export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, onSelectSimilar, onPersonPress, onCompanyPress }) {
   const { theme } = useTheme();
   const { typography, radii } = theme;
+  const insets = useSafeAreaInsets();
   const { show: showSheet, dismiss: dismissSheet } = useBottomSheet();
   const shareCardRef = useRef(null);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -617,6 +619,8 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             transform: [{ translateY: stickyTranslateY }],
             backgroundColor: colors.background + 'F0',
             borderBottomColor: colors.outlineVariant + '33',
+            height: 56 + (insets.top || 0),
+            paddingTop: insets.top || 0,
           },
         ]}
       >
@@ -1248,7 +1252,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingLeft: 72,
+    paddingRight: 64,
     gap: 10,
     height: '100%',
   },
