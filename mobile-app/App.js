@@ -642,6 +642,8 @@ function MobileApp() {
       setActiveView('discover');
     } else if (tab === 'watchlist') {
       setActiveView('watchlist');
+    } else if (tab === 'settings') {
+      setActiveView('settings');
     }
   };
 
@@ -655,32 +657,19 @@ function MobileApp() {
     [watchlist]
   );
 
-  const showBack = activeView === 'detail' || activeView === 'settings' || activeView === 'filmography';
+  const showBack = activeView === 'detail' || activeView === 'filmography';
   const showLoading = loading && activeView !== 'detail' && activeView !== 'discover' && activeView !== 'home';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} translucent />
       
-      {/* Absolute floating transparent header for cinematic screens */}
-      {(activeView === 'detail' || activeView === 'filmography') && (
-        <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0, zIndex: 100 }}>
-          <AppHeader 
-            showBack={showBack} 
-            onBack={handleBack} 
-            onSettingsPress={() => navigateTo('settings')}
-            transparent
-          />
-        </View>
-      )}
-
       {/* Standard safe area header for all other screens */}
       {activeView !== 'detail' && activeView !== 'filmography' && (
         <View style={{ paddingTop: insets.top }}>
           <AppHeader 
             showBack={showBack} 
             onBack={handleBack} 
-            onSettingsPress={() => navigateTo('settings')}
           />
         </View>
       )}

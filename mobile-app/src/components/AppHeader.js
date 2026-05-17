@@ -11,7 +11,7 @@ const TAGLINES = [
   "Your streaming companion...",
 ];
 
-export function AppHeader({ onBack, showBack, onSettingsPress, transparent }) {
+export function AppHeader({ onBack, showBack, transparent }) {
   const { theme } = useTheme();
   const { colors, spacing, typography, radii } = theme;
   const [taglineIndex, React_setTaglineIndex] = React.useState(0);
@@ -39,14 +39,6 @@ export function AppHeader({ onBack, showBack, onSettingsPress, transparent }) {
           </View>
         )}
       </View>
-      <TouchableOpacity 
-        style={[styles.button, { backgroundColor: 'transparent' }]}
-        onPress={onSettingsPress}
-        accessibilityRole="button"
-        accessibilityLabel="Open settings"
-      >
-        <Ionicons name="settings-outline" size={24} color={colors.onSurfaceVariant} />
-      </TouchableOpacity>
     </View>
   );
 }

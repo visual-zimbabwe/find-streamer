@@ -17,6 +17,7 @@ const TABS = [
   { id: 'search',    label: 'Search',    icon: 'search-outline',   iconActive: 'search'   },
   { id: 'discover',  label: 'Discover',  icon: 'options-outline',  iconActive: 'options'  },
   { id: 'watchlist', label: 'Watchlist', icon: 'bookmark-outline', iconActive: 'bookmark' },
+  { id: 'settings',  label: 'Settings',  icon: 'settings-outline', iconActive: 'settings'  },
 ];
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
