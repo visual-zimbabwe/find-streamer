@@ -340,7 +340,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
       {
         scale: scrollY.interpolate({
           inputRange: [-120, 0, HERO_HEIGHT],
-          outputRange: [1.2, 1.06, 1.12],
+          outputRange: [1.2, 1, 1.12],
           extrapolate: 'clamp',
         }),
       },
@@ -1083,11 +1083,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   parallaxArtwork: {
-    position: 'absolute',
-    top: -40,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
   },
   backdrop: {
     width: '100%',
