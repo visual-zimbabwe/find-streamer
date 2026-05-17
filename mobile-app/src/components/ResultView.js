@@ -1,6 +1,6 @@
 import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert, Platform } from 'react-native';
-import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
+import { useBottomNavScroll, useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -257,14 +257,37 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const shareCardRef = useRef(null);
   const scrollY = useRef(new Animated.Value(0)).current;
 
+  const { setVisible: setBottomNavVisible } = useBottomNavVisibility();
+  const lastOffset = useRef(0);
+
   const scrollHandler = useRef(
     Animated.event(
       [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-      { useNativeDriver: true }
+      {
+        useNativeDriver: true,
+        listener: (event) => {
+          const currentOffset = event.nativeEvent.contentOffset.y;
+          const diff = currentOffset - lastOffset.current;
+          const contentHeight = event.nativeEvent.contentSize.height;
+          const layoutHeight = event.nativeEvent.layoutMeasurement.height;
+          const maxOffset = contentHeight - layoutHeight;
+
+          if (currentOffset <= 50) {
+            setBottomNavVisible(true);
+          } else if (currentOffset >= maxOffset - 50) {
+            setBottomNavVisible(true);
+          } else if (Math.abs(diff) > 12) {
+            if (diff > 0) {
+              setBottomNavVisible(false);
+            } else {
+              setBottomNavVisible(true);
+            }
+          }
+          lastOffset.current = currentOffset;
+        }
+      }
     )
   ).current;
-
-  const bottomNavScroll = useBottomNavScroll(scrollHandler);
   // Sticky header appears after hero scrolls out of view
   const stickyOpacity = scrollY.interpolate({
     inputRange: [HERO_HEIGHT - 100, HERO_HEIGHT],
@@ -372,6 +395,12 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
     return () => animation.stop();
   }, [meshShift]);
 
+  useEffect(() => {
+    if (result?.posterUrl) {
+      Image.prefetch(result.posterUrl).catch(() => {});
+    }
+  }, [result?.posterUrl]);
+
   const doCapture = useCallback(async () => {
     if (!shareCardRef.current) return;
     try {
@@ -404,8 +433,8 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
       shareSheetIdRef.current = null;
     }
     setShareCountries(selectedCountries);
-    // Wait one frame for ShareCard to re-render with the new countries.
-    await new Promise(resolve => setTimeout(resolve, 120));
+    // Wait for ShareCard to re-render and images to load from local cache.
+    await new Promise(resolve => setTimeout(resolve, 400));
     await doCapture();
   }, [doCapture, dismissSheet]);
 
@@ -603,7 +632,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   return (
     <>
       {/* Off-screen share card – captured by ViewShot, never visible to the user */}
-      <View style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} pointerEvents="none">
+      <View style={{ position: 'absolute', left: 5000, width: 450, height: 800, overflow: 'hidden' }} pointerEvents="none">
         <ViewShot
           ref={shareCardRef}
           options={{ format: 'png', quality: 1 }}
@@ -659,7 +688,8 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
       <Animated.ScrollView
         style={[styles.container, { opacity: paletteOpacity, backgroundColor: colors.background }]}
         contentInsetAdjustmentBehavior="never"
-        {...bottomNavScroll}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
       >
         <View style={styles.heroSection}>
           <Animated.View style={[styles.parallaxArtwork, heroTransform]}>
