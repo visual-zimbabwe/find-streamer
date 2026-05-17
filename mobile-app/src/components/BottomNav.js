@@ -114,13 +114,15 @@ export function BottomNav({ activeTab, onTabPress }) {
     });
   }, [activeIndex]);
 
+  const isDark = theme.mode === 'dark';
+
   return (
     <Animated.View
       style={[
         styles.container,
         {
-          backgroundColor: colors.background + 'cc',
-          borderColor: colors.outlineVariant + '2A',
+          backgroundColor: isDark ? 'rgba(13, 13, 13, 0.75)' : 'rgba(255, 255, 255, 0.75)',
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
           bottom: insets.bottom > 0 ? insets.bottom + 8 : 16,
           borderRadius: radii.xl + 6,
           transform: [{ translateY }],
@@ -128,8 +130,8 @@ export function BottomNav({ activeTab, onTabPress }) {
       ]}
     >
       <BlurView
-        intensity={Platform.OS === 'ios' ? 60 : 85}
-        tint={colors.background === '#121212' ? 'dark' : 'light'}
+        intensity={Platform.OS === 'ios' ? 65 : 90}
+        tint={isDark ? 'dark' : 'light'}
         style={StyleSheet.absoluteFill}
       />
 
