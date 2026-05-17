@@ -11,7 +11,7 @@ const TAGLINES = [
   "Your streaming companion...",
 ];
 
-export function AppHeader({ onBack, showBack, onSettingsPress }) {
+export function AppHeader({ onBack, showBack, onSettingsPress, transparent }) {
   const { theme } = useTheme();
   const { colors, spacing, typography, radii } = theme;
   const [taglineIndex, React_setTaglineIndex] = React.useState(0);
@@ -24,7 +24,7 @@ export function AppHeader({ onBack, showBack, onSettingsPress }) {
   }, []);
 
   return (
-    <View style={[styles.header, { backgroundColor: colors.background }]}>
+    <View style={[styles.header, { backgroundColor: transparent ? 'transparent' : colors.background }]}>
       <View style={styles.brand}>
         {showBack && (
           <TouchableOpacity
