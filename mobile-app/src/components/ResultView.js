@@ -6,6 +6,7 @@ import { ProgressiveBlur } from './ProgressiveBlur';
 import * as Haptics from 'expo-haptics';
 import ViewShot from 'react-native-view-shot';
 import * as ExpoSharing from 'expo-sharing';
+import { toastiva } from 'toastiva';
 import { useTheme } from '../theme/ThemeProvider';
 import { usePosterTheme } from '../lib/usePosterTheme';
 import { MediaArtwork } from './MediaArtwork';
@@ -209,10 +210,12 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           dialogTitle: `Check out ${result?.title}`,
           UTI: 'public.png',
         });
+        toastiva.success("Shared successfully");
       } else {
         await Share.share({
           message: `Check out "${result?.title}" (${result?.year}) – ${result?.genres || 'Unknown Genre'}`,
         });
+        toastiva.success("Shared successfully");
       }
     } catch (err) {
       if (err?.message !== 'User did not share') {

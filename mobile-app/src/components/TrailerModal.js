@@ -13,6 +13,7 @@ import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toastiva } from 'toastiva';
 import { useTheme } from '../theme/ThemeProvider';
 
 /** Android WebView default UA contains "; wv)" — YouTube often blocks embedded playback for that client. */
@@ -78,6 +79,13 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
     onClose?.();
   }, [onClose]);
 
+  React.useEffect(() => {
+    if (visible && !embedUri) {
+      toastiva.error("Trailer unavailable", { description: "We couldn't load this video." });
+      handleClose();
+    }
+  }, [visible, embedUri, handleClose]);
+
   const handleOpenYouTube = useCallback(() => {
     if (youtubeUrl) Linking.openURL(youtubeUrl);
   }, [youtubeUrl]);
@@ -141,7 +149,11 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
                 javaScriptEnabled
                 javaScriptCanOpenWindowsAutomatically
                 onLoadEnd={() => setWebLoading(false)}
-                onError={() => setWebLoading(false)}
+                onError={() => {
+                  setWebLoading(false);
+                  toastiva.error("Trailer unavailable", { description: "Failed to load the player." });
+                  handleClose();
+                }}
               />
               <TouchableOpacity
                 style={[styles.youtubeBtn, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.full }]}
@@ -155,27 +167,7 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
                 </Text>
               </TouchableOpacity>
             </>
-          ) : (
-            <View style={[styles.errorBox, { backgroundColor: colors.surfaceContainer }]}>
-              <Ionicons name="videocam-off-outline" size={40} color={colors.onSurfaceVariant} />
-              <Text style={[styles.errorText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                Trailer unavailable
-              </Text>
-              {youtubeUrl ? (
-                <TouchableOpacity
-                  style={[styles.errorAction, { backgroundColor: colors.primary, borderRadius: radii.full }]}
-                  onPress={handleOpenYouTube}
-                  accessibilityRole="button"
-                  accessibilityLabel="Watch trailer on YouTube"
-                >
-                  <Ionicons name="logo-youtube" size={18} color={colors.onPrimary} />
-                  <Text style={[styles.errorActionText, { color: colors.onPrimary, ...typography.labelMd }]}>
-                    Watch on YouTube
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          )}
+          ) : null}
         </View>
       </View>
     </Modal>

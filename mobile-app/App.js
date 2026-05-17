@@ -23,14 +23,17 @@ import { searchTitleCandidates, searchLiveCandidates, resolveMatch, fetchPersonF
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
 import { useVoiceSearch } from './src/lib/useVoiceSearch';
 import { loadRecentSearches, saveRecentSearches, loadRecentViewed, saveRecentViewed, loadWatchlist, saveWatchlist } from './src/lib/storage';
-import { WATCHLIST_CATEGORIES, getWatchlistCategory } from './src/lib/watchlistCategories';
+import { ToastivaProvider, toastiva } from 'toastiva';
+import { getWatchlistCategory, WATCHLIST_CATEGORIES } from './src/lib/watchlistCategories';
 import { classifyAppError } from './src/lib/errors';
 
 export default function App() {
   return (
     <ThemeProvider>
       <SafeAreaProvider>
-        <MobileApp />
+        <ToastivaProvider position="top-center">
+          <MobileApp />
+        </ToastivaProvider>
       </SafeAreaProvider>
     </ThemeProvider>
   );
@@ -79,7 +82,6 @@ function MobileApp() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [errorInfo, setErrorInfo] = useState(null);
-  const [toast, setToast] = useState(null);
   const [offlineBanner, setOfflineBanner] = useState(null);
   const [results, setResults] = useState([]);
   const [selectedResult, setSelectedResult] = useState(null);
@@ -101,13 +103,17 @@ function MobileApp() {
   const insets = useSafeAreaInsets();
 
   const showToast = useCallback((message, options = {}) => {
-    setToast({
-      message,
-      title: options.title,
-      icon: options.icon || 'alert-circle-outline',
-      actionLabel: options.actionLabel,
-      onPress: options.onPress,
-    });
+    const icon = options.icon || 'alert-circle-outline';
+    const opts = { description: options.title };
+    if (icon === 'trash-outline' || icon === 'checkmark-circle-outline' || icon === 'bookmark-outline') {
+      toastiva.success(message, opts);
+    } else if (icon === 'alert-circle-outline') {
+      toastiva.error(message, opts);
+    } else if (icon === 'mic-off-outline') {
+      toastiva.warning(message, opts);
+    } else {
+      toastiva.info(message, opts);
+    }
   }, []);
 
   const handleRequestError = useCallback((err, fallbackMessage, options = {}) => {
@@ -126,18 +132,10 @@ function MobileApp() {
       showToast(message, {
         title: classified.title,
         icon: classified.severity === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline',
-        actionLabel: options.actionLabel,
-        onPress: options.onPress,
       });
     }
     return classified;
   }, [showToast]);
-
-  useEffect(() => {
-    if (!toast) return undefined;
-    const timeout = setTimeout(() => setToast(null), 4500);
-    return () => clearTimeout(timeout);
-  }, [toast]);
 
   const navigateTo = useCallback((view, updates = {}) => {
     // Save current state to history
@@ -437,6 +435,7 @@ function MobileApp() {
         setActiveTab('search');
         setFilter(null);
         await rememberSearch(searchQuery);
+        toastiva.info("No matches found", { description: "Try another search term" });
       } else {
         handleRequestError(err, 'Unable to search right now.', { fullScreen: true });
         setActiveView('search');
@@ -568,35 +567,12 @@ function MobileApp() {
     }
 
     setPendingWatchlistItem(null);
-    setWatchlist(newWatchlist);
     try {
       await saveWatchlist(newWatchlist);
-      showToast(isReCategorize ? 'Watchlist category updated.' : 'Saved to Watchlist.', {
-        title: 'Watchlist',
-        icon: 'bookmark-outline',
-      });
+      toastiva.success(isReCategorize ? 'Watchlist category updated' : '✅ Added to Watchlist');
     } catch (err) {
       setWatchlist(watchlist);
-      showToast('Failed to save to Watchlist. Tap to retry.', {
-        title: 'Watchlist',
-        icon: 'alert-circle-outline',
-        actionLabel: 'Retry',
-        onPress: async () => {
-          try {
-            await saveWatchlist(newWatchlist);
-            setWatchlist(newWatchlist);
-            showToast(isReCategorize ? 'Watchlist category updated.' : 'Saved to Watchlist.', {
-              title: 'Watchlist',
-              icon: 'bookmark-outline',
-            });
-          } catch {
-            showToast('Still could not save. Please try again in a moment.', {
-              title: 'Watchlist',
-              icon: 'alert-circle-outline',
-            });
-          }
-        },
-      });
+      toastiva.error('Failed to save to Watchlist');
     }
   };
 
@@ -607,32 +583,10 @@ function MobileApp() {
     setWatchlist(newWatchlist);
     try {
       await saveWatchlist(newWatchlist);
-      showToast('Removed from Watchlist.', {
-        title: 'Watchlist',
-        icon: 'trash-outline',
-      });
+      toastiva.success('Removed from Watchlist');
     } catch (err) {
       setWatchlist(watchlist);
-      showToast('Failed to update Watchlist. Tap to retry.', {
-        title: 'Watchlist',
-        icon: 'alert-circle-outline',
-        actionLabel: 'Retry',
-        onPress: async () => {
-          try {
-            await saveWatchlist(newWatchlist);
-            setWatchlist(newWatchlist);
-            showToast('Removed from Watchlist.', {
-              title: 'Watchlist',
-              icon: 'trash-outline',
-            });
-          } catch {
-            showToast('Still could not update Watchlist. Please try again in a moment.', {
-              title: 'Watchlist',
-              icon: 'alert-circle-outline',
-            });
-          }
-        },
-      });
+      toastiva.error('Failed to update Watchlist');
     }
   };
 
@@ -646,26 +600,7 @@ function MobileApp() {
       });
     } catch (err) {
       setWatchlist(rollbackWatchlist);
-      showToast('Failed to update Watchlist. Tap to retry.', {
-        title: 'Watchlist',
-        icon: 'alert-circle-outline',
-        actionLabel: 'Retry',
-        onPress: async () => {
-          try {
-            await saveWatchlist(nextWatchlist);
-            setWatchlist(nextWatchlist);
-            showToast(successMessage, {
-              title: 'Watchlist',
-              icon: successIcon,
-            });
-          } catch {
-            showToast('Still could not update Watchlist. Please try again in a moment.', {
-              title: 'Watchlist',
-              icon: 'alert-circle-outline',
-            });
-          }
-        },
-      });
+      toastiva.error('Failed to update Watchlist');
     }
   };
 
@@ -1050,14 +985,6 @@ function MobileApp() {
         message={offlineBanner?.message}
         icon="cloud-offline-outline"
         onDismiss={() => setOfflineBanner(null)}
-      />
-      <ErrorBanner
-        title={toast?.title}
-        message={toast?.message}
-        icon={toast?.icon}
-        actionLabel={toast?.actionLabel}
-        onPress={toast?.onPress}
-        onDismiss={() => setToast(null)}
       />
 
       <BottomNav activeTab={activeTab} onTabPress={handleTabPress} />
