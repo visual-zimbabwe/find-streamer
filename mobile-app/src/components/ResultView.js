@@ -17,7 +17,6 @@ import { TrailerModal } from './TrailerModal';
 import { searchPersonByName, fetchPersonFilmography } from '../lib/tmdb';
 import { scale, verticalScale, screenHeight } from '../utils/responsive';
 import { useBottomSheet } from './StackBottomSheet';
-import { ShareOptionsSheetContent } from './ShareOptionsSheet';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
