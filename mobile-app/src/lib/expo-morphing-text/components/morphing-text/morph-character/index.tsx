@@ -1,4 +1,4 @@
-import { DEFAULT_TEXT_STYLE } from "../constants/text-styles";
+
 import { morphCharContainerStyles } from "../../../styles";
 import React from "react";
 import { Text } from "react-native";
@@ -33,7 +33,6 @@ const MorphingCharacter: React.NamedExoticComponent<MorphCharProps> &
     const textStyle: ComposedTextStyle = {
       fontSize: fontSize as NonNullable<typeof fontSize>,
       color: color as NonNullable<typeof color>,
-      ...DEFAULT_TEXT_STYLE,
       includeFontPadding: false,
       // fontFamily: fontLoaded ? "Elingston" : undefined,
     } as const;
