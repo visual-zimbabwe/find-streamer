@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react'
 import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ProgressiveBlur } from './ProgressiveBlur';
 import * as Haptics from 'expo-haptics';
 import ViewShot from 'react-native-view-shot';
 import * as ExpoSharing from 'expo-sharing';
@@ -443,9 +444,12 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           </Animated.View>
           {/* Gradient scrim tinted with the extracted accent color */}
           <View style={[styles.scrimTop, { backgroundColor: 'rgba(0,0,0,0.15)' }]} />
-          <LinearGradient
-            colors={['transparent', colors.background + 'B3', colors.background]}
-            locations={[0, 0.5, 1]}
+          <ProgressiveBlur
+            intensity={80}
+            tint="dark"
+            direction="bottom"
+            locations={[0, 1]}
+            overlayColor={colors.background}
             style={styles.scrimBottom}
           />
 

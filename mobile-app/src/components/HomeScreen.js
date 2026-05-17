@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ProgressiveBlur } from './ProgressiveBlur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -292,9 +293,11 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
             accessibilityLabel={`Backdrop for ${item.title}`}
             title={item.title}
           />
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.92)']}
-            locations={[0.2, 0.55, 1]}
+          <ProgressiveBlur
+            intensity={72}
+            tint="dark"
+            direction="bottom"
+            locations={[0.18, 1]}
             style={StyleSheet.absoluteFill}
           />
           <LinearGradient colors={['rgba(0,0,0,0.55)', 'transparent']} style={styles.heroTopScrim} />

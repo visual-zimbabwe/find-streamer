@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { Animated, PanResponder, StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Animated, PanResponder, StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { StatePanel } from './StatePanel';
@@ -8,6 +8,7 @@ import { WATCHLIST_CATEGORIES, getWatchlistCategory } from '../lib/watchlistCate
 import { fetchNowPlayingMovies } from '../lib/tmdb';
 import { classifyAppError } from '../lib/errors';
 import { scale, verticalScale } from '../utils/responsive';
+import { BlurView } from 'expo-blur';
 
 /** Match ResultView: TMDB overview, else OMDb plot (detail fetches this; watchlist rows may only store one). */
 function synopsisForCard(item) {
@@ -146,6 +147,7 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
 export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [randomPick, setRandomPick] = useState(null);
   const pickScale = useRef(new Animated.Value(0.96)).current;
   const pickOpacity = useRef(new Animated.Value(0)).current;
@@ -238,8 +240,38 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
   const isGroupCollapsed = (categoryId, groupLabel) =>
     !!collapsedGroupKeys[groupKey(categoryId, groupLabel)];
 
+  const headerBlurOpacity = scrollY.interpolate({
+    inputRange: [0, 60],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={{ flex: 1 }}>
+      {/* Sticky blur header — fades in as user scrolls */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.stickyHeader,
+          { opacity: headerBlurOpacity },
+        ]}
+      >
+        {Platform.OS === 'ios' ? (
+          <BlurView intensity={64} tint="dark" style={StyleSheet.absoluteFill} />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, styles.stickyHeaderAndroid]} />
+        )}
+      </Animated.View>
+
+      <Animated.ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.onSurface, ...typography.headlineLg }]}>My Watchlist</Text>
         <Text style={[styles.subtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
@@ -478,11 +510,24 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect }) {
           );
         })}
       </View>
-    </ScrollView>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+    zIndex: 10,
+    overflow: 'hidden',
+  },
+  stickyHeaderAndroid: {
+    backgroundColor: 'rgba(10,10,18,0.82)',
+  },
   container: {
     flex: 1,
   },
