@@ -58,18 +58,18 @@ export function ProgressiveBlur({
   const gradStart  = DIRECTION_START[direction]  || DIRECTION_START.bottom;
   const gradEnd    = DIRECTION_END[direction]    || DIRECTION_END.bottom;
 
-  // Android: MaskedView doesn't clip BlurView correctly — use a gradient scrim instead
+  // Android: MaskedView doesn't clip BlurView correctly — use a gradient scrim instead.
+  // Map the direction's color pattern: 'transparent' stays transparent,
+  // 'black' becomes the overlayColor (or a tint-based fallback).
   if (Platform.OS === 'android') {
+    const opaqueColor = overlayColor
+      || (tint === 'dark' ? 'rgba(0,0,0,0.88)' : 'rgba(255,255,255,0.88)');
+    const androidColors = gradColors.map(c =>
+      c === 'transparent' ? 'transparent' : opaqueColor
+    );
     return (
       <LinearGradient
-        colors={[
-          overlayColor ?? 'transparent',
-          overlayColor
-            ? overlayColor
-            : tint === 'dark'
-              ? 'rgba(0,0,0,0.88)'
-              : 'rgba(255,255,255,0.88)',
-        ]}
+        colors={androidColors}
         start={gradStart}
         end={gradEnd}
         locations={locations}
