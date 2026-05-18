@@ -712,30 +712,25 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           <Animated.View style={[styles.parallaxArtwork, heroTransform]}>
             <MediaArtwork
               uri={result.posterUrl}
-              style={[styles.backdrop, StyleSheet.absoluteFill, { opacity: 0.7 }]}
-              resizeMode="cover"
-            />
-            {Platform.OS === 'ios' ? (
-              <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
-            ) : (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.65)' }]} />
-            )}
-            <MediaArtwork
-              uri={result.posterUrl}
               style={[styles.backdrop, StyleSheet.absoluteFill]}
-              resizeMode="cover"
+              resizeMode="contain"
               accessibilityLabel={`${result.title} artwork`}
               title={result.title}
             />
           </Animated.View>
-          {/* Gradient scrim tinted with the extracted accent color */}
-          <View style={[styles.scrimTop, { backgroundColor: 'rgba(0,0,0,0.15)' }]} />
-          <ProgressiveBlur
-            intensity={80}
-            tint="dark"
-            direction="bottom"
-            locations={[0, 1]}
-            overlayColor={colors.background}
+          {/* Gradient scrim — fades smoothly so the image doesn't look cut in two */}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.25)', 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={[StyleSheet.absoluteFill, styles.scrimTop]}
+          />
+          {/* Strong bottom gradient to completely obscure the poster's native text and hard lines */}
+          <LinearGradient
+            colors={['transparent', colors.background + 'B3', colors.background]}
+            locations={[0, 0.4, 0.8]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
             style={styles.scrimBottom}
           />
 
@@ -1324,7 +1319,7 @@ const styles = StyleSheet.create({
   },
   parallaxArtwork: {
     position: 'absolute',
-    top: -60,
+    top: -10,
     left: 0,
     right: 0,
     height: HERO_HEIGHT + 120,
