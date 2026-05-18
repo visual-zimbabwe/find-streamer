@@ -1,7 +1,9 @@
+import 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StyleSheet, View, ScrollView, Keyboard, BackHandler, Modal, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -31,17 +33,19 @@ import { BottomNavVisibilityProvider, useBottomNavScroll } from './src/context/B
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <SafeAreaProvider>
-        <ToastivaProvider position="top-center">
-          <BottomSheetProvider>
-            <BottomNavVisibilityProvider>
-              <MobileApp />
-            </BottomNavVisibilityProvider>
-          </BottomSheetProvider>
-        </ToastivaProvider>
-      </SafeAreaProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <SafeAreaProvider>
+          <ToastivaProvider position="top-center">
+            <BottomSheetProvider>
+              <BottomNavVisibilityProvider>
+                <MobileApp />
+              </BottomNavVisibilityProvider>
+            </BottomSheetProvider>
+          </ToastivaProvider>
+        </SafeAreaProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -844,59 +848,61 @@ function MobileApp() {
         transparent
         onRequestClose={() => setSurprisePickerVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.categorySheet, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '4D', borderRadius: radii.xl }]}>
-            <View style={styles.categoryHeader}>
-              <View style={styles.categoryTitleBlock}>
-                <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>Surprise Roulette</Text>
-                <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]}>🎲 Surprise Me</Text>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.categorySheet, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '4D', borderRadius: radii.xl }]}>
+              <View style={styles.categoryHeader}>
+                <View style={styles.categoryTitleBlock}>
+                  <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>Surprise Roulette</Text>
+                  <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]}>🎲 Surprise Me</Text>
+                </View>
+                <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.surfaceContainerHighest }]} onPress={() => setSurprisePickerVisible(false)} accessibilityRole="button" accessibilityLabel="Close surprise picker">
+                  <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.surfaceContainerHighest }]} onPress={() => setSurprisePickerVisible(false)} accessibilityRole="button" accessibilityLabel="Close surprise picker">
-                <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
+
+              {/* Watchlist-based quick surprise */}
+              <TouchableOpacity
+                style={[styles.surpriseQuickBtn, { backgroundColor: hasHighlyRecommendedSeeds ? colors.primary + '18' : colors.surfaceContainerHigh, borderColor: hasHighlyRecommendedSeeds ? colors.primary + '55' : colors.outlineVariant + '40', borderRadius: radii.lg }]}
+                onPress={() => { setSurprisePickerVisible(false); handleSurpriseMe(); }}
+                disabled={!hasHighlyRecommendedSeeds}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Surprise me based on my favorites"
+              >
+                <Ionicons name="heart-outline" size={20} color={hasHighlyRecommendedSeeds ? colors.primary : colors.onSurfaceVariant} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[{ color: hasHighlyRecommendedSeeds ? colors.primary : colors.onSurface, fontWeight: '800', ...typography.bodyLg }]}>Based on My Favorites</Text>
+                  <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>{hasHighlyRecommendedSeeds ? 'Picks from your Highly Recommend list' : 'Add to Highly Recommend to unlock'}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={hasHighlyRecommendedSeeds ? colors.primary : colors.onSurfaceVariant} />
               </TouchableOpacity>
-            </View>
 
-            {/* Watchlist-based quick surprise */}
-            <TouchableOpacity
-              style={[styles.surpriseQuickBtn, { backgroundColor: hasHighlyRecommendedSeeds ? colors.primary + '18' : colors.surfaceContainerHigh, borderColor: hasHighlyRecommendedSeeds ? colors.primary + '55' : colors.outlineVariant + '40', borderRadius: radii.lg }]}
-              onPress={() => { setSurprisePickerVisible(false); handleSurpriseMe(); }}
-              disabled={!hasHighlyRecommendedSeeds}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Surprise me based on my favorites"
-            >
-              <Ionicons name="heart-outline" size={20} color={hasHighlyRecommendedSeeds ? colors.primary : colors.onSurfaceVariant} />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={[{ color: hasHighlyRecommendedSeeds ? colors.primary : colors.onSurface, fontWeight: '800', ...typography.bodyLg }]}>Based on My Favorites</Text>
-                <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>{hasHighlyRecommendedSeeds ? 'Picks from your Highly Recommend list' : 'Add to Highly Recommend to unlock'}</Text>
+              <View style={styles.surpriseDivider}>
+                <View style={{ flex: 1, height: 1, backgroundColor: colors.outlineVariant + '30' }} />
+                <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginHorizontal: 12 }]}>Or Pick a Genre</Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: colors.outlineVariant + '30' }} />
               </View>
-              <Ionicons name="chevron-forward" size={16} color={hasHighlyRecommendedSeeds ? colors.primary : colors.onSurfaceVariant} />
-            </TouchableOpacity>
 
-            <View style={styles.surpriseDivider}>
-              <View style={{ flex: 1, height: 1, backgroundColor: colors.outlineVariant + '30' }} />
-              <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginHorizontal: 12 }]}>Or Pick a Genre</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: colors.outlineVariant + '30' }} />
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 260 }}>
+                <View style={styles.genreGrid}>
+                  {QUICK_SURPRISE_GENRES.map((genre) => (
+                    <TouchableOpacity
+                      key={`${genre.id}-${genre.mediaType}`}
+                      style={[styles.genreChip, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '40', borderRadius: radii.lg }]}
+                      onPress={() => handleSurpriseByGenre(genre.id, genre.mediaType)}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Surprise me with ${genre.label}`}
+                    >
+                      <Text style={[{ color: colors.onSurface, fontWeight: '700', textAlign: 'center', ...typography.bodyMd }]}>{genre.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 260 }}>
-              <View style={styles.genreGrid}>
-                {QUICK_SURPRISE_GENRES.map((genre) => (
-                  <TouchableOpacity
-                    key={`${genre.id}-${genre.mediaType}`}
-                    style={[styles.genreChip, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '40', borderRadius: radii.lg }]}
-                    onPress={() => handleSurpriseByGenre(genre.id, genre.mediaType)}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Surprise me with ${genre.label}`}
-                  >
-                    <Text style={[{ color: colors.onSurface, fontWeight: '700', textAlign: 'center', ...typography.bodyMd }]}>{genre.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
           </View>
-        </View>
+        </GestureHandlerRootView>
       </Modal>
 
       <Modal
@@ -905,94 +911,96 @@ function MobileApp() {
         visible={Boolean(pendingWatchlistItem)}
         onRequestClose={() => setPendingWatchlistItem(null)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.categorySheet, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '4D', borderRadius: radii.xl }]}>
-            <View style={styles.categoryHeader}>
-              <View style={styles.categoryTitleBlock}>
-                <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>
-                  {pendingWatchlistItem?._isReCategorize ? 'Move to Category' : 'Save to Watchlist'}
-                </Text>
-                <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
-                  {pendingWatchlistItem?.title}
-                </Text>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.categorySheet, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '4D', borderRadius: radii.xl }]}>
+              <View style={styles.categoryHeader}>
+                <View style={styles.categoryTitleBlock}>
+                  <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>
+                    {pendingWatchlistItem?._isReCategorize ? 'Move to Category' : 'Save to Watchlist'}
+                  </Text>
+                  <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
+                    {pendingWatchlistItem?.title}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.closeButton, { backgroundColor: colors.surfaceContainerHighest }]}
+                  onPress={() => setPendingWatchlistItem(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close watchlist category picker"
+                >
+                  <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={[styles.closeButton, { backgroundColor: colors.surfaceContainerHighest }]}
-                onPress={() => setPendingWatchlistItem(null)}
-                accessibilityRole="button"
-                accessibilityLabel="Close watchlist category picker"
-              >
-                <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
-              </TouchableOpacity>
-            </View>
 
-            <View style={styles.categoryList}>
-              {WATCHLIST_CATEGORIES.map((category) => {
-                const isCurrent = pendingWatchlistItem?._isReCategorize &&
-                  pendingWatchlistItem?.watchlistCategoryId === category.id;
-                return (
+              <View style={styles.categoryList}>
+                {WATCHLIST_CATEGORIES.map((category) => {
+                  const isCurrent = pendingWatchlistItem?._isReCategorize &&
+                    pendingWatchlistItem?.watchlistCategoryId === category.id;
+                  return (
+                    <TouchableOpacity
+                      key={category.id}
+                      style={[
+                        styles.categoryOption,
+                        {
+                          backgroundColor: isCurrent ? colors.primary + '1A' : colors.surfaceContainerHigh,
+                          borderColor: isCurrent ? colors.primary + '66' : colors.outlineVariant + '33',
+                          borderRadius: radii.lg,
+                        },
+                      ]}
+                      activeOpacity={0.82}
+                      onPress={() => handleSelectWatchlistCategory(category.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={isCurrent ? `Currently in ${category.label}` : `Move to ${category.label}`}
+                      accessibilityState={{ selected: isCurrent }}
+                    >
+                      <View style={[styles.categoryIcon, { backgroundColor: isCurrent ? colors.primary + '33' : colors.primary + '22' }]}>
+                        <Ionicons name={category.icon} size={22} color={colors.primary} />
+                      </View>
+                      <View style={styles.categoryCopy}>
+                        <View style={styles.categoryLabelRow}>
+                          <Text style={[styles.categoryOptionTitle, { color: isCurrent ? colors.primary : colors.onSurface, ...typography.bodyLg }]}>
+                            {category.label}
+                          </Text>
+                          {isCurrent && (
+                            <View style={[styles.currentBadge, { backgroundColor: colors.primary + '22' }]}>
+                              <Text style={[styles.currentBadgeText, { color: colors.primary, ...typography.labelSm }]}>Current</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
+                          {category.description}
+                        </Text>
+                      </View>
+                      <Ionicons name={isCurrent ? 'checkmark-circle' : 'chevron-forward'} size={18} color={isCurrent ? colors.primary : colors.onSurfaceVariant} />
+                    </TouchableOpacity>
+                  );
+                })}
+
+                {pendingWatchlistItem?._isReCategorize && (
                   <TouchableOpacity
-                    key={category.id}
-                    style={[
-                      styles.categoryOption,
-                      {
-                        backgroundColor: isCurrent ? colors.primary + '1A' : colors.surfaceContainerHigh,
-                        borderColor: isCurrent ? colors.primary + '66' : colors.outlineVariant + '33',
-                        borderRadius: radii.lg,
-                      },
-                    ]}
+                    style={[styles.removeOption, { backgroundColor: colors.error + '12', borderColor: colors.error + '33', borderRadius: radii.lg }]}
                     activeOpacity={0.82}
-                    onPress={() => handleSelectWatchlistCategory(category.id)}
+                    onPress={handleRemoveFromWatchlist}
                     accessibilityRole="button"
-                    accessibilityLabel={isCurrent ? `Currently in ${category.label}` : `Move to ${category.label}`}
-                    accessibilityState={{ selected: isCurrent }}
+                    accessibilityLabel="Remove from watchlist"
                   >
-                    <View style={[styles.categoryIcon, { backgroundColor: isCurrent ? colors.primary + '33' : colors.primary + '22' }]}>
-                      <Ionicons name={category.icon} size={22} color={colors.primary} />
+                    <View style={[styles.categoryIcon, { backgroundColor: colors.error + '22' }]}>
+                      <Ionicons name="trash-outline" size={22} color={colors.error} />
                     </View>
                     <View style={styles.categoryCopy}>
-                      <View style={styles.categoryLabelRow}>
-                        <Text style={[styles.categoryOptionTitle, { color: isCurrent ? colors.primary : colors.onSurface, ...typography.bodyLg }]}>
-                          {category.label}
-                        </Text>
-                        {isCurrent && (
-                          <View style={[styles.currentBadge, { backgroundColor: colors.primary + '22' }]}>
-                            <Text style={[styles.currentBadgeText, { color: colors.primary, ...typography.labelSm }]}>Current</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
-                        {category.description}
+                      <Text style={[styles.categoryOptionTitle, { color: colors.error, ...typography.bodyLg }]}>Remove from Watchlist</Text>
+                      <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+                        Permanently remove this title.
                       </Text>
                     </View>
-                    <Ionicons name={isCurrent ? 'checkmark-circle' : 'chevron-forward'} size={18} color={isCurrent ? colors.primary : colors.onSurfaceVariant} />
+                    <Ionicons name="chevron-forward" size={18} color={colors.error} />
                   </TouchableOpacity>
-                );
-              })}
-
-              {pendingWatchlistItem?._isReCategorize && (
-                <TouchableOpacity
-                  style={[styles.removeOption, { backgroundColor: colors.error + '12', borderColor: colors.error + '33', borderRadius: radii.lg }]}
-                  activeOpacity={0.82}
-                  onPress={handleRemoveFromWatchlist}
-                  accessibilityRole="button"
-                  accessibilityLabel="Remove from watchlist"
-                >
-                  <View style={[styles.categoryIcon, { backgroundColor: colors.error + '22' }]}>
-                    <Ionicons name="trash-outline" size={22} color={colors.error} />
-                  </View>
-                  <View style={styles.categoryCopy}>
-                    <Text style={[styles.categoryOptionTitle, { color: colors.error, ...typography.bodyLg }]}>Remove from Watchlist</Text>
-                    <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                      Permanently remove this title.
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.error} />
-                </TouchableOpacity>
-              )}
+                )}
+              </View>
             </View>
           </View>
-        </View>
+        </GestureHandlerRootView>
       </Modal>
 
       <ErrorBanner

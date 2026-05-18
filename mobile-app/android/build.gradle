@@ -22,3 +22,19 @@ allprojects {
 
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
+
+subprojects {
+  tasks.configureEach { task ->
+    if (task.class.name.contains("KotlinCompile")) {
+      task.kotlinOptions {
+        jvmTarget = "17"
+      }
+    }
+  }
+
+  tasks.matching { it.name == "createExpoConfig" }.configureEach {
+    if (it.hasProperty('environment')) {
+      it.environment['NODE_ENV'] = 'development'
+    }
+  }
+}

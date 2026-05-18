@@ -92,7 +92,7 @@ function formatRuntime(minutes, mediaType) {
   return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
 
-const HERO_HEIGHT = verticalScale(600);
+const HERO_HEIGHT = verticalScale(480);
 
 function splitPeople(value) {
   if (!hasValue(value)) return [];
@@ -711,7 +711,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
         <View style={styles.heroSection}>
           <Animated.View style={[styles.parallaxArtwork, heroTransform]}>
             <MediaArtwork
-              uri={result.backdropUrl || result.posterUrl}
+              uri={result.posterUrl}
               style={[styles.backdrop, StyleSheet.absoluteFill, { opacity: 0.7 }]}
               resizeMode="cover"
             />
@@ -721,7 +721,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.65)' }]} />
             )}
             <MediaArtwork
-              uri={result.backdropUrl || result.posterUrl}
+              uri={result.posterUrl}
               style={[styles.backdrop, StyleSheet.absoluteFill]}
               resizeMode="cover"
               accessibilityLabel={`${result.title} artwork`}

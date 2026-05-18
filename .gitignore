@@ -12,3 +12,5 @@ electron-app/dist/
 # Mobile
 mobile-app/node_modules/
 mobile-app/package-lock.json
+mobile-app/.expo/
+mobile-app/dist/
