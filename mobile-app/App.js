@@ -578,6 +578,7 @@ function MobileApp() {
     }
 
     setPendingWatchlistItem(null);
+    setWatchlist(newWatchlist);
     try {
       await saveWatchlist(newWatchlist);
       toastiva.success(isReCategorize ? 'Watchlist category updated' : '✅ Added to Watchlist');
