@@ -8,6 +8,12 @@ export const WATCHLIST_CATEGORIES = [
     icon: 'tv-outline',
   },
   {
+    id: 'imdb_top_100_movies',
+    label: 'IMDb Top 100 Movies',
+    description: 'A prepopulated IMDb movie starter list.',
+    icon: 'film-outline',
+  },
+  {
     id: 'watch_next',
     label: 'Watch Next',
     description: 'Titles queued up for the next free night.',

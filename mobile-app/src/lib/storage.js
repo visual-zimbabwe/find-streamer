@@ -7,6 +7,7 @@ const KEYS = {
   recentSearches: 'find-streamer/recent-searches',
   recentViewed: 'find-streamer/recent-viewed',
   watchlist: 'find-streamer/watchlist',
+  defaultWatchlistSeeded: 'find-streamer/default-watchlist-seeded',
 };
 
 export async function loadThemePreference() {
@@ -73,10 +74,27 @@ export async function saveRecentViewed(items) {
 
 export async function loadWatchlist() {
   const raw = await AsyncStorage.getItem(KEYS.watchlist);
-  if (!raw) return buildDefaultPrepopulatedWatchlist();
+  if (!raw) {
+    const defaults = buildDefaultPrepopulatedWatchlist();
+    await AsyncStorage.multiSet([
+      [KEYS.watchlist, JSON.stringify(defaults)],
+      [KEYS.defaultWatchlistSeeded, 'true'],
+    ]);
+    return defaults;
+  }
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
+
+    const seeded = await AsyncStorage.getItem(KEYS.defaultWatchlistSeeded);
+    if (parsed.length === 0 && seeded !== 'true') {
+      const defaults = buildDefaultPrepopulatedWatchlist();
+      await AsyncStorage.multiSet([
+        [KEYS.watchlist, JSON.stringify(defaults)],
+        [KEYS.defaultWatchlistSeeded, 'true'],
+      ]);
+      return defaults;
+    }
 
     const categoryIds = new Set(WATCHLIST_CATEGORIES.map((category) => category.id));
     return parsed.map((item) => ({

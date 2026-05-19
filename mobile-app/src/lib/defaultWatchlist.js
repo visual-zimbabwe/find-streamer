@@ -1,3 +1,5 @@
+import { buildDefaultPrepopulatedMovieWatchlist } from './defaultMovieWatchlist';
+
 export const DEFAULT_PREPOPULATED_WATCHLIST_CATEGORY_ID = 'imdb_top_100_tv_series';
 export const DEFAULT_PREPOPULATED_WATCHLIST_NAME = 'IMDb Top 100 TV Series';
 
@@ -105,7 +107,7 @@ const DEFAULT_PREPOPULATED_WATCHLIST_BASE = [
 ];
 
 export function buildDefaultPrepopulatedWatchlist() {
-  return DEFAULT_PREPOPULATED_WATCHLIST_BASE.map((item) => ({
+  const tvDefaults = DEFAULT_PREPOPULATED_WATCHLIST_BASE.map((item) => ({
     ...item,
     mediaType: 'tv',
     synopsis: 'No synopsis available.',
@@ -114,4 +116,9 @@ export function buildDefaultPrepopulatedWatchlist() {
     source: 'IMDb Top 100 - TV Series',
     omdbRatings: item.imdbRating ? { imdbRating: item.imdbRating } : undefined,
   }));
+
+  return [
+    ...tvDefaults,
+    ...buildDefaultPrepopulatedMovieWatchlist(),
+  ];
 }
