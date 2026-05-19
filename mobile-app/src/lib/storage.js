@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_WATCHLIST_CATEGORY_ID, WATCHLIST_CATEGORIES } from './watchlistCategories';
+import { buildDefaultPrepopulatedWatchlist } from './defaultWatchlist';
 
 const KEYS = {
   themePreference: 'find-streamer/theme-preference',
@@ -72,7 +73,7 @@ export async function saveRecentViewed(items) {
 
 export async function loadWatchlist() {
   const raw = await AsyncStorage.getItem(KEYS.watchlist);
-  if (!raw) return [];
+  if (!raw) return buildDefaultPrepopulatedWatchlist();
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];

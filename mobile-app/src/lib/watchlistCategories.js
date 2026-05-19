@@ -2,6 +2,12 @@ export const DEFAULT_WATCHLIST_CATEGORY_ID = 'watch_next';
 
 export const WATCHLIST_CATEGORIES = [
   {
+    id: 'imdb_top_100_tv_series',
+    label: 'IMDb Top 100 TV Series',
+    description: 'A prepopulated IMDb TV series starter list.',
+    icon: 'tv-outline',
+  },
+  {
     id: 'watch_next',
     label: 'Watch Next',
     description: 'Titles queued up for the next free night.',
