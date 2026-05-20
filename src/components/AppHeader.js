@@ -26,6 +26,16 @@ export function AppHeader({ onBack, showBack, transparent }) {
   return (
     <View style={[styles.header, { backgroundColor: transparent ? 'transparent' : colors.background }]}>
       <View style={styles.brand}>
+        {showBack && (
+          <TouchableOpacity
+            onPress={onBack}
+            style={styles.backButton}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.onBackground} />
+          </TouchableOpacity>
+        )}
         {!showBack && (
           <View style={styles.titleContainer}>
             <Text style={[styles.logo, { color: colors.primary, ...typography.headlineMd }]}>Trova</Text>

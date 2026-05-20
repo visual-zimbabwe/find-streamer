@@ -90,57 +90,110 @@ function createTimeoutSignal(timeoutMs) {
   };
 }
 
-async function tmdbGet(pathname, params = {}) {
-  return retryWithBackoff(async () => {
-    const url = new URL(`${TMDB_BASE}${pathname}`);
-    Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
+class ConcurrencyLimiter {
+  constructor(limit) {
+    this.limit = limit;
+    this.activeCount = 0;
+    this.queue = [];
+  }
 
-    const timeout = createTimeoutSignal(TMDB_REQUEST_TIMEOUT_MS);
-    let response;
+  async run(task) {
+    if (this.activeCount >= this.limit) {
+      await new Promise((resolve) => this.queue.push(resolve));
+    }
+    this.activeCount += 1;
     try {
-      response = await fetch(url.toString(), {
-        headers: {
-          accept: 'application/json',
-          Authorization: `Bearer ${HARDCODED_BEARER_TOKEN}`,
-        },
-        signal: timeout.signal,
-      });
-    } catch (error) {
-      if (error?.name === 'AbortError') {
-        throw createAppError('Please check your connection and try again.', 'TIMEOUT');
-      }
-      throw createAppError('Please check your connection and try again.', 'OFFLINE');
+      return await task();
     } finally {
-      timeout.clear?.();
+      this.activeCount -= 1;
+      if (this.queue.length > 0) {
+        const next = this.queue.shift();
+        next();
+      }
     }
+  }
+}
 
-    if (!response.ok) {
-      const status = response.status;
-      if (status === 429) {
-        recordRateQuota429('tmdb', response);
-      }
-      let message = '';
-      try {
-        message = await response.text();
-      } catch {
-        message = '';
-      }
+const tmdbLimiter = new ConcurrencyLimiter(3);
+const _tmdbPromiseCache = new Map();
 
-      if (status === 429) {
-        throw createAppError('Our movie database is busy right now. Give it a moment and refresh.', 'RATE_LIMITED', { status });
-      }
-      if (status >= 500) {
-        throw createAppError('Our movie database is taking a quick coffee break. Please try again in a moment.', 'SERVICE_UNAVAILABLE', { status });
-      }
-      throw createAppError('Something went wrong while loading movie data. Please try again.', 'TMDB_ERROR', { status, rawMessage: message });
-    }
-
-    recordRateQuotaFromResponse('tmdb', response);
-    return response.json();
-  }, {
-    retries: 2,
-    shouldRetry: (error) => error?.code === 'OFFLINE' || error?.code === 'TIMEOUT' || isRetryableStatus(error?.status),
+async function tmdbGet(pathname, params = {}) {
+  // Sort parameters to ensure consistent cache keys
+  const sortedParams = {};
+  Object.keys(params).sort().forEach(key => {
+    sortedParams[key] = params[key];
   });
+  
+  const cacheKey = JSON.stringify({ pathname, params: sortedParams });
+  
+  if (_tmdbPromiseCache.has(cacheKey)) {
+    return _tmdbPromiseCache.get(cacheKey);
+  }
+
+  const promise = (async () => {
+    return retryWithBackoff(async () => {
+      return tmdbLimiter.run(async () => {
+        const url = new URL(`${TMDB_BASE}${pathname}`);
+        Object.entries(sortedParams).forEach(([key, value]) => url.searchParams.set(key, String(value)));
+
+        const timeout = createTimeoutSignal(TMDB_REQUEST_TIMEOUT_MS);
+        let response;
+        try {
+          response = await fetch(url.toString(), {
+            headers: {
+              accept: 'application/json',
+              Authorization: `Bearer ${HARDCODED_BEARER_TOKEN}`,
+            },
+            signal: timeout.signal,
+          });
+        } catch (error) {
+          console.error('[tmdbGet] fetch error for pathname:', pathname, 'error:', error);
+          if (error?.name === 'AbortError') {
+            throw createAppError('Please check your connection and try again.', 'TIMEOUT', { originalError: error });
+          }
+          throw createAppError('Please check your connection and try again.', 'OFFLINE', { originalError: error });
+        } finally {
+          timeout.clear?.();
+        }
+
+        if (!response.ok) {
+          const status = response.status;
+          if (status === 429) {
+            recordRateQuota429('tmdb', response);
+          }
+          let message = '';
+          try {
+            message = await response.text();
+          } catch {
+            message = '';
+          }
+
+          if (status === 429) {
+            throw createAppError('Our movie database is busy right now. Give it a moment and refresh.', 'RATE_LIMITED', { status });
+          }
+          if (status >= 500) {
+            throw createAppError('Our movie database is taking a quick coffee break. Please try again in a moment.', 'SERVICE_UNAVAILABLE', { status });
+          }
+          throw createAppError('Something went wrong while loading movie data. Please try again.', 'TMDB_ERROR', { status, rawMessage: message });
+        }
+
+        recordRateQuotaFromResponse('tmdb', response);
+        return response.json();
+      });
+    }, {
+      retries: 2,
+      shouldRetry: (error) => error?.code === 'OFFLINE' || error?.code === 'TIMEOUT' || isRetryableStatus(error?.status),
+    });
+  })();
+
+  _tmdbPromiseCache.set(cacheKey, promise);
+
+  // If the request fails, remove it from the cache to allow future retries
+  promise.catch(() => {
+    _tmdbPromiseCache.delete(cacheKey);
+  });
+
+  return promise;
 }
 
 export async function searchTitleCandidates(query) {
@@ -961,13 +1014,12 @@ async function getMoreFromCastAndCrew(personIds, currentTmdbId) {
 }
 
 export async function resolveMatch(query, match) {
-  const [metadata, credits, similar, availability, countryNames] = await Promise.all([
-    getTitleMetadata(match.mediaType, match.tmdbId),
-    getCredits(match.mediaType, match.tmdbId),
-    getSimilar(match.mediaType, match.tmdbId),
-    getProviderCountries(match.mediaType, match.tmdbId),
-    getCountryNames(),
-  ]);
+  // Execute detail requests sequentially to prevent OkHttp / Cloudflare from dropping concurrent sockets
+  const metadata = await getTitleMetadata(match.mediaType, match.tmdbId);
+  const countryNames = await getCountryNames();
+  const credits = await getCredits(match.mediaType, match.tmdbId);
+  const similar = await getSimilar(match.mediaType, match.tmdbId);
+  const availability = await getProviderCountries(match.mediaType, match.tmdbId);
 
   const personIds = Array.from(new Set([
     ...credits.directorPersons.map(p => p.id),

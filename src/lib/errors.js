@@ -12,6 +12,11 @@ export function classifyAppError(error) {
   const message = error?.message || '';
   const status = error?.status;
 
+  console.error('[classifyAppError] Caught error:', error, 'Code:', code, 'Status:', status, 'Message:', message);
+  if (error instanceof Error && error.stack) {
+    console.error('[classifyAppError] Stack trace:', error.stack);
+  }
+
   if (code === 'NO_RESULTS') {
     return {
       code,

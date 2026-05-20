@@ -64,6 +64,26 @@ function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {
 }
 
 // ─── Searchable Picker Modal ───────────────────────────────────────────────────
+const PickerItem = React.memo(({ item, active, onPress, colors, typography }) => {
+  return (
+    <TouchableOpacity
+      style={[
+        pickerStyles.pickerRow,
+        active && { backgroundColor: colors.primary + '18' },
+      ]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={item.label}
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={[{ flex: 1, color: active ? colors.primary : colors.onSurface, ...typography.bodyMd, fontWeight: active ? '700' : '400' }]}>
+        {item.label}
+      </Text>
+      {active && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+    </TouchableOpacity>
+  );
+});
+
 function SearchablePickerModal({
   visible,
   onClose,
@@ -91,14 +111,33 @@ function SearchablePickerModal({
     onClose();
   };
 
-  const handleSelect = (item) => {
+  const handleSelect = useCallback((item) => {
     if (item.code == null) {
       onClear();
       setQuery('');
       return;
     }
     onToggle(item.code);
-  };
+  }, [onClear, onToggle]);
+
+  const renderItem = useCallback(({ item }) => {
+    const active = item.code == null ? selectedCodes.length === 0 : selectedCodes.includes(item.code);
+    return (
+      <PickerItem
+        item={item}
+        active={active}
+        onPress={() => handleSelect(item)}
+        colors={colors}
+        typography={typography}
+      />
+    );
+  }, [selectedCodes, colors, typography, handleSelect]);
+
+  const getItemLayout = useCallback((_, index) => ({
+    length: 48,
+    offset: 48 * index,
+    index,
+  }), []);
 
   return (
     <Modal
@@ -157,26 +196,11 @@ function SearchablePickerModal({
                 keyExtractor={(item) => String(item.code ?? '__any__')}
                 style={{ maxHeight: 380 }}
                 keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => {
-                  const active = item.code == null ? selectedCodes.length === 0 : selectedCodes.includes(item.code);
-                  return (
-                    <TouchableOpacity
-                      style={[
-                        pickerStyles.pickerRow,
-                        active && { backgroundColor: colors.primary + '18' },
-                      ]}
-                      onPress={() => handleSelect(item)}
-                      accessibilityRole="button"
-                      accessibilityLabel={item.label}
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={[{ flex: 1, color: active ? colors.primary : colors.onSurface, ...typography.bodyMd, fontWeight: active ? '700' : '400' }]}>
-                        {item.label}
-                      </Text>
-                      {active && <Ionicons name="checkmark" size={18} color={colors.primary} />}
-                    </TouchableOpacity>
-                  );
-                }}
+                renderItem={renderItem}
+                initialNumToRender={20}
+                maxToRenderPerBatch={20}
+                windowSize={11}
+                getItemLayout={getItemLayout}
                 ListEmptyComponent={
                   <Text style={[{ color: colors.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center', marginTop: 24 }]}>
                     No matches found

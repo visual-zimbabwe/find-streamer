@@ -37,6 +37,23 @@ const WINDOW_W = Dimensions.get('window').width;
 const POSTER_W = scale(118);
 const POSTER_H = POSTER_W * 1.5;
 
+async function mapWithConcurrency(items, limit, task) {
+  const results = [];
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await task(items[index]);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
 function HomePosterCard({ item, colors, typography, radii, onPress }) {
   return (
     <TouchableOpacity
@@ -152,16 +169,26 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     (async () => {
       setRailsLoading(true);
       try {
-        const [trakt, nowPlaying, ...tmdbResults] = await Promise.all([
+        // Fetch higher-priority/above-the-fold rails in parallel first
+        const [trakt, nowPlaying] = await Promise.all([
           fetchHomeTraktTrendingRail().catch(() => []),
           fetchHomeNowPlayingRail().catch(() => []),
-          ...HOME_TMDB_RAILS.map((def) =>
-            fetchHomeTmdbRail(def).then((rows) => ({ id: def.id, rows })).catch(() => ({ id: def.id, rows: [] }))
-          ),
         ]);
         if (cancelled) return;
         setTraktRail(trakt);
         setNowPlayingRail(nowPlaying);
+
+        // Fetch remaining 14 TMDB rails in smaller concurrent batches
+        const tmdbResults = await mapWithConcurrency(HOME_TMDB_RAILS, 3, async (def) => {
+          try {
+            const rows = await fetchHomeTmdbRail(def);
+            return { id: def.id, rows };
+          } catch {
+            return { id: def.id, rows: [] };
+          }
+        });
+        if (cancelled) return;
+
         const map = {};
         tmdbResults.forEach((pack) => {
           map[pack.id] = pack.rows;
