@@ -3,6 +3,7 @@ export const SERVICE_COLORS = {
   amazon_prime_video: '#00A8E1',
   max: '#002BE7',
   cbc_gem: '#E31B23',
+  bbc_iplayer: '#FF4C98',
 };
 
 export const SERVICE_ICONS = {
@@ -10,6 +11,7 @@ export const SERVICE_ICONS = {
   amazon_prime_video: 'logo-amazon',
   max: 'tv',
   cbc_gem: 'tv-outline',
+  bbc_iplayer: 'tv-outline',
 };
 
 // Ordered by streaming-market size – used when US/CA aren't available.

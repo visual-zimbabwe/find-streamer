@@ -15,15 +15,18 @@ export const SERVICE_LABELS = {
   amazon_prime_video: 'Prime Video',
   max: 'Max',
   cbc_gem: 'CBC Gem',
+  bbc_iplayer: 'BBC iPlayer',
 };
 const DIRECT_SERVICE_NAMES = {
   netflix: new Set(['netflix', 'netflix standard with ads', 'netflix basic with ads']),
   amazon_prime_video: new Set(['amazon prime video']),
   max: new Set(['max', 'hbo max']),
   cbc_gem: new Set(['cbc gem']),
+  bbc_iplayer: new Set(['bbc iplayer']),
 };
 const REGION_LOCKED_SERVICES = {
   cbc_gem: new Set(['CA']),
+  bbc_iplayer: new Set(['GB']),
 };
 
 function normalize(text) {
@@ -707,6 +710,7 @@ const SERVICE_FALLBACK_COLORS = {
   amazon_prime_video: '#00A8E1',
   max: '#002BE7',
   cbc_gem: '#E31B23',
+  bbc_iplayer: '#FF4C98',
 };
 
 function buildProviderSummary(rows, logos = {}) {
