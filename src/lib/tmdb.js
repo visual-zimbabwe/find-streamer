@@ -14,11 +14,16 @@ export const SERVICE_LABELS = {
   netflix: 'Netflix',
   amazon_prime_video: 'Prime Video',
   max: 'Max',
+  cbc_gem: 'CBC Gem',
 };
 const DIRECT_SERVICE_NAMES = {
   netflix: new Set(['netflix', 'netflix standard with ads', 'netflix basic with ads']),
   amazon_prime_video: new Set(['amazon prime video']),
   max: new Set(['max', 'hbo max']),
+  cbc_gem: new Set(['cbc gem']),
+};
+const REGION_LOCKED_SERVICES = {
+  cbc_gem: new Set(['CA']),
 };
 
 function normalize(text) {
@@ -44,12 +49,22 @@ function directFlatrateServices(info = {}) {
   return matched;
 }
 
+function emptyServiceMap(valueFactory) {
+  return Object.fromEntries(Object.keys(SERVICE_LABELS).map((key) => [key, valueFactory()]));
+}
+
+function isServiceAvailableInRegion(key, countryCode) {
+  const allowedRegions = REGION_LOCKED_SERVICES[key];
+  return !allowedRegions || allowedRegions.has(countryCode);
+}
+
 function availabilityFromResults(results = {}) {
-  const availability = { netflix: [], amazon_prime_video: [], max: [] };
-  const logos = { netflix: null, amazon_prime_video: null, max: null };
+  const availability = emptyServiceMap(() => []);
+  const logos = emptyServiceMap(() => null);
 
   Object.entries(results).forEach(([countryCode, info]) => {
     directFlatrateServices(info).forEach((logoPath, key) => {
+      if (!isServiceAvailableInRegion(key, countryCode)) return;
       availability[key].push(countryCode);
       if (!logos[key] && logoPath) logos[key] = logoPath;
     });
@@ -612,28 +627,25 @@ async function getCompleteTvProviderCountries(tmdbId, fallbackAvailability = nul
     ));
 
   if (!episodes.length) {
-    return fallbackAvailability || { netflix: [], amazon_prime_video: [], max: [], confidence: 'show' };
+    return fallbackAvailability || { ...emptyServiceMap(() => []), confidence: 'show' };
   }
 
   if (episodes.length > TV_EPISODE_PROVIDER_MAX_EPISODES) {
-    return fallbackAvailability || { netflix: [], amazon_prime_video: [], max: [], confidence: 'show' };
+    return fallbackAvailability || { ...emptyServiceMap(() => []), confidence: 'show' };
   }
 
   const episodeResults = await mapWithConcurrency(episodes, 8, (episode) =>
     tmdbGet(`/tv/${tmdbId}/season/${episode.seasonNumber}/episode/${episode.episodeNumber}/watch/providers`)
   );
-  const availability = { netflix: null, amazon_prime_video: null, max: null };
-  const logos = { netflix: null, amazon_prime_video: null, max: null };
+  const availability = emptyServiceMap(() => null);
+  const logos = emptyServiceMap(() => null);
 
   episodeResults.forEach((data) => {
-    const episodeAvailability = {
-      netflix: new Set(),
-      amazon_prime_video: new Set(),
-      max: new Set(),
-    };
+    const episodeAvailability = emptyServiceMap(() => new Set());
 
     Object.entries(data.results || {}).forEach(([countryCode, info]) => {
       directFlatrateServices(info).forEach((logoPath, key) => {
+        if (!isServiceAvailableInRegion(key, countryCode)) return;
         episodeAvailability[key].add(countryCode);
         if (!logos[key] && logoPath) logos[key] = logoPath;
       });
@@ -674,18 +686,16 @@ function toRows(availability, countryNames) {
   const allCodes = Array.from(
     new Set(Object.keys(SERVICE_LABELS).flatMap((key) => availability[key] || []))
   ).sort();
-  const netflix = new Set(availability.netflix || []);
-  const prime = new Set(availability.amazon_prime_video || []);
-  const max = new Set(availability.max || []);
+  const serviceCountries = Object.fromEntries(
+    Object.keys(SERVICE_LABELS).map((key) => [key, new Set(availability[key] || [])])
+  );
 
   const rows = allCodes.map((code) => ({
     country: countryNames[code] || code,
     code,
-    providers: {
-      netflix: netflix.has(code),
-      amazon_prime_video: prime.has(code),
-      max: max.has(code),
-    },
+    providers: Object.fromEntries(
+      Object.keys(SERVICE_LABELS).map((key) => [key, serviceCountries[key].has(code)])
+    ),
   }));
 
   rows.sort((a, b) => a.country.localeCompare(b.country) || a.code.localeCompare(b.code));
@@ -696,6 +706,7 @@ const SERVICE_FALLBACK_COLORS = {
   netflix: '#E50914',
   amazon_prime_video: '#00A8E1',
   max: '#002BE7',
+  cbc_gem: '#E31B23',
 };
 
 function buildProviderSummary(rows, logos = {}) {

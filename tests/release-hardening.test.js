@@ -20,6 +20,19 @@ test('TV provider lookup defaults to show-level availability instead of per-epis
   assert.match(source, /confidence = 'show'/);
 });
 
+test('streaming availability includes Canada-only CBC Gem provider support', () => {
+  const tmdb = read('src/lib/tmdb.js');
+  const shareUtils = read('src/lib/shareUtils.js');
+  const resultView = read('src/components/ResultView.js');
+
+  assert.match(tmdb, /cbc_gem:\s*'CBC Gem'/);
+  assert.match(tmdb, /cbc_gem:\s*new Set\(\['cbc gem'\]\)/);
+  assert.match(tmdb, /cbc_gem:\s*new Set\(\['CA'\]\)/);
+  assert.match(tmdb, /isServiceAvailableInRegion\(key, countryCode\)/);
+  assert.match(shareUtils, /cbc_gem:\s*'#E31B23'/);
+  assert.match(resultView, /CBC Gem/);
+});
+
 test('core interactive surfaces expose accessibility roles and labels', () => {
   const files = [
     'src/components/AppHeader.js',

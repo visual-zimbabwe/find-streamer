@@ -2,12 +2,14 @@ export const SERVICE_COLORS = {
   netflix: '#E50914',
   amazon_prime_video: '#00A8E1',
   max: '#002BE7',
+  cbc_gem: '#E31B23',
 };
 
 export const SERVICE_ICONS = {
   netflix: 'play-circle',
   amazon_prime_video: 'logo-amazon',
   max: 'tv',
+  cbc_gem: 'tv-outline',
 };
 
 // Ordered by streaming-market size – used when US/CA aren't available.
