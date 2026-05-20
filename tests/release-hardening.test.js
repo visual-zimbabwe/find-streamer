@@ -33,6 +33,22 @@ test('streaming availability includes Canada-only CBC Gem provider support', () 
   assert.match(resultView, /CBC Gem/);
 });
 
+test('streaming availability includes UK-only BBC iPlayer provider support', () => {
+  const tmdb = read('src/lib/tmdb.js');
+  const shareUtils = read('src/lib/shareUtils.js');
+  const resultView = read('src/components/ResultView.js');
+  const readme = read('README.md');
+
+  assert.match(tmdb, /bbc_iplayer:\s*'BBC iPlayer'/);
+  assert.match(tmdb, /bbc_iplayer:\s*new Set\(\['bbc iplayer'\]\)/);
+  assert.match(tmdb, /bbc_iplayer:\s*new Set\(\['GB'\]\)/);
+  assert.match(tmdb, /isServiceAvailableInRegion\(key, countryCode\)/);
+  assert.match(shareUtils, /bbc_iplayer:\s*'#[0-9A-Fa-f]{6}'/);
+  assert.match(shareUtils, /bbc_iplayer:\s*'tv-outline'/);
+  assert.match(resultView, /BBC iPlayer/);
+  assert.match(readme, /UK-only \*\*BBC iPlayer\*\*/);
+});
+
 test('core interactive surfaces expose accessibility roles and labels', () => {
   const files = [
     'src/components/AppHeader.js',
