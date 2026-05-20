@@ -1,16 +1,15 @@
-# Node
+# Node / Expo
 node_modules/
-package-lock.json
+.expo/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Python
-__pycache__/
-.venv/
+# Android / iOS local builds
+*.apk
+*.aab
 
-# Electron
-electron-app/dist/
-
-# Mobile
-mobile-app/node_modules/
-mobile-app/package-lock.json
-mobile-app/.expo/
-mobile-app/dist/
+# macOS/Windows system files
+.DS_Store
+Thumbs.db
