@@ -551,6 +551,9 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const providerSummary = result.providerSummary || [];
   const hasAvailabilityRows = (result.rows || []).length > 0;
   const hasAvailabilityData = Array.isArray(result.rows);
+  const franchiseParts = result.isFranchise && result.collection?.parts?.length
+    ? result.collection.parts
+    : [];
   const displaySynopsis = (result.synopsis && result.synopsis !== 'No synopsis available.')
     ? result.synopsis
     : (result.omdbRatings?.plot || result.synopsis || 'No synopsis available.');
@@ -858,6 +861,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   </Text>
                 </View>
               )}
+              {result.isFranchise && (
+                <View style={[styles.infoPill, styles.ratedBadge]}>
+                  <Ionicons name="albums-outline" size={14} color="rgba(255,255,255,0.85)" />
+                  <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.85)', ...typography.labelSm }]}>
+                    {result.franchiseLabel}
+                  </Text>
+                </View>
+              )}
               <TouchableOpacity
                 style={styles.infoPill}
                 onPress={handleOpenShareSheet}
@@ -936,6 +947,71 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
               </Text>
             </TouchableOpacity>
           </View>
+
+          {franchiseParts.length > 1 && (
+            <View style={styles.section}>
+              <View style={styles.franchiseHeader}>
+                <View style={[styles.franchiseIcon, { backgroundColor: colors.primaryContainer }]}>
+                  <Ionicons name="albums-outline" size={20} color={colors.primary} />
+                </View>
+                <View style={styles.franchiseHeaderText}>
+                  <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 4 }]}>
+                    Franchise
+                  </Text>
+                  <Text style={[styles.franchiseTitle, { color: colors.onSurface, ...typography.titleMd }]} numberOfLines={2}>
+                    {result.collection?.name || `${result.title} ${result.franchiseLabel}`}
+                  </Text>
+                </View>
+                <View style={[styles.franchiseCountBadge, { borderColor: colors.outlineVariant }]}>
+                  <Text style={[styles.franchiseCountText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                    {pluralize(franchiseParts.length, 'film')}
+                  </Text>
+                </View>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.franchiseScroll}
+              >
+                {franchiseParts.map((item, index) => {
+                  const isCurrentMovie = item.tmdbId === result.tmdbId;
+                  return (
+                    <TouchableOpacity
+                      key={item.tmdbId}
+                      style={styles.franchiseItem}
+                      onPress={() => !isCurrentMovie && onSelectSimilar(item)}
+                      disabled={isCurrentMovie}
+                      accessibilityRole="button"
+                      accessibilityLabel={isCurrentMovie ? `${item.title}, current movie` : `Open details for ${item.title}`}
+                      accessibilityState={{ selected: isCurrentMovie }}
+                      activeOpacity={0.78}
+                    >
+                      <View style={[
+                        styles.similarPoster,
+                        styles.franchisePoster,
+                        { borderRadius: radii.md },
+                        isCurrentMovie && { borderColor: colors.primary, borderWidth: 2 },
+                      ]}>
+                        <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
+                        <View style={[styles.franchiseOrderBadge, { backgroundColor: colors.primary }]}>
+                          <Text style={[styles.franchiseOrderText, { color: colors.onPrimary }]}>
+                            {index + 1}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.similarTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <Text style={[styles.franchiseYear, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                        {isCurrentMovie ? `${item.year} · Current` : item.year}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
 
           {hasSeasonDetails && (
             <View style={styles.section}>
@@ -1612,6 +1688,63 @@ const styles = StyleSheet.create({
   seasonsScroll: {
     gap: 12,
     paddingRight: 40,
+  },
+  franchiseHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  franchiseIcon: {
+    alignItems: 'center',
+    borderRadius: 18,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  franchiseHeaderText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  franchiseTitle: {
+    fontWeight: '900',
+  },
+  franchiseCountBadge: {
+    borderRadius: 4,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  franchiseCountText: {
+    fontWeight: '800',
+  },
+  franchiseScroll: {
+    gap: 12,
+    paddingRight: 40,
+  },
+  franchiseItem: {
+    width: scale(120),
+  },
+  franchisePoster: {
+    marginBottom: 8,
+  },
+  franchiseOrderBadge: {
+    alignItems: 'center',
+    borderRadius: 4,
+    height: 22,
+    justifyContent: 'center',
+    left: 8,
+    position: 'absolute',
+    top: 8,
+    width: 22,
+  },
+  franchiseOrderText: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  franchiseYear: {
+    fontWeight: '700',
+    marginTop: 2,
   },
   seasonCard: {
     overflow: 'hidden',

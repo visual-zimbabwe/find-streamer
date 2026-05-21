@@ -174,6 +174,20 @@ test('search view includes surprise roulette and visual recently viewed history'
   assert.match(tmdb, /ratingValue >= 7/);
 });
 
+test('movie franchise detection is backed by TMDB collection parts', () => {
+  const tmdb = read('src/lib/tmdb.js');
+  const resultView = read('src/components/ResultView.js');
+
+  assert.match(tmdb, /data\.belongs_to_collection/);
+  assert.match(tmdb, /getMovieCollectionInfo\(data\.belongs_to_collection,\s*tmdbId\)/);
+  assert.match(tmdb, /tmdbGet\(`\/collection\/\$\{belongsToCollection\.id\}`/);
+  assert.match(tmdb, /relatedParts\.length === 0/);
+  assert.match(tmdb, /collectionLookupFailed:\s*true/);
+  assert.match(resultView, /result\.isFranchise/);
+  assert.match(resultView, /result\.collection\?\.parts/);
+  assert.match(resultView, /Franchise/);
+});
+
 test('language and country presets map to effective API filters', () => {
   const viewModel = read('src/lib/discoverViewModel.js');
   const languagePresets = read('src/lib/languagePresets.js');

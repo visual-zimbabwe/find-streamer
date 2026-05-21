@@ -314,6 +314,106 @@ function mapSearchPersonItem(item) {
   };
 }
 
+function franchiseKindForParts(parts = [], collectionName = '') {
+  if (parts.length === 3) return 'trilogy';
+  if (/saga/i.test(collectionName)) return 'saga';
+  if (parts.length >= 4) return 'saga';
+  return 'series';
+}
+
+function releaseDateValue(item = {}) {
+  return item.release_date || item.first_air_date || '';
+}
+
+function sortCollectionParts(parts = []) {
+  return [...parts].sort((a, b) => {
+    const aDate = releaseDateValue(a);
+    const bDate = releaseDateValue(b);
+    if (!aDate && !bDate) return (a.title || '').localeCompare(b.title || '');
+    if (!aDate) return 1;
+    if (!bDate) return -1;
+    return aDate.localeCompare(bDate);
+  });
+}
+
+function mapCollectionPart(item) {
+  const dateValue = releaseDateValue(item);
+  return {
+    mediaType: 'movie',
+    tmdbId: item.id,
+    title: item.title || item.name || '(Untitled)',
+    year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+    synopsis: (item.overview || '').trim() || 'No synopsis available.',
+    posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+    backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+    ratingValue: item.vote_average || 0,
+    rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+    releaseDate: dateValue || null,
+  };
+}
+
+function standaloneFranchiseInfo(collection = null) {
+  return {
+    isFranchise: false,
+    franchiseKind: 'standalone',
+    franchiseLabel: 'Standalone',
+    collection,
+  };
+}
+
+async function getMovieCollectionInfo(belongsToCollection, tmdbId) {
+  if (!belongsToCollection?.id) {
+    return standaloneFranchiseInfo(null);
+  }
+
+  const collection = {
+    id: belongsToCollection.id,
+    name: belongsToCollection.name || null,
+    posterUrl: belongsToCollection.poster_path ? `https://image.tmdb.org/t/p/w500${belongsToCollection.poster_path}` : null,
+    backdropUrl: belongsToCollection.backdrop_path ? `https://image.tmdb.org/t/p/original${belongsToCollection.backdrop_path}` : null,
+    parts: [],
+  };
+
+  try {
+    const data = await tmdbGet(`/collection/${belongsToCollection.id}`, { language: 'en-US' });
+    const parts = sortCollectionParts(data.parts || [])
+      .filter((item) => item?.id)
+      .map(mapCollectionPart);
+    const relatedParts = parts.filter((item) => item.tmdbId !== tmdbId);
+
+    if (relatedParts.length === 0) {
+      return standaloneFranchiseInfo({ ...collection, parts });
+    }
+
+    const collectionName = data.name || collection.name || '';
+    const franchiseKind = franchiseKindForParts(parts, collectionName);
+
+    return {
+      isFranchise: true,
+      franchiseKind,
+      franchiseLabel: franchiseKind === 'trilogy'
+        ? 'Trilogy'
+        : franchiseKind === 'saga'
+          ? 'Saga'
+          : 'Series',
+      collection: {
+        id: data.id || collection.id,
+        name: collectionName || null,
+        overview: data.overview || null,
+        posterUrl: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : collection.posterUrl,
+        backdropUrl: data.backdrop_path ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` : collection.backdropUrl,
+        parts,
+      },
+    };
+  } catch (error) {
+    console.warn('[getMovieCollectionInfo] failed for collection:', belongsToCollection.id, error?.message || error);
+    return {
+      ...standaloneFranchiseInfo(collection),
+      collectionLookupFailed: true,
+    };
+  }
+}
+
 export async function searchLiveCandidates(query) {
   const data = await tmdbGet('/search/multi', {
     query,
@@ -382,6 +482,17 @@ async function getTitleMetadata(mediaType, tmdbId) {
 
   // Movies: imdb_id is in the main response. TV: must come from external_ids.
   const imdbId = data.imdb_id || externalIds?.imdb_id || null;
+  const belongsToCollection = mediaType === 'movie' && data.belongs_to_collection
+    ? {
+      id: data.belongs_to_collection.id,
+      name: data.belongs_to_collection.name || null,
+      posterUrl: data.belongs_to_collection.poster_path ? `https://image.tmdb.org/t/p/w500${data.belongs_to_collection.poster_path}` : null,
+      backdropUrl: data.belongs_to_collection.backdrop_path ? `https://image.tmdb.org/t/p/original${data.belongs_to_collection.backdrop_path}` : null,
+    }
+    : null;
+  const franchiseInfo = mediaType === 'movie'
+    ? await getMovieCollectionInfo(data.belongs_to_collection, tmdbId)
+    : standaloneFranchiseInfo(null);
 
   return {
     year,
@@ -389,6 +500,8 @@ async function getTitleMetadata(mediaType, tmdbId) {
     rating,
     runtimeMinutes,
     imdbId,
+    belongsToCollection,
+    ...franchiseInfo,
     numberOfSeasons: mediaType === 'tv' ? data.number_of_seasons || seasons.length : null,
     numberOfEpisodes: mediaType === 'tv' ? data.number_of_episodes || seasons.reduce((total, season) => total + season.episodeCount, 0) : null,
     createdBy: mediaType === 'tv'
