@@ -1,6 +1,6 @@
 # Trova — Premium Cinema & Streaming Discovery Companion
 
-Trova (commercially branded version of **FindStreamer**) is a state-of-the-art, high-polish mobile application designed for movie and TV enthusiasts. It allows users to search globally for film/TV metadata, track localized streaming availability across major providers (Netflix, Amazon Prime Video, Max, CBC Gem in Canada, BBC iPlayer in the UK, and SBS On Demand plus ABC iview in Australia), organize personal watchlists, and discover new titles through smart recommendations.
+Trova (commercially branded version of **FindStreamer**) is a state-of-the-art, high-polish mobile application designed for movie and TV enthusiasts. It allows users to search globally for film/TV metadata, track localized streaming availability across major providers (Netflix, Amazon Prime Video, Max, CBC Gem in Canada, BBC iPlayer, Channel 4, and ITVX in the UK, and SBS On Demand plus ABC iview in Australia), organize personal watchlists, and discover new titles through smart recommendations.
 
 Built on **React Native** and **Expo SDK 55**, Trova features a cinematic design system with dynamic color-adaptive backdrops, fluid glassmorphic navigations, layered gesture-driven bottom sheets, and native sharing tools.
 
@@ -14,7 +14,7 @@ Built on **React Native** and **Expo SDK 55**, Trova features a cinematic design
 * **Deep Resolution**: Merges primary metadata from **TMDB** with detailed critic scores and localized plot summaries from **OMDb**.
 
 ### 🌍 2. Global Streaming Availability
-* **Country-by-Country Matrix**: Resolves watch provider data to display exactly which countries host a title on **Netflix**, **Prime Video**, **Max**, Canada-only **CBC Gem**, UK-only **BBC iPlayer**, and Australia-only **SBS On Demand** and **ABC iview**.
+* **Country-by-Country Matrix**: Resolves watch provider data to display exactly which countries host a title on **Netflix**, **Prime Video**, **Max**, Canada-only **CBC Gem**, UK-only **BBC iPlayer**, **Channel 4**, and **ITVX**, and Australia-only **SBS On Demand** and **ABC iview**.
 * **Episode-Level Lookups**: Resolves TV show availability down to individual episodes using concurrent request limits to ensure precise global coverage despite season-level licensing variances.
 * **Service Badging**: Pulls official brand logos directly from the API with vibrant color fallbacks based on brand identity.
 

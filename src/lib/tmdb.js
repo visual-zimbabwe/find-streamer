@@ -16,6 +16,8 @@ export const SERVICE_LABELS = {
   max: 'Max',
   cbc_gem: 'CBC Gem',
   bbc_iplayer: 'BBC iPlayer',
+  channel_4: 'Channel 4',
+  itvx: 'ITVX',
   sbs_on_demand: 'SBS On Demand',
   abc_iview: 'ABC iview',
 };
@@ -25,12 +27,16 @@ const DIRECT_SERVICE_NAMES = {
   max: new Set(['max', 'hbo max']),
   cbc_gem: new Set(['cbc gem']),
   bbc_iplayer: new Set(['bbc iplayer']),
+  channel_4: new Set(['channel 4']),
+  itvx: new Set(['itvx']),
   sbs_on_demand: new Set(['sbs on demand']),
   abc_iview: new Set(['abc iview']),
 };
 const REGION_LOCKED_SERVICES = {
   cbc_gem: new Set(['CA']),
   bbc_iplayer: new Set(['GB']),
+  channel_4: new Set(['GB']),
+  itvx: new Set(['GB']),
   sbs_on_demand: new Set(['AU']),
   abc_iview: new Set(['AU']),
 };
@@ -834,6 +840,8 @@ const SERVICE_FALLBACK_COLORS = {
   max: '#002BE7',
   cbc_gem: '#E31B23',
   bbc_iplayer: '#FF4C98',
+  channel_4: '#00AEEF',
+  itvx: '#DE00FF',
   sbs_on_demand: '#00AEEF',
   abc_iview: '#00A3E0',
 };

@@ -1276,7 +1276,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                 <View style={styles.availabilityEmpty}>
                   <Ionicons name="earth-outline" size={22} color={colors.onSurfaceVariant} />
                   <Text style={[styles.availabilityEmptyText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                    Not listed on Netflix, Prime Video, Max, CBC Gem, BBC iPlayer, SBS On Demand, or ABC iview in any supported country right now.
+                    Not listed on Netflix, Prime Video, Max, CBC Gem, BBC iPlayer, Channel 4, ITVX, SBS On Demand, or ABC iview in any supported country right now.
                   </Text>
                 </View>
               )}

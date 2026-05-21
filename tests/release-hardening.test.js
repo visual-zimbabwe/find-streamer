@@ -51,6 +51,29 @@ test('streaming availability includes UK-only BBC iPlayer provider support', () 
   assert.match(readme, /UK-only \*\*BBC iPlayer\*\*/);
 });
 
+test('streaming availability includes UK-only Channel 4 and ITVX provider support', () => {
+  const tmdb = read('src/lib/tmdb.js');
+  const shareUtils = read('src/lib/shareUtils.js');
+  const resultView = read('src/components/ResultView.js');
+  const readme = read('README.md');
+
+  assert.match(tmdb, /channel_4:\s*'Channel 4'/);
+  assert.match(tmdb, /itvx:\s*'ITVX'/);
+  assert.match(tmdb, /channel_4:\s*new Set\(\['channel 4'\]\)/);
+  assert.match(tmdb, /itvx:\s*new Set\(\['itvx'\]\)/);
+  assert.match(tmdb, /channel_4:\s*new Set\(\['GB'\]\)/);
+  assert.match(tmdb, /itvx:\s*new Set\(\['GB'\]\)/);
+  assert.match(tmdb, /STREAMING_PROVIDER_BUCKETS\s*=\s*\['flatrate', 'free', 'ads'\]/);
+  assert.match(tmdb, /isServiceAvailableInRegion\(key, countryCode\)/);
+  assert.match(shareUtils, /channel_4:\s*'#[0-9A-Fa-f]{6}'/);
+  assert.match(shareUtils, /itvx:\s*'#[0-9A-Fa-f]{6}'/);
+  assert.match(shareUtils, /channel_4:\s*'tv-outline'/);
+  assert.match(shareUtils, /itvx:\s*'tv-outline'/);
+  assert.match(resultView, /Channel 4/);
+  assert.match(resultView, /ITVX/);
+  assert.match(readme, /UK-only \*\*BBC iPlayer\*\*, \*\*Channel 4\*\*, and \*\*ITVX\*\*/);
+});
+
 test('streaming availability includes Australia-only SBS On Demand and ABC iview support', () => {
   const tmdb = read('src/lib/tmdb.js');
   const shareUtils = read('src/lib/shareUtils.js');
