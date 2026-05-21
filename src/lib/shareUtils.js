@@ -4,6 +4,8 @@ export const SERVICE_COLORS = {
   max: '#002BE7',
   cbc_gem: '#E31B23',
   bbc_iplayer: '#FF4C98',
+  sbs_on_demand: '#00AEEF',
+  abc_iview: '#00A3E0',
 };
 
 export const SERVICE_ICONS = {
@@ -12,6 +14,8 @@ export const SERVICE_ICONS = {
   max: 'tv',
   cbc_gem: 'tv-outline',
   bbc_iplayer: 'tv-outline',
+  sbs_on_demand: 'tv-outline',
+  abc_iview: 'tv-outline',
 };
 
 // Ordered by streaming-market size – used when US/CA aren't available.

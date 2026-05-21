@@ -28,6 +28,7 @@ test('streaming availability includes Canada-only CBC Gem provider support', () 
   assert.match(tmdb, /cbc_gem:\s*'CBC Gem'/);
   assert.match(tmdb, /cbc_gem:\s*new Set\(\['cbc gem'\]\)/);
   assert.match(tmdb, /cbc_gem:\s*new Set\(\['CA'\]\)/);
+  assert.match(tmdb, /STREAMING_PROVIDER_BUCKETS\s*=\s*\['flatrate', 'free', 'ads'\]/);
   assert.match(tmdb, /isServiceAvailableInRegion\(key, countryCode\)/);
   assert.match(shareUtils, /cbc_gem:\s*'#E31B23'/);
   assert.match(resultView, /CBC Gem/);
@@ -42,11 +43,44 @@ test('streaming availability includes UK-only BBC iPlayer provider support', () 
   assert.match(tmdb, /bbc_iplayer:\s*'BBC iPlayer'/);
   assert.match(tmdb, /bbc_iplayer:\s*new Set\(\['bbc iplayer'\]\)/);
   assert.match(tmdb, /bbc_iplayer:\s*new Set\(\['GB'\]\)/);
+  assert.match(tmdb, /STREAMING_PROVIDER_BUCKETS\s*=\s*\['flatrate', 'free', 'ads'\]/);
   assert.match(tmdb, /isServiceAvailableInRegion\(key, countryCode\)/);
   assert.match(shareUtils, /bbc_iplayer:\s*'#[0-9A-Fa-f]{6}'/);
   assert.match(shareUtils, /bbc_iplayer:\s*'tv-outline'/);
   assert.match(resultView, /BBC iPlayer/);
   assert.match(readme, /UK-only \*\*BBC iPlayer\*\*/);
+});
+
+test('streaming availability includes Australia-only SBS On Demand and ABC iview support', () => {
+  const tmdb = read('src/lib/tmdb.js');
+  const shareUtils = read('src/lib/shareUtils.js');
+  const resultView = read('src/components/ResultView.js');
+  const readme = read('README.md');
+
+  assert.match(tmdb, /sbs_on_demand:\s*'SBS On Demand'/);
+  assert.match(tmdb, /abc_iview:\s*'ABC iview'/);
+  assert.match(tmdb, /sbs_on_demand:\s*new Set\(\['sbs on demand'\]\)/);
+  assert.match(tmdb, /abc_iview:\s*new Set\(\['abc iview'\]\)/);
+  assert.match(tmdb, /sbs_on_demand:\s*new Set\(\['AU'\]\)/);
+  assert.match(tmdb, /abc_iview:\s*new Set\(\['AU'\]\)/);
+  assert.match(tmdb, /STREAMING_PROVIDER_BUCKETS\s*=\s*\['flatrate', 'free', 'ads'\]/);
+  assert.match(tmdb, /isServiceAvailableInRegion\(key, countryCode\)/);
+  assert.match(shareUtils, /sbs_on_demand:\s*'#[0-9A-Fa-f]{6}'/);
+  assert.match(shareUtils, /abc_iview:\s*'#[0-9A-Fa-f]{6}'/);
+  assert.match(shareUtils, /sbs_on_demand:\s*'tv-outline'/);
+  assert.match(shareUtils, /abc_iview:\s*'tv-outline'/);
+  assert.match(resultView, /SBS On Demand/);
+  assert.match(resultView, /ABC iview/);
+  assert.match(readme, /Australia-only \*\*SBS On Demand\*\* and \*\*ABC iview\*\*/);
+});
+
+test('regional watch providers are collected from free and ad-supported TMDB buckets', () => {
+  const tmdb = read('src/lib/tmdb.js');
+
+  assert.match(tmdb, /const STREAMING_PROVIDER_BUCKETS = \['flatrate', 'free', 'ads'\];/);
+  assert.match(tmdb, /STREAMING_PROVIDER_BUCKETS\.forEach\(\(bucket\) => \{/);
+  assert.match(tmdb, /\(info\[bucket\] \|\| \[\]\)\.forEach\(\(provider\) => \{/);
+  assert.doesNotMatch(tmdb, /\(info\.flatrate \|\| \[\]\)\.forEach/);
 });
 
 test('core interactive surfaces expose accessibility roles and labels', () => {

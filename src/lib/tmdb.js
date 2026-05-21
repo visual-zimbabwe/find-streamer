@@ -16,6 +16,8 @@ export const SERVICE_LABELS = {
   max: 'Max',
   cbc_gem: 'CBC Gem',
   bbc_iplayer: 'BBC iPlayer',
+  sbs_on_demand: 'SBS On Demand',
+  abc_iview: 'ABC iview',
 };
 const DIRECT_SERVICE_NAMES = {
   netflix: new Set(['netflix', 'netflix standard with ads', 'netflix basic with ads']),
@@ -23,10 +25,14 @@ const DIRECT_SERVICE_NAMES = {
   max: new Set(['max', 'hbo max']),
   cbc_gem: new Set(['cbc gem']),
   bbc_iplayer: new Set(['bbc iplayer']),
+  sbs_on_demand: new Set(['sbs on demand']),
+  abc_iview: new Set(['abc iview']),
 };
 const REGION_LOCKED_SERVICES = {
   cbc_gem: new Set(['CA']),
   bbc_iplayer: new Set(['GB']),
+  sbs_on_demand: new Set(['AU']),
+  abc_iview: new Set(['AU']),
 };
 
 function normalize(text) {
@@ -41,13 +47,17 @@ function serviceKey(providerName) {
   return null;
 }
 
-function directFlatrateServices(info = {}) {
+const STREAMING_PROVIDER_BUCKETS = ['flatrate', 'free', 'ads'];
+
+function directStreamingServices(info = {}) {
   const matched = new Map();
-  (info.flatrate || []).forEach((provider) => {
-    const key = serviceKey(provider.provider_name || '');
-    if (key && !matched.has(key)) {
-      matched.set(key, provider.logo_path || null);
-    }
+  STREAMING_PROVIDER_BUCKETS.forEach((bucket) => {
+    (info[bucket] || []).forEach((provider) => {
+      const key = serviceKey(provider.provider_name || '');
+      if (key && !matched.has(key)) {
+        matched.set(key, provider.logo_path || null);
+      }
+    });
   });
   return matched;
 }
@@ -66,7 +76,7 @@ function availabilityFromResults(results = {}) {
   const logos = emptyServiceMap(() => null);
 
   Object.entries(results).forEach(([countryCode, info]) => {
-    directFlatrateServices(info).forEach((logoPath, key) => {
+    directStreamingServices(info).forEach((logoPath, key) => {
       if (!isServiceAvailableInRegion(key, countryCode)) return;
       availability[key].push(countryCode);
       if (!logos[key] && logoPath) logos[key] = logoPath;
@@ -647,7 +657,7 @@ async function getCompleteTvProviderCountries(tmdbId, fallbackAvailability = nul
     const episodeAvailability = emptyServiceMap(() => new Set());
 
     Object.entries(data.results || {}).forEach(([countryCode, info]) => {
-      directFlatrateServices(info).forEach((logoPath, key) => {
+      directStreamingServices(info).forEach((logoPath, key) => {
         if (!isServiceAvailableInRegion(key, countryCode)) return;
         episodeAvailability[key].add(countryCode);
         if (!logos[key] && logoPath) logos[key] = logoPath;
@@ -711,6 +721,8 @@ const SERVICE_FALLBACK_COLORS = {
   max: '#002BE7',
   cbc_gem: '#E31B23',
   bbc_iplayer: '#FF4C98',
+  sbs_on_demand: '#00AEEF',
+  abc_iview: '#00A3E0',
 };
 
 function buildProviderSummary(rows, logos = {}) {

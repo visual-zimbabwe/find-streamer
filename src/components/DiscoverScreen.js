@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import {
   Animated,
   ActivityIndicator,
@@ -240,6 +240,11 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     ? vm.filters.sortBy
     : 'popularity.desc';
 
+  const selectedLanguageCodes = vm.filters.languageCodes || [];
+  const selectedOriginCountries = vm.filters.originCountries || [];
+  const langLabel = buildMultiLabel(vm.languages, selectedLanguageCodes, 'Any Language', 'languages');
+  const countryLabel = buildMultiLabel(vm.countries, selectedOriginCountries, 'Any Country', 'countries');
+
   // Compute whether any advanced filter is active (for the More Filters badge)
   const advancedFilterActive =
     vm.filters.activePreset != null ||
@@ -284,11 +289,6 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     vm.loadCountries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const selectedLanguageCodes = vm.filters.languageCodes || [];
-  const selectedOriginCountries = vm.filters.originCountries || [];
-  const langLabel = buildMultiLabel(vm.languages, selectedLanguageCodes, 'Any Language', 'languages');
-  const countryLabel = buildMultiLabel(vm.countries, selectedOriginCountries, 'Any Country', 'countries');
 
   /** Open the "More Filters" panel as a stacked bottom sheet */
   const handleOpenMoreFilters = () => {
