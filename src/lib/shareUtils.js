@@ -4,6 +4,8 @@ export const SERVICE_COLORS = {
   max: '#002BE7',
   cbc_gem: '#E31B23',
   bbc_iplayer: '#FF4C98',
+  channel_4: '#00AEEF',
+  itvx: '#DE00FF',
   sbs_on_demand: '#00AEEF',
   abc_iview: '#00A3E0',
 };
@@ -14,6 +16,8 @@ export const SERVICE_ICONS = {
   max: 'tv',
   cbc_gem: 'tv-outline',
   bbc_iplayer: 'tv-outline',
+  channel_4: 'tv-outline',
+  itvx: 'tv-outline',
   sbs_on_demand: 'tv-outline',
   abc_iview: 'tv-outline',
 };
