@@ -15,7 +15,7 @@ const DEFAULT_FILTERS = {
   // ── Exclude smart tags (e.g. 'anime') ──────────────────────────────────────
   excludeSmartTags: [],
   // ── Optional filters ───────────────────────────────────────────────────────
-  minRating: 0,
+  minRating: 7,
   languageCodes: [],
   originCountries: [],
   fromYear: '',
