@@ -949,7 +949,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           </View>
 
           {franchiseParts.length > 1 && (
-            <View style={styles.section}>
+            <View key={`franchise-${result.tmdbId}`} style={styles.section}>
               <View style={styles.franchiseHeader}>
                 <View style={[styles.franchiseIcon, { backgroundColor: colors.primaryContainer }]}>
                   <Ionicons name="albums-outline" size={20} color={colors.primary} />
@@ -978,7 +978,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
                   const isCurrentMovie = item.tmdbId === result.tmdbId;
                   return (
                     <TouchableOpacity
-                      key={item.tmdbId}
+                      key={`${result.tmdbId}-${item.tmdbId}`}
                       style={styles.franchiseItem}
                       onPress={() => !isCurrentMovie && onSelectSimilar(item)}
                       disabled={isCurrentMovie}
