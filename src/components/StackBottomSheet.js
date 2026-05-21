@@ -62,7 +62,7 @@ export function BottomSheetProvider({ children }) {
     const id = Math.random().toString(36).slice(2, 9);
     setSheets(prev => [...prev, {
       id,
-      content,
+      content: typeof content === 'function' ? content(id) : content,
       options: {
         size: 'medium',
         title: '',
@@ -75,6 +75,18 @@ export function BottomSheetProvider({ children }) {
     return id;
   }, []);
 
+  const update = useCallback((id, content) => {
+    setSheets(prev => {
+      let found = false;
+      const next = prev.map(sheet => {
+        if (sheet.id !== id) return sheet;
+        found = true;
+        return { ...sheet, content };
+      });
+      return found ? next : prev;
+    });
+  }, []);
+
   const dismiss = useCallback((id) => {
     // Actual removal is triggered by the sheet's own animation callback
     setSheets(prev => prev.filter(s => s.id !== id));
@@ -85,7 +97,7 @@ export function BottomSheetProvider({ children }) {
   }, []);
 
   return (
-    <BottomSheetCtx.Provider value={{ sheets, show, dismiss, dismissAll }}>
+    <BottomSheetCtx.Provider value={{ sheets, show, update, dismiss, dismissAll }}>
       {children}
     </BottomSheetCtx.Provider>
   );

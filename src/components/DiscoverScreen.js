@@ -222,10 +222,12 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const { colors, typography, radii } = theme;
   const c = colors;
   const insets = useSafeAreaInsets();
-  const { show: showSheet, dismiss: dismissSheet } = useBottomSheet();
+  const { show: showSheet, update: updateSheet, dismiss: dismissSheet } = useBottomSheet();
   const bottomNavScroll = useBottomNavScroll();
   const moreFiltersSheetIdRef = useRef(null);
   const genreSheetIdRef = useRef(null);
+  const scrollRef = useRef(null);
+  const yearRangeYRef = useRef(0);
 
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
@@ -251,17 +253,13 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     (vm.filters.languageCodes || []).length > 0 ||
     !!vm.filters.excludeEnglish ||
     vm.filters.activeCountryPreset != null ||
-    (vm.filters.originCountries || []).length > 0 ||
-    (vm.filters.sortBy && vm.filters.sortBy !== 'popularity.desc');
+    (vm.filters.originCountries || []).length > 0;
 
   const advancedFilterSummary = [
     vm.filters.activePreset ? findPreset(vm.filters.activePreset)?.label : null,
     (vm.filters.languageCodes || []).length > 0 ? langLabel : null,
     vm.filters.excludeEnglish ? 'Excl. English' : null,
     vm.filters.activeCountryPreset ? findCountryPreset(vm.filters.activeCountryPreset)?.label : null,
-    vm.filters.sortBy && vm.filters.sortBy !== 'popularity.desc'
-      ? sortOptions.find((o) => o.value === vm.filters.sortBy)?.label
-      : null,
   ].filter(Boolean).join(' · ');
 
   // Load genres when mediaType changes; reset genre selections that might not apply
@@ -290,26 +288,72 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const renderMoreFiltersSheetContent = () => (
+    <MoreFiltersSheetContent
+      vm={vm}
+      colors={c}
+      typography={typography}
+      radii={radii}
+      langLabel={langLabel}
+      countryLabel={countryLabel}
+      selectedLanguageCodes={selectedLanguageCodes}
+      selectedOriginCountries={selectedOriginCountries}
+      onOpenLangModal={() => setLangModalVisible(true)}
+      onOpenCountryModal={() => setCountryModalVisible(true)}
+    />
+  );
+
+  const renderGenreSheetContent = (sheetId) => (
+    <GenreBottomSheet
+      visible
+      embedded
+      onClose={() => dismissSheet(sheetId)}
+      genres={vm.genres}
+      genresLoading={vm.genresLoading}
+      genreIds={vm.filters.genreIds}
+      genreLogic={vm.filters.genreLogic}
+      excludeGenreIds={vm.filters.excludeGenreIds}
+      excludeSmartTags={vm.filters.excludeSmartTags}
+      onToggleInclude={vm.toggleGenre}
+      onToggleExclude={vm.toggleExcludeGenre}
+      onToggleSmartTag={vm.toggleSmartTag}
+      onUpdateGenreLogic={(v) => vm.updateFilter('genreLogic', v)}
+      onClearAll={() => { vm.updateFilter('genreIds', []); vm.updateFilter('excludeGenreIds', []); vm.updateFilter('excludeSmartTags', []); }}
+      colors={c}
+      typography={typography}
+      radii={radii}
+    />
+  );
+
+  useEffect(() => {
+    if (moreFiltersSheetIdRef.current) {
+      updateSheet(moreFiltersSheetIdRef.current, renderMoreFiltersSheetContent());
+    }
+    if (genreSheetIdRef.current) {
+      updateSheet(genreSheetIdRef.current, renderGenreSheetContent(genreSheetIdRef.current));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    vm.filters,
+    vm.genres,
+    vm.genresLoading,
+    vm.languages,
+    vm.countries,
+    vm.pendingCountryLink,
+    c,
+    typography,
+    radii,
+    langLabel,
+    countryLabel,
+    selectedLanguageCodes,
+    selectedOriginCountries,
+    updateSheet,
+  ]);
+
   /** Open the "More Filters" panel as a stacked bottom sheet */
   const handleOpenMoreFilters = () => {
     const sheetId = showSheet(
-      <MoreFiltersSheetContent
-        vm={vm}
-        c={c}
-        colors={c}
-        typography={typography}
-        radii={radii}
-        sortOptions={sortOptions}
-        displayedSortBy={displayedSortBy}
-        langLabel={langLabel}
-        countryLabel={countryLabel}
-        advancedFilterSummary={advancedFilterSummary}
-        selectedLanguageCodes={selectedLanguageCodes}
-        selectedOriginCountries={selectedOriginCountries}
-        onOpenLangModal={() => setLangModalVisible(true)}
-        onOpenCountryModal={() => setCountryModalVisible(true)}
-        onClose={() => dismissSheet(sheetId)}
-      />,
+      () => renderMoreFiltersSheetContent(),
       {
         title: '\u2699\uFE0F More Filters',
         size: 'full',
@@ -324,25 +368,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   /** Open genre picker as a stacked sheet */
   const handleOpenGenreSheet = () => {
     const sheetId = showSheet(
-      <GenreBottomSheet
-        visible
-        embedded
-        onClose={() => dismissSheet(sheetId)}
-        genres={vm.genres}
-        genresLoading={vm.genresLoading}
-        genreIds={vm.filters.genreIds}
-        genreLogic={vm.filters.genreLogic}
-        excludeGenreIds={vm.filters.excludeGenreIds}
-        excludeSmartTags={vm.filters.excludeSmartTags}
-        onToggleInclude={vm.toggleGenre}
-        onToggleExclude={vm.toggleExcludeGenre}
-        onToggleSmartTag={vm.toggleSmartTag}
-        onUpdateGenreLogic={(v) => vm.updateFilter('genreLogic', v)}
-        onClearAll={() => { vm.updateFilter('genreIds', []); vm.updateFilter('excludeGenreIds', []); vm.updateFilter('excludeSmartTags', []); }}
-        colors={c}
-        typography={typography}
-        radii={radii}
-      />,
+      (id) => renderGenreSheetContent(id),
       {
         title: '\uD83C\uDFAC Genres',
         size: 'large',
@@ -354,15 +380,30 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     genreSheetIdRef.current = sheetId;
   };
 
+  const scrollToYearRange = () => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, yearRangeYRef.current - 24),
+        animated: true,
+      });
+    }, 120);
+  };
 
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: c.background }]}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      {...bottomNavScroll}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={insets.top + 72}
     >
+      <ScrollView
+        ref={scrollRef}
+        style={styles.root}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        {...bottomNavScroll}
+      >
       {/* ── Page Header ── */}
       <View style={styles.pageHeader}>
         <Text style={[styles.pageTitle, { color: c.onSurface, ...typography.headlineMd }]}>
@@ -457,7 +498,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           onPress={handleOpenMoreFilters}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel="Open advanced filter options: language, sort order and country"
+          accessibilityLabel="Open advanced filter options: language and country"
         >
           <Ionicons
             name="options-outline"
@@ -467,7 +508,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           />
           <View style={{ flex: 1 }}>
             <Text style={[{ color: advancedFilterActive ? c.primary : c.onSurface, ...typography.bodyMd, fontWeight: '700' }]}>
-              Language, Sort &amp; Country
+              Language &amp; Country
             </Text>
             {advancedFilterSummary ? (
               <Text style={[{ color: c.primary, ...typography.labelSm, marginTop: 2 }]} numberOfLines={1}>
@@ -489,8 +530,9 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         <Divider color={c.outlineVariant} />
 
         {/* ── Release Year Range ── */}
-        <SectionLabel label="Release Year Range" colors={c} typography={typography} />
-        <View style={styles.yearRow}>
+        <View onLayout={(e) => { yearRangeYRef.current = e.nativeEvent.layout.y; }}>
+          <SectionLabel label="Release Year Range" colors={c} typography={typography} />
+          <View style={styles.yearRow}>
           <View style={[styles.yearInput, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, flex: 1 }]}>
             <TextInput
               style={[{ color: c.onSurface, ...typography.bodyMd, paddingHorizontal: 12, paddingVertical: 10 }]}
@@ -499,6 +541,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
               keyboardType="numeric"
               maxLength={4}
               value={vm.filters.fromYear}
+              onFocus={scrollToYearRange}
               onChangeText={(v) => vm.updateFilter('fromYear', v.replace(/[^0-9]/g, ''))}
             />
           </View>
@@ -511,10 +554,25 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
               keyboardType="numeric"
               maxLength={4}
               value={vm.filters.toYear}
+              onFocus={scrollToYearRange}
               onChangeText={(v) => vm.updateFilter('toYear', v.replace(/[^0-9]/g, ''))}
             />
           </View>
+          </View>
         </View>
+
+        <Divider color={c.outlineVariant} />
+
+        {/* ── Sort By ── */}
+        <SectionLabel label="Sort By" colors={c} typography={typography} />
+        <SortByControl
+          sortOptions={sortOptions}
+          displayedSortBy={displayedSortBy}
+          onChange={(value) => vm.updateFilter('sortBy', value)}
+          colors={c}
+          typography={typography}
+          radii={radii}
+        />
 
 
 
@@ -606,7 +664,8 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         typography={typography}
         radii={radii}
       />
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -620,8 +679,12 @@ function RatingSlider({ value, onChange, colors: c, typography, radii }) {
   const tooltipOpacity = useRef(new Animated.Value(0)).current;
   const gestureStartX = useRef(0);
   const lastHapticVal = useRef(value);
+  const valueRef = useRef(value);
+  const trackWidthRef = useRef(trackWidth);
 
   useEffect(() => {
+    valueRef.current = value;
+    trackWidthRef.current = trackWidth;
     thumbAnim.setValue((value / SLIDER_MAX) * trackWidth);
   }, [value, trackWidth]);
 
@@ -630,19 +693,19 @@ function RatingSlider({ value, onChange, colors: c, typography, radii }) {
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: (e) => {
-      const tapX = Math.max(0, Math.min(e.nativeEvent.locationX, trackWidth));
-      const snapped = snap((tapX / trackWidth) * SLIDER_MAX);
-      gestureStartX.current = (snapped / SLIDER_MAX) * trackWidth;
+    onPanResponderGrant: () => {
+      const width = trackWidthRef.current;
+      const currentValue = snap(valueRef.current);
+      gestureStartX.current = (currentValue / SLIDER_MAX) * width;
       thumbAnim.setValue(gestureStartX.current);
-      onChange(snapped);
-      lastHapticVal.current = snapped;
+      lastHapticVal.current = currentValue;
       Animated.timing(tooltipOpacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
     },
     onPanResponderMove: (_, g) => {
-      const newX = Math.max(0, Math.min(gestureStartX.current + g.dx, trackWidth));
-      const snapped = snap((newX / trackWidth) * SLIDER_MAX);
-      thumbAnim.setValue((snapped / SLIDER_MAX) * trackWidth);
+      const width = trackWidthRef.current;
+      const newX = Math.max(0, Math.min(gestureStartX.current + g.dx, width));
+      const snapped = snap((newX / width) * SLIDER_MAX);
+      thumbAnim.setValue((snapped / SLIDER_MAX) * width);
       if (Math.abs(snapped - lastHapticVal.current) >= STEP) {
         lastHapticVal.current = snapped;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -673,7 +736,10 @@ function RatingSlider({ value, onChange, colors: c, typography, radii }) {
       </View>
       <View
         style={[sliderStyles.track, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full }]}
-        onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+        onLayout={(e) => {
+          trackWidthRef.current = e.nativeEvent.layout.width;
+          setTrackWidth(e.nativeEvent.layout.width);
+        }}
         {...pan.panHandlers}
       >
         <Animated.View style={[sliderStyles.fill, { width: fillWidth, backgroundColor: c.primary, borderRadius: radii.full }]} />
@@ -820,21 +886,50 @@ function GenreBottomSheet({ visible, embedded, onClose, genres, genresLoading, g
 
 // ─── More Filters Bottom Sheet ───────────────────────────────────────────────
 
+function SortByControl({ sortOptions, displayedSortBy, onChange, colors: c, typography, radii }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.hScroll, { marginBottom: 8 }]}>
+      <View style={styles.hChipRow}>
+        {sortOptions.map((opt) => {
+          const active = displayedSortBy === opt.value;
+          return (
+            <TouchableOpacity
+              key={opt.value}
+              style={[
+                styles.chip,
+                { borderRadius: radii.full },
+                active
+                  ? { backgroundColor: c.primary }
+                  : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' },
+              ]}
+              onPress={() => onChange(opt.value)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`Sort by ${opt.label}`}
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
+}
+
 function MoreFiltersSheetContent({
   vm,
   colors: c,
   typography,
   radii,
-  sortOptions,
-  displayedSortBy,
   langLabel,
   countryLabel,
-  advancedFilterSummary,
   selectedLanguageCodes,
   selectedOriginCountries,
   onOpenLangModal,
-  onOpenCountryModal,
-  onClose
+  onOpenCountryModal
 }) {
   return (
     <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
@@ -938,22 +1033,6 @@ function MoreFiltersSheetContent({
         </>
       )}
 
-      <Divider color={c.outlineVariant} />
-
-      {/* Sort By */}
-      <SectionLabel label="Sort By" colors={c} typography={typography} />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.hScroll, { marginBottom: 8 }]}>
-        <View style={styles.hChipRow}>
-          {sortOptions.map((opt) => {
-            const active = displayedSortBy === opt.value;
-            return (
-              <TouchableOpacity key={opt.value} style={[styles.chip, { borderRadius: radii.full }, active ? { backgroundColor: c.primary } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' }]} onPress={() => vm.updateFilter('sortBy', opt.value)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Sort by ${opt.label}`} accessibilityState={{ selected: active }}>
-                <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>{opt.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
     </ScrollView>
   );
 }
