@@ -1,5 +1,5 @@
 import { fetchTraktTrending } from './trakt';
-import { discoverTitles, enrichTraktItems, fetchNowPlayingMovies } from './tmdb';
+import { discoverTitles, enrichTraktItems, fetchNowPlayingMovies, fetchTopMovieCollectionRows } from './tmdb';
 import { getWatchlistCategory } from './watchlistCategories';
 
 export const HOME_RAIL_LIMIT = 10;
@@ -153,4 +153,8 @@ export async function fetchHomeTmdbRail(def) {
 export async function fetchHomeNowPlayingRail() {
   const list = await fetchNowPlayingMovies();
   return sortByTmdbRatingDesc(list).slice(0, HOME_RAIL_LIMIT);
+}
+
+export async function fetchHomeCollectionRows() {
+  return fetchTopMovieCollectionRows(20);
 }

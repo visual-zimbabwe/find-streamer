@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
+import { HomeTopNav } from './HomeTopNav';
 import MorphingText from '../lib/expo-morphing-text/components/morphing-text';
 import { WATCHLIST_CATEGORIES, getWatchlistCategory } from '../lib/watchlistCategories';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
@@ -25,34 +26,13 @@ import {
   HOME_HERO_RESUME_DELAY_MS,
   HOME_HERO_ROTATION_MS,
   HOME_SPOTLIGHT_MAX,
-  HOME_TMDB_RAILS,
   buildHomeSpotlight,
-  fetchHomeNowPlayingRail,
-  fetchHomeTraktTrendingRail,
-  fetchHomeTmdbRail,
 } from '../lib/homeFeed';
 import { scale, verticalScale } from '../utils/responsive';
 
 const WINDOW_W = Dimensions.get('window').width;
 const POSTER_W = scale(118);
 const POSTER_H = POSTER_W * 1.5;
-
-async function mapWithConcurrency(items, limit, task) {
-  const results = [];
-  let nextIndex = 0;
-
-  async function worker() {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      results[index] = await task(items[index]);
-    }
-  }
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
-  await Promise.all(workers);
-  return results;
-}
 
 function HomePosterCard({ item, colors, typography, radii, onPress }) {
   return (
@@ -88,7 +68,7 @@ function HomePosterCard({ item, colors, typography, radii, onPress }) {
   );
 }
 
-function ContentRail({ title, data, colors, typography, radii, onSelectItem }) {
+export function ContentRail({ title, data, colors, typography, radii, onSelectItem }) {
   if (!data?.length) return null;
   return (
     <View style={styles.railBlock}>
@@ -116,7 +96,13 @@ function ContentRail({ title, data, colors, typography, radii, onSelectItem }) {
   );
 }
 
-export function HomeScreen({ watchlist = [], onSelectItem }) {
+export function HomeScreen({
+  watchlist = [],
+  onSelectItem,
+  onOpenCollections,
+  mediaFilter = null,
+  onMediaFilterChange,
+}) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
@@ -129,13 +115,6 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   const heroListRef = useRef(null);
   const pausedRef = useRef(false);
   const resumeTimerRef = useRef(null);
-
-  const [traktRail, setTraktRail] = useState(null);
-  const [nowPlayingRail, setNowPlayingRail] = useState(null);
-  const [tmdbRails, setTmdbRails] = useState({});
-  const [railsLoading, setRailsLoading] = useState(true);
-
-  const [mediaFilter, setMediaFilter] = useState(null);
 
   // heroItem is derived after filteredSpotlight is computed (below); placeholder null until then
   // (computed further down once filteredSpotlight is available)
@@ -163,45 +142,6 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
       cancelled = true;
     };
   }, [watchlist]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setRailsLoading(true);
-      try {
-        // Fetch higher-priority/above-the-fold rails in parallel first
-        const [trakt, nowPlaying] = await Promise.all([
-          fetchHomeTraktTrendingRail().catch(() => []),
-          fetchHomeNowPlayingRail().catch(() => []),
-        ]);
-        if (cancelled) return;
-        setTraktRail(trakt);
-        setNowPlayingRail(nowPlaying);
-
-        // Fetch remaining 14 TMDB rails in smaller concurrent batches
-        const tmdbResults = await mapWithConcurrency(HOME_TMDB_RAILS, 3, async (def) => {
-          try {
-            const rows = await fetchHomeTmdbRail(def);
-            return { id: def.id, rows };
-          } catch {
-            return { id: def.id, rows: [] };
-          }
-        });
-        if (cancelled) return;
-
-        const map = {};
-        tmdbResults.forEach((pack) => {
-          map[pack.id] = pack.rows;
-        });
-        setTmdbRails(map);
-      } finally {
-        if (!cancelled) setRailsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const filteredLengthRef = useRef(0);
 
@@ -244,13 +184,13 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     if (Platform.OS !== 'android') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (mediaFilter) {
-        setMediaFilter(null);
+        onMediaFilterChange?.(null);
         return true; // consume the event
       }
       return false;
     });
     return () => sub.remove();
-  }, [mediaFilter]);
+  }, [mediaFilter, onMediaFilterChange]);
 
   const watchlistRows = useMemo(() => {
     return WATCHLIST_CATEGORIES.map((category) => {
@@ -269,22 +209,6 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   }, [spotlight, mediaFilter]);
 
   const heroItem = filteredSpotlight[heroIndex] || null;
-
-  const filteredNowPlaying = useMemo(() => {
-    if (!mediaFilter || mediaFilter === 'movie') return nowPlayingRail;
-    return null; // now-playing is movies-only
-  }, [nowPlayingRail, mediaFilter]);
-
-  const filteredTrakt = useMemo(() => {
-    if (!traktRail) return null;
-    if (!mediaFilter) return traktRail;
-    return traktRail.filter((it) => it.mediaType === mediaFilter);
-  }, [traktRail, mediaFilter]);
-
-  const filteredTmdbRails = useMemo(() => {
-    if (!mediaFilter) return HOME_TMDB_RAILS;
-    return HOME_TMDB_RAILS.filter((def) => def.mediaType === mediaFilter);
-  }, [mediaFilter]);
 
   const onHeroMomentumEnd = useCallback(
     (e) => {
@@ -369,47 +293,19 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     [heroH, insets.bottom, onSelectItem, typography]
   );
 
-  const TYPE_PILLS = [
-    { key: 'movie', label: 'Movies' },
-    { key: 'tv',    label: 'Shows' },
-  ];
-
   return (
     <View style={styles.rootWrap}>
       {/* ── Paramount-style home top navigation ───────────────────────── */}
-      <View
-        style={[
-          styles.homeTopNav,
-          { top: insets.top + 8 },
-        ]}
-        pointerEvents="box-none"
-      >
-        <Text style={styles.homeWordmark} accessibilityRole="header">Trova</Text>
-        <View style={styles.glassBar}>
-          {TYPE_PILLS.map((pill) => {
-            const selected = mediaFilter === pill.key;
-            return (
-              <TouchableOpacity
-                key={pill.key}
-                style={styles.typePill}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setMediaFilter(selected ? null : pill.key);
-                }}
-                activeOpacity={0.78}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`Show ${pill.label}`}
-              >
-                <Text style={[styles.typePillText, selected && styles.typePillTextSelected]}>
-                  {pill.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-      </View>
+      <HomeTopNav
+        selectedKey={mediaFilter}
+        onSelect={(key, selected) => {
+          if (key === 'collections') {
+            onOpenCollections?.();
+            return;
+          }
+          onMediaFilterChange?.(selected ? null : key);
+        }}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -506,45 +402,6 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
         />
       ))}
 
-      {!railsLoading && filteredNowPlaying?.length ? (
-        <ContentRail
-          title="Now playing in theaters"
-          data={filteredNowPlaying}
-          colors={colors}
-          typography={typography}
-          radii={radii}
-          onSelectItem={onSelectItem}
-        />
-      ) : null}
-
-      {!railsLoading && filteredTrakt?.length ? (
-        <ContentRail
-          title="Trending on Trakt"
-          data={filteredTrakt}
-          colors={colors}
-          typography={typography}
-          radii={radii}
-          onSelectItem={onSelectItem}
-        />
-      ) : null}
-
-      {filteredTmdbRails.map((def) => (
-        <ContentRail
-          key={def.id}
-          title={def.title}
-          data={tmdbRails[def.id] || []}
-          colors={colors}
-          typography={typography}
-          radii={radii}
-          onSelectItem={onSelectItem}
-        />
-      ))}
-
-      {railsLoading && (
-        <View style={styles.railsLoading} accessibilityLabel="Loading rows">
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      )}
       </ScrollView>
     </View>
   );
@@ -554,59 +411,6 @@ const styles = StyleSheet.create({
   rootWrap: { flex: 1 },
   scroll: { flex: 1 },
   scrollInner: { paddingTop: 0 },
-
-  /* ── Paramount-style home top navigation ───────────── */
-  homeTopNav: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-    paddingHorizontal: 20,
-  },
-  homeWordmark: {
-    color: '#fff',
-    fontFamily: Platform.select({ android: 'serif', ios: 'Georgia', default: 'serif' }),
-    fontSize: 30,
-    lineHeight: 36,
-    fontWeight: '700',
-    fontStyle: 'italic',
-    letterSpacing: 0,
-    textShadowColor: 'rgba(0,0,0,0.55)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 8,
-    marginBottom: 10,
-  },
-  glassBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 22,
-    paddingVertical: 2,
-  },
-  typePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 60,
-    paddingHorizontal: 0,
-    paddingVertical: 4,
-    backgroundColor: 'transparent',
-  },
-  typePillText: {
-    color: 'rgba(255,255,255,0.76)',
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '700',
-    letterSpacing: 0,
-    textShadowColor: 'rgba(0,0,0,0.45)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 5,
-  },
-  typePillTextSelected: {
-    color: '#fff',
-    fontWeight: '900',
-  },
 
   heroShell: {
     width: WINDOW_W,
@@ -725,5 +529,4 @@ const styles = StyleSheet.create({
   cardTitle: { marginTop: 8, fontWeight: '700', minHeight: 34 },
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   cardYear: { fontSize: 11, fontWeight: '600' },
-  railsLoading: { paddingVertical: 28, alignItems: 'center' },
 });

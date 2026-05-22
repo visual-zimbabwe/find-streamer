@@ -25,7 +25,7 @@ const TABS = [
 
 const CONTAINER_HORIZONTAL_MARGIN = 20;
 
-export function BottomNav({ activeTab, onTabPress }) {
+export function BottomNav({ activeTab, onTabPress, fixed = false }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
@@ -48,13 +48,13 @@ export function BottomNav({ activeTab, onTabPress }) {
   // Track scroll-triggered show/hide animation
   useEffect(() => {
     Animated.spring(translateY, {
-      toValue: visible ? 0 : 150, // Translate completely off-screen (150px)
+      toValue: fixed || visible ? 0 : 150, // Translate completely off-screen (150px)
       useNativeDriver: true,
       damping: 24,
       stiffness: 220,
       mass: 0.9,
     }).start();
-  }, [visible]);
+  }, [fixed, visible]);
 
   useEffect(() => {
     if (activeIndex === -1) return;
@@ -189,4 +189,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

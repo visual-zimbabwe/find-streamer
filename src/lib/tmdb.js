@@ -1117,6 +1117,82 @@ export async function fetchNowPlayingMovies() {
   });
 }
 
+async function getHomeCollectionRowFromSeed(seed) {
+  try {
+    const detail = await tmdbGet(`/movie/${seed.tmdbId}`, { language: 'en-US' });
+    if (!detail.belongs_to_collection?.id) return null;
+
+    const collectionInfo = await getMovieCollectionInfo(detail.belongs_to_collection, seed.tmdbId);
+    if (!collectionInfo.isFranchise || !collectionInfo.collection?.parts?.length) return null;
+
+    const firstMovie = collectionInfo.collection.parts[0] || seed;
+
+    return {
+      id: collectionInfo.collection.id,
+      title: collectionInfo.collection.name || detail.belongs_to_collection.name || 'Movie Collection',
+      firstMovie,
+      firstMovieRatingValue: firstMovie.ratingValue || 0,
+      items: collectionInfo.collection.parts,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchTopMovieCollectionRows(limit = 20) {
+  const pages = await Promise.all([1, 2, 3, 4, 5].map((page) =>
+    tmdbGet('/discover/movie', {
+      language: 'en-US',
+      sort_by: 'vote_average.desc',
+      'vote_count.gte': 100,
+      include_adult: false,
+      page,
+    })
+  ));
+
+  const seenMovieIds = new Set();
+  const seeds = pages
+    .flatMap((page) => page.results || [])
+    .filter((item) => {
+      if (!item?.id || seenMovieIds.has(item.id)) return false;
+      seenMovieIds.add(item.id);
+      return true;
+    })
+    .map((item) => {
+      const dateValue = item.release_date || '';
+      return {
+        mediaType: 'movie',
+        tmdbId: item.id,
+        title: item.title || '(Untitled)',
+        year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+        synopsis: (item.overview || '').trim() || 'No synopsis available.',
+        posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+        backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+        ratingValue: item.vote_average || 0,
+        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+      };
+    })
+    .sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
+
+  const collectionRows = await mapWithConcurrency(
+    seeds.slice(0, 100),
+    3,
+    getHomeCollectionRowFromSeed
+  );
+
+  const seenCollectionIds = new Set();
+  const uniqueRows = [];
+  for (const row of collectionRows) {
+    if (!row?.id || seenCollectionIds.has(row.id)) continue;
+    seenCollectionIds.add(row.id);
+    uniqueRows.push(row);
+  }
+
+  return uniqueRows
+    .sort((a, b) => (b.firstMovieRatingValue || 0) - (a.firstMovieRatingValue || 0))
+    .slice(0, limit);
+}
+
 // ─── Resolution ─────────────────────────────────────────────────────────────
 
 async function getMoreFromCastAndCrew(personIds, currentTmdbId) {
