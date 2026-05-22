@@ -45,7 +45,8 @@
             "com.google.android.googlequicksearchbox"
           ]
         }
-      ]
+      ],
+      "expo-image"
     ],
     "extra": {
       "eas": {
