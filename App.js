@@ -673,8 +673,8 @@ function MobileApp() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} translucent />
       
-      {/* Standard safe area header for all other screens */}
-      {activeView !== 'detail' && activeView !== 'filmography' && (
+      {/* Standard safe area header for all non-immersive screens */}
+      {activeView !== 'home' && activeView !== 'detail' && activeView !== 'filmography' && (
         <View style={{ paddingTop: insets.top }}>
           <AppHeader 
             showBack={showBack} 
