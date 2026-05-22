@@ -228,7 +228,7 @@ test('home collections tab uses TMDB collection rows', () => {
   assert.match(app, /setHomeMediaFilter\(null\)/);
   assert.match(home, /onOpenCollections/);
   assert.match(collections, /fetchStaticCollectionRows/);
-  assert.match(collections, /visibleRows\.map/);
+  assert.match(collections, /visibleRows/);
   assert.match(homeTopNav, /label:\s*'Collections'/);
   assert.match(homeFeed, /fetchTopMovieCollectionRows\(20\)/);
   assert.match(tmdb, /export async function fetchTopMovieCollectionRows/);

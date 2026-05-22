@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeProvider';
@@ -44,7 +45,8 @@ export function MediaArtwork({
       <Image
         source={{ uri }}
         style={style}
-        resizeMode={resizeMode}
+        contentFit={resizeMode === 'stretch' ? 'fill' : resizeMode === 'center' ? 'none' : resizeMode}
+        transition={250}
         onError={() => setFailedUri(uri)}
         accessible={Boolean(accessibilityLabel)}
         accessibilityLabel={accessibilityLabel}
