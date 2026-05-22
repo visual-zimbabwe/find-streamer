@@ -190,7 +190,9 @@ test('search view includes surprise roulette and visual recently viewed history'
   assert.match(app, /Surprise Roulette/);
   assert.match(app, /LinearGradient/);
   assert.match(searchPanel, /Recently Viewed/);
-  assert.match(searchPanel, /styles\.recentPoster/);
+  assert.match(searchPanel, /styles\.posterImg/);
+  assert.match(searchPanel, /Trending on Trakt/);
+  assert.match(searchPanel, /Now playing in theaters/);
   assert.match(storage, /loadRecentViewed/);
   assert.match(storage, /saveRecentViewed/);
   assert.match(tmdb, /\/recommendations/);

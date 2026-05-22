@@ -25,34 +25,13 @@ import {
   HOME_HERO_RESUME_DELAY_MS,
   HOME_HERO_ROTATION_MS,
   HOME_SPOTLIGHT_MAX,
-  HOME_TMDB_RAILS,
   buildHomeSpotlight,
-  fetchHomeNowPlayingRail,
-  fetchHomeTraktTrendingRail,
-  fetchHomeTmdbRail,
 } from '../lib/homeFeed';
 import { scale, verticalScale } from '../utils/responsive';
 
 const WINDOW_W = Dimensions.get('window').width;
 const POSTER_W = scale(118);
 const POSTER_H = POSTER_W * 1.5;
-
-async function mapWithConcurrency(items, limit, task) {
-  const results = [];
-  let nextIndex = 0;
-
-  async function worker() {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      results[index] = await task(items[index]);
-    }
-  }
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
-  await Promise.all(workers);
-  return results;
-}
 
 function HomePosterCard({ item, colors, typography, radii, onPress }) {
   return (
@@ -130,11 +109,6 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   const pausedRef = useRef(false);
   const resumeTimerRef = useRef(null);
 
-  const [traktRail, setTraktRail] = useState(null);
-  const [nowPlayingRail, setNowPlayingRail] = useState(null);
-  const [tmdbRails, setTmdbRails] = useState({});
-  const [railsLoading, setRailsLoading] = useState(true);
-
   const [mediaFilter, setMediaFilter] = useState(null);
 
   // heroItem is derived after filteredSpotlight is computed (below); placeholder null until then
@@ -163,45 +137,6 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
       cancelled = true;
     };
   }, [watchlist]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setRailsLoading(true);
-      try {
-        // Fetch higher-priority/above-the-fold rails in parallel first
-        const [trakt, nowPlaying] = await Promise.all([
-          fetchHomeTraktTrendingRail().catch(() => []),
-          fetchHomeNowPlayingRail().catch(() => []),
-        ]);
-        if (cancelled) return;
-        setTraktRail(trakt);
-        setNowPlayingRail(nowPlaying);
-
-        // Fetch remaining 14 TMDB rails in smaller concurrent batches
-        const tmdbResults = await mapWithConcurrency(HOME_TMDB_RAILS, 3, async (def) => {
-          try {
-            const rows = await fetchHomeTmdbRail(def);
-            return { id: def.id, rows };
-          } catch {
-            return { id: def.id, rows: [] };
-          }
-        });
-        if (cancelled) return;
-
-        const map = {};
-        tmdbResults.forEach((pack) => {
-          map[pack.id] = pack.rows;
-        });
-        setTmdbRails(map);
-      } finally {
-        if (!cancelled) setRailsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const filteredLengthRef = useRef(0);
 
@@ -269,22 +204,6 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   }, [spotlight, mediaFilter]);
 
   const heroItem = filteredSpotlight[heroIndex] || null;
-
-  const filteredNowPlaying = useMemo(() => {
-    if (!mediaFilter || mediaFilter === 'movie') return nowPlayingRail;
-    return null; // now-playing is movies-only
-  }, [nowPlayingRail, mediaFilter]);
-
-  const filteredTrakt = useMemo(() => {
-    if (!traktRail) return null;
-    if (!mediaFilter) return traktRail;
-    return traktRail.filter((it) => it.mediaType === mediaFilter);
-  }, [traktRail, mediaFilter]);
-
-  const filteredTmdbRails = useMemo(() => {
-    if (!mediaFilter) return HOME_TMDB_RAILS;
-    return HOME_TMDB_RAILS.filter((def) => def.mediaType === mediaFilter);
-  }, [mediaFilter]);
 
   const onHeroMomentumEnd = useCallback(
     (e) => {
@@ -506,45 +425,6 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
         />
       ))}
 
-      {!railsLoading && filteredNowPlaying?.length ? (
-        <ContentRail
-          title="Now playing in theaters"
-          data={filteredNowPlaying}
-          colors={colors}
-          typography={typography}
-          radii={radii}
-          onSelectItem={onSelectItem}
-        />
-      ) : null}
-
-      {!railsLoading && filteredTrakt?.length ? (
-        <ContentRail
-          title="Trending on Trakt"
-          data={filteredTrakt}
-          colors={colors}
-          typography={typography}
-          radii={radii}
-          onSelectItem={onSelectItem}
-        />
-      ) : null}
-
-      {filteredTmdbRails.map((def) => (
-        <ContentRail
-          key={def.id}
-          title={def.title}
-          data={tmdbRails[def.id] || []}
-          colors={colors}
-          typography={typography}
-          radii={radii}
-          onSelectItem={onSelectItem}
-        />
-      ))}
-
-      {railsLoading && (
-        <View style={styles.railsLoading} accessibilityLabel="Loading rows">
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      )}
       </ScrollView>
     </View>
   );
@@ -725,5 +605,4 @@ const styles = StyleSheet.create({
   cardTitle: { marginTop: 8, fontWeight: '700', minHeight: 34 },
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   cardYear: { fontSize: 11, fontWeight: '600' },
-  railsLoading: { paddingVertical: 28, alignItems: 'center' },
 });

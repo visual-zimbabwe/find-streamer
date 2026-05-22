@@ -1,8 +1,75 @@
-import React from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
+import { fetchHomeNowPlayingRail, fetchHomeTraktTrendingRail } from '../lib/homeFeed';
+import { scale } from '../utils/responsive';
+
+const POSTER_W = scale(118);
+const POSTER_H = POSTER_W * 1.5;
+
+function SearchPosterCard({ item, colors, typography, radii, onPress }) {
+  return (
+    <TouchableOpacity
+      style={styles.posterCard}
+      onPress={onPress}
+      activeOpacity={0.82}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${item.title}`}
+    >
+      <View style={[styles.posterWrap, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant + '33', borderRadius: radii.xl }]}>
+        <MediaArtwork
+          uri={item.posterUrl}
+          style={styles.posterImg}
+          resizeMode="cover"
+          icon={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
+          title={item.title}
+          compactFallback
+          accessibilityLabel={`${item.title} poster`}
+        />
+        {item.ratingValue > 0 && (
+          <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
+            <Text style={styles.ratingBadgeText}>★ {item.ratingValue.toFixed(1)}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={[styles.posterTitle, { color: colors.onSurface, ...typography.labelSm }]} numberOfLines={2}>
+        {item.title}
+      </Text>
+      <View style={styles.posterMeta}>
+        <Ionicons name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'} size={11} color={colors.onSurfaceVariant} />
+        <Text style={[styles.posterYear, { color: colors.onSurfaceVariant }]}>{item.year}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function SearchPosterRail({ title, data, colors, typography, radii, onSelectItem }) {
+  if (!data?.length) return null;
+  return (
+    <View style={styles.suggestionsWrapper}>
+      <Text style={[styles.suggestionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>{title}</Text>
+      <FlatList
+        horizontal
+        data={data}
+        keyExtractor={(item) => `${item.mediaType || 'movie'}-${item.tmdbId}`}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.posterRail}
+        ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+        renderItem={({ item }) => (
+          <SearchPosterCard
+            item={item}
+            colors={colors}
+            typography={typography}
+            radii={radii}
+            onPress={() => onSelectItem?.(item)}
+          />
+        )}
+      />
+    </View>
+  );
+}
 
 export function SearchPanel({
   value,
@@ -14,7 +81,6 @@ export function SearchPanel({
   onPickSuggestion,
   onPickRecentViewed,
   hideHistory,
-  hideHero,
   typeResults,
   typeLoading,
   onTypeSelect,
@@ -22,22 +88,36 @@ export function SearchPanel({
   voiceListening,
 }) {
   const { theme } = useTheme();
-  const { colors, spacing, typography, radii } = theme;
+  const { colors, typography, radii } = theme;
   const visibleTypeResults = typeResults ? typeResults.slice(0, 10) : [];
   const hasSearchText = (value || '').length > 0;
   const hasRecentViewed = recentViewed && recentViewed.length > 0;
+  const [traktTrending, setTraktTrending] = useState([]);
+  const [nowPlaying, setNowPlaying] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetchHomeTraktTrendingRail().catch(() => []),
+      fetchHomeNowPlayingRail().catch(() => []),
+    ])
+      .then(([traktItems, nowPlayingItems]) => {
+        if (cancelled) return;
+        setTraktTrending(traktItems || []);
+        setNowPlaying(nowPlayingItems || []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTraktTrending([]);
+        setNowPlaying([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <View style={styles.container}>
-      {!hideHero && (
-        <View style={styles.hero}>
-          <Text style={[styles.heroTitle, { color: colors.onSurface, ...typography.headlineLg }]}>Find your next favourite movie or tv show</Text>
-          <Text style={[styles.heroSubtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-            Explore movies, TV shows and more with Trova's smart search engine.
-          </Text>
-        </View>
-      )}
-
       <View style={[styles.searchWrapper, { backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.lg }]}>
         <View style={styles.iconWrapper}>
           <Ionicons name="search-outline" size={20} color={colors.primary} />
@@ -142,40 +222,14 @@ export function SearchPanel({
 
 
       {!hideHistory && hasRecentViewed && (
-        <View style={styles.suggestionsWrapper}>
-          <Text style={[styles.suggestionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Recently Viewed</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.recentViewedRail}
-          >
-            {recentViewed.map((item) => (
-              <TouchableOpacity
-                key={`${item.mediaType}-${item.tmdbId}`}
-                style={styles.recentViewedItem}
-                onPress={() => onPickRecentViewed?.(item)}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${item.title}`}
-                activeOpacity={0.78}
-              >
-                <View style={[styles.recentPosterFrame, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant + '33', borderRadius: radii.lg }]}>
-                  <MediaArtwork
-                    uri={item.posterUrl}
-                    style={styles.recentPoster}
-                    resizeMode="cover"
-                    icon={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
-                    title={item.title}
-                    compactFallback
-                    accessibilityLabel={`${item.title} poster`}
-                  />
-                </View>
-                <Text style={[styles.recentViewedTitle, { color: colors.onSurface, ...typography.labelSm }]} numberOfLines={2}>
-                  {item.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        <SearchPosterRail
+          title="Recently Viewed"
+          data={recentViewed}
+          colors={colors}
+          typography={typography}
+          radii={radii}
+          onSelectItem={onPickRecentViewed}
+        />
       )}
 
       {!hideHistory && !hasRecentViewed && recentSearches && recentSearches.length > 0 && (
@@ -196,6 +250,28 @@ export function SearchPanel({
           </View>
         </View>
       )}
+
+      {!hideHistory && (
+        <SearchPosterRail
+          title="Trending on Trakt"
+          data={traktTrending}
+          colors={colors}
+          typography={typography}
+          radii={radii}
+          onSelectItem={onPickRecentViewed}
+        />
+      )}
+
+      {!hideHistory && (
+        <SearchPosterRail
+          title="Now playing in theaters"
+          data={nowPlaying}
+          colors={colors}
+          typography={typography}
+          radii={radii}
+          onSelectItem={onPickRecentViewed}
+        />
+      )}
     </View>
   );
 }
@@ -203,23 +279,8 @@ export function SearchPanel({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 18,
     marginBottom: 40,
-  },
-  hero: {
-    alignItems: 'center',
-    marginBottom: 48,
-  },
-  heroTitle: {
-    textAlign: 'center',
-    fontWeight: '900',
-    letterSpacing: -1,
-    marginBottom: 16,
-  },
-  heroSubtitle: {
-    textAlign: 'center',
-    maxWidth: 280,
-    lineHeight: 22,
   },
   searchWrapper: {
     height: 64,
@@ -295,35 +356,57 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   suggestionsWrapper: {
-    marginTop: 34,
+    marginTop: 26,
   },
   suggestionTitle: {
     fontWeight: '700',
     letterSpacing: 1.5,
     marginBottom: 16,
   },
-  recentViewedRail: {
-    gap: 14,
+  posterRail: {
     paddingRight: 24,
   },
-  recentViewedItem: {
-    width: 76,
+  posterCard: {
+    width: POSTER_W,
   },
-  recentPosterFrame: {
+  posterWrap: {
     borderWidth: 1,
-    height: 76,
-    marginBottom: 8,
+    height: POSTER_H,
     overflow: 'hidden',
-    width: 76,
+    position: 'relative',
+    width: POSTER_W,
   },
-  recentPoster: {
+  posterImg: {
     height: '100%',
     width: '100%',
   },
-  recentViewedTitle: {
+  ratingBadge: {
+    position: 'absolute',
+    left: 8,
+    top: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+  },
+  ratingBadgeText: {
+    color: '#FFD700',
+    fontSize: 10,
     fontWeight: '800',
-    minHeight: 32,
-    textAlign: 'center',
+  },
+  posterTitle: {
+    fontWeight: '700',
+    marginTop: 8,
+    minHeight: 34,
+  },
+  posterMeta: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 2,
+  },
+  posterYear: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   suggestionChips: {
     flexDirection: 'row',

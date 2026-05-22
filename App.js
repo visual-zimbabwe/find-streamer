@@ -667,6 +667,7 @@ function MobileApp() {
 
   const showBack = activeView === 'detail' || activeView === 'filmography';
   const showLoading = loading && activeView !== 'detail' && activeView !== 'discover' && activeView !== 'home';
+  const useCenteredWordmarkHeader = ['search', 'discover', 'watchlist', 'settings'].includes(activeView);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -678,7 +679,7 @@ function MobileApp() {
           <AppHeader 
             showBack={showBack} 
             onBack={handleBack} 
-            centeredTitleOnly={activeView === 'search'}
+            centeredTitleOnly={useCenteredWordmarkHeader}
           />
         </View>
       )}
@@ -717,7 +718,6 @@ function MobileApp() {
                     onPickSuggestion={handleSearch}
                     onPickRecentViewed={handleSelectMatch}
                     hideHistory={results.length > 0}
-                    hideHero={results.length > 0}
                     typeResults={typeResults}
                     typeLoading={typeLoading}
                     onTypeSelect={handleTypeSelect}
