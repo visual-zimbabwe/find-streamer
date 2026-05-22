@@ -19,9 +19,25 @@ export function MediaArtwork({
   const shouldLoadImage = Boolean(uri) && failedUri !== uri;
 
   useEffect(() => {
-    if (uri && failedUri !== uri) return;
-    if (!uri) setFailedUri(null);
-  }, [uri, failedUri]);
+    if (!uri) {
+      setFailedUri(null);
+      return;
+    }
+    // If the URI changes, reset failure state to attempt loading the new image
+    if (uri !== failedUri) {
+      setFailedUri(null);
+    }
+  }, [uri]);
+
+  useEffect(() => {
+    if (failedUri) {
+      // Retry loading the image after a 7-second delay to handle transient network hiccups
+      const timer = setTimeout(() => {
+        setFailedUri(null);
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [failedUri]);
 
   if (shouldLoadImage) {
     return (
