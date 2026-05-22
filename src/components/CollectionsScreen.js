@@ -11,29 +11,33 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
-import { fetchHomeCollectionRows } from '../lib/homeFeed';
+import { fetchStaticCollectionRows } from '../lib/collectionMovieRows';
 import { ContentRail } from './HomeScreen';
 import { HomeTopNav } from './HomeTopNav';
+
+const PAGE_SIZE = 20;
 
 export function CollectionsScreen({ onSelectItem, onOpenHomeFilter }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
-  const bottomNavScroll = useBottomNavScroll();
 
-  const [collectionRows, setCollectionRows] = useState([]);
+  const [allRows, setAllRows] = useState([]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const isLoadingMore = React.useRef(false);
 
   const loadCollectionRows = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const rows = await fetchHomeCollectionRows();
-      setCollectionRows(rows);
+      const rows = await fetchStaticCollectionRows();
+      setAllRows(rows);
+      setVisibleCount(PAGE_SIZE);
     } catch (err) {
       setError(err);
-      setCollectionRows([]);
+      setAllRows([]);
     } finally {
       setLoading(false);
     }
@@ -43,10 +47,33 @@ export function CollectionsScreen({ onSelectItem, onOpenHomeFilter }) {
     loadCollectionRows();
   }, [loadCollectionRows]);
 
+  const handleScroll = useCallback((event) => {
+    if (!event?.nativeEvent) return;
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    if (!contentOffset || !contentSize || !layoutMeasurement) return;
+    const distanceFromBottom =
+      contentSize.height - layoutMeasurement.height - contentOffset.y;
+    if (distanceFromBottom < 300 && !isLoadingMore.current) {
+      isLoadingMore.current = true;
+      setVisibleCount((prev) => {
+        const next = prev + PAGE_SIZE;
+        // Reset the debounce flag after state update settles
+        requestAnimationFrame(() => { isLoadingMore.current = false; });
+        return next;
+      });
+    }
+  }, []);
+
+  const bottomNavScroll = useBottomNavScroll(handleScroll);
+
+  const visibleRows = allRows.slice(0, visibleCount);
+  const hasMore = visibleCount < allRows.length;
+
   return (
     <View style={styles.rootWrap}>
       <HomeTopNav
         selectedKey="collections"
+        visibleKeys={['collections']}
         onSelect={(key) => {
           if (key === 'collections') return;
           onOpenHomeFilter?.(key);
@@ -85,18 +112,25 @@ export function CollectionsScreen({ onSelectItem, onOpenHomeFilter }) {
               Collections could not load. Tap to retry.
             </Text>
           </TouchableOpacity>
-        ) : collectionRows.length ? (
-          collectionRows.map((row) => (
-            <ContentRail
-              key={row.id}
-              title={row.title}
-              data={row.items}
-              colors={colors}
-              typography={typography}
-              radii={radii}
-              onSelectItem={onSelectItem}
-            />
-          ))
+        ) : visibleRows.length ? (
+          <>
+            {visibleRows.map((row) => (
+              <ContentRail
+                key={row.id}
+                title={row.title}
+                data={row.items}
+                colors={colors}
+                typography={typography}
+                radii={radii}
+                onSelectItem={onSelectItem}
+              />
+            ))}
+            {hasMore && (
+              <View style={styles.loadMoreIndicator}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            )}
+          </>
         ) : (
           <View style={[styles.statePanel, { backgroundColor: colors.surfaceContainerHighest }]}>
             <Ionicons name="albums-outline" size={26} color={colors.onSurfaceVariant} />
@@ -133,5 +167,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 22,
     textAlign: 'center',
+  },
+  loadMoreIndicator: {
+    alignItems: 'center',
+    paddingVertical: 24,
   },
 });
