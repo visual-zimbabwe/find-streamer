@@ -9,7 +9,7 @@ const TOP_NAV_ITEMS = [
   { key: 'collections', label: 'Collections' },
 ];
 
-export function HomeTopNav({ selectedKey = null, onSelect }) {
+export function HomeTopNav({ selectedKey = null, onSelect, visibleKeys = null }) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -22,7 +22,7 @@ export function HomeTopNav({ selectedKey = null, onSelect }) {
     >
       <Text style={styles.homeWordmark} accessibilityRole="header">Trova</Text>
       <View style={styles.glassBar}>
-        {TOP_NAV_ITEMS.map((item) => {
+        {(visibleKeys ? TOP_NAV_ITEMS.filter((i) => visibleKeys.includes(i.key)) : TOP_NAV_ITEMS).map((item) => {
           const selected = selectedKey === item.key;
           return (
             <TouchableOpacity

@@ -227,8 +227,8 @@ test('home collections tab uses TMDB collection rows', () => {
   assert.match(app, /setActiveTab\('home'\)/);
   assert.match(app, /setHomeMediaFilter\(null\)/);
   assert.match(home, /onOpenCollections/);
-  assert.match(collections, /fetchHomeCollectionRows/);
-  assert.match(collections, /collectionRows\.map/);
+  assert.match(collections, /fetchStaticCollectionRows/);
+  assert.match(collections, /visibleRows\.map/);
   assert.match(homeTopNav, /label:\s*'Collections'/);
   assert.match(homeFeed, /fetchTopMovieCollectionRows\(20\)/);
   assert.match(tmdb, /export async function fetchTopMovieCollectionRows/);
@@ -247,3 +247,9 @@ test('language and country presets map to effective API filters', () => {
   assert.match(countryPresets, /id:\s*'latin_america'/);
   assert.match(countryPresets, /label:\s*'Middle East 🕌'/);
 });
+
+test('collections are sorted by the rating of the first movie descending', () => {
+  const source = read('src/lib/collectionMovieRows.js');
+  assert.match(source, /\.sort\(\(a,\s*b\)\s*=>\s*b\.firstMovieRatingValue\s*-\s*a\.firstMovieRatingValue\)/);
+});
+
