@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeProvider';
@@ -19,16 +20,33 @@ export function MediaArtwork({
   const shouldLoadImage = Boolean(uri) && failedUri !== uri;
 
   useEffect(() => {
-    if (uri && failedUri !== uri) return;
-    if (!uri) setFailedUri(null);
-  }, [uri, failedUri]);
+    if (!uri) {
+      setFailedUri(null);
+      return;
+    }
+    // If the URI changes, reset failure state to attempt loading the new image
+    if (uri !== failedUri) {
+      setFailedUri(null);
+    }
+  }, [uri]);
+
+  useEffect(() => {
+    if (failedUri) {
+      // Retry loading the image after a 7-second delay to handle transient network hiccups
+      const timer = setTimeout(() => {
+        setFailedUri(null);
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [failedUri]);
 
   if (shouldLoadImage) {
     return (
       <Image
         source={{ uri }}
         style={style}
-        resizeMode={resizeMode}
+        contentFit={resizeMode === 'stretch' ? 'fill' : resizeMode === 'center' ? 'none' : resizeMode}
+        transition={250}
         onError={() => setFailedUri(uri)}
         accessible={Boolean(accessibilityLabel)}
         accessibilityLabel={accessibilityLabel}
