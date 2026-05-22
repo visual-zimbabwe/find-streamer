@@ -29,7 +29,7 @@ import { loadRecentSearches, saveRecentSearches, loadRecentViewed, saveRecentVie
 import { ToastivaProvider, toastiva } from 'toastiva';
 import { getWatchlistCategory, WATCHLIST_CATEGORIES } from './src/lib/watchlistCategories';
 import { classifyAppError } from './src/lib/errors';
-import { BottomNavVisibilityProvider, useBottomNavScroll } from './src/context/BottomNavVisibilityContext';
+import { BottomNavVisibilityProvider } from './src/context/BottomNavVisibilityContext';
 
 export default function App() {
   return (
@@ -111,7 +111,6 @@ function MobileApp() {
   const [filmographyLoading, setFilmographyLoading] = useState(false);
   const discoverVm = useDiscoverViewModel();
   const insets = useSafeAreaInsets();
-  const bottomNavScrollProps = useBottomNavScroll();
 
   const showToast = useCallback((message, options = {}) => {
     const icon = options.icon || 'alert-circle-outline';
@@ -679,6 +678,7 @@ function MobileApp() {
           <AppHeader 
             showBack={showBack} 
             onBack={handleBack} 
+            centeredTitleOnly={activeView === 'search'}
           />
         </View>
       )}
@@ -706,7 +706,7 @@ function MobileApp() {
 
             {activeView === 'search' && (
               <View style={{ flex: 1 }}>
-                <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent} {...bottomNavScrollProps}>
+                <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
                   <SearchPanel
                     value={query}
                     onChangeText={handleQueryChange}
@@ -716,8 +716,6 @@ function MobileApp() {
                     recentViewed={recentViewed}
                     onPickSuggestion={handleSearch}
                     onPickRecentViewed={handleSelectMatch}
-                    filter={filter}
-                    onFilterChange={setFilter}
                     hideHistory={results.length > 0}
                     hideHero={results.length > 0}
                     typeResults={typeResults}
@@ -1012,7 +1010,7 @@ function MobileApp() {
         onDismiss={() => setOfflineBanner(null)}
       />
 
-      <BottomNav activeTab={activeTab} onTabPress={handleTabPress} />
+      <BottomNav activeTab={activeTab} onTabPress={handleTabPress} fixed={activeView === 'search'} />
 
       {/* BottomSheetPortal — renders stacked sheets above everything */}
       <BottomSheetPortal />

@@ -13,8 +13,6 @@ export function SearchPanel({
   recentViewed,
   onPickSuggestion,
   onPickRecentViewed,
-  filter,
-  onFilterChange,
   hideHistory,
   hideHero,
   typeResults,
