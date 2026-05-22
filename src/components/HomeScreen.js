@@ -135,7 +135,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   const [tmdbRails, setTmdbRails] = useState({});
   const [railsLoading, setRailsLoading] = useState(true);
 
-  const [mediaFilter, setMediaFilter] = useState('all');
+  const [mediaFilter, setMediaFilter] = useState(null);
 
   // heroItem is derived after filteredSpotlight is computed (below); placeholder null until then
   // (computed further down once filteredSpotlight is available)
@@ -239,12 +239,12 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     []
   );
 
-  // Android back handler: if a filter is active, pressing back resets it to 'all'
+  // Android back handler: return the home filter to its default state first.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (mediaFilter !== 'all') {
-        setMediaFilter('all');
+      if (mediaFilter) {
+        setMediaFilter(null);
         return true; // consume the event
       }
       return false;
@@ -255,7 +255,7 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   const watchlistRows = useMemo(() => {
     return WATCHLIST_CATEGORIES.map((category) => {
       const items = (watchlist || []).filter((w) => {
-        if (mediaFilter !== 'all' && w.mediaType !== mediaFilter) return false;
+        if (mediaFilter && w.mediaType !== mediaFilter) return false;
         return getWatchlistCategory(w.watchlistCategoryId).id === category.id;
       });
       const sorted = [...items].sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
@@ -264,25 +264,25 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   }, [watchlist, mediaFilter]);
 
   const filteredSpotlight = useMemo(() => {
-    if (mediaFilter === 'all') return spotlight;
+    if (!mediaFilter) return spotlight;
     return spotlight.filter((it) => it.mediaType === mediaFilter);
   }, [spotlight, mediaFilter]);
 
   const heroItem = filteredSpotlight[heroIndex] || null;
 
   const filteredNowPlaying = useMemo(() => {
-    if (mediaFilter === 'all' || mediaFilter === 'movie') return nowPlayingRail;
+    if (!mediaFilter || mediaFilter === 'movie') return nowPlayingRail;
     return null; // now-playing is movies-only
   }, [nowPlayingRail, mediaFilter]);
 
   const filteredTrakt = useMemo(() => {
     if (!traktRail) return null;
-    if (mediaFilter === 'all') return traktRail;
+    if (!mediaFilter) return traktRail;
     return traktRail.filter((it) => it.mediaType === mediaFilter);
   }, [traktRail, mediaFilter]);
 
   const filteredTmdbRails = useMemo(() => {
-    if (mediaFilter === 'all') return HOME_TMDB_RAILS;
+    if (!mediaFilter) return HOME_TMDB_RAILS;
     return HOME_TMDB_RAILS.filter((def) => def.mediaType === mediaFilter);
   }, [mediaFilter]);
 
@@ -370,42 +370,43 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   );
 
   const TYPE_PILLS = [
-    { key: 'all',   label: 'All' },
     { key: 'movie', label: 'Movies' },
-    { key: 'tv',    label: 'TV Shows' },
+    { key: 'tv',    label: 'Shows' },
   ];
 
   return (
     <View style={styles.rootWrap}>
-      {/* ── Floating liquid-glass type filter ─────────────────────────── */}
+      {/* ── Paramount-style home top navigation ───────────────────────── */}
       <View
         style={[
-          styles.floatingBar,
-          { top: insets.top + 12 },
+          styles.homeTopNav,
+          { top: insets.top + 8 },
         ]}
         pointerEvents="box-none"
       >
+        <Text style={styles.homeWordmark} accessibilityRole="header">Trova</Text>
         <View style={styles.glassBar}>
-          <TouchableOpacity
-            style={styles.typePillCycle}
-            onPress={() => {
-              const keys = TYPE_PILLS.map(p => p.key);
-              const nextIdx = (keys.indexOf(mediaFilter) + 1) % keys.length;
-              setMediaFilter(keys[nextIdx]);
-            }}
-            activeOpacity={0.78}
-            accessibilityRole="button"
-            accessibilityLabel={`Filter: ${TYPE_PILLS.find(p => p.key === mediaFilter)?.label}`}
-          >
-            <Ionicons name="filter" size={14} color="#0d0d14" style={{ marginRight: 6 }} />
-            <MorphingText
-              text={TYPE_PILLS.find(p => p.key === mediaFilter)?.label || 'All'}
-              fontSize={13}
-              color="#0d0d14"
-              fontStyle={{ fontWeight: '700', letterSpacing: 0.3 }}
-              animationDuration={300}
-            />
-          </TouchableOpacity>
+          {TYPE_PILLS.map((pill) => {
+            const selected = mediaFilter === pill.key;
+            return (
+              <TouchableOpacity
+                key={pill.key}
+                style={styles.typePill}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setMediaFilter(selected ? null : pill.key);
+                }}
+                activeOpacity={0.78}
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`Show ${pill.label}`}
+              >
+                <Text style={[styles.typePillText, selected && styles.typePillTextSelected]}>
+                  {pill.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
       </View>
@@ -554,40 +555,57 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollInner: { paddingTop: 0 },
 
-  /* ── Floating liquid-glass type filter ───────────── */
-  floatingBar: {
+  /* ── Paramount-style home top navigation ───────────── */
+  homeTopNav: {
     position: 'absolute',
     left: 0,
     right: 0,
     alignItems: 'center',
     zIndex: 10,
-    // pointerEvents not needed here; individual children are touchable
+    paddingHorizontal: 20,
+  },
+  homeWordmark: {
+    color: '#fff',
+    fontFamily: Platform.select({ android: 'serif', ios: 'Georgia', default: 'serif' }),
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '700',
+    fontStyle: 'italic',
+    letterSpacing: 0,
+    textShadowColor: 'rgba(0,0,0,0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
+    marginBottom: 10,
   },
   glassBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(20, 20, 30, 0.52)',
-    borderRadius: 32,
-    paddingHorizontal: 6,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    // Android elevation for a glass-card shadow
-    elevation: 18,
-    // iOS shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.32,
-    shadowRadius: 18,
+    justifyContent: 'center',
+    gap: 22,
+    paddingVertical: 2,
   },
-  typePillCycle: {
+  typePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.96)',
+    justifyContent: 'center',
+    minWidth: 60,
+    paddingHorizontal: 0,
+    paddingVertical: 4,
+    backgroundColor: 'transparent',
+  },
+  typePillText: {
+    color: 'rgba(255,255,255,0.76)',
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '700',
+    letterSpacing: 0,
+    textShadowColor: 'rgba(0,0,0,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 5,
+  },
+  typePillTextSelected: {
+    color: '#fff',
+    fontWeight: '900',
   },
 
   heroShell: {
