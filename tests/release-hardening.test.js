@@ -111,7 +111,9 @@ test('core interactive surfaces expose accessibility roles and labels', () => {
     'src/components/AppHeader.js',
     'src/components/BottomNav.js',
     'src/components/DiscoverScreen.js',
+    'src/components/CollectionsScreen.js',
     'src/components/HomeScreen.js',
+    'src/components/HomeTopNav.js',
     'src/components/MatchResults.js',
     'src/components/ResultView.js',
     'src/components/SettingsView.js',
@@ -211,6 +213,27 @@ test('movie franchise detection is backed by TMDB collection parts', () => {
   assert.match(resultView, /result\.isFranchise/);
   assert.match(resultView, /result\.collection\?\.parts/);
   assert.match(resultView, /Franchise/);
+});
+
+test('home collections tab uses TMDB collection rows', () => {
+  const app = read('App.js');
+  const home = read('src/components/HomeScreen.js');
+  const collections = read('src/components/CollectionsScreen.js');
+  const homeTopNav = read('src/components/HomeTopNav.js');
+  const homeFeed = read('src/lib/homeFeed.js');
+  const tmdb = read('src/lib/tmdb.js');
+
+  assert.match(app, /activeView === 'collections'/);
+  assert.match(app, /setActiveTab\('home'\)/);
+  assert.match(app, /setHomeMediaFilter\(null\)/);
+  assert.match(home, /onOpenCollections/);
+  assert.match(collections, /fetchHomeCollectionRows/);
+  assert.match(collections, /collectionRows\.map/);
+  assert.match(homeTopNav, /label:\s*'Collections'/);
+  assert.match(homeFeed, /fetchTopMovieCollectionRows\(20\)/);
+  assert.match(tmdb, /export async function fetchTopMovieCollectionRows/);
+  assert.match(tmdb, /detail\.belongs_to_collection/);
+  assert.match(tmdb, /getMovieCollectionInfo\(detail\.belongs_to_collection/);
 });
 
 test('language and country presets map to effective API filters', () => {

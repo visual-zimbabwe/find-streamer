@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
+import { HomeTopNav } from './HomeTopNav';
 import MorphingText from '../lib/expo-morphing-text/components/morphing-text';
 import { WATCHLIST_CATEGORIES, getWatchlistCategory } from '../lib/watchlistCategories';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
@@ -67,7 +68,7 @@ function HomePosterCard({ item, colors, typography, radii, onPress }) {
   );
 }
 
-function ContentRail({ title, data, colors, typography, radii, onSelectItem }) {
+export function ContentRail({ title, data, colors, typography, radii, onSelectItem }) {
   if (!data?.length) return null;
   return (
     <View style={styles.railBlock}>
@@ -95,7 +96,13 @@ function ContentRail({ title, data, colors, typography, radii, onSelectItem }) {
   );
 }
 
-export function HomeScreen({ watchlist = [], onSelectItem }) {
+export function HomeScreen({
+  watchlist = [],
+  onSelectItem,
+  onOpenCollections,
+  mediaFilter = null,
+  onMediaFilterChange,
+}) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
@@ -108,8 +115,6 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
   const heroListRef = useRef(null);
   const pausedRef = useRef(false);
   const resumeTimerRef = useRef(null);
-
-  const [mediaFilter, setMediaFilter] = useState(null);
 
   // heroItem is derived after filteredSpotlight is computed (below); placeholder null until then
   // (computed further down once filteredSpotlight is available)
@@ -179,13 +184,13 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     if (Platform.OS !== 'android') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (mediaFilter) {
-        setMediaFilter(null);
+        onMediaFilterChange?.(null);
         return true; // consume the event
       }
       return false;
     });
     return () => sub.remove();
-  }, [mediaFilter]);
+  }, [mediaFilter, onMediaFilterChange]);
 
   const watchlistRows = useMemo(() => {
     return WATCHLIST_CATEGORIES.map((category) => {
@@ -288,47 +293,19 @@ export function HomeScreen({ watchlist = [], onSelectItem }) {
     [heroH, insets.bottom, onSelectItem, typography]
   );
 
-  const TYPE_PILLS = [
-    { key: 'movie', label: 'Movies' },
-    { key: 'tv',    label: 'Shows' },
-  ];
-
   return (
     <View style={styles.rootWrap}>
       {/* ── Paramount-style home top navigation ───────────────────────── */}
-      <View
-        style={[
-          styles.homeTopNav,
-          { top: insets.top + 8 },
-        ]}
-        pointerEvents="box-none"
-      >
-        <Text style={styles.homeWordmark} accessibilityRole="header">Trova</Text>
-        <View style={styles.glassBar}>
-          {TYPE_PILLS.map((pill) => {
-            const selected = mediaFilter === pill.key;
-            return (
-              <TouchableOpacity
-                key={pill.key}
-                style={styles.typePill}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setMediaFilter(selected ? null : pill.key);
-                }}
-                activeOpacity={0.78}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`Show ${pill.label}`}
-              >
-                <Text style={[styles.typePillText, selected && styles.typePillTextSelected]}>
-                  {pill.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-      </View>
+      <HomeTopNav
+        selectedKey={mediaFilter}
+        onSelect={(key, selected) => {
+          if (key === 'collections') {
+            onOpenCollections?.();
+            return;
+          }
+          onMediaFilterChange?.(selected ? null : key);
+        }}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -434,59 +411,6 @@ const styles = StyleSheet.create({
   rootWrap: { flex: 1 },
   scroll: { flex: 1 },
   scrollInner: { paddingTop: 0 },
-
-  /* ── Paramount-style home top navigation ───────────── */
-  homeTopNav: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-    paddingHorizontal: 20,
-  },
-  homeWordmark: {
-    color: '#fff',
-    fontFamily: Platform.select({ android: 'serif', ios: 'Georgia', default: 'serif' }),
-    fontSize: 30,
-    lineHeight: 36,
-    fontWeight: '700',
-    fontStyle: 'italic',
-    letterSpacing: 0,
-    textShadowColor: 'rgba(0,0,0,0.55)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 8,
-    marginBottom: 10,
-  },
-  glassBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 22,
-    paddingVertical: 2,
-  },
-  typePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 60,
-    paddingHorizontal: 0,
-    paddingVertical: 4,
-    backgroundColor: 'transparent',
-  },
-  typePillText: {
-    color: 'rgba(255,255,255,0.76)',
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '700',
-    letterSpacing: 0,
-    textShadowColor: 'rgba(0,0,0,0.45)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 5,
-  },
-  typePillTextSelected: {
-    color: '#fff',
-    fontWeight: '900',
-  },
 
   heroShell: {
     width: WINDOW_W,

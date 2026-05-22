@@ -17,6 +17,7 @@ import { SettingsView } from './src/components/SettingsView';
 import { WatchlistView } from './src/components/WatchlistView';
 import { DiscoverScreen } from './src/components/DiscoverScreen';
 import { HomeScreen } from './src/components/HomeScreen';
+import { CollectionsScreen } from './src/components/CollectionsScreen';
 import { FilmographyScreen } from './src/components/FilmographyScreen';
 import { StatePanel } from './src/components/StatePanel';
 import { EmptyState } from './src/components/EmptyState';
@@ -102,6 +103,7 @@ function MobileApp() {
   const [surprisePickerVisible, setSurprisePickerVisible] = useState(false);
   const [pendingWatchlistItem, setPendingWatchlistItem] = useState(null); // { ...item, _isReCategorize: bool }
   const [filter, setFilter] = useState(null); // 'movie' | 'tv' | null
+  const [homeMediaFilter, setHomeMediaFilter] = useState(null); // 'movie' | 'tv' | null
   const [typeResults, setTypeResults] = useState([]);
   const [typeLoading, setTypeLoading] = useState(false);
   const typeDebounceRef = useRef(null);
@@ -156,6 +158,7 @@ function MobileApp() {
       results,
       selectedResult,
       filter,
+      homeMediaFilter,
       filmographyPerson,
       filmographyResults,
     }]);
@@ -166,11 +169,12 @@ function MobileApp() {
     if (updates.results !== undefined) setResults(updates.results);
     if (updates.selectedResult !== undefined) setSelectedResult(updates.selectedResult);
     if (updates.filter !== undefined) setFilter(updates.filter);
+    if (updates.homeMediaFilter !== undefined) setHomeMediaFilter(updates.homeMediaFilter);
     if (updates.filmographyPerson !== undefined) setFilmographyPerson(updates.filmographyPerson);
     if (updates.filmographyResults !== undefined) setFilmographyResults(updates.filmographyResults);
     
     setActiveView(view);
-  }, [activeView, activeTab, query, results, selectedResult, filter, filmographyPerson, filmographyResults]);
+  }, [activeView, activeTab, query, results, selectedResult, filter, homeMediaFilter, filmographyPerson, filmographyResults]);
 
   const handleBack = useCallback(() => {
     // If an error is showing, dismiss it
@@ -209,6 +213,7 @@ function MobileApp() {
     setResults(prev.results);
     setSelectedResult(prev.selectedResult);
     setFilter(prev.filter);
+    setHomeMediaFilter(prev.homeMediaFilter || null);
     setFilmographyPerson(prev.filmographyPerson);
     setFilmographyResults(prev.filmographyResults);
   }, [error, activeView, activeTab, navigationHistory, results]);
@@ -643,6 +648,7 @@ function MobileApp() {
     setActiveTab(tab);
     setNavigationHistory([]); // Reset stack when switching tabs
     if (tab === 'home') {
+      setHomeMediaFilter(null);
       setActiveView('home');
     } else if (tab === 'search') {
       setActiveView('search');
@@ -665,8 +671,8 @@ function MobileApp() {
     [watchlist]
   );
 
-  const showBack = activeView === 'detail' || activeView === 'filmography';
-  const showLoading = loading && activeView !== 'detail' && activeView !== 'discover' && activeView !== 'home';
+  const showBack = activeView === 'detail' || activeView === 'filmography' || activeView === 'collections';
+  const showLoading = loading && activeView !== 'detail' && activeView !== 'discover' && activeView !== 'home' && activeView !== 'collections';
   const useCenteredWordmarkHeader = ['search', 'discover', 'watchlist', 'settings'].includes(activeView);
 
   return (
@@ -674,7 +680,7 @@ function MobileApp() {
       <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} translucent />
       
       {/* Standard safe area header for all non-immersive screens */}
-      {activeView !== 'home' && activeView !== 'detail' && activeView !== 'filmography' && (
+      {activeView !== 'home' && activeView !== 'collections' && activeView !== 'detail' && activeView !== 'filmography' && (
         <View style={{ paddingTop: insets.top }}>
           <AppHeader 
             showBack={showBack} 
@@ -702,6 +708,21 @@ function MobileApp() {
                 watchlist={watchlist}
                 onSelectItem={handleSelectDiscoverItem}
                 onToggleWatchlist={handleToggleWatchlist}
+                mediaFilter={homeMediaFilter}
+                onMediaFilterChange={setHomeMediaFilter}
+                onOpenCollections={() => navigateTo('collections', { activeTab: 'home' })}
+              />
+            )}
+
+            {activeView === 'collections' && (
+              <CollectionsScreen
+                onSelectItem={handleSelectDiscoverItem}
+                onOpenHomeFilter={(nextFilter) => {
+                  setHomeMediaFilter(nextFilter === 'movie' || nextFilter === 'tv' ? nextFilter : null);
+                  setNavigationHistory([]);
+                  setActiveTab('home');
+                  setActiveView('home');
+                }}
               />
             )}
 
