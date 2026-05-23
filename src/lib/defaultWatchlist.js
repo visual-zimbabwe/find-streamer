@@ -1,4 +1,4 @@
-import { buildDefaultPrepopulatedMovieWatchlist } from './defaultMovieWatchlist';
+import { buildDefaultPrepopulatedMovieWatchlist } from './defaultMovieWatchlist.js';
 
 export const DEFAULT_PREPOPULATED_WATCHLIST_CATEGORY_ID = 'imdb_top_100_tv_series';
 export const DEFAULT_PREPOPULATED_WATCHLIST_NAME = 'IMDb Top 100 TV Series';
