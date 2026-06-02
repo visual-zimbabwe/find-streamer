@@ -3,14 +3,26 @@ import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
-const TOP_NAV_ITEMS = [
-  { key: 'movie', label: 'Movies' },
-  { key: 'tv', label: 'Shows' },
-  { key: 'collections', label: 'Collections' },
-];
+const NAV_SETS = {
+  home: [
+    { key: 'movie', label: 'Movies' },
+    { key: 'tv', label: 'Shows' },
+    { key: 'collections', label: 'Collections' },
+  ],
+  collectionsRoot: [
+    { key: 'collections', label: 'Collections' },
+    { key: 'imdb_top100', label: 'Top 100 IMDb' },
+  ],
+  imdbTop100: [
+    { key: 'collections', label: 'Collections' },
+    { key: 'movie', label: 'Movies' },
+    { key: 'tv', label: 'Shows' },
+  ],
+};
 
-export function HomeTopNav({ selectedKey = null, onSelect, visibleKeys = null }) {
+export function HomeTopNav({ selectedKey = null, onSelect, navSet = 'home' }) {
   const insets = useSafeAreaInsets();
+  const items = NAV_SETS[navSet] || NAV_SETS.home;
 
   return (
     <View
@@ -22,7 +34,7 @@ export function HomeTopNav({ selectedKey = null, onSelect, visibleKeys = null })
     >
       <Text style={styles.homeWordmark} accessibilityRole="header">Trova</Text>
       <View style={styles.glassBar}>
-        {(visibleKeys ? TOP_NAV_ITEMS.filter((i) => visibleKeys.includes(i.key)) : TOP_NAV_ITEMS).map((item) => {
+        {items.map((item) => {
           const selected = selectedKey === item.key;
           return (
             <TouchableOpacity

@@ -4,7 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { StatePanel } from './StatePanel';
 import { MediaArtwork } from './MediaArtwork';
-import { WATCHLIST_CATEGORIES, getWatchlistCategory } from '../lib/watchlistCategories';
+import {
+  getUserWatchlistCollections,
+  getStatusLabel,
+  isInUserLibrary,
+  watchlistEntryKey,
+} from '../lib/watchlistModel';
 import { fetchNowPlayingMovies } from '../lib/tmdb';
 import { classifyAppError } from '../lib/errors';
 import { scale, verticalScale } from '../utils/responsive';
@@ -49,9 +54,9 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
     }).start(() => {
       translateX.setValue(0);
       if (direction === 'left') {
-        onMarkWatched(item.tmdbId);
+        onMarkWatched(item);
       } else {
-        onRemove(item.tmdbId);
+        onRemove(item);
       }
     });
   };
@@ -129,6 +134,18 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
             <Text style={[styles.itemTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
               {item.title}
             </Text>
+            {item.status && item.status !== 'saved' && (
+              <View style={[styles.statusBadge, { backgroundColor: item.status === 'watched' ? colors.primary + '18' : colors.surfaceContainerHigh, borderColor: item.status === 'watched' ? colors.primary + '44' : colors.outlineVariant + '40', borderRadius: radii.full }]}>
+                <Ionicons
+                  name={item.status === 'watched' ? 'checkmark-circle-outline' : item.status === 'watching' ? 'play-circle-outline' : 'archive-outline'}
+                  size={13}
+                  color={item.status === 'watched' ? colors.primary : colors.onSurfaceVariant}
+                />
+                <Text style={[styles.statusBadgeText, { color: item.status === 'watched' ? colors.primary : colors.onSurfaceVariant, ...typography.labelSm }]}>
+                  {getStatusLabel(item.status)}
+                </Text>
+              </View>
+            )}
             <View style={styles.meta}>
               <View style={styles.metaTmdbRating}>
                 <View style={styles.badgeTmdb}>
@@ -148,7 +165,7 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
   );
 }
 
-export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrowseMovies, onBrowseTV }) {
+export function WatchlistView({ items, collections = [], onRemove, onMarkWatched, onSelect, onBrowseMovies, onBrowseTV }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
@@ -207,9 +224,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
   const [randomPick, setRandomPick] = useState(null);
   const pickScale = useRef(new Animated.Value(0.96)).current;
   const pickOpacity = useRef(new Animated.Value(0)).current;
-  const [collapsedCategoryIds, setCollapsedCategoryIds] = useState(
-    () => Object.fromEntries([...WATCHLIST_CATEGORIES.map((c) => [c.id, true]), ['now_playing', true]])
-  );
+  const [collapsedCategoryIds, setCollapsedCategoryIds] = useState({});
   const [collapsedGroupKeys, setCollapsedGroupKeys] = useState({});
 
   const [nowPlaying, setNowPlaying] = useState([]);
@@ -228,13 +243,18 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const pickableItems = useMemo(
-    () => (items || []).filter((item) => getWatchlistCategory(item.watchlistCategoryId).id !== 'watched'),
+  const libraryItems = useMemo(
+    () => (items || []).filter(isInUserLibrary),
     [items]
   );
 
+  const pickableItems = useMemo(
+    () => libraryItems.filter((item) => item.status !== 'watched'),
+    [libraryItems]
+  );
+
   const chooseRandomPick = () => {
-    const source = pickableItems.length ? pickableItems : items;
+    const source = pickableItems.length ? pickableItems : libraryItems.length ? libraryItems : items;
     if (!source?.length) return;
     const nextPick = source[Math.floor(Math.random() * source.length)];
     setRandomPick(nextPick);
@@ -266,7 +286,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
     return () => { cancelled = true; };
   }, []);
 
-  if (!items || items.length === 0) {
+  if (!libraryItems.length) {
     return (
       <StatePanel
         type="empty"
@@ -279,34 +299,44 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
   const sortByRatingDesc = (arr) =>
     [...arr].sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
 
-  const groupedItems = WATCHLIST_CATEGORIES
-    .map((category) => {
-      const all = items.filter((item) => getWatchlistCategory(item.watchlistCategoryId).id === category.id);
+  const availableCollections = collections.length ? collections : getUserWatchlistCollections();
+  const groupedItems = availableCollections
+    .map((collection) => {
+      const all = libraryItems.filter((item) => item.collectionIds?.includes(collection.id));
       const movies = sortByRatingDesc(all.filter((item) => item.mediaType === 'movie'));
       const tvShows = sortByRatingDesc(all.filter((item) => item.mediaType !== 'movie'));
-      return { ...category, movies, tvShows, totalCount: all.length };
+      return {
+        id: collection.id,
+        label: collection.name,
+        icon: collection.icon,
+        movies,
+        tvShows,
+        totalCount: all.length,
+      };
     })
     .filter((category) => category.totalCount > 0);
 
+  const isCategoryCollapsed = (categoryId) => collapsedCategoryIds[categoryId] ?? true;
+
   const toggleCategory = (categoryId) => {
-    setCollapsedCategoryIds((current) => ({
-      ...current,
-      [categoryId]: !current[categoryId],
-    }));
+    setCollapsedCategoryIds((current) => {
+      const collapsed = current[categoryId] ?? true;
+      return { ...current, [categoryId]: !collapsed };
+    });
   };
 
   const groupKey = (categoryId, groupLabel) => `${categoryId}::${groupLabel}`;
 
   const toggleGroup = (categoryId, groupLabel) => {
     const key = groupKey(categoryId, groupLabel);
-    setCollapsedGroupKeys((current) => ({
-      ...current,
-      [key]: !current[key],
-    }));
+    setCollapsedGroupKeys((current) => {
+      const collapsed = current[key] ?? true;
+      return { ...current, [key]: !collapsed };
+    });
   };
 
   const isGroupCollapsed = (categoryId, groupLabel) =>
-    !!collapsedGroupKeys[groupKey(categoryId, groupLabel)];
+    collapsedGroupKeys[groupKey(categoryId, groupLabel)] ?? true;
 
   const headerBlurOpacity = scrollY.interpolate({
     inputRange: [0, 60],
@@ -343,7 +373,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.onSurface, ...typography.headlineLg }]}>My Watchlist</Text>
         <Text style={[styles.subtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-          You have {items.length} titles saved to watch later.
+          You have {libraryItems.length} titles saved to watch later.
         </Text>
       </View>
 
@@ -382,7 +412,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
               <Text style={[styles.randomResultLabel, { color: colors.primary, ...typography.labelSm }]}>Tonight's Pick</Text>
               <Text style={[styles.randomResultTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>{randomPick.title}</Text>
               <Text style={[styles.randomResultMeta, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
-                {randomPick.year} • {getWatchlistCategory(randomPick.watchlistCategoryId).label}
+                {randomPick.year} • {getStatusLabel(randomPick.status)}
               </Text>
             </View>
             <TouchableOpacity
@@ -405,8 +435,8 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
             activeOpacity={0.75}
             onPress={() => toggleCategory('now_playing')}
             accessibilityRole="button"
-            accessibilityLabel={`${collapsedCategoryIds['now_playing'] ? 'Expand' : 'Collapse'} Now Playing`}
-            accessibilityState={{ expanded: !collapsedCategoryIds['now_playing'] }}
+            accessibilityLabel={`${isCategoryCollapsed('now_playing') ? 'Expand' : 'Collapse'} Now Playing`}
+            accessibilityState={{ expanded: !isCategoryCollapsed('now_playing') }}
           >
             <View style={[styles.categoryIcon, { backgroundColor: colors.primary + '22' }]}>
               <Ionicons name="film-outline" size={20} color={colors.primary} />
@@ -419,14 +449,14 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
             </View>
             <View style={[styles.categoryToggle, { borderColor: colors.outlineVariant }]}>
               <Ionicons
-                name={collapsedCategoryIds['now_playing'] ? 'chevron-down' : 'chevron-up'}
+                name={isCategoryCollapsed('now_playing') ? 'chevron-down' : 'chevron-up'}
                 size={18}
                 color={colors.onSurfaceVariant}
               />
             </View>
           </TouchableOpacity>
 
-          {!collapsedCategoryIds['now_playing'] && (
+          {!isCategoryCollapsed('now_playing') && (
             <View style={styles.list}>
               {nowPlayingLoading && (
                 <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 16 }} />
@@ -453,7 +483,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
               )}
               {!nowPlayingLoading && !nowPlayingError && nowPlaying.map((item) => (
                 <TouchableOpacity
-                  key={item.tmdbId}
+                  key={watchlistEntryKey(item)}
                   style={styles.card}
                   activeOpacity={0.8}
                   onPress={() => onSelect(item)}
@@ -491,7 +521,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
 
         {/* ── User watchlist categories ── */}
         {groupedItems.map((category) => {
-          const isCollapsed = collapsedCategoryIds[category.id];
+          const isCollapsed = isCategoryCollapsed(category.id);
 
           return (
             <View key={category.id} style={styles.categorySection}>
@@ -556,7 +586,7 @@ export function WatchlistView({ items, onRemove, onMarkWatched, onSelect, onBrow
                             <View style={styles.list}>
                               {group.data.map((item) => (
                                 <WatchlistItem
-                                  key={item.tmdbId}
+                                  key={watchlistEntryKey(item)}
                                   item={item}
                                   onSelect={onSelect}
                                   onRemove={onRemove}
@@ -845,6 +875,18 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontWeight: '800',
     lineHeight: 28,
+  },
+  statusBadge: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusBadgeText: {
+    fontWeight: '900',
   },
   meta: {
     flexDirection: 'row',

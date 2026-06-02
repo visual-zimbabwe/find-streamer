@@ -20,7 +20,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 import { HomeTopNav } from './HomeTopNav';
 import MorphingText from '../lib/expo-morphing-text/components/morphing-text';
-import { WATCHLIST_CATEGORIES, getWatchlistCategory } from '../lib/watchlistCategories';
+import { getUserWatchlistCollections } from '../lib/watchlistModel';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import {
   HOME_HERO_RESUME_DELAY_MS,
@@ -193,13 +193,20 @@ export function HomeScreen({
   }, [mediaFilter, onMediaFilterChange]);
 
   const watchlistRows = useMemo(() => {
-    return WATCHLIST_CATEGORIES.map((category) => {
+    return getUserWatchlistCollections().map((collection) => {
       const items = (watchlist || []).filter((w) => {
         if (mediaFilter && w.mediaType !== mediaFilter) return false;
-        return getWatchlistCategory(w.watchlistCategoryId).id === category.id;
+        return w.collectionIds?.includes(collection.id);
       });
       const sorted = [...items].sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
-      return { category, items: sorted };
+      return {
+        category: {
+          id: collection.id,
+          label: collection.name,
+          icon: collection.icon,
+        },
+        items: sorted,
+      };
     }).filter((row) => row.items.length > 0);
   }, [watchlist, mediaFilter]);
 

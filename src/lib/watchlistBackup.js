@@ -1,48 +1,20 @@
-import { DEFAULT_WATCHLIST_CATEGORY_ID, WATCHLIST_CATEGORIES, getWatchlistCategory } from './watchlistCategories.js';
+import {
+  normalizeWatchlistCollections,
+  normalizeWatchlistItems,
+  watchlistEntryKey,
+  WATCHLIST_SCHEMA_VERSION,
+} from './watchlistModel.js';
 
 export const WATCHLIST_EXPORT_KIND = 'find-streamer-watchlist';
-export const WATCHLIST_EXPORT_SCHEMA_VERSION = 1;
-
-/** Stable key for movie vs TV with the same TMDB numeric id. */
-export function watchlistEntryKey(item) {
-  if (!item || item.tmdbId == null || !item.mediaType) return null;
-  return `${item.mediaType}:${item.tmdbId}`;
-}
+export const WATCHLIST_EXPORT_SCHEMA_VERSION = WATCHLIST_SCHEMA_VERSION;
+export { watchlistEntryKey };
 
 /**
  * Validates, dedupes by (mediaType, tmdbId), and normalizes category fields.
  * First occurrence wins when the same title appears more than once.
  */
 export function normalizeImportedWatchlistItems(rawItems) {
-  const categoryIds = new Set(WATCHLIST_CATEGORIES.map((c) => c.id));
-  if (!Array.isArray(rawItems)) return [];
-
-  const out = [];
-  const seenKeys = new Set();
-
-  for (const item of rawItems) {
-    if (!item || item.tmdbId == null || typeof item.title !== 'string' || !item.title.trim()) continue;
-    const mediaType = item.mediaType === 'tv' || item.mediaType === 'movie' ? item.mediaType : null;
-    if (!mediaType) continue;
-
-    const key = `${mediaType}:${item.tmdbId}`;
-    if (seenKeys.has(key)) continue;
-    seenKeys.add(key);
-
-    const watchlistCategoryId = categoryIds.has(item?.watchlistCategoryId)
-      ? item.watchlistCategoryId
-      : DEFAULT_WATCHLIST_CATEGORY_ID;
-
-    out.push({
-      ...item,
-      mediaType,
-      title: item.title.trim(),
-      watchlistCategoryId,
-      watchlistCategoryLabel: getWatchlistCategory(watchlistCategoryId).label,
-    });
-  }
-
-  return out;
+  return normalizeWatchlistItems(rawItems);
 }
 
 /**
@@ -68,17 +40,33 @@ export function mergeWatchlistsNoDuplicates(existing, incoming) {
   return merged;
 }
 
-export function buildWatchlistExportPayload(watchlist) {
+export function mergeCollectionsNoDuplicates(existing, incoming) {
+  const normalizedExisting = normalizeWatchlistCollections(existing);
+  const normalizedIncoming = normalizeWatchlistCollections(incoming);
+  const ids = new Set(normalizedExisting.map((collection) => collection.id));
+  const merged = [...normalizedExisting];
+
+  for (const collection of normalizedIncoming) {
+    if (ids.has(collection.id)) continue;
+    ids.add(collection.id);
+    merged.push(collection);
+  }
+
+  return merged;
+}
+
+export function buildWatchlistExportPayload(watchlist, collections = []) {
   return {
     schemaVersion: WATCHLIST_EXPORT_SCHEMA_VERSION,
     exportKind: WATCHLIST_EXPORT_KIND,
     exportedAt: new Date().toISOString(),
-    items: Array.isArray(watchlist) ? watchlist : [],
+    items: normalizeWatchlistItems(watchlist),
+    collections: normalizeWatchlistCollections(collections),
   };
 }
 
-export function stringifyWatchlistExport(watchlist) {
-  return JSON.stringify(buildWatchlistExportPayload(watchlist), null, 2);
+export function stringifyWatchlistExport(watchlist, collections = []) {
+  return JSON.stringify(buildWatchlistExportPayload(watchlist, collections), null, 2);
 }
 
 export function parseWatchlistImportJson(text) {
@@ -90,6 +78,7 @@ export function parseWatchlistImportJson(text) {
   }
 
   let rawItems;
+  let rawCollections = [];
   if (Array.isArray(parsed)) {
     rawItems = parsed;
   } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.items)) {
@@ -97,14 +86,16 @@ export function parseWatchlistImportJson(text) {
       return { ok: false, error: 'This file is not a Trova watchlist export.' };
     }
     rawItems = parsed.items;
+    rawCollections = parsed.collections;
   } else {
     return { ok: false, error: 'This file does not contain a watchlist array.' };
   }
 
   const items = normalizeImportedWatchlistItems(rawItems);
+  const collections = normalizeWatchlistCollections(rawCollections);
   if (rawItems.length > 0 && items.length === 0) {
     return { ok: false, error: 'No valid watchlist entries were found in this file.' };
   }
 
-  return { ok: true, items };
+  return { ok: true, items, collections };
 }

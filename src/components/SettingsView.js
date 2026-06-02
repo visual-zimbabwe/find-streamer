@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import {
   mergeWatchlistsNoDuplicates,
+  mergeCollectionsNoDuplicates,
   normalizeImportedWatchlistItems,
   parseWatchlistImportJson,
   stringifyWatchlistExport,
@@ -120,7 +121,12 @@ function ApiQuotaPanel({ colors, typography, spacing, radii }) {
   );
 }
 
-export function SettingsView({ watchlist = [], persistWatchlistChange }) {
+export function SettingsView({
+  watchlist = [],
+  collections = [],
+  persistWatchlistChange,
+  persistCollectionsChange,
+}) {
   const { theme, preference, setPreference } = useTheme();
   const { colors, spacing, typography, radii } = theme;
   const [backupBusy, setBackupBusy] = useState(false);
@@ -135,7 +141,7 @@ export function SettingsView({ watchlist = [], persistWatchlistChange }) {
 
     setBackupBusy(true);
     try {
-      const json = stringifyWatchlistExport(watchlist);
+      const json = stringifyWatchlistExport(watchlist, collections);
       const safeDate = new Date().toISOString().slice(0, 10);
       const fileUri = `${baseDir}trova-watchlist-${safeDate}.json`;
       await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
@@ -158,7 +164,7 @@ export function SettingsView({ watchlist = [], persistWatchlistChange }) {
     }
   };
 
-  const applyImportedItems = async (items, mode) => {
+  const applyImportedItems = async (items, mode, importedCollections = []) => {
     if (!persistWatchlistChange) return;
 
     if (mode === 'merge' && (!items || items.length === 0)) {
@@ -173,10 +179,14 @@ export function SettingsView({ watchlist = [], persistWatchlistChange }) {
           ? 'Watchlist cleared.'
           : `Watchlist replaced with ${next.length} title${next.length === 1 ? '' : 's'}.`;
       await persistWatchlistChange(next, watchlist, msg, 'bookmark-outline');
+      if (persistCollectionsChange && importedCollections.length > 0) {
+        await persistCollectionsChange(importedCollections, collections);
+      }
       return;
     }
 
     const merged = mergeWatchlistsNoDuplicates(watchlist, items);
+    const mergedCollections = mergeCollectionsNoDuplicates(collections, importedCollections);
     const normalizedCurrent = normalizeImportedWatchlistItems(watchlist);
     const added = merged.length - normalizedCurrent.length;
     const msg =
@@ -184,9 +194,12 @@ export function SettingsView({ watchlist = [], persistWatchlistChange }) {
         ? 'Nothing new was added. Entries from this file were already on your watchlist.'
         : `Added ${added} title${added === 1 ? '' : 's'} from the file. Your watchlist now has ${merged.length} entr${merged.length === 1 ? 'y' : 'ies'}.`;
     await persistWatchlistChange(merged, watchlist, msg, 'bookmark-outline');
+    if (persistCollectionsChange) {
+      await persistCollectionsChange(mergedCollections, collections);
+    }
   };
 
-  const promptImportMode = (items) => {
+  const promptImportMode = (items, importedCollections = []) => {
     const n = items.length;
     const summary =
       n === 0
@@ -198,7 +211,7 @@ export function SettingsView({ watchlist = [], persistWatchlistChange }) {
       {
         text: 'Merge',
         onPress: () => {
-          void applyImportedItems(items, 'merge');
+          void applyImportedItems(items, 'merge', importedCollections);
         },
       },
       {
@@ -214,7 +227,7 @@ export function SettingsView({ watchlist = [], persistWatchlistChange }) {
                 text: 'Replace',
                 style: 'destructive',
                 onPress: () => {
-                  void applyImportedItems(items, 'replace');
+                  void applyImportedItems(items, 'replace', importedCollections);
                 },
               },
             ]
@@ -245,7 +258,7 @@ export function SettingsView({ watchlist = [], persistWatchlistChange }) {
         return;
       }
 
-      promptImportMode(parsed.items);
+      promptImportMode(parsed.items, parsed.collections || []);
     } catch (err) {
       Alert.alert('Import failed', err?.message || 'Could not read the selected file.');
     } finally {
