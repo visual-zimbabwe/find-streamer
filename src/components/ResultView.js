@@ -468,7 +468,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
       {
         title: '🎴 Share Card',
         size: 'large',
-        scrollable: true,
+        scrollable: false,
         showCloseButton: true,
         dismissOnBackdrop: true,
       }

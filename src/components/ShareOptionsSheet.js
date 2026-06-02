@@ -4,6 +4,7 @@ import {
   ScrollView, StyleSheet, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import {
   SERVICE_COLORS, SERVICE_ICONS,
@@ -61,7 +62,7 @@ export function ShareOptionsSheetContent({ result, onClose, onShare }) {
   const availableProviders = (result?.providerSummary || []).filter(p => p.count > 0);
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.contentRoot}>
       {/* ── Header ─────────────────────────────────────────────── */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
@@ -82,6 +83,8 @@ export function ShareOptionsSheetContent({ result, onClose, onShare }) {
         showsVerticalScrollIndicator={false}
         style={styles.body}
         contentContainerStyle={styles.bodyContent}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
       >
         {availableProviders.map((provider, idx) => {
           const countries = getAvailableCountriesForService(result.rows, provider.key);
@@ -183,6 +186,7 @@ export function ShareOptionsSheetContent({ result, onClose, onShare }) {
 export function ShareOptionsSheet({ visible, result, onClose, onShare }) {
   const { theme } = useTheme();
   const { colors, radii } = theme;
+  const insets = useSafeAreaInsets();
   return (
     <Modal
       transparent
@@ -195,6 +199,7 @@ export function ShareOptionsSheet({ visible, result, onClose, onShare }) {
           backgroundColor: colors.surfaceContainer,
           borderColor: colors.outlineVariant + '4D',
           borderRadius: radii.xl,
+          paddingBottom: Math.max(insets.bottom, 12) + 20,
         }]}>
           <ShareOptionsSheetContent result={result} onClose={onClose} onShare={onShare} />
         </View>
@@ -217,12 +222,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     maxHeight: '82%',
   },
+  contentRoot: {
+    flex: 1,
+    minHeight: 0,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 20,
     gap: 12,
+    flexShrink: 0,
   },
   eyebrow: {
     fontWeight: '900',
@@ -244,10 +254,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   body: {
-    maxHeight: 420,
+    flex: 1,
+    minHeight: 0,
   },
   bodyContent: {
     gap: 0,
+    paddingBottom: 4,
   },
   serviceSection: {
     paddingVertical: 16,
@@ -300,6 +312,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
+    flexShrink: 0,
   },
   shareBtnText: {
     fontWeight: '900',
