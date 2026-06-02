@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
+import { watchlistEntryKey } from '../lib/watchlistModel';
 import { MediaArtwork } from './MediaArtwork';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { EmptyState } from './EmptyState';
@@ -1457,7 +1458,7 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem, onTogg
             radii={radii}
             onPress={() => onSelectItem(item)}
             onQuickSave={() => onToggleWatchlist?.(item)}
-            isSaved={watchlistIds.includes(item.tmdbId)}
+            isSaved={watchlistIds.includes(watchlistEntryKey(item))}
           />
         ))}
       </View>

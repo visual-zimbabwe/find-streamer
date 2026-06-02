@@ -1,6 +1,6 @@
 import { fetchTraktTrending } from './trakt';
 import { discoverTitles, enrichTraktItems, fetchNowPlayingMovies, fetchTopMovieCollectionRows } from './tmdb';
-import { getWatchlistCategory } from './watchlistCategories';
+import { isInUserLibrary } from './watchlistModel';
 
 export const HOME_RAIL_LIMIT = 10;
 export const HOME_SPOTLIGHT_MAX = 6;
@@ -71,7 +71,7 @@ export async function buildHomeSpotlight(watchlist = []) {
 
   for (const catId of SPOTLIGHT_CATEGORY_ORDER) {
     const inCat = (watchlist || []).filter(
-      (w) => getWatchlistCategory(w.watchlistCategoryId).id === catId
+      (w) => w.collectionIds?.includes(catId) && isInUserLibrary(w)
     );
     for (const it of inCat) {
       const k = dedupeKey(it);

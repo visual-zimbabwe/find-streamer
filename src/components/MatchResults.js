@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
+import { watchlistEntryKey } from '../lib/watchlistModel';
 
 /**
  * AnimatedCard
@@ -106,13 +107,13 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
               onToggleWatchlist(topMatch);
             }}
             accessibilityRole="button"
-            accessibilityLabel={savedIds.has(topMatch.tmdbId) ? `Remove ${topMatch.title} from watchlist` : `Add ${topMatch.title} to watchlist`}
-            accessibilityState={{ selected: savedIds.has(topMatch.tmdbId) }}
+            accessibilityLabel={savedIds.has(watchlistEntryKey(topMatch)) ? `Remove ${topMatch.title} from watchlist` : `Add ${topMatch.title} to watchlist`}
+            accessibilityState={{ selected: savedIds.has(watchlistEntryKey(topMatch)) }}
           >
             <Ionicons
-              name={savedIds.has(topMatch.tmdbId) ? 'bookmark' : 'bookmark-outline'}
+              name={savedIds.has(watchlistEntryKey(topMatch)) ? 'bookmark' : 'bookmark-outline'}
               size={22}
-              color={savedIds.has(topMatch.tmdbId) ? colors.primary : colors.white}
+              color={savedIds.has(watchlistEntryKey(topMatch)) ? colors.primary : colors.white}
             />
           </TouchableOpacity>
         )}
@@ -130,7 +131,7 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
       {/* Grid of others — each poster also grows on press */}
       <View style={styles.grid}>
         {others.map((item) => (
-          <View key={item.tmdbId} style={styles.gridItem}>
+          <View key={watchlistEntryKey(item)} style={styles.gridItem}>
             <AnimatedCard
               style={[styles.posterWrapper, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}
               onPress={() => onSelect(item)}
@@ -151,13 +152,13 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
                   onToggleWatchlist?.(item);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={savedIds.has(item.tmdbId) ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`}
-                accessibilityState={{ selected: savedIds.has(item.tmdbId) }}
+                accessibilityLabel={savedIds.has(watchlistEntryKey(item)) ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`}
+                accessibilityState={{ selected: savedIds.has(watchlistEntryKey(item)) }}
               >
                 <Ionicons
-                  name={savedIds.has(item.tmdbId) ? 'bookmark' : 'bookmark-outline'}
+                  name={savedIds.has(watchlistEntryKey(item)) ? 'bookmark' : 'bookmark-outline'}
                   size={20}
-                  color={savedIds.has(item.tmdbId) ? colors.primary : colors.white}
+                  color={savedIds.has(watchlistEntryKey(item)) ? colors.primary : colors.white}
                 />
               </TouchableOpacity>
             </AnimatedCard>

@@ -106,8 +106,8 @@ const DEFAULT_PREPOPULATED_WATCHLIST_BASE = [
   {"rank":100,"imdbId":"tt2372162","tmdbId":1424,"title":"Orange Is the New Black","year":"2013","posterUrl":"https://image.tmdb.org/t/p/w500/ekaa7YjGPTkFLcPhwWXTnARuCEU.jpg","backdropUrl":"https://image.tmdb.org/t/p/original/zJiWhsEYCy5BkFCBONoMnUunyZQ.jpg","ratingValue":7.645,"rating":"7.6/10","imdbRating":"8.0/10"},
 ];
 
-export function buildDefaultPrepopulatedWatchlist() {
-  const tvDefaults = DEFAULT_PREPOPULATED_WATCHLIST_BASE.map((item) => ({
+export function buildDefaultPrepopulatedTvWatchlist() {
+  return DEFAULT_PREPOPULATED_WATCHLIST_BASE.map((item) => ({
     ...item,
     mediaType: 'tv',
     synopsis: 'No synopsis available.',
@@ -116,9 +116,11 @@ export function buildDefaultPrepopulatedWatchlist() {
     source: 'IMDb Top 100 - TV Series',
     omdbRatings: item.imdbRating ? { imdbRating: item.imdbRating } : undefined,
   }));
+}
 
+export function buildDefaultPrepopulatedWatchlist() {
   return [
-    ...tvDefaults,
+    ...buildDefaultPrepopulatedTvWatchlist(),
     ...buildDefaultPrepopulatedMovieWatchlist(),
   ];
 }

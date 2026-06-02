@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { StyleSheet, View, ScrollView, Keyboard, BackHandler, Modal, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, ScrollView, Keyboard, BackHandler, Modal, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,14 +21,22 @@ import { CollectionsScreen } from './src/components/CollectionsScreen';
 import { FilmographyScreen } from './src/components/FilmographyScreen';
 import { StatePanel } from './src/components/StatePanel';
 import { EmptyState } from './src/components/EmptyState';
-import { BottomSheetProvider, BottomSheetPortal } from './src/components/StackBottomSheet';
+import { BottomSheetProvider, BottomSheetPortal, useBottomSheet } from './src/components/StackBottomSheet';
 import { ErrorBanner } from './src/components/ErrorBanner';
 import { searchTitleCandidates, searchLiveCandidates, resolveMatch, fetchPersonFilmography, fetchProductionCompanyCatalog, fetchSurpriseRecommendation, fetchSurpriseByGenre } from './src/lib/tmdb';
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
 import { useVoiceSearch } from './src/lib/useVoiceSearch';
-import { loadRecentSearches, saveRecentSearches, loadRecentViewed, saveRecentViewed, loadWatchlist, saveWatchlist } from './src/lib/storage';
+import { loadRecentSearches, saveRecentSearches, loadRecentViewed, saveRecentViewed, loadWatchlist, saveWatchlist, loadWatchlistCollections, saveWatchlistCollections } from './src/lib/storage';
 import { ToastivaProvider, toastiva } from 'toastiva';
-import { getWatchlistCategory, WATCHLIST_CATEGORIES } from './src/lib/watchlistCategories';
+import {
+  WATCHLIST_STATUSES,
+  getUserWatchlistCollections,
+  getStatusLabel,
+  isInUserLibrary,
+  normalizeWatchlistCollections,
+  normalizeWatchlistItem,
+  watchlistEntryKey,
+} from './src/lib/watchlistModel';
 import { classifyAppError } from './src/lib/errors';
 import { BottomNavVisibilityProvider } from './src/context/BottomNavVisibilityContext';
 
@@ -81,9 +89,174 @@ function mergeResolvedSynopsisIntoWatchlistRow(row, fullResult) {
   };
 }
 
+function WatchlistCollectionsSheet({
+  item,
+  collections,
+  onCreateCollection,
+  onToggleCollection,
+  onSetStatus,
+  onRemove,
+  onClose,
+}) {
+  const { theme } = useTheme();
+  const { colors, typography, radii, spacing } = theme;
+  const [name, setName] = useState('');
+  const selectedCollectionIds = new Set(item?.collectionIds || []);
+
+  const handleCreate = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onCreateCollection(trimmed);
+    setName('');
+  };
+
+  return (
+    <View style={styles.collectionSheetContent}>
+      <View style={styles.collectionSheetHeader}>
+        <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>Library</Text>
+        <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
+          {item?.title}
+        </Text>
+        <Text style={[styles.collectionSheetHint, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+          Bookmark saves this title to your library. Collections can overlap.
+        </Text>
+      </View>
+
+      <View style={styles.statusRow}>
+        {WATCHLIST_STATUSES.filter((status) => status.id !== 'dropped').map((status) => {
+          const selected = item?.status === status.id;
+          return (
+            <TouchableOpacity
+              key={status.id}
+              style={[
+                styles.statusChip,
+                {
+                  backgroundColor: selected ? colors.primary + '22' : colors.surfaceContainerHigh,
+                  borderColor: selected ? colors.primary + '66' : colors.outlineVariant + '33',
+                  borderRadius: radii.full,
+                },
+              ]}
+              onPress={() => onSetStatus(status.id)}
+              activeOpacity={0.82}
+              accessibilityRole="button"
+              accessibilityLabel={`Set status to ${status.label}`}
+              accessibilityState={{ selected }}
+            >
+              <Ionicons name={status.icon} size={15} color={selected ? colors.primary : colors.onSurfaceVariant} />
+              <Text style={[styles.statusChipText, { color: selected ? colors.primary : colors.onSurface, ...typography.labelSm }]}>
+                {status.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <View style={[styles.createCollectionBox, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '35', borderRadius: radii.lg }]}>
+        <TextInput
+          value={name}
+          onChangeText={setName}
+          placeholder="New collection name"
+          placeholderTextColor={colors.onSurfaceVariant}
+          style={[styles.collectionInput, { color: colors.onSurface, ...typography.bodyLg }]}
+          returnKeyType="done"
+          onSubmitEditing={handleCreate}
+        />
+        <TouchableOpacity
+          style={[styles.createCollectionButton, { backgroundColor: colors.primary, borderRadius: radii.full, opacity: name.trim() ? 1 : 0.5 }]}
+          onPress={handleCreate}
+          disabled={!name.trim()}
+          accessibilityRole="button"
+          accessibilityLabel="Create collection"
+          accessibilityState={{ disabled: !name.trim() }}
+        >
+          <Ionicons name="add" size={20} color={colors.onPrimary} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.categoryList}>
+        {collections.map((collection) => {
+          const isSelected = selectedCollectionIds.has(collection.id);
+          const locked = collection.immutable && isSelected;
+          return (
+            <TouchableOpacity
+              key={collection.id}
+              style={[
+                styles.categoryOption,
+                {
+                  backgroundColor: isSelected ? colors.primary + '18' : colors.surfaceContainerHigh,
+                  borderColor: isSelected ? colors.primary + '66' : colors.outlineVariant + '33',
+                  borderRadius: radii.lg,
+                },
+              ]}
+              activeOpacity={locked ? 1 : 0.82}
+              onPress={() => {
+                if (!locked) onToggleCollection(collection.id);
+              }}
+              accessibilityRole="checkbox"
+              accessibilityLabel={`${isSelected ? 'Remove from' : 'Add to'} ${collection.name}`}
+              accessibilityState={{ checked: isSelected, disabled: locked }}
+            >
+              <View style={[styles.categoryIcon, { backgroundColor: isSelected ? colors.primary + '33' : colors.primary + '22' }]}>
+                <Ionicons name={collection.icon || 'albums-outline'} size={22} color={colors.primary} />
+              </View>
+              <View style={styles.categoryCopy}>
+                <View style={styles.categoryLabelRow}>
+                  <Text style={[styles.categoryOptionTitle, { color: isSelected ? colors.primary : colors.onSurface, ...typography.bodyLg }]}>
+                    {collection.name}
+                  </Text>
+                  {locked && (
+                    <View style={[styles.currentBadge, { backgroundColor: colors.primary + '22' }]}>
+                      <Text style={[styles.currentBadgeText, { color: colors.primary, ...typography.labelSm }]}>Default</Text>
+                    </View>
+                  )}
+                </View>
+                {!!collection.description && (
+                  <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
+                    {collection.description}
+                  </Text>
+                )}
+              </View>
+              <Ionicons name={isSelected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={isSelected ? colors.primary : colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          );
+        })}
+
+        <TouchableOpacity
+          style={[styles.removeOption, { backgroundColor: colors.error + '12', borderColor: colors.error + '33', borderRadius: radii.lg, marginTop: spacing[2] }]}
+          activeOpacity={0.82}
+          onPress={onRemove}
+          accessibilityRole="button"
+          accessibilityLabel="Remove from library"
+        >
+          <View style={[styles.categoryIcon, { backgroundColor: colors.error + '22' }]}>
+            <Ionicons name="trash-outline" size={22} color={colors.error} />
+          </View>
+          <View style={styles.categoryCopy}>
+            <Text style={[styles.categoryOptionTitle, { color: colors.error, ...typography.bodyLg }]}>Remove from Library</Text>
+            <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+              Removes this title from your saved library.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.error} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.doneCollectionButton, { backgroundColor: colors.primary, borderRadius: radii.full }]}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Done managing collections"
+        >
+          <Text style={[styles.doneCollectionButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 function MobileApp() {
   const { theme, resolvedMode } = useTheme();
   const { colors, typography, radii } = theme;
+  const { show: showSheet, update: updateSheet, dismiss: dismissSheet } = useBottomSheet();
 
   const [activeView, setActiveView] = useState('home');
   const [activeTab, setActiveTab] = useState('home');
@@ -99,11 +272,16 @@ function MobileApp() {
   const [recentSearches, setRecentSearches] = useState([]);
   const [recentViewed, setRecentViewed] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
+  const [watchlistCollections, setWatchlistCollections] = useState([]);
   const [surpriseLoading, setSurpriseLoading] = useState(false);
   const [surprisePickerVisible, setSurprisePickerVisible] = useState(false);
-  const [pendingWatchlistItem, setPendingWatchlistItem] = useState(null); // { ...item, _isReCategorize: bool }
+  const watchlistSheetIdRef = useRef(null);
+  const watchlistRef = useRef([]);
+  const watchlistCollectionsRef = useRef([]);
   const [filter, setFilter] = useState(null); // 'movie' | 'tv' | null
   const [homeMediaFilter, setHomeMediaFilter] = useState(null); // 'movie' | 'tv' | null
+  const [collectionsSubView, setCollectionsSubView] = useState('franchises');
+  const [collectionsImdbTab, setCollectionsImdbTab] = useState('movie');
   const [typeResults, setTypeResults] = useState([]);
   const [typeLoading, setTypeLoading] = useState(false);
   const typeDebounceRef = useRef(null);
@@ -113,6 +291,14 @@ function MobileApp() {
   const [filmographyLoading, setFilmographyLoading] = useState(false);
   const discoverVm = useDiscoverViewModel();
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    watchlistRef.current = watchlist;
+  }, [watchlist]);
+
+  useEffect(() => {
+    watchlistCollectionsRef.current = watchlistCollections;
+  }, [watchlistCollections]);
 
   const showToast = useCallback((message, options = {}) => {
     const icon = options.icon || 'alert-circle-outline';
@@ -177,6 +363,11 @@ function MobileApp() {
   }, [activeView, activeTab, query, results, selectedResult, filter, homeMediaFilter, filmographyPerson, filmographyResults]);
 
   const handleBack = useCallback(() => {
+    if (activeView === 'collections' && collectionsSubView === 'imdb') {
+      setCollectionsSubView('franchises');
+      return;
+    }
+
     // If an error is showing, dismiss it
     if (error) {
       setError(null);
@@ -216,7 +407,7 @@ function MobileApp() {
     setHomeMediaFilter(prev.homeMediaFilter || null);
     setFilmographyPerson(prev.filmographyPerson);
     setFilmographyResults(prev.filmographyResults);
-  }, [error, activeView, activeTab, navigationHistory, results]);
+  }, [error, activeView, activeTab, navigationHistory, results, collectionsSubView]);
 
   // Handle hardware back button
   useEffect(() => {
@@ -242,14 +433,16 @@ function MobileApp() {
   // Initialization
   useEffect(() => {
     async function init() {
-      const [history, viewed, saved] = await Promise.all([
+      const [history, viewed, saved, collections] = await Promise.all([
         loadRecentSearches(),
         loadRecentViewed(),
-        loadWatchlist()
+        loadWatchlist(),
+        loadWatchlistCollections()
       ]);
       setRecentSearches(history);
       setRecentViewed(viewed);
       setWatchlist(saved);
+      setWatchlistCollections(collections);
     }
     init();
   }, []);
@@ -386,6 +579,22 @@ function MobileApp() {
     });
   }, []);
 
+  const userWatchlistCollections = useMemo(
+    () => getUserWatchlistCollections(watchlistCollections),
+    [watchlistCollections]
+  );
+
+  const savedWatchlistKeys = useMemo(
+    () => watchlist.filter(isInUserLibrary).map(watchlistEntryKey).filter(Boolean),
+    [watchlist]
+  );
+
+  const findWatchlistItem = useCallback((result) => {
+    const key = watchlistEntryKey(result);
+    if (!key) return null;
+    return watchlist.find((item) => watchlistEntryKey(item) === key) || null;
+  }, [watchlist]);
+
   // Selecting a live suggestion goes straight to the detail view
   const handleTypeSelect = useCallback(async (match) => {
     clearTypeResults();
@@ -508,7 +717,7 @@ function MobileApp() {
   }, [navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
   const handleSurpriseMe = useCallback(async () => {
-    const seeds = watchlist.filter((item) => getWatchlistCategory(item.watchlistCategoryId).id === 'highly_recommend');
+    const seeds = watchlist.filter((item) => item.collectionIds?.includes('highly_recommend') && isInUserLibrary(item));
     setSurpriseLoading(true);
     clearTypeResults();
     Keyboard.dismiss();
@@ -545,69 +754,167 @@ function MobileApp() {
     }
   }, [clearTypeResults, navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
+  const openWatchlistSheet = useCallback((sheetItem) => {
+    const itemKey = watchlistEntryKey(sheetItem);
+    if (!itemKey) return;
+
+    const closeSheet = () => {
+      if (watchlistSheetIdRef.current) {
+        dismissSheet(watchlistSheetIdRef.current);
+        watchlistSheetIdRef.current = null;
+      }
+    };
+
+    const updateOne = async (updater, successMessage) => {
+      const previous = watchlistRef.current;
+      const next = previous.map((item) => (
+        watchlistEntryKey(item) === itemKey ? normalizeWatchlistItem(updater(item)) : item
+      ));
+      if (!next.some((item) => watchlistEntryKey(item) === itemKey)) return;
+      setWatchlist(next);
+      watchlistRef.current = next;
+      try {
+        await saveWatchlist(next);
+        if (successMessage) toastiva.success(successMessage);
+      } catch {
+        setWatchlist(previous);
+        watchlistRef.current = previous;
+        toastiva.error('Failed to update Watchlist');
+      }
+    };
+
+    const renderContent = (currentItem, currentCollections = userWatchlistCollections) => (
+      <WatchlistCollectionsSheet
+        item={currentItem}
+        collections={currentCollections}
+        onCreateCollection={async (name) => {
+          const collection = {
+            id: `custom_${Date.now().toString(36)}`,
+            name,
+            icon: 'albums-outline',
+            source: 'custom',
+            createdAt: new Date().toISOString(),
+          };
+          const previousCollections = watchlistCollectionsRef.current;
+          const nextCollections = normalizeWatchlistCollections([...previousCollections, collection]);
+          setWatchlistCollections(nextCollections);
+          watchlistCollectionsRef.current = nextCollections;
+          try {
+            await saveWatchlistCollections(nextCollections);
+          } catch {
+            setWatchlistCollections(previousCollections);
+            watchlistCollectionsRef.current = previousCollections;
+            toastiva.error('Failed to create collection');
+            return;
+          }
+          await updateOne((item) => ({
+            ...item,
+            status: item.status === 'dropped' ? 'saved' : item.status,
+            collectionIds: [...(item.collectionIds || []), collection.id],
+          }), 'Collection created');
+          updateSheet(watchlistSheetIdRef.current, renderContent(
+            normalizeWatchlistItem({
+              ...currentItem,
+              status: currentItem.status === 'dropped' ? 'saved' : currentItem.status,
+              collectionIds: [...(currentItem.collectionIds || []), collection.id],
+            }),
+            getUserWatchlistCollections(nextCollections)
+          ));
+        }}
+        onToggleCollection={async (collectionId) => {
+          const selected = currentItem.collectionIds?.includes(collectionId);
+          const nextItem = normalizeWatchlistItem({
+            ...currentItem,
+            status: currentItem.status === 'dropped' ? 'saved' : currentItem.status,
+            collectionIds: selected
+              ? (currentItem.collectionIds || []).filter((id) => id !== collectionId)
+              : [...(currentItem.collectionIds || []), collectionId],
+          });
+          await updateOne(() => nextItem, selected ? 'Removed from collection' : 'Added to collection');
+          updateSheet(watchlistSheetIdRef.current, renderContent(nextItem));
+        }}
+        onSetStatus={async (status) => {
+          const nextItem = normalizeWatchlistItem({ ...currentItem, status });
+          await updateOne(() => nextItem, `Status set to ${getStatusLabel(status)}`);
+          updateSheet(watchlistSheetIdRef.current, renderContent(nextItem));
+        }}
+        onRemove={async () => {
+          const previous = watchlistRef.current;
+          const next = previous.filter((item) => watchlistEntryKey(item) !== itemKey);
+          setWatchlist(next);
+          watchlistRef.current = next;
+          try {
+            await saveWatchlist(next);
+            toastiva.success('Removed from Library');
+            closeSheet();
+          } catch {
+            setWatchlist(previous);
+            watchlistRef.current = previous;
+            toastiva.error('Failed to update Watchlist');
+          }
+        }}
+        onClose={closeSheet}
+      />
+    );
+
+    const id = showSheet(renderContent(sheetItem), {
+      title: 'Manage Collections',
+      size: 'large',
+      scrollable: true,
+      onClose: () => {
+        if (watchlistSheetIdRef.current === id) watchlistSheetIdRef.current = null;
+      },
+    });
+    watchlistSheetIdRef.current = id;
+  }, [userWatchlistCollections, dismissSheet, showSheet, updateSheet, watchlist, watchlistCollections]);
+
   const handleToggleWatchlist = async (result) => {
-    const existingItem = watchlist.find(item => item.tmdbId === result.tmdbId);
+    const existingItem = findWatchlistItem(result);
     if (existingItem) {
-      // Open the modal showing the current category so the user can move or remove
-      setPendingWatchlistItem({ ...existingItem, _isReCategorize: true });
+      if (!isInUserLibrary(existingItem)) {
+        const restoredItem = normalizeWatchlistItem({ ...existingItem, status: 'saved' });
+        const nextWatchlist = watchlist.map((item) => (
+          watchlistEntryKey(item) === watchlistEntryKey(restoredItem) ? restoredItem : item
+        ));
+        setWatchlist(nextWatchlist);
+        watchlistRef.current = nextWatchlist;
+        try {
+          await saveWatchlist(nextWatchlist);
+          toastiva.success('Added to Library');
+          openWatchlistSheet(restoredItem);
+        } catch {
+          setWatchlist(watchlist);
+          watchlistRef.current = watchlist;
+          toastiva.error('Failed to save to Watchlist');
+        }
+        return;
+      }
+      openWatchlistSheet(existingItem);
       return;
     }
 
-    setPendingWatchlistItem({ ...result, _isReCategorize: false });
-  };
-
-  const handleSelectWatchlistCategory = async (categoryId) => {
-    if (!pendingWatchlistItem) return;
-
-    const isReCategorize = pendingWatchlistItem._isReCategorize;
-    const { _isReCategorize, ...itemData } = pendingWatchlistItem;
-
-    const updatedItem = {
-      ...itemData,
-      watchlistCategoryId: categoryId,
-      watchlistCategoryLabel: getWatchlistCategory(categoryId).label,
-    };
-
-    let newWatchlist;
-    if (isReCategorize) {
-      // Update in-place, preserving original position
-      newWatchlist = watchlist.map(item =>
-        item.tmdbId === updatedItem.tmdbId ? updatedItem : item
-      );
-    } else {
-      newWatchlist = [
-        updatedItem,
-        ...watchlist.filter(item => item.tmdbId !== updatedItem.tmdbId),
-      ];
-    }
-
-    setPendingWatchlistItem(null);
-    setWatchlist(newWatchlist);
+    const newItem = normalizeWatchlistItem({
+      ...result,
+      status: 'saved',
+      collectionIds: [],
+    });
+    const nextWatchlist = [newItem, ...watchlist.filter((item) => watchlistEntryKey(item) !== watchlistEntryKey(newItem))];
+    setWatchlist(nextWatchlist);
+    watchlistRef.current = nextWatchlist;
     try {
-      await saveWatchlist(newWatchlist);
-      toastiva.success(isReCategorize ? 'Watchlist category updated' : '✅ Added to Watchlist');
-    } catch (err) {
+      await saveWatchlist(nextWatchlist);
+      toastiva.success('Added to Library');
+      openWatchlistSheet(newItem);
+    } catch {
       setWatchlist(watchlist);
+      watchlistRef.current = watchlist;
       toastiva.error('Failed to save to Watchlist');
-    }
-  };
-
-  const handleRemoveFromWatchlist = async () => {
-    if (!pendingWatchlistItem) return;
-    const newWatchlist = watchlist.filter(item => item.tmdbId !== pendingWatchlistItem.tmdbId);
-    setPendingWatchlistItem(null);
-    setWatchlist(newWatchlist);
-    try {
-      await saveWatchlist(newWatchlist);
-      toastiva.success('Removed from Watchlist');
-    } catch (err) {
-      setWatchlist(watchlist);
-      toastiva.error('Failed to update Watchlist');
     }
   };
 
   const persistWatchlistChange = async (nextWatchlist, rollbackWatchlist, successMessage, successIcon) => {
     setWatchlist(nextWatchlist);
+    watchlistRef.current = nextWatchlist;
     try {
       await saveWatchlist(nextWatchlist);
       showToast(successMessage, {
@@ -616,29 +923,32 @@ function MobileApp() {
       });
     } catch (err) {
       setWatchlist(rollbackWatchlist);
+      watchlistRef.current = rollbackWatchlist;
       toastiva.error('Failed to update Watchlist');
     }
   };
 
-  const handleRemoveWatchlistItem = async (tmdbId) => {
-    const nextWatchlist = watchlist.filter((item) => item.tmdbId !== tmdbId);
+  const handleRemoveWatchlistItem = async (target) => {
+    const targetKey = watchlistEntryKey(target);
+    if (!targetKey) return;
+    const nextWatchlist = watchlist.filter((item) => watchlistEntryKey(item) !== targetKey);
     if (nextWatchlist.length === watchlist.length) return;
     await persistWatchlistChange(nextWatchlist, watchlist, 'Removed from Watchlist.', 'trash-outline');
   };
 
-  const handleMarkWatched = async (tmdbId) => {
-    const watchedCategory = getWatchlistCategory('watched');
+  const handleMarkWatched = async (target) => {
+    const targetKey = watchlistEntryKey(target);
+    if (!targetKey) return;
     const nextWatchlist = watchlist.map((item) =>
-      item.tmdbId === tmdbId
+      watchlistEntryKey(item) === targetKey
         ? {
           ...item,
-          watchlistCategoryId: watchedCategory.id,
-          watchlistCategoryLabel: watchedCategory.label,
+          status: 'watched',
         }
         : item
     );
     const changed = nextWatchlist.some((item, index) =>
-      item.tmdbId === tmdbId && item.watchlistCategoryId !== watchlist[index]?.watchlistCategoryId
+      watchlistEntryKey(item) === targetKey && item.status !== watchlist[index]?.status
     );
     if (!changed) return;
     await persistWatchlistChange(nextWatchlist, watchlist, 'Marked as watched.', 'checkmark-circle-outline');
@@ -667,7 +977,7 @@ function MobileApp() {
   }, [results, filter]);
 
   const hasHighlyRecommendedSeeds = useMemo(
-    () => watchlist.some((item) => getWatchlistCategory(item.watchlistCategoryId).id === 'highly_recommend'),
+    () => watchlist.some((item) => item.collectionIds?.includes('highly_recommend') && isInUserLibrary(item)),
     [watchlist]
   );
 
@@ -710,13 +1020,23 @@ function MobileApp() {
                 onToggleWatchlist={handleToggleWatchlist}
                 mediaFilter={homeMediaFilter}
                 onMediaFilterChange={setHomeMediaFilter}
-                onOpenCollections={() => navigateTo('collections', { activeTab: 'home' })}
+                onOpenCollections={() => {
+                  setCollectionsSubView('franchises');
+                  setCollectionsImdbTab('movie');
+                  navigateTo('collections', { activeTab: 'home' });
+                }}
               />
             )}
 
             {activeView === 'collections' && (
               <CollectionsScreen
                 onSelectItem={handleSelectDiscoverItem}
+                onToggleWatchlist={handleToggleWatchlist}
+                watchlistIds={savedWatchlistKeys}
+                subView={collectionsSubView}
+                onSubViewChange={setCollectionsSubView}
+                imdbMediaTab={collectionsImdbTab}
+                onImdbMediaTabChange={setCollectionsImdbTab}
                 onOpenHomeFilter={(nextFilter) => {
                   setHomeMediaFilter(nextFilter === 'movie' || nextFilter === 'tv' ? nextFilter : null);
                   setNavigationHistory([]);
@@ -751,7 +1071,7 @@ function MobileApp() {
                         matches={filteredResults}
                         onSelect={handleSelectMatch}
                         onToggleWatchlist={handleToggleWatchlist}
-                        watchlistIds={watchlist.map(item => item.tmdbId)}
+                        watchlistIds={savedWatchlistKeys}
                       />
                       {filteredResults.length === 0 && (
                         <EmptyState
@@ -816,7 +1136,7 @@ function MobileApp() {
                 result={selectedResult} 
                 onBack={handleBack} 
                 onToggleWatchlist={handleToggleWatchlist}
-                isInWatchlist={watchlist.some(item => item.tmdbId === selectedResult?.tmdbId)}
+                isInWatchlist={savedWatchlistKeys.includes(watchlistEntryKey(selectedResult))}
                 onSelectSimilar={handleSelectMatch}
                 onPersonPress={handlePersonPress}
                 onCompanyPress={handleCompanyPress}
@@ -826,6 +1146,7 @@ function MobileApp() {
             {activeView === 'watchlist' && (
               <WatchlistView 
                 items={watchlist} 
+                collections={userWatchlistCollections}
                 onRemove={handleRemoveWatchlistItem}
                 onMarkWatched={handleMarkWatched}
                 onSelect={handleSelectMatch}
@@ -839,7 +1160,7 @@ function MobileApp() {
                 onSelectItem={handleSelectDiscoverItem}
                 vm={discoverVm}
                 onToggleWatchlist={handleToggleWatchlist}
-                watchlistIds={watchlist.map(item => item.tmdbId)}
+                watchlistIds={savedWatchlistKeys}
               />
             )}
 
@@ -855,7 +1176,22 @@ function MobileApp() {
             )}
 
             {activeView === 'settings' && (
-              <SettingsView watchlist={watchlist} persistWatchlistChange={persistWatchlistChange} />
+              <SettingsView
+                watchlist={watchlist}
+                collections={watchlistCollections}
+                persistWatchlistChange={persistWatchlistChange}
+                persistCollectionsChange={async (nextCollections, rollbackCollections) => {
+                  setWatchlistCollections(nextCollections);
+                  watchlistCollectionsRef.current = nextCollections;
+                  try {
+                    await saveWatchlistCollections(nextCollections);
+                  } catch {
+                    setWatchlistCollections(rollbackCollections);
+                    watchlistCollectionsRef.current = rollbackCollections;
+                    toastiva.error('Failed to update collections');
+                  }
+                }}
+              />
             )}
           </>
         )}
@@ -920,104 +1256,6 @@ function MobileApp() {
                   ))}
                 </View>
               </ScrollView>
-            </View>
-          </View>
-        </GestureHandlerRootView>
-      </Modal>
-
-      <Modal
-        transparent
-        animationType="fade"
-        visible={Boolean(pendingWatchlistItem)}
-        onRequestClose={() => setPendingWatchlistItem(null)}
-      >
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <View style={styles.modalOverlay}>
-            <View style={[styles.categorySheet, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '4D', borderRadius: radii.xl }]}>
-              <View style={styles.categoryHeader}>
-                <View style={styles.categoryTitleBlock}>
-                  <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>
-                    {pendingWatchlistItem?._isReCategorize ? 'Move to Category' : 'Save to Watchlist'}
-                  </Text>
-                  <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
-                    {pendingWatchlistItem?.title}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.closeButton, { backgroundColor: colors.surfaceContainerHighest }]}
-                  onPress={() => setPendingWatchlistItem(null)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Close watchlist category picker"
-                >
-                  <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.categoryList}>
-                {WATCHLIST_CATEGORIES.map((category) => {
-                  const isCurrent = pendingWatchlistItem?._isReCategorize &&
-                    pendingWatchlistItem?.watchlistCategoryId === category.id;
-                  return (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={[
-                        styles.categoryOption,
-                        {
-                          backgroundColor: isCurrent ? colors.primary + '1A' : colors.surfaceContainerHigh,
-                          borderColor: isCurrent ? colors.primary + '66' : colors.outlineVariant + '33',
-                          borderRadius: radii.lg,
-                        },
-                      ]}
-                      activeOpacity={0.82}
-                      onPress={() => handleSelectWatchlistCategory(category.id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={isCurrent ? `Currently in ${category.label}` : `Move to ${category.label}`}
-                      accessibilityState={{ selected: isCurrent }}
-                    >
-                      <View style={[styles.categoryIcon, { backgroundColor: isCurrent ? colors.primary + '33' : colors.primary + '22' }]}>
-                        <Ionicons name={category.icon} size={22} color={colors.primary} />
-                      </View>
-                      <View style={styles.categoryCopy}>
-                        <View style={styles.categoryLabelRow}>
-                          <Text style={[styles.categoryOptionTitle, { color: isCurrent ? colors.primary : colors.onSurface, ...typography.bodyLg }]}>
-                            {category.label}
-                          </Text>
-                          {isCurrent && (
-                            <View style={[styles.currentBadge, { backgroundColor: colors.primary + '22' }]}>
-                              <Text style={[styles.currentBadgeText, { color: colors.primary, ...typography.labelSm }]}>Current</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
-                          {category.description}
-                        </Text>
-                      </View>
-                      <Ionicons name={isCurrent ? 'checkmark-circle' : 'chevron-forward'} size={18} color={isCurrent ? colors.primary : colors.onSurfaceVariant} />
-                    </TouchableOpacity>
-                  );
-                })}
-
-                {pendingWatchlistItem?._isReCategorize && (
-                  <TouchableOpacity
-                    style={[styles.removeOption, { backgroundColor: colors.error + '12', borderColor: colors.error + '33', borderRadius: radii.lg }]}
-                    activeOpacity={0.82}
-                    onPress={handleRemoveFromWatchlist}
-                    accessibilityRole="button"
-                    accessibilityLabel="Remove from watchlist"
-                  >
-                    <View style={[styles.categoryIcon, { backgroundColor: colors.error + '22' }]}>
-                      <Ionicons name="trash-outline" size={22} color={colors.error} />
-                    </View>
-                    <View style={styles.categoryCopy}>
-                      <Text style={[styles.categoryOptionTitle, { color: colors.error, ...typography.bodyLg }]}>Remove from Watchlist</Text>
-                      <Text style={[styles.categoryOptionDescription, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                        Permanently remove this title.
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={colors.error} />
-                  </TouchableOpacity>
-                )}
-              </View>
             </View>
           </View>
         </GestureHandlerRootView>
@@ -1132,6 +1370,51 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 48,
   },
+  collectionSheetContent: {
+    gap: 14,
+  },
+  collectionSheetHeader: {
+    gap: 4,
+    marginBottom: 2,
+  },
+  collectionSheetHint: {
+    fontWeight: '500',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusChip: {
+    alignItems: 'center',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  statusChipText: {
+    fontWeight: '900',
+  },
+  createCollectionBox: {
+    alignItems: 'center',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  collectionInput: {
+    flex: 1,
+    minHeight: 42,
+    padding: 0,
+  },
+  createCollectionButton: {
+    alignItems: 'center',
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
   categoryList: {
     gap: 10,
   },
@@ -1181,5 +1464,15 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 4,
     padding: 14,
+  },
+  doneCollectionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    paddingVertical: 14,
+  },
+  doneCollectionButtonText: {
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
 });

@@ -1,6 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DEFAULT_WATCHLIST_CATEGORY_ID, WATCHLIST_CATEGORIES } from './watchlistCategories.js';
-import { buildDefaultPrepopulatedWatchlist } from './defaultWatchlist.js';
+import {
+  IMDB_TOP_100_COLLECTION_IDS,
+  isDefaultSeededItem,
+  normalizeWatchlistCollections,
+  normalizeWatchlistItems,
+} from './watchlistModel.js';
 
 const KEYS = {
   themePreference: 'find-streamer/theme-preference',
@@ -9,25 +13,25 @@ const KEYS = {
   watchlist: 'find-streamer/watchlist',
   watchlistChunks: 'find-streamer/watchlist/chunks',
   watchlistChunk: 'find-streamer/watchlist/chunk',
+  watchlistCollections: 'find-streamer/watchlist/collections',
   defaultWatchlistSeeded: 'find-streamer/default-watchlist-seeded',
+  watchlistImdbMigrated: 'find-streamer/watchlist-imdb-migrated',
 };
 
-const WATCHLIST_CHUNK_SIZE = 50;
+const WATCHLIST_CHUNK_SIZE = 25;
+const WATCHLIST_SYNOPSIS_STORAGE_MAX = 480;
 
-function normalizeWatchlistItems(items) {
-  if (!Array.isArray(items)) return [];
+let watchlistSaveChain = Promise.resolve();
 
-  const categoryIds = new Set(WATCHLIST_CATEGORIES.map((category) => category.id));
-  return items.map((item) => {
-    const watchlistCategoryId = categoryIds.has(item?.watchlistCategoryId)
-      ? item.watchlistCategoryId
-      : DEFAULT_WATCHLIST_CATEGORY_ID;
-
-    return {
-      ...item,
-      watchlistCategoryId,
-    };
-  });
+function compactWatchlistRowForStorage(item) {
+  if (!item) return item;
+  const compact = { ...item };
+  delete compact.backdropUrl;
+  const synopsis = compact.synopsis;
+  if (typeof synopsis === 'string' && synopsis.length > WATCHLIST_SYNOPSIS_STORAGE_MAX) {
+    compact.synopsis = synopsis.slice(0, WATCHLIST_SYNOPSIS_STORAGE_MAX);
+  }
+  return compact;
 }
 
 function watchlistChunkKey(index) {
@@ -84,6 +88,56 @@ async function loadChunkedWatchlist(storage) {
   }
 
   return normalizeWatchlistItems(items);
+}
+
+function isOnlyImdbCollectionMembership(collectionIds) {
+  const ids = Array.isArray(collectionIds) ? collectionIds : [];
+  if (ids.length === 0) return true;
+  return ids.every((id) => IMDB_TOP_100_COLLECTION_IDS.has(id));
+}
+
+function stripImdbCollectionIds(collectionIds) {
+  return (collectionIds || []).filter((id) => !IMDB_TOP_100_COLLECTION_IDS.has(id));
+}
+
+function shouldRemoveDefaultSeededRow(item) {
+  return isDefaultSeededItem(item)
+    && item.status === 'saved'
+    && isOnlyImdbCollectionMembership(item.collectionIds);
+}
+
+async function migrateImdbFromPersistedWatchlist(items, storage) {
+  const migratedFlag = await storage.getItem(KEYS.watchlistImdbMigrated);
+  if (migratedFlag === 'true') {
+    return normalizeWatchlistItems(items);
+  }
+
+  let changed = false;
+  const kept = [];
+
+  for (const rawItem of items) {
+    if (shouldRemoveDefaultSeededRow(rawItem)) {
+      changed = true;
+      continue;
+    }
+
+    const strippedIds = stripImdbCollectionIds(rawItem.collectionIds);
+    if (strippedIds.length !== (rawItem.collectionIds || []).length) {
+      changed = true;
+      kept.push({ ...rawItem, collectionIds: strippedIds });
+    } else {
+      kept.push(rawItem);
+    }
+  }
+
+  const normalized = normalizeWatchlistItems(kept);
+  await storage.setItem(KEYS.watchlistImdbMigrated, 'true');
+
+  if (changed) {
+    await writeWatchlistToStorage(normalized, storage);
+  }
+
+  return normalized;
 }
 
 export async function loadThemePreference() {
@@ -148,35 +202,56 @@ export async function saveRecentViewed(items) {
   await AsyncStorage.setItem(KEYS.recentViewed, JSON.stringify(uniqueItems.slice(0, 8)));
 }
 
-export async function loadWatchlist(storage = AsyncStorage) {
+export async function loadWatchlistCollections(storage = AsyncStorage) {
   try {
-    const chunked = await loadChunkedWatchlist(storage);
-    if (chunked) return chunked;
-  } catch {
-    return [];
-  }
-
-  try {
-    const raw = await storage.getItem(KEYS.watchlist);
-    if (!raw) {
-      return normalizeWatchlistItems(buildDefaultPrepopulatedWatchlist());
-    }
-
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    return normalizeWatchlistItems(parsed);
+    const raw = await storage.getItem(KEYS.watchlistCollections);
+    if (!raw) return [];
+    return normalizeWatchlistCollections(JSON.parse(raw));
   } catch {
     return [];
   }
 }
 
-export async function saveWatchlist(items, storage = AsyncStorage) {
+export async function saveWatchlistCollections(collections, storage = AsyncStorage) {
+  const normalized = normalizeWatchlistCollections(collections);
+  await storage.setItem(KEYS.watchlistCollections, JSON.stringify(normalized));
+  return normalized;
+}
+
+export async function loadWatchlist(storage = AsyncStorage) {
+  let loaded = [];
+
+  try {
+    const chunked = await loadChunkedWatchlist(storage);
+    if (chunked !== null) {
+      loaded = chunked;
+    } else {
+      const raw = await storage.getItem(KEYS.watchlist);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          loaded = normalizeWatchlistItems(parsed);
+        }
+      }
+    }
+  } catch {
+    return [];
+  }
+
+  try {
+    return await migrateImdbFromPersistedWatchlist(loaded, storage);
+  } catch {
+    return normalizeWatchlistItems(loaded);
+  }
+}
+
+async function writeWatchlistToStorage(items, storage) {
   const normalizedItems = normalizeWatchlistItems(items);
+  const compactItems = normalizedItems.map(compactWatchlistRowForStorage);
 
   const chunks = [];
-  for (let index = 0; index < normalizedItems.length; index += WATCHLIST_CHUNK_SIZE) {
-    chunks.push(normalizedItems.slice(index, index + WATCHLIST_CHUNK_SIZE));
+  for (let index = 0; index < compactItems.length; index += WATCHLIST_CHUNK_SIZE) {
+    chunks.push(compactItems.slice(index, index + WATCHLIST_CHUNK_SIZE));
   }
 
   const previousChunkCount = Number.parseInt(await storage.getItem(KEYS.watchlistChunks), 10);
@@ -197,4 +272,10 @@ export async function saveWatchlist(items, storage = AsyncStorage) {
   await removeMany(storage, [KEYS.watchlist, ...staleChunkKeys]);
 
   return normalizedItems;
+}
+
+export async function saveWatchlist(items, storage = AsyncStorage) {
+  const task = watchlistSaveChain.then(() => writeWatchlistToStorage(items, storage));
+  watchlistSaveChain = task.catch(() => {});
+  return task;
 }
