@@ -21,29 +21,24 @@ import React, {
   createContext, useCallback, useContext, useEffect, useRef, useState,
 } from 'react';
 import {
-  Animated, Dimensions, Easing, Pressable, ScrollView,
-  StyleSheet, Text, TouchableOpacity, View, PanResponder,
+  Animated, Easing, Platform, Pressable, ScrollView,
+  StyleSheet, Text, TouchableOpacity, View, PanResponder, useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-
-const SIZE_POSITION = {
-  small: SCREEN_HEIGHT * 0.62,
-  medium: SCREEN_HEIGHT * 0.45,
-  large: SCREEN_HEIGHT * 0.18,
-  full: SCREEN_HEIGHT * 0.05,
-};
-const SIZE_HEIGHT = {
-  small: SCREEN_HEIGHT * 0.38,
-  medium: SCREEN_HEIGHT * 0.55,
-  large: SCREEN_HEIGHT * 0.72,
-  full: SCREEN_HEIGHT * 0.88,
+const SIZE_HEIGHT_RATIO = {
+  small: 0.38,
+  medium: 0.55,
+  large: 0.72,
+  full: 0.88,
 };
 
 const STACK_OFFSET = 20;   // px each stacked sheet shifts up
 const STACK_SCALE  = 0.085; // scale reduction per depth level
+const SHEET_SIDE_GUTTER = 0;
+const CONTENT_BOTTOM_GAP = 24;
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 const BottomSheetCtx = createContext(undefined);
@@ -105,16 +100,24 @@ export function BottomSheetProvider({ children }) {
 
 // ─── Individual Sheet ─────────────────────────────────────────────────────────
 function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
-  const translateY  = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 16 : 12);
+
+  const translateY  = useRef(new Animated.Value(windowHeight)).current;
   const scaleAnim   = useRef(new Animated.Value(0.95)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   const size = sheet.options.size || 'medium';
-  const sheetHeight = SIZE_HEIGHT[size] || SIZE_HEIGHT.medium;
+  const heightRatio = SIZE_HEIGHT_RATIO[size] || SIZE_HEIGHT_RATIO.medium;
+  const topClearance = Math.max(insets.top + 12, size === 'full' ? 24 : 48);
+  const sheetHeight = Math.min(
+    windowHeight - topClearance,
+    Math.round(windowHeight * heightRatio) + bottomInset
+  );
 
   const getTargetY = (depth = index) => {
-    const base = SIZE_POSITION[size] || SIZE_POSITION.medium;
-    return base - Math.min(depth * STACK_OFFSET, STACK_OFFSET * 3);
+    return -Math.min(depth * STACK_OFFSET, STACK_OFFSET * 3);
   };
 
   const getTargetScale = (depth = index) =>
@@ -150,13 +153,25 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
       prevIndex.current = index;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index]);
+  }, [index, windowHeight, sheetHeight, bottomInset]);
+
+  // Keep open sheets aligned when the device rotates or the window size changes.
+  useEffect(() => {
+    Animated.spring(translateY, {
+      toValue: getTargetY(),
+      damping: 30,
+      stiffness: 250,
+      mass: 0.6,
+      useNativeDriver: true,
+    }).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [windowHeight, sheetHeight, bottomInset]);
 
   const dismissWithAnimation = useCallback(() => {
     const isTop = index === 0;
     Animated.parallel([
       Animated.timing(opacityAnim, { toValue: 0, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: SCREEN_HEIGHT + 60, duration: 360, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: windowHeight + sheetHeight, duration: 360, easing: Easing.out(Easing.quad), useNativeDriver: true }),
       Animated.timing(scaleAnim, { toValue: 0.85, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: true }),
       ...(isTop && totalSheets === 1 && backdropOpacity ? [
         Animated.timing(backdropOpacity, { toValue: 0, duration: 320, useNativeDriver: true }),
@@ -165,7 +180,7 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
       onDismiss(sheet.id);
       sheet.options.onClose?.();
     });
-  }, [index, totalSheets, sheet, backdropOpacity, onDismiss, opacityAnim, translateY, scaleAnim]);
+  }, [index, totalSheets, sheet, backdropOpacity, onDismiss, opacityAnim, translateY, scaleAnim, windowHeight, sheetHeight]);
 
   // Gesture drag-to-dismiss (top sheet only)
   const gestureStartY = useRef(0);
@@ -197,10 +212,21 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
     zIndex: 2000 - index,
   };
 
-  const isScrollable = size === 'large' || size === 'full' || sheet.options.scrollable;
+  const isScrollable = sheet.options.scrollable === true;
 
   return (
-    <Animated.View style={[sheetStyles.sheet, animStyle, { height: sheetHeight }]} {...pan.panHandlers}>
+    <Animated.View
+      style={[
+        sheetStyles.sheet,
+        animStyle,
+        {
+          height: sheetHeight,
+          left: SHEET_SIDE_GUTTER,
+          right: SHEET_SIDE_GUTTER,
+        },
+      ]}
+      {...pan.panHandlers}
+    >
       {/* Handle */}
       <View style={sheetStyles.handle} />
 
@@ -225,12 +251,18 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
       )}
 
       {/* Content */}
-      <View style={sheetStyles.contentWrap}>
+      <View style={[sheetStyles.contentWrap, { paddingBottom: bottomInset + CONTENT_BOTTOM_GAP }]}>
         {isScrollable ? (
           <ScrollView
+            style={sheetStyles.scroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 24 }}
+            nestedScrollEnabled
+            contentInsetAdjustmentBehavior="never"
+            contentContainerStyle={[
+              sheetStyles.scrollContent,
+              { paddingBottom: bottomInset + CONTENT_BOTTOM_GAP },
+            ]}
           >
             {typeof sheet.content === 'string'
               ? <Text style={sheetStyles.text}>{sheet.content}</Text>
@@ -314,8 +346,6 @@ const sheetStyles = StyleSheet.create({
   },
   sheet: {
     position: 'absolute',
-    left: 0,
-    right: 0,
     bottom: 0,
     backgroundColor: '#1a1a2e',
     borderTopLeftRadius: 20,
@@ -335,6 +365,7 @@ const sheetStyles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.18)',
     marginTop: 10,
     marginBottom: 4,
+    flexShrink: 0,
   },
   header: {
     flexDirection: 'row',
@@ -343,6 +374,7 @@ const sheetStyles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.08)',
+    flexShrink: 0,
   },
   title: {
     flex: 1,
@@ -362,8 +394,16 @@ const sheetStyles = StyleSheet.create({
   },
   contentWrap: {
     flex: 1,
+    minHeight: 0,
     paddingHorizontal: 20,
     paddingTop: 8,
+  },
+  scroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   text: {
     color: '#ccc',
