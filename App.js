@@ -1,28 +1,23 @@
 import 'react-native-gesture-handler';
+import { enableScreens } from 'react-native-screens';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { StyleSheet, View, ScrollView, Keyboard, BackHandler, Modal, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, View, Keyboard, BackHandler, Text, TextInput, TouchableOpacity } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme, ThemeProvider } from './src/theme/ThemeProvider';
-import { AppHeader } from './src/components/AppHeader';
-import { BottomNav } from './src/components/BottomNav';
-import { SearchPanel } from './src/components/SearchPanel';
-import { MatchResults } from './src/components/MatchResults';
-import { ResultView } from './src/components/ResultView';
-import { SettingsView } from './src/components/SettingsView';
-import { WatchlistView } from './src/components/WatchlistView';
-import { DiscoverScreen } from './src/components/DiscoverScreen';
-import { HomeScreen } from './src/components/HomeScreen';
-import { CollectionsScreen } from './src/components/CollectionsScreen';
-import { FilmographyScreen } from './src/components/FilmographyScreen';
-import { StatePanel } from './src/components/StatePanel';
-import { EmptyState } from './src/components/EmptyState';
-import { BottomSheetProvider, BottomSheetPortal, useBottomSheet } from './src/components/StackBottomSheet';
-import { ErrorBanner } from './src/components/ErrorBanner';
+import { BottomSheetProvider, useBottomSheet } from './src/components/StackBottomSheet';
+import { AppStateProvider } from './src/context/AppStateContext';
+import { AppNavigationRoot } from './src/navigation/AppShell';
+import {
+  navigationRef,
+  getFocusedRouteName,
+  getCurrentTabId,
+  navigateToTabRoot,
+  pushOnCurrentTab,
+} from './src/navigation/navigationRef';
 import { searchTitleCandidates, searchLiveCandidates, resolveMatch, fetchPersonFilmography, fetchProductionCompanyCatalog, fetchSurpriseRecommendation, fetchSurpriseByGenre } from './src/lib/tmdb';
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
 import { useVoiceSearch } from './src/lib/useVoiceSearch';
@@ -39,6 +34,8 @@ import {
 } from './src/lib/watchlistModel';
 import { classifyAppError } from './src/lib/errors';
 import { BottomNavVisibilityProvider } from './src/context/BottomNavVisibilityContext';
+
+enableScreens(true);
 
 export default function App() {
   return (
@@ -254,14 +251,9 @@ function WatchlistCollectionsSheet({
 }
 
 function MobileApp() {
-  const { theme, resolvedMode } = useTheme();
-  const { colors, typography, radii } = theme;
+  const { resolvedMode } = useTheme();
   const { show: showSheet, update: updateSheet, dismiss: dismissSheet } = useBottomSheet();
 
-  const [activeView, setActiveView] = useState('home');
-  const [activeTab, setActiveTab] = useState('home');
-  const [navigationHistory, setNavigationHistory] = useState([]);
-  
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -290,7 +282,6 @@ function MobileApp() {
   const [filmographyResults, setFilmographyResults] = useState([]);
   const [filmographyLoading, setFilmographyLoading] = useState(false);
   const discoverVm = useDiscoverViewModel();
-  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     watchlistRef.current = watchlist;
@@ -335,100 +326,100 @@ function MobileApp() {
     return classified;
   }, [showToast]);
 
-  const navigateTo = useCallback((view, updates = {}) => {
-    // Save current state to history
-    setNavigationHistory(prev => [...prev, {
-      view: activeView,
-      activeTab,
-      query,
-      results,
-      selectedResult,
-      filter,
-      homeMediaFilter,
-      filmographyPerson,
-      filmographyResults,
-    }]);
+  const openDetail = useCallback((fullResult, navigation) => {
+    setSelectedResult(fullResult);
+    if (navigation) {
+      navigation.push('Detail');
+    } else {
+      pushOnCurrentTab('Detail');
+    }
+  }, []);
 
-    // Apply updates for the new view
-    if (updates.activeTab !== undefined) setActiveTab(updates.activeTab);
-    if (updates.query !== undefined) setQuery(updates.query);
-    if (updates.results !== undefined) setResults(updates.results);
-    if (updates.selectedResult !== undefined) setSelectedResult(updates.selectedResult);
-    if (updates.filter !== undefined) setFilter(updates.filter);
-    if (updates.homeMediaFilter !== undefined) setHomeMediaFilter(updates.homeMediaFilter);
-    if (updates.filmographyPerson !== undefined) setFilmographyPerson(updates.filmographyPerson);
-    if (updates.filmographyResults !== undefined) setFilmographyResults(updates.filmographyResults);
-    
-    setActiveView(view);
-  }, [activeView, activeTab, query, results, selectedResult, filter, homeMediaFilter, filmographyPerson, filmographyResults]);
+  const openFilmography = useCallback((navigation) => {
+    if (navigation) {
+      navigation.push('Filmography');
+    } else {
+      pushOnCurrentTab('Filmography');
+    }
+  }, []);
 
-  const handleBack = useCallback(() => {
-    if (activeView === 'collections' && collectionsSubView === 'imdb') {
+  const openCollections = useCallback(() => {
+    setCollectionsSubView('franchises');
+    setCollectionsImdbTab('movie');
+    if (navigationRef.isReady()) {
+      navigationRef.navigate('home', { screen: 'Collections' });
+    }
+  }, []);
+
+  const openHomeFromCollections = useCallback((nextFilter) => {
+    setHomeMediaFilter(nextFilter === 'movie' || nextFilter === 'tv' ? nextFilter : null);
+    navigateToTabRoot('home');
+  }, []);
+
+  const clearSearchResults = useCallback(() => {
+    setResults([]);
+    setQuery('');
+  }, []);
+
+  const goBack = useCallback(() => {
+    if (!navigationRef.isReady()) return;
+
+    const rootState = navigationRef.getRootState();
+    const focusedRoute = getFocusedRouteName(rootState);
+    const tabId = getCurrentTabId(rootState);
+    const tabRoute = rootState.routes.find((r) => r.name === tabId);
+    const stackCanPop = Boolean(tabRoute?.state && tabRoute.state.index > 0);
+
+    if (focusedRoute === 'Collections' && collectionsSubView === 'imdb') {
       setCollectionsSubView('franchises');
       return;
     }
 
-    // If an error is showing, dismiss it
     if (error) {
       setError(null);
       setErrorInfo(null);
-      if (activeView === 'search' && results.length === 0) {
-        setActiveView('search');
-      }
       return;
     }
 
-    if (navigationHistory.length === 0) {
-      // If on search with results visible, clear them first
-      if (activeView === 'search' && results.length > 0) {
-        setResults([]);
-        setQuery('');
+    if (!stackCanPop) {
+      if (tabId === 'search' && focusedRoute === 'Search' && results.length > 0) {
+        clearSearchResults();
         return;
       }
-      // From any other root tab/screen, return to the Home tab
-      if (!(activeView === 'home' && activeTab === 'home')) {
-        setActiveTab('home');
-        setActiveView('home');
+      if (!(tabId === 'home' && focusedRoute === 'Home')) {
+        navigateToTabRoot('home');
         setQuery('');
       }
       return;
     }
 
-    // Pop the top item from history and restore state
-    const prev = navigationHistory[navigationHistory.length - 1];
-    setNavigationHistory(h => h.slice(0, -1));
+    navigationRef.goBack();
+  }, [error, results.length, collectionsSubView, clearSearchResults]);
 
-    setActiveView(prev.view);
-    setActiveTab(prev.activeTab);
-    setQuery(prev.query);
-    setResults(prev.results);
-    setSelectedResult(prev.selectedResult);
-    setFilter(prev.filter);
-    setHomeMediaFilter(prev.homeMediaFilter || null);
-    setFilmographyPerson(prev.filmographyPerson);
-    setFilmographyResults(prev.filmographyResults);
-  }, [error, activeView, activeTab, navigationHistory, results, collectionsSubView]);
-
-  // Handle hardware back button
   useEffect(() => {
     const onBackPress = () => {
-      // If we are at the root with no history and no error, allow app to close
-      const atHomeRoot =
-        activeView === 'home' && activeTab === 'home' && !error && navigationHistory.length === 0;
+      if (!navigationRef.isReady()) return false;
+
+      const rootState = navigationRef.getRootState();
+      const focusedRoute = getFocusedRouteName(rootState);
+      const tabId = getCurrentTabId(rootState);
+      const tabRoute = rootState.routes.find((r) => r.name === tabId);
+      const stackCanPop = Boolean(tabRoute?.state && tabRoute.state.index > 0);
+
+      const atHomeRoot = tabId === 'home' && focusedRoute === 'Home' && !error && !stackCanPop;
       const atSearchRoot =
-        activeView === 'search' && activeTab === 'search' && !error && navigationHistory.length === 0 && results.length === 0;
+        tabId === 'search' && focusedRoute === 'Search' && !error && !stackCanPop && results.length === 0;
       if (atHomeRoot || atSearchRoot) {
         return false;
       }
-      
-      // Otherwise, handle it within our navigation
-      handleBack();
+
+      goBack();
       return true;
     };
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [activeView, activeTab, error, handleBack, navigationHistory, results.length]);
+  }, [error, goBack, results.length]);
 
   // Initialization
   useEffect(() => {
@@ -499,11 +490,11 @@ function MobileApp() {
     onError: handleVoiceSearchError,
   });
 
-  const handlePersonPress = useCallback(async (personId, personName, role) => {
+  const handlePersonPress = useCallback(async (personId, personName, role, navigation) => {
     setFilmographyLoading(true);
     setFilmographyPerson({ id: personId, name: personName, role, profileUrl: null });
     setFilmographyResults([]);
-    navigateTo('filmography');
+    openFilmography(navigation);
     try {
       const { results, profileUrl } = await fetchPersonFilmography(personId, personName, role);
       setFilmographyResults(results);
@@ -514,13 +505,13 @@ function MobileApp() {
     } finally {
       setFilmographyLoading(false);
     }
-  }, [navigateTo, handleRequestError]);
+  }, [openFilmography, handleRequestError]);
 
-  const handleCompanyPress = useCallback(async (companyId, companyName, logoUrl) => {
+  const handleCompanyPress = useCallback(async (companyId, companyName, logoUrl, navigation) => {
     setFilmographyLoading(true);
     setFilmographyPerson({ id: companyId, name: companyName, role: 'company', profileUrl: logoUrl || null });
     setFilmographyResults([]);
-    navigateTo('filmography');
+    openFilmography(navigation);
     try {
       const { results, profileUrl } = await fetchProductionCompanyCatalog(companyId, companyName, logoUrl);
       setFilmographyResults(results);
@@ -531,7 +522,7 @@ function MobileApp() {
     } finally {
       setFilmographyLoading(false);
     }
-  }, [navigateTo, handleRequestError]);
+  }, [openFilmography, handleRequestError]);
 
   const rememberSearch = useCallback(async (searchQuery) => {
     const newHistory = [searchQuery, ...recentSearches.filter(q => q !== searchQuery)].slice(0, 3);
@@ -596,7 +587,7 @@ function MobileApp() {
   }, [watchlist]);
 
   // Selecting a live suggestion goes straight to the detail view
-  const handleTypeSelect = useCallback(async (match) => {
+  const handleTypeSelect = useCallback(async (match, navigation) => {
     clearTypeResults();
     Keyboard.dismiss();
 
@@ -604,7 +595,7 @@ function MobileApp() {
       const personName = match.personName || match.title;
       setQuery(personName);
       await rememberSearch(personName);
-      handlePersonPress(match.personId, personName, match.role);
+      handlePersonPress(match.personId, personName, match.role, navigation);
       return;
     }
 
@@ -613,16 +604,16 @@ function MobileApp() {
       const fullResult = await resolveMatch(match.title, match);
       await rememberViewed(fullResult);
       await syncWatchlistFromResolvedDetail(fullResult);
-      navigateTo('detail', { selectedResult: fullResult });
+      openDetail(fullResult, navigation);
       setOfflineBanner(null);
     } catch (err) {
       handleRequestError(err, 'Unable to fetch movie details.');
     } finally {
       setLoading(false);
     }
-  }, [clearTypeResults, handlePersonPress, navigateTo, rememberSearch, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
+  }, [clearTypeResults, handlePersonPress, openDetail, rememberSearch, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
-  const handleSearch = useCallback(async (searchQuery = query) => {
+  const handleSearch = useCallback(async (searchQuery = query, navigation) => {
     if (!searchQuery.trim()) return;
     
     clearTypeResults();
@@ -641,13 +632,13 @@ function MobileApp() {
       if (candidates.isPerson) {
         setLoading(false);
         await rememberSearch(searchQuery);
-        handlePersonPress(candidates.personId, candidates.personName, candidates.role);
+        handlePersonPress(candidates.personId, candidates.personName, candidates.role, navigation);
         return;
       }
 
       setResults(candidates);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setActiveTab('search');
+      navigateToTabRoot('search');
       setFilter(null); // Reset filter on new search
       
       // Update history
@@ -656,67 +647,67 @@ function MobileApp() {
       const classified = classifyAppError(err);
       if (classified.code === 'NO_RESULTS') {
         setResults([]);
-        setActiveTab('search');
+        navigateToTabRoot('search');
         setFilter(null);
         await rememberSearch(searchQuery);
         toastiva.info("No matches found", { description: "Try another search term" });
       } else {
         handleRequestError(err, 'Unable to search right now.', { fullScreen: true });
-        setActiveView('search');
+        navigateToTabRoot('search');
       }
     } finally {
       setLoading(false);
     }
-  }, [query, clearTypeResults, handlePersonPress, navigateTo, rememberSearch, handleRequestError]);
+  }, [query, clearTypeResults, handlePersonPress, openDetail, rememberSearch, handleRequestError]);
 
-  const handleSelectMatch = useCallback(async (match) => {
+  const handleSelectMatch = useCallback(async (match, navigation) => {
     setLoading(true);
     try {
       const fullResult = await resolveMatch(query, match);
       await rememberViewed(fullResult);
       await syncWatchlistFromResolvedDetail(fullResult);
-      navigateTo('detail', { selectedResult: fullResult });
+      openDetail(fullResult, navigation);
       setOfflineBanner(null);
     } catch (err) {
       handleRequestError(err, 'Unable to fetch movie details.');
     } finally {
       setLoading(false);
     }
-  }, [query, navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
+  }, [query, openDetail, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
   // Called when a card in DiscoverScreen is tapped
-  const handleSelectDiscoverItem = useCallback(async (item) => {
+  const handleSelectDiscoverItem = useCallback(async (item, navigation) => {
     setLoading(true);
     try {
       // Pass empty string as query — detail screen uses item.title as fallback
       const fullResult = await resolveMatch(item.title, item);
       await rememberViewed(fullResult);
       await syncWatchlistFromResolvedDetail(fullResult);
-      navigateTo('detail', { selectedResult: fullResult });
+      openDetail(fullResult, navigation);
       setOfflineBanner(null);
     } catch (err) {
       handleRequestError(err, 'Unable to fetch details.');
     } finally {
       setLoading(false);
     }
-  }, [navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
+  }, [openDetail, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
-  const handleSelectFilmographyItem = useCallback(async (item) => {
+  const handleSelectFilmographyItem = useCallback(async (item, navigation) => {
     setLoading(true);
     try {
       const fullResult = await resolveMatch(item.title, item);
       await rememberViewed(fullResult);
       await syncWatchlistFromResolvedDetail(fullResult);
-      navigateTo('detail', { selectedResult: fullResult });
+      openDetail(fullResult, navigation);
       setOfflineBanner(null);
     } catch (err) {
       handleRequestError(err, 'Unable to fetch details.');
     } finally {
       setLoading(false);
     }
-  }, [navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
+  }, [openDetail, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
-  const handleSurpriseMe = useCallback(async () => {
+  const handleSurpriseMe = useCallback(async (navigation) => {
     const seeds = watchlist.filter((item) => item.collectionIds?.includes('highly_recommend') && isInUserLibrary(item));
     setSurpriseLoading(true);
     clearTypeResults();
@@ -726,16 +717,16 @@ function MobileApp() {
       const fullResult = await resolveMatch(pick.title, pick);
       await rememberViewed(fullResult);
       await syncWatchlistFromResolvedDetail(fullResult);
-      navigateTo('detail', { selectedResult: fullResult });
+      openDetail(fullResult, navigation);
       setOfflineBanner(null);
     } catch (err) {
       handleRequestError(err, 'Unable to find a surprise pick right now.');
     } finally {
       setSurpriseLoading(false);
     }
-  }, [watchlist, clearTypeResults, navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
+  }, [watchlist, clearTypeResults, openDetail, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
-  const handleSurpriseByGenre = useCallback(async (genreId, mediaType) => {
+  const handleSurpriseByGenre = useCallback(async (genreId, mediaType, navigation) => {
     setSurprisePickerVisible(false);
     setSurpriseLoading(true);
     clearTypeResults();
@@ -745,14 +736,14 @@ function MobileApp() {
       const fullResult = await resolveMatch(pick.title, pick);
       await rememberViewed(fullResult);
       await syncWatchlistFromResolvedDetail(fullResult);
-      navigateTo('detail', { selectedResult: fullResult });
+      openDetail(fullResult, navigation);
       setOfflineBanner(null);
     } catch (err) {
       handleRequestError(err, 'No surprise picks found for that genre.');
     } finally {
       setSurpriseLoading(false);
     }
-  }, [clearTypeResults, navigateTo, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
+  }, [clearTypeResults, openDetail, rememberViewed, syncWatchlistFromResolvedDetail, handleRequestError]);
 
   const openWatchlistSheet = useCallback((sheetItem) => {
     const itemKey = watchlistEntryKey(sheetItem);
@@ -954,22 +945,12 @@ function MobileApp() {
     await persistWatchlistChange(nextWatchlist, watchlist, 'Marked as watched.', 'checkmark-circle-outline');
   };
 
-  const handleTabPress = (tab) => {
-    setActiveTab(tab);
-    setNavigationHistory([]); // Reset stack when switching tabs
+  const handleTabPress = useCallback((tab) => {
     if (tab === 'home') {
       setHomeMediaFilter(null);
-      setActiveView('home');
-    } else if (tab === 'search') {
-      setActiveView('search');
-    } else if (tab === 'discover') {
-      setActiveView('discover');
-    } else if (tab === 'watchlist') {
-      setActiveView('watchlist');
-    } else if (tab === 'settings') {
-      setActiveView('settings');
     }
-  };
+    navigateToTabRoot(tab);
+  }, []);
 
   const filteredResults = useMemo(() => {
     if (!filter) return results;
@@ -981,395 +962,91 @@ function MobileApp() {
     [watchlist]
   );
 
-  const showBack = activeView === 'detail' || activeView === 'filmography' || activeView === 'collections';
-  const showLoading = loading && activeView !== 'detail' && activeView !== 'discover' && activeView !== 'home' && activeView !== 'collections';
-  const useCenteredWordmarkHeader = ['search', 'discover', 'watchlist', 'settings'].includes(activeView);
+  const persistCollectionsChange = useCallback(async (nextCollections, rollbackCollections) => {
+    setWatchlistCollections(nextCollections);
+    watchlistCollectionsRef.current = nextCollections;
+    try {
+      await saveWatchlistCollections(nextCollections);
+    } catch {
+      setWatchlistCollections(rollbackCollections);
+      watchlistCollectionsRef.current = rollbackCollections;
+      toastiva.error('Failed to update collections');
+    }
+  }, []);
+
+  const onNavigationReady = useCallback(() => {}, []);
+
+  const appState = {
+    watchlist,
+    query,
+    results,
+    filteredResults,
+    filter,
+    setFilter,
+    loading,
+    error,
+    errorInfo,
+    selectedResult,
+    recentSearches,
+    recentViewed,
+    homeMediaFilter,
+    setHomeMediaFilter,
+    collectionsSubView,
+    setCollectionsSubView,
+    collectionsImdbTab,
+    setCollectionsImdbTab,
+    typeResults,
+    typeLoading,
+    filmographyPerson,
+    filmographyResults,
+    filmographyLoading,
+    discoverVm,
+    surpriseLoading,
+    surprisePickerVisible,
+    setSurprisePickerVisible,
+    offlineBanner,
+    setOfflineBanner,
+    savedWatchlistKeys,
+    userWatchlistCollections,
+    watchlistCollections,
+    voiceListening,
+    hasHighlyRecommendedSeeds,
+    QUICK_SURPRISE_GENRES,
+    handleQueryChange,
+    handleSearch,
+    handleTypeSelect,
+    handleSelectMatch,
+    handleSelectDiscoverItem,
+    handleSelectFilmographyItem,
+    handleToggleWatchlist,
+    handlePersonPress,
+    handleCompanyPress,
+    handleRemoveWatchlistItem,
+    handleMarkWatched,
+    handleTabPress,
+    handleSurpriseMe,
+    handleSurpriseByGenre,
+    toggleVoiceSearch,
+    openCollections,
+    openHomeFromCollections,
+    clearSearchResults,
+    goBack,
+    persistWatchlistChange,
+    persistCollectionsChange,
+    onNavigationReady,
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <>
       <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} translucent />
-      
-      {/* Standard safe area header for all non-immersive screens */}
-      {activeView !== 'home' && activeView !== 'collections' && activeView !== 'detail' && activeView !== 'filmography' && (
-        <View style={{ paddingTop: insets.top }}>
-          <AppHeader 
-            showBack={showBack} 
-            onBack={handleBack} 
-            centeredTitleOnly={useCenteredWordmarkHeader}
-          />
-        </View>
-      )}
-      
-      <View style={styles.mainContent}>
-        {showLoading ? (
-          <StatePanel type="loading" title="Searching..." description="Please wait while we find your movie." />
-        ) : error ? (
-          <StatePanel
-            type={errorInfo?.severity === 'offline' ? 'offline' : errorInfo?.severity === 'service' ? 'service' : 'error'}
-            title={errorInfo?.title || 'Search Error'}
-            description={error}
-            onRetry={() => handleSearch(query)}
-            actionLabel="Refresh"
-          />
-        ) : (
-          <>
-            {activeView === 'home' && (
-              <HomeScreen
-                watchlist={watchlist}
-                onSelectItem={handleSelectDiscoverItem}
-                onToggleWatchlist={handleToggleWatchlist}
-                mediaFilter={homeMediaFilter}
-                onMediaFilterChange={setHomeMediaFilter}
-                onOpenCollections={() => {
-                  setCollectionsSubView('franchises');
-                  setCollectionsImdbTab('movie');
-                  navigateTo('collections', { activeTab: 'home' });
-                }}
-              />
-            )}
-
-            {activeView === 'collections' && (
-              <CollectionsScreen
-                onSelectItem={handleSelectDiscoverItem}
-                onToggleWatchlist={handleToggleWatchlist}
-                watchlistIds={savedWatchlistKeys}
-                subView={collectionsSubView}
-                onSubViewChange={setCollectionsSubView}
-                imdbMediaTab={collectionsImdbTab}
-                onImdbMediaTabChange={setCollectionsImdbTab}
-                onOpenHomeFilter={(nextFilter) => {
-                  setHomeMediaFilter(nextFilter === 'movie' || nextFilter === 'tv' ? nextFilter : null);
-                  setNavigationHistory([]);
-                  setActiveTab('home');
-                  setActiveView('home');
-                }}
-              />
-            )}
-
-            {activeView === 'search' && (
-              <View style={{ flex: 1 }}>
-                <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
-                  <SearchPanel
-                    value={query}
-                    onChangeText={handleQueryChange}
-                    onSubmit={() => handleSearch()}
-                    loading={loading}
-                    recentSearches={recentSearches}
-                    recentViewed={recentViewed}
-                    onPickSuggestion={handleSearch}
-                    onPickRecentViewed={handleSelectMatch}
-                    hideHistory={results.length > 0}
-                    typeResults={typeResults}
-                    typeLoading={typeLoading}
-                    onTypeSelect={handleTypeSelect}
-                    onVoicePress={toggleVoiceSearch}
-                    voiceListening={voiceListening}
-                  />
-                  {results.length > 0 && (
-                    <>
-                      <MatchResults
-                        matches={filteredResults}
-                        onSelect={handleSelectMatch}
-                        onToggleWatchlist={handleToggleWatchlist}
-                        watchlistIds={savedWatchlistKeys}
-                      />
-                      {filteredResults.length === 0 && (
-                        <EmptyState
-                          variant="empty"
-                          title="No matches found"
-                          description={filter
-                            ? `We couldn't find any ${filter === 'movie' ? 'movies' : 'TV shows'} for "${query}".`
-                            : `We couldn't find any matches for "${query}".`}
-                          primaryAction={filter ? {
-                            label: 'Clear Filters',
-                            icon: 'close-circle-outline',
-                            onPress: () => setFilter(null),
-                            accessibilityLabel: 'Clear result filters',
-                          } : {
-                            label: 'Check Spelling',
-                            icon: 'create-outline',
-                            onPress: () => { setResults([]); setQuery(''); },
-                            accessibilityLabel: 'Edit search text',
-                          }}
-                          secondaryAction={{
-                            label: 'Discover',
-                            onPress: () => handleTabPress('discover'),
-                            accessibilityLabel: 'Go to Discover',
-                          }}
-                          compact
-                        />
-                      )}
-                    </>
-                  )}
-                </ScrollView>
-
-                {/* Surprise Me Floating Action Button */}
-                <TouchableOpacity
-                  style={[styles.surpriseFab, { bottom: insets.bottom + 88 }]}
-                  onPress={() => setSurprisePickerVisible(true)}
-                  disabled={surpriseLoading}
-                  activeOpacity={0.88}
-                  accessibilityRole="button"
-                  accessibilityLabel="Surprise Me – pick a random movie or show"
-                  accessibilityState={{ busy: Boolean(surpriseLoading) }}
-                >
-                  <LinearGradient
-                    colors={['#ff7a59', '#ffcf33', '#20d6b5']}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={styles.surpriseFabGradient}
-                  >
-                    {surpriseLoading
-                      ? <ActivityIndicator color="#111" size="small" />
-                      : <Ionicons name="sparkles" size={22} color="#111" />
-                    }
-                    <Text style={styles.surpriseFabLabel}>
-                      {surpriseLoading ? 'Shuffling…' : 'Surprise'}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            )}
-            
-            {activeView === 'detail' && (
-              <ResultView 
-                result={selectedResult} 
-                onBack={handleBack} 
-                onToggleWatchlist={handleToggleWatchlist}
-                isInWatchlist={savedWatchlistKeys.includes(watchlistEntryKey(selectedResult))}
-                onSelectSimilar={handleSelectMatch}
-                onPersonPress={handlePersonPress}
-                onCompanyPress={handleCompanyPress}
-              />
-            )}
-            
-            {activeView === 'watchlist' && (
-              <WatchlistView 
-                items={watchlist} 
-                collections={userWatchlistCollections}
-                onRemove={handleRemoveWatchlistItem}
-                onMarkWatched={handleMarkWatched}
-                onSelect={handleSelectMatch}
-                onBrowseMovies={() => handleTabPress('discover')}
-                onBrowseTV={() => handleTabPress('discover')}
-              />
-            )}
-
-            {activeView === 'discover' && (
-              <DiscoverScreen
-                onSelectItem={handleSelectDiscoverItem}
-                vm={discoverVm}
-                onToggleWatchlist={handleToggleWatchlist}
-                watchlistIds={savedWatchlistKeys}
-              />
-            )}
-
-            {activeView === 'filmography' && filmographyPerson && (
-              <FilmographyScreen
-                personName={filmographyPerson.name}
-                role={filmographyPerson.role}
-                profileUrl={filmographyPerson.profileUrl}
-                results={filmographyResults}
-                onSelectItem={handleSelectFilmographyItem}
-                loading={filmographyLoading}
-              />
-            )}
-
-            {activeView === 'settings' && (
-              <SettingsView
-                watchlist={watchlist}
-                collections={watchlistCollections}
-                persistWatchlistChange={persistWatchlistChange}
-                persistCollectionsChange={async (nextCollections, rollbackCollections) => {
-                  setWatchlistCollections(nextCollections);
-                  watchlistCollectionsRef.current = nextCollections;
-                  try {
-                    await saveWatchlistCollections(nextCollections);
-                  } catch {
-                    setWatchlistCollections(rollbackCollections);
-                    watchlistCollectionsRef.current = rollbackCollections;
-                    toastiva.error('Failed to update collections');
-                  }
-                }}
-              />
-            )}
-          </>
-        )}
-      </View>
-
-      {/* Surprise Me Picker Modal */}
-      <Modal
-        visible={surprisePickerVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setSurprisePickerVisible(false)}
-      >
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <View style={styles.modalOverlay}>
-            <View style={[styles.categorySheet, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '4D', borderRadius: radii.xl }]}>
-              <View style={styles.categoryHeader}>
-                <View style={styles.categoryTitleBlock}>
-                  <Text style={[styles.categoryEyebrow, { color: colors.primary, ...typography.labelSm }]}>Surprise Roulette</Text>
-                  <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]}>🎲 Surprise Me</Text>
-                </View>
-                <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.surfaceContainerHighest }]} onPress={() => setSurprisePickerVisible(false)} accessibilityRole="button" accessibilityLabel="Close surprise picker">
-                  <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Watchlist-based quick surprise */}
-              <TouchableOpacity
-                style={[styles.surpriseQuickBtn, { backgroundColor: hasHighlyRecommendedSeeds ? colors.primary + '18' : colors.surfaceContainerHigh, borderColor: hasHighlyRecommendedSeeds ? colors.primary + '55' : colors.outlineVariant + '40', borderRadius: radii.lg }]}
-                onPress={() => { setSurprisePickerVisible(false); handleSurpriseMe(); }}
-                disabled={!hasHighlyRecommendedSeeds}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Surprise me based on my favorites"
-              >
-                <Ionicons name="heart-outline" size={20} color={hasHighlyRecommendedSeeds ? colors.primary : colors.onSurfaceVariant} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[{ color: hasHighlyRecommendedSeeds ? colors.primary : colors.onSurface, fontWeight: '800', ...typography.bodyLg }]}>Based on My Favorites</Text>
-                  <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>{hasHighlyRecommendedSeeds ? 'Picks from your Highly Recommend list' : 'Add to Highly Recommend to unlock'}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={hasHighlyRecommendedSeeds ? colors.primary : colors.onSurfaceVariant} />
-              </TouchableOpacity>
-
-              <View style={styles.surpriseDivider}>
-                <View style={{ flex: 1, height: 1, backgroundColor: colors.outlineVariant + '30' }} />
-                <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginHorizontal: 12 }]}>Or Pick a Genre</Text>
-                <View style={{ flex: 1, height: 1, backgroundColor: colors.outlineVariant + '30' }} />
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 260 }}>
-                <View style={styles.genreGrid}>
-                  {QUICK_SURPRISE_GENRES.map((genre) => (
-                    <TouchableOpacity
-                      key={`${genre.id}-${genre.mediaType}`}
-                      style={[styles.genreChip, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant + '40', borderRadius: radii.lg }]}
-                      onPress={() => handleSurpriseByGenre(genre.id, genre.mediaType)}
-                      activeOpacity={0.8}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Surprise me with ${genre.label}`}
-                    >
-                      <Text style={[{ color: colors.onSurface, fontWeight: '700', textAlign: 'center', ...typography.bodyMd }]}>{genre.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </GestureHandlerRootView>
-      </Modal>
-
-      <ErrorBanner
-        placement="top"
-        title={offlineBanner?.title}
-        message={offlineBanner?.message}
-        icon="cloud-offline-outline"
-        onDismiss={() => setOfflineBanner(null)}
-      />
-
-      <BottomNav activeTab={activeTab} onTabPress={handleTabPress} fixed={activeView === 'search'} />
-
-      {/* BottomSheetPortal — renders stacked sheets above everything */}
-      <BottomSheetPortal />
-    </View>
+      <AppStateProvider value={appState}>
+        <AppNavigationRoot />
+      </AppStateProvider>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  mainContent: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 180, // extra room for FAB above BottomNav
-  },
-  surpriseFab: {
-    position: 'absolute',
-    right: 20,
-    shadowColor: '#ffb23f',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.38,
-    shadowRadius: 18,
-    elevation: 8,
-    borderRadius: 28,
-  },
-  surpriseFabGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 28,
-    paddingHorizontal: 18,
-    paddingVertical: 13,
-    gap: 7,
-  },
-  surpriseFabLabel: {
-    color: '#111',
-    fontWeight: '900',
-    fontSize: 14,
-    letterSpacing: -0.2,
-  },
-  surpriseQuickBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderWidth: 1,
-    marginBottom: 4,
-  },
-  surpriseDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  genreGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  genreChip: {
-    width: '47%',
-    padding: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.62)',
-  },
-  categorySheet: {
-    borderWidth: 1,
-    margin: 16,
-    padding: 20,
-  },
-  categoryHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 16,
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-  categoryTitleBlock: {
-    flex: 1,
-    minWidth: 0,
-  },
-  categoryEyebrow: {
-    fontWeight: '900',
-    letterSpacing: 1.2,
-    marginBottom: 4,
-  },
-  categoryTitle: {
-    fontWeight: '900',
-  },
-  closeButton: {
-    alignItems: 'center',
-    borderRadius: 24,
-    height: 48,
-    justifyContent: 'center',
-    width: 48,
-  },
   collectionSheetContent: {
     gap: 14,
   },

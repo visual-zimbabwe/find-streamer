@@ -37,14 +37,14 @@ export function AppHeader({ onBack, showBack, transparent, centeredTitleOnly }) 
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <Ionicons name="arrow-back" size={24} color={colors.onBackground} />
+            <Ionicons name="arrow-back" size={24} color={colors.onSurface} />
           </TouchableOpacity>
         )}
         {!showBack && centeredTitleOnly && (
           <Text
             style={[
               styles.centeredWordmark,
-              { color: resolvedMode === 'dark' ? '#fff' : colors.onBackground },
+              { color: resolvedMode === 'dark' ? '#fff' : colors.onSurface },
             ]}
             accessibilityRole="header"
           >

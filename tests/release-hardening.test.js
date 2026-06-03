@@ -183,14 +183,16 @@ test('search bar exposes voice search controls and native speech config', () => 
 
 test('search view includes surprise roulette and visual recently viewed history', () => {
   const app = read('App.js');
+  const searchStack = read('src/navigation/SearchStack.js');
+  const appShell = read('src/navigation/AppShell.js');
   const searchPanel = read('src/components/SearchPanel.js');
   const storage = read('src/lib/storage.js');
   const tmdb = read('src/lib/tmdb.js');
 
   assert.match(app, /fetchSurpriseRecommendation/);
-  assert.match(app, /recentViewed=\{recentViewed\}/);
-  assert.match(app, /Surprise Roulette/);
-  assert.match(app, /LinearGradient/);
+  assert.match(searchStack, /recentViewed=\{recentViewed\}/);
+  assert.match(appShell, /Surprise Roulette/);
+  assert.match(searchStack, /LinearGradient/);
   assert.match(searchPanel, /Recently Viewed/);
   assert.match(searchPanel, /styles\.posterImg/);
   assert.match(searchPanel, /Trending on Trakt/);
@@ -223,8 +225,8 @@ test('home collections tab uses TMDB collection rows', () => {
   const homeFeed = read('src/lib/homeFeed.js');
   const tmdb = read('src/lib/tmdb.js');
 
-  assert.match(app, /activeView === 'collections'/);
-  assert.match(app, /setActiveTab\('home'\)/);
+  assert.match(app, /openCollections/);
+  assert.match(app, /navigateToTabRoot\('home'\)/);
   assert.match(app, /setHomeMediaFilter\(null\)/);
   assert.match(home, /onOpenCollections/);
   assert.match(collections, /fetchStaticCollectionRows/);
