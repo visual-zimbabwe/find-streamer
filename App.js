@@ -924,16 +924,19 @@ function MobileApp() {
       const prevRow = prev[idx];
       const originalLanguage = fields.originalLanguage || [];
       const countryOfOrigin = fields.countryOfOrigin || [];
+      const basedOn = fields.basedOn || [];
 
       const languagesSame = JSON.stringify(prevRow.originalLanguage || []) === JSON.stringify(originalLanguage);
       const countriesSame = JSON.stringify(prevRow.countryOfOrigin || []) === JSON.stringify(countryOfOrigin);
+      const basedOnSame = JSON.stringify(prevRow.basedOn || []) === JSON.stringify(basedOn);
 
-      if (languagesSame && countriesSame) return prev;
+      if (languagesSame && countriesSame && basedOnSame) return prev;
 
       const merged = normalizeWatchlistItem({
         ...prevRow,
         originalLanguage,
         countryOfOrigin,
+        basedOn,
       });
       if (!merged) return prev;
 

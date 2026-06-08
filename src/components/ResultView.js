@@ -144,15 +144,20 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     }
   }
 
-  if (clauses.length === 0) return { languages: [], countries: [] };
+  if (clauses.length === 0) return { languages: [], countries: [], basedOn: [] };
 
   const unionClause = clauses.map((c) => `{ ${c} }`).join(' UNION ');
 
   const sparql = `
-    SELECT DISTINCT ?item ?languageLabel ?countryLabel WHERE {
+    SELECT DISTINCT ?item ?languageLabel ?countryLabel ?basedOn ?basedOnLabel ?authorLabel ?typeLabel WHERE {
       ${unionClause} .
       OPTIONAL { ?item wdt:P364 ?language . }
       OPTIONAL { ?item wdt:P495 ?country . }
+      OPTIONAL {
+        ?item wdt:P144 ?basedOn .
+        OPTIONAL { ?basedOn wdt:P50 ?author . }
+        OPTIONAL { ?basedOn wdt:P31 ?type . }
+      }
       SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
     }
   `;
@@ -176,6 +181,7 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
 
   const languagesSet = new Set();
   const countriesSet = new Set();
+  const basedOnMap = new Map();
 
   for (const b of bindings) {
     if (b.languageLabel?.value && !isEntityUri(b.languageLabel.value)) {
@@ -184,12 +190,54 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     if (b.countryLabel?.value && !isEntityUri(b.countryLabel.value)) {
       countriesSet.add(b.countryLabel.value);
     }
+    if (b.basedOnLabel?.value && !isEntityUri(b.basedOnLabel.value)) {
+      const name = b.basedOnLabel.value;
+      const author = (b.authorLabel?.value && !isEntityUri(b.authorLabel.value)) ? b.authorLabel.value : null;
+      const type = (b.typeLabel?.value && !isEntityUri(b.typeLabel.value)) ? b.typeLabel.value : null;
+
+      if (!basedOnMap.has(name)) {
+        basedOnMap.set(name, { authors: new Set(), types: new Set() });
+      }
+      if (author) {
+        basedOnMap.get(name).authors.add(author);
+      }
+      if (type) {
+        basedOnMap.get(name).types.add(type);
+      }
+    }
   }
+
+  const basedOn = Array.from(basedOnMap.entries()).map(([name, data]) => ({
+    name,
+    authors: Array.from(data.authors),
+    types: Array.from(data.types),
+  }));
 
   return {
     languages: Array.from(languagesSet),
     countries: Array.from(countriesSet),
+    basedOn,
   };
+}
+
+const GENERIC_TYPES = new Set([
+  'literary work',
+  'written work',
+  'creative work',
+  'work',
+  'media franchise',
+  'intellectual property'
+]);
+
+function getSpecificType(types) {
+  if (!types || types.length === 0) return null;
+  const specific = types.find(t => !GENERIC_TYPES.has(t.toLowerCase()));
+  return specific || types[0];
+}
+
+function capitalize(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 
@@ -389,7 +437,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   const shareSheetIdRef = useRef(null);
 
   // ── Wikidata enrichment state ────────────────────────────────────────────
-  const [wikiData, setWikiData] = useState({ languages: [], countries: [] });
+  const [wikiData, setWikiData] = useState({ languages: [], countries: [], basedOn: [] });
   const [wikiLoading, setWikiLoading] = useState(false);
 
   // ── Dynamic poster palette ───────────────────────────────────────────────
@@ -411,7 +459,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   useEffect(() => {
     setShowAllCast(false);
     setIsSynopsisExpanded(false);
-    setWikiData({ languages: [], countries: [] });
+    setWikiData({ languages: [], countries: [], basedOn: [] });
     setWikiLoading(false);
   }, [result?.tmdbId]);
 
@@ -422,8 +470,13 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
     // Use cached data from watchlist if already available
     const cachedLanguages = result.originalLanguage;
     const cachedCountries = result.countryOfOrigin;
-    if (Array.isArray(cachedLanguages) && cachedLanguages.length > 0) {
-      setWikiData({ languages: cachedLanguages, countries: cachedCountries || [] });
+    const cachedBasedOn = result.basedOn;
+    if (Array.isArray(cachedLanguages) && cachedLanguages.length > 0 && Array.isArray(cachedBasedOn)) {
+      setWikiData({
+        languages: cachedLanguages,
+        countries: cachedCountries || [],
+        basedOn: cachedBasedOn,
+      });
       return;
     }
 
@@ -437,10 +490,11 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
         setWikiLoading(false);
 
         // Persist into watchlist if the item is bookmarked
-        if (onEnrichWatchlistItem && (data.languages.length > 0 || data.countries.length > 0)) {
+        if (onEnrichWatchlistItem && (data.languages.length > 0 || data.countries.length > 0 || data.basedOn.length > 0)) {
           onEnrichWatchlistItem(result.tmdbId, result.mediaType, {
             originalLanguage: data.languages,
             countryOfOrigin: data.countries,
+            basedOn: data.basedOn,
           });
         }
       })
@@ -449,7 +503,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
       });
 
     return () => { cancelled = true; };
-  }, [result?.tmdbId, result?.imdbId, result?.mediaType, result?.originalLanguage, result?.countryOfOrigin, onEnrichWatchlistItem]);
+  }, [result?.tmdbId, result?.imdbId, result?.mediaType, result?.originalLanguage, result?.countryOfOrigin, result?.basedOn, onEnrichWatchlistItem]);
 
   const handlePersonPressWithFallback = useCallback(async (person, role) => {
     if (!onPersonPress) return;
@@ -1071,6 +1125,48 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Based On Section */}
+          {wikiLoading ? (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Based On</Text>
+              <View style={styles.basedOnContainer}>
+                <View style={[styles.basedOnCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
+                  <Ionicons name="book-outline" size={18} color={colors.primary} style={styles.basedOnIcon} />
+                  <SkeletonBlock style={{ width: 140, height: 16, borderRadius: 4 }} />
+                </View>
+              </View>
+            </View>
+          ) : (
+            wikiData.basedOn && wikiData.basedOn.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Based On</Text>
+                <View style={styles.basedOnContainer}>
+                  {wikiData.basedOn.map((work, idx) => {
+                    const authorText = work.authors && work.authors.length > 0
+                      ? ` by ${work.authors.join(', ')}`
+                      : '';
+                    const specificType = getSpecificType(work.types);
+                    const typeLabel = specificType ? capitalize(specificType) : '';
+                    return (
+                      <View key={idx} style={[styles.basedOnCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
+                        <Ionicons name="book-outline" size={18} color={colors.primary} style={styles.basedOnIcon} />
+                        <Text style={[styles.basedOnText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+                          {typeLabel ? (
+                            <Text style={{ color: colors.primary, fontWeight: '700' }}>
+                              {typeLabel}:{' '}
+                            </Text>
+                          ) : null}
+                          <Text style={{ fontWeight: 'bold' }}>{work.name}</Text>
+                          {authorText}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )
+          )}
 
           {franchiseParts.length > 1 && (
             <View key={`franchise-${result.tmdbId}`} style={styles.section}>
@@ -2247,5 +2343,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 12,
+  },
+  basedOnContainer: {
+    marginTop: 8,
+    gap: 8,
+  },
+  basedOnCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  basedOnIcon: {
+    marginRight: 2,
+  },
+  basedOnText: {
+    flex: 1,
+    lineHeight: 20,
   },
 });

@@ -256,3 +256,21 @@ test('chunked watchlists load before an unreadable legacy single-key value', asy
   assert.equal(reloaded.length, 1);
   assert.equal(reloaded[0].title, 'Chunked Value');
 });
+
+test('normalizeWatchlistItems preserves basedOn field', () => {
+  const item = {
+    tmdbId: 12345,
+    mediaType: 'movie',
+    title: 'The Lord of the Rings',
+    watchlistCategoryId: 'watch_next',
+    basedOn: [
+      { name: 'The Fellowship of the Ring', authors: ['J. R. R. Tolkien'], types: ['novel'] }
+    ]
+  };
+
+  const normalized = normalizeWatchlistItems([item]);
+  assert.equal(normalized.length, 1);
+  assert.deepEqual(normalized[0].basedOn, [
+    { name: 'The Fellowship of the Ring', authors: ['J. R. R. Tolkien'], types: ['novel'] }
+  ]);
+});
