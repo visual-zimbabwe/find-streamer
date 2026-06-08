@@ -814,9 +814,13 @@ function MobileApp() {
         }}
         onToggleCollection={async (collectionId) => {
           const selected = currentItem.collectionIds?.includes(collectionId);
+          let newStatus = currentItem.status === 'dropped' ? 'saved' : currentItem.status;
+          if (collectionId === 'watched') {
+            newStatus = selected ? 'saved' : 'watched';
+          }
           const nextItem = normalizeWatchlistItem({
             ...currentItem,
-            status: currentItem.status === 'dropped' ? 'saved' : currentItem.status,
+            status: newStatus,
             collectionIds: selected
               ? (currentItem.collectionIds || []).filter((id) => id !== collectionId)
               : [...(currentItem.collectionIds || []), collectionId],
@@ -825,7 +829,15 @@ function MobileApp() {
           updateSheet(watchlistSheetIdRef.current, renderContent(nextItem));
         }}
         onSetStatus={async (status) => {
-          const nextItem = normalizeWatchlistItem({ ...currentItem, status });
+          let collectionIds = currentItem.collectionIds || [];
+          if (status === 'watched') {
+            if (!collectionIds.includes('watched')) {
+              collectionIds = [...collectionIds, 'watched'];
+            }
+          } else {
+            collectionIds = collectionIds.filter((id) => id !== 'watched');
+          }
+          const nextItem = normalizeWatchlistItem({ ...currentItem, status, collectionIds });
           await updateOne(() => nextItem, `Status set to ${getStatusLabel(status)}`);
           updateSheet(watchlistSheetIdRef.current, renderContent(nextItem));
         }}
@@ -902,6 +914,38 @@ function MobileApp() {
       toastiva.error('Failed to save to Watchlist');
     }
   };
+
+  const handleEnrichWatchlistItem = useCallback(async (tmdbId, mediaType, fields) => {
+    const key = `${mediaType}:${tmdbId}`;
+    setWatchlist((prev) => {
+      const idx = prev.findIndex((w) => watchlistEntryKey(w) === key);
+      if (idx < 0) return prev;
+
+      const prevRow = prev[idx];
+      const originalLanguage = fields.originalLanguage || [];
+      const countryOfOrigin = fields.countryOfOrigin || [];
+
+      const languagesSame = JSON.stringify(prevRow.originalLanguage || []) === JSON.stringify(originalLanguage);
+      const countriesSame = JSON.stringify(prevRow.countryOfOrigin || []) === JSON.stringify(countryOfOrigin);
+
+      if (languagesSame && countriesSame) return prev;
+
+      const merged = normalizeWatchlistItem({
+        ...prevRow,
+        originalLanguage,
+        countryOfOrigin,
+      });
+      if (!merged) return prev;
+
+      const toPersist = [...prev];
+      toPersist[idx] = merged;
+
+      watchlistRef.current = toPersist;
+
+      saveWatchlist(toPersist).catch(() => {});
+      return toPersist;
+    });
+  }, []);
 
   const persistWatchlistChange = async (nextWatchlist, rollbackWatchlist, successMessage, successIcon) => {
     setWatchlist(nextWatchlist);
@@ -1019,6 +1063,7 @@ function MobileApp() {
     handleSelectDiscoverItem,
     handleSelectFilmographyItem,
     handleToggleWatchlist,
+    handleEnrichWatchlistItem,
     handlePersonPress,
     handleCompanyPress,
     handleRemoveWatchlistItem,

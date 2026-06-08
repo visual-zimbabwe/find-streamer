@@ -38,7 +38,6 @@ export const DEFAULT_COLLECTIONS = [
 
 export const LEGACY_COLLECTIONS = WATCHLIST_CATEGORIES
   .filter((category) => !DEFAULT_COLLECTIONS.some((collection) => collection.id === category.id))
-  .filter((category) => category.id !== 'watched')
   .map((category) => ({
     id: category.id,
     name: category.label,
@@ -120,14 +119,15 @@ export function normalizeWatchlistItem(item) {
     ? item.status
     : statusFromLegacyCategory(watchlistCategoryId);
   const collectionIds = dedupeCollectionIds(item.collectionIds);
-
-  if (
-    watchlistCategoryId !== 'watched' &&
-    BUILT_IN_COLLECTION_IDS.has(watchlistCategoryId) &&
-    !IMDB_TOP_100_COLLECTION_IDS.has(watchlistCategoryId) &&
-    !collectionIds.includes(watchlistCategoryId)
-  ) {
-    collectionIds.push(watchlistCategoryId);
+  if (!Array.isArray(item.collectionIds)) {
+    if (
+      watchlistCategoryId !== 'watched' &&
+      BUILT_IN_COLLECTION_IDS.has(watchlistCategoryId) &&
+      !IMDB_TOP_100_COLLECTION_IDS.has(watchlistCategoryId) &&
+      !collectionIds.includes(watchlistCategoryId)
+    ) {
+      collectionIds.push(watchlistCategoryId);
+    }
   }
 
   return {
