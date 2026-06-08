@@ -19,6 +19,8 @@ import { searchPersonByName, fetchPersonFilmography } from '../lib/tmdb';
 import { scale, verticalScale, screenHeight } from '../utils/responsive';
 import { useBottomSheet } from './StackBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SkeletonBlock } from './SkeletonLoaders';
+import { watchlistEntryKey } from '../lib/watchlistModel';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
@@ -125,6 +127,69 @@ function initialsForName(name = '') {
 
 function personKey(person, index) {
   return `${person.role || 'person'}-${person.id || person.name}-${index}`;
+}
+
+const isEntityUri = (val) => typeof val === 'string' && val.startsWith('http://www.wikidata.org/entity/');
+
+async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
+  const clauses = [];
+  if (imdbId) {
+    clauses.push(`?item wdt:P345 "${imdbId}"`);
+  }
+  if (tmdbId) {
+    if (mediaType === 'tv') {
+      clauses.push(`?item wdt:P4985 "${tmdbId}"`);
+    } else {
+      clauses.push(`?item wdt:P9721 "${tmdbId}"`);
+    }
+  }
+
+  if (clauses.length === 0) return { languages: [], countries: [] };
+
+  const unionClause = clauses.map((c) => `{ ${c} }`).join(' UNION ');
+
+  const sparql = `
+    SELECT DISTINCT ?item ?languageLabel ?countryLabel WHERE {
+      ${unionClause} .
+      OPTIONAL { ?item wdt:P364 ?language . }
+      OPTIONAL { ?item wdt:P495 ?country . }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
+    }
+  `;
+
+  const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'User-Agent': 'Trova/1.0 (juwimana.database@gmail.com)',
+      'Accept': 'application/sparql-results+json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Wikidata SPARQL request failed with status ${response.status}`);
+  }
+
+  const json = await response.json();
+  const bindings = json?.results?.bindings || [];
+
+  const languagesSet = new Set();
+  const countriesSet = new Set();
+
+  for (const b of bindings) {
+    if (b.languageLabel?.value && !isEntityUri(b.languageLabel.value)) {
+      languagesSet.add(b.languageLabel.value);
+    }
+    if (b.countryLabel?.value && !isEntityUri(b.countryLabel.value)) {
+      countriesSet.add(b.countryLabel.value);
+    }
+  }
+
+  return {
+    languages: Array.from(languagesSet),
+    countries: Array.from(countriesSet),
+  };
 }
 
 
@@ -249,7 +314,7 @@ function ActorFilmographySheetContent({ person, role, colors, typography, radii,
   );
 }
 
-export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, onSelectSimilar, onPersonPress, onCompanyPress }) {
+export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlistItem, isInWatchlist, onSelectSimilar, onPersonPress, onCompanyPress }) {
   const { theme } = useTheme();
   const { typography, radii } = theme;
   const insets = useSafeAreaInsets();
@@ -323,6 +388,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   const shareSheetIdRef = useRef(null);
 
+  // ── Wikidata enrichment state ────────────────────────────────────────────
+  const [wikiData, setWikiData] = useState({ languages: [], countries: [] });
+  const [wikiLoading, setWikiLoading] = useState(false);
+
   // ── Dynamic poster palette ───────────────────────────────────────────────
   const { palette } = usePosterTheme(result?.posterUrl);
   // Merge poster palette over base theme; fall back gracefully
@@ -342,7 +411,45 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
   useEffect(() => {
     setShowAllCast(false);
     setIsSynopsisExpanded(false);
+    setWikiData({ languages: [], countries: [] });
+    setWikiLoading(false);
   }, [result?.tmdbId]);
+
+  // ── Wikidata SPARQL fetch ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!result?.tmdbId) return;
+
+    // Use cached data from watchlist if already available
+    const cachedLanguages = result.originalLanguage;
+    const cachedCountries = result.countryOfOrigin;
+    if (Array.isArray(cachedLanguages) && cachedLanguages.length > 0) {
+      setWikiData({ languages: cachedLanguages, countries: cachedCountries || [] });
+      return;
+    }
+
+    let cancelled = false;
+    setWikiLoading(true);
+
+    fetchWikidataDetails(result.imdbId, String(result.tmdbId), result.mediaType)
+      .then((data) => {
+        if (cancelled) return;
+        setWikiData(data);
+        setWikiLoading(false);
+
+        // Persist into watchlist if the item is bookmarked
+        if (onEnrichWatchlistItem && (data.languages.length > 0 || data.countries.length > 0)) {
+          onEnrichWatchlistItem(result.tmdbId, result.mediaType, {
+            originalLanguage: data.languages,
+            countryOfOrigin: data.countries,
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setWikiLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [result?.tmdbId, result?.imdbId, result?.mediaType, result?.originalLanguage, result?.countryOfOrigin, onEnrichWatchlistItem]);
 
   const handlePersonPressWithFallback = useCallback(async (person, role) => {
     if (!onPersonPress) return;
@@ -833,87 +940,104 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
             {/* Title stays white — it always sits on top of the backdrop image */}
             <Text style={[styles.title, { color: '#ffffff', ...typography.displayLg }]}>{result.title}</Text>
 
-            <View style={[styles.infoRow, { alignItems: 'center' }]}>
-              <View style={styles.infoPill}>
-                <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.75)" />
-                <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>{result.year}</Text>
-              </View>
-              {isTv && seasonCount > 0 && (
-                <View style={styles.infoPill}>
-                  <Ionicons name="tv-outline" size={14} color="rgba(255,255,255,0.75)" />
-                  <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
-                    {pluralize(seasonCount, 'season')}
-                  </Text>
-                </View>
-              )}
-              {!isTv && runtimeLabel && (
-                <View style={styles.infoPill}>
-                  <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.75)" />
-                  <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
-                    {runtimeLabel}
-                  </Text>
-                </View>
-              )}
-              {result.omdbRatings?.rated && (
-                <View style={[styles.infoPill, styles.ratedBadge]}>
-                  <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.85)', ...typography.labelSm }]}>
-                    {result.omdbRatings.rated}
-                  </Text>
-                </View>
-              )}
-              {result.isFranchise && (
-                <View style={[styles.infoPill, styles.ratedBadge]}>
-                  <Ionicons name="albums-outline" size={14} color="rgba(255,255,255,0.85)" />
-                  <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.85)', ...typography.labelSm }]}>
-                    {result.franchiseLabel}
-                  </Text>
-                </View>
-              )}
+            {/* Watch Trailer full-width button */}
+            {result.trailer && result.trailer !== 'N/A' && (
               <TouchableOpacity
-                style={styles.infoPill}
-                onPress={handleOpenShareSheet}
-                accessibilityRole="button"
-                accessibilityLabel={`Share ${result.title}`}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="share-social-outline" size={18} color="rgba(255,255,255,0.85)" />
-              </TouchableOpacity>
-              {result.trailer && result.trailer !== 'N/A' && (
-                <TouchableOpacity
-                  style={styles.infoPill}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setTrailerVisible(true);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Watch trailer for ${result.title}`}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="logo-youtube" size={20} color="rgba(255,255,255,0.85)" />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={styles.infoPill}
+                style={[styles.trailerButton, { backgroundColor: colors.primary }]}
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  if (isInWatchlist) {
-                    toastiva.info('Already saved — tap to manage');
-                  } else {
-                    toastiva.success('Adding to Watchlist…');
-                  }
-                  onToggleWatchlist(result);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setTrailerVisible(true);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={isInWatchlist ? `Remove ${result.title} from watchlist` : `Add ${result.title} to watchlist`}
-                accessibilityState={{ selected: isInWatchlist }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityLabel={`Watch trailer for ${result.title}`}
               >
-                <Ionicons
-                  name={isInWatchlist ? "bookmark" : "bookmark-outline"}
-                  size={20}
-                  color="rgba(255,255,255,0.85)"
-                />
+                <Ionicons name="play" size={18} color="#ffffff" style={{ marginRight: 6 }} />
+                <Text style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]}>Watch Trailer</Text>
               </TouchableOpacity>
+            )}
+
+            {/* Info Row ScrollView with Gradient Fade */}
+            <View style={styles.infoRowContainer}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.infoRowScroll}
+              >
+                <View style={styles.infoPill}>
+                  <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.75)" />
+                  <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>{result.year}</Text>
+                </View>
+                {isTv && seasonCount > 0 && (
+                  <View style={styles.infoPill}>
+                    <Ionicons name="tv-outline" size={14} color="rgba(255,255,255,0.75)" />
+                    <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
+                      {pluralize(seasonCount, 'season')}
+                    </Text>
+                  </View>
+                )}
+                {!isTv && runtimeLabel && (
+                  <View style={styles.infoPill}>
+                    <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.75)" />
+                    <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
+                      {runtimeLabel}
+                    </Text>
+                  </View>
+                )}
+                {result.omdbRatings?.rated && (
+                  <View style={[styles.infoPill, styles.ratedBadge]}>
+                    <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.85)', ...typography.labelSm }]}>
+                      {result.omdbRatings.rated}
+                    </Text>
+                  </View>
+                )}
+                {result.isFranchise && (
+                  <View style={[styles.infoPill, styles.ratedBadge]}>
+                    <Ionicons name="albums-outline" size={14} color="rgba(255,255,255,0.85)" />
+                    <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.85)', ...typography.labelSm }]}>
+                      {result.franchiseLabel}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Wikidata Language and Country pills */}
+                {wikiLoading ? (
+                  <>
+                    <View style={[styles.infoPill, styles.skeletonPill]}>
+                      <SkeletonBlock width={50} height={12} borderRadius={6} />
+                    </View>
+                    <View style={[styles.infoPill, styles.skeletonPill]}>
+                      <SkeletonBlock width={60} height={12} borderRadius={6} />
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    {wikiData.languages && wikiData.languages.length > 0 && (
+                      <View style={styles.infoPill}>
+                        <Ionicons name="language-outline" size={14} color="rgba(255,255,255,0.75)" />
+                        <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
+                          {wikiData.languages.join(', ')}
+                        </Text>
+                      </View>
+                    )}
+                    {wikiData.countries && wikiData.countries.length > 0 && (
+                      <View style={styles.infoPill}>
+                        <Ionicons name="globe-outline" size={14} color="rgba(255,255,255,0.75)" />
+                        <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
+                          {wikiData.countries.join(', ')}
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                )}
+              </ScrollView>
+              
+              <LinearGradient
+                colors={['transparent', colors.background]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.infoFadeOverlay}
+                pointerEvents="none"
+              />
             </View>
           </Animated.View>
         </View>
@@ -1350,6 +1474,51 @@ export function ResultView({ result, onBack, onToggleWatchlist, isInWatchlist, o
           )}
         </View>
       </Animated.ScrollView>
+
+      {/* Floating Header Actions */}
+      <View style={[styles.floatingHeader, { top: (insets.top || 0) + 12 }]} pointerEvents="box-none">
+        <TouchableOpacity
+          style={[styles.floatingButton, { backgroundColor: colors.surfaceContainerHighest + 'E6' }]}
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
+        </TouchableOpacity>
+
+        <View style={styles.floatingRightActions}>
+          <TouchableOpacity
+            style={[styles.floatingButton, { backgroundColor: colors.surfaceContainerHighest + 'E6' }]}
+            onPress={handleOpenShareSheet}
+            accessibilityRole="button"
+            accessibilityLabel={`Share ${result.title}`}
+          >
+            <Ionicons name="share-social-outline" size={20} color={colors.onSurface} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.floatingButton, { backgroundColor: colors.surfaceContainerHighest + 'E6' }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              if (isInWatchlist) {
+                toastiva.info('Already saved — tap to manage');
+              } else {
+                toastiva.success('Adding to Watchlist…');
+              }
+              onToggleWatchlist(result);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={isInWatchlist ? `Remove ${result.title} from watchlist` : `Add ${result.title} to watchlist`}
+            accessibilityState={{ selected: isInWatchlist }}
+          >
+            <Ionicons
+              name={isInWatchlist ? "bookmark" : "bookmark-outline"}
+              size={20}
+              color={isInWatchlist ? colors.primary : colors.onSurface}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
     </>
   );
 }
@@ -1379,8 +1548,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 24,
-    paddingRight: 80,
+    paddingLeft: 72,
+    paddingRight: 120,
     gap: 10,
     height: '100%',
   },
@@ -1522,16 +1691,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   infoText: {
     fontWeight: '600',
   },
   ratedBadge: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    borderColor: 'rgba(255,255,255,0.35)',
   },
   detailsContent: {
     paddingHorizontal: 24,
@@ -2007,5 +2178,74 @@ const styles = StyleSheet.create({
   productionLogo: {
     width: 80,
     height: 40,
+  },
+  floatingHeader: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 30,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    height: 48,
+    alignItems: 'center',
+  },
+  floatingButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  floatingRightActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  trailerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: verticalScale(48),
+    borderRadius: 12,
+    width: '100%',
+    marginBottom: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  trailerButtonText: {
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  infoRowContainer: {
+    position: 'relative',
+    width: '100%',
+  },
+  infoRowScroll: {
+    paddingRight: 32,
+    gap: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoFadeOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 32,
+  },
+  skeletonPill: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
 });

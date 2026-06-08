@@ -39,6 +39,7 @@ function WatchlistDetailScreen() {
   const {
     selectedResult,
     handleToggleWatchlist,
+    handleEnrichWatchlistItem,
     savedWatchlistKeys,
     handleSelectMatch,
     handlePersonPress,
@@ -50,6 +51,7 @@ function WatchlistDetailScreen() {
       result={selectedResult}
       onBack={() => navigation.goBack()}
       onToggleWatchlist={handleToggleWatchlist}
+      onEnrichWatchlistItem={handleEnrichWatchlistItem}
       isInWatchlist={savedWatchlistKeys.includes(watchlistEntryKey(selectedResult))}
       onSelectSimilar={(match) => handleSelectMatch(match, navigation)}
       onPersonPress={(personId, personName, role) => handlePersonPress(personId, personName, role, navigation)}
