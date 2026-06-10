@@ -1,7 +1,7 @@
 import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert, Platform } from 'react-native';
 import { useBottomNavScroll, useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { ProgressiveBlur } from './ProgressiveBlur';
@@ -15,7 +15,10 @@ import { MediaArtwork } from './MediaArtwork';
 import { ShareCard } from './ShareCard';
 import { ShareOptionsSheetContent } from './ShareOptionsSheet';
 import { TrailerModal } from './TrailerModal';
+import { SoundtrackPickerSheetContent } from './SoundtrackPickerSheet';
 import { searchPersonByName, fetchPersonFilmography } from '../lib/tmdb';
+import { openSpotifyAlbum } from '../lib/spotify';
+import { parseSoundtracksFromBindings } from '../lib/wikidataSoundtracks';
 import { scale, verticalScale, screenHeight } from '../utils/responsive';
 import { useBottomSheet } from './StackBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -150,12 +153,12 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     }
   }
 
-  if (clauses.length === 0) return { languages: [], countries: [], basedOn: [] };
+  if (clauses.length === 0) return { languages: [], countries: [], basedOn: [], soundtracks: [] };
 
   const unionClause = clauses.map((c) => `{ ${c} }`).join(' UNION ');
 
   const sparql = `
-    SELECT DISTINCT ?item ?languageLabel ?countryLabel ?basedOn ?basedOnLabel ?authorLabel ?typeLabel WHERE {
+    SELECT DISTINCT ?item ?languageLabel ?countryLabel ?basedOn ?basedOnLabel ?authorLabel ?typeLabel ?soundtrack ?soundtrackLabel ?spotifyAlbumId ?releaseDate ?cover WHERE {
       ${unionClause} .
       OPTIONAL { ?item wdt:P364 ?language . }
       OPTIONAL { ?item wdt:P495 ?country . }
@@ -163,6 +166,12 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
         ?item wdt:P144 ?basedOn .
         OPTIONAL { ?basedOn wdt:P50 ?author . }
         OPTIONAL { ?basedOn wdt:P31 ?type . }
+      }
+      OPTIONAL {
+        ?item wdt:P406 ?soundtrack .
+        OPTIONAL { ?soundtrack wdt:P2205 ?spotifyAlbumId . }
+        OPTIONAL { ?soundtrack wdt:P577 ?releaseDate . }
+        OPTIONAL { ?soundtrack wdt:P18 ?cover . }
       }
       SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
     }
@@ -222,10 +231,13 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     types: Array.from(data.types),
   }));
 
+  const soundtracks = parseSoundtracksFromBindings(bindings, wikidataIdFromUri);
+
   return {
     languages: Array.from(languagesSet),
     countries: Array.from(countriesSet),
     basedOn,
+    soundtracks,
   };
 }
 
@@ -446,7 +458,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   const shareSheetIdRef = useRef(null);
 
   // ── Wikidata enrichment state ────────────────────────────────────────────
-  const [wikiData, setWikiData] = useState({ languages: [], countries: [], basedOn: null });
+  const [wikiData, setWikiData] = useState({ languages: [], countries: [], basedOn: null, soundtracks: [] });
   const [wikiLoading, setWikiLoading] = useState(false);
   const [wikiError, setWikiError] = useState(false);
   const [wikiRetryToken, setWikiRetryToken] = useState(0);
@@ -470,7 +482,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   useEffect(() => {
     setShowAllCast(false);
     setIsSynopsisExpanded(false);
-    setWikiData({ languages: [], countries: [], basedOn: null });
+    setWikiData({ languages: [], countries: [], basedOn: null, soundtracks: [] });
     setWikiLoading(false);
     setWikiError(false);
   }, [result?.tmdbId]);
@@ -480,11 +492,13 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
     if (!result?.tmdbId) return;
 
     const hasCachedEnrichment = result.wikidataEnriched === true || result.basedOn !== undefined;
-    if (hasCachedEnrichment) {
+    const hasCachedSoundtracks = Array.isArray(result.soundtracks);
+    if (hasCachedEnrichment && hasCachedSoundtracks) {
       setWikiData({
         languages: Array.isArray(result.originalLanguage) ? result.originalLanguage : [],
         countries: Array.isArray(result.countryOfOrigin) ? result.countryOfOrigin : [],
         basedOn: Array.isArray(result.basedOn) ? result.basedOn : [],
+        soundtracks: result.soundtracks,
       });
       setWikiLoading(false);
       setWikiError(false);
@@ -506,6 +520,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
             originalLanguage: data.languages,
             countryOfOrigin: data.countries,
             basedOn: data.basedOn,
+            soundtracks: data.soundtracks,
             wikidataEnriched: true,
           });
         }
@@ -518,7 +533,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
       });
 
     return () => { cancelled = true; };
-  }, [result?.tmdbId, result?.imdbId, result?.mediaType, result?.originalLanguage, result?.countryOfOrigin, result?.basedOn, result?.wikidataEnriched, onEnrichWatchlistItem, isInWatchlist, wikiRetryToken]);
+  }, [result?.tmdbId, result?.imdbId, result?.mediaType, result?.originalLanguage, result?.countryOfOrigin, result?.basedOn, result?.soundtracks, result?.wikidataEnriched, onEnrichWatchlistItem, isInWatchlist, wikiRetryToken]);
 
   const handleBasedOnPress = useCallback((work) => {
     if (!work?.id) return;
@@ -531,6 +546,40 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
     setWikiError(false);
     setWikiRetryToken((token) => token + 1);
   }, []);
+
+  const playableSoundtracks = useMemo(
+    () => (wikiData.soundtracks || []).filter((soundtrack) => soundtrack.spotifyAlbumId),
+    [wikiData.soundtracks],
+  );
+
+  const handleSoundtrackPress = useCallback(() => {
+    if (!playableSoundtracks.length) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (playableSoundtracks.length === 1) {
+      openSpotifyAlbum(playableSoundtracks[0].spotifyAlbumId);
+      return;
+    }
+
+    let sheetId;
+    const content = (
+      <SoundtrackPickerSheetContent
+        soundtracks={playableSoundtracks}
+        colors={colors}
+        typography={typography}
+        onSelect={(soundtrack) => openSpotifyAlbum(soundtrack.spotifyAlbumId)}
+        onDismiss={() => dismissSheet(sheetId)}
+      />
+    );
+    sheetId = showSheet(content, {
+      title: 'Choose Soundtrack',
+      size: 'large',
+      scrollable: false,
+      showCloseButton: true,
+      dismissOnBackdrop: true,
+    });
+  }, [playableSoundtracks, colors, typography, showSheet, dismissSheet]);
 
   const handlePersonPressWithFallback = useCallback(async (person, role) => {
     if (!onPersonPress) return;
@@ -1036,6 +1085,36 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                 <Text style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]}>Watch Trailer</Text>
               </TouchableOpacity>
             )}
+
+            {wikiLoading ? (
+              <View style={[styles.trailerButton, styles.soundtrackSkeleton, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+                <SkeletonBlock width="62%" height={16} borderRadius={8} />
+              </View>
+            ) : playableSoundtracks.length === 1 ? (
+              <TouchableOpacity
+                style={[styles.trailerButton, { backgroundColor: colors.primary }]}
+                onPress={handleSoundtrackPress}
+                accessibilityRole="button"
+                accessibilityLabel={`Play ${playableSoundtracks[0].title} on Spotify`}
+              >
+                <FontAwesome5 name="spotify" size={18} color="#ffffff" style={{ marginRight: 6 }} />
+                <Text style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]} numberOfLines={1}>
+                  {playableSoundtracks[0].title}
+                </Text>
+              </TouchableOpacity>
+            ) : playableSoundtracks.length > 1 ? (
+              <TouchableOpacity
+                style={[styles.trailerButton, { backgroundColor: colors.primary }]}
+                onPress={handleSoundtrackPress}
+                accessibilityRole="button"
+                accessibilityLabel={`Choose soundtrack for ${result.title}`}
+              >
+                <FontAwesome5 name="spotify" size={18} color="#ffffff" style={{ marginRight: 6 }} />
+                <Text style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]}>
+                  {`Choose Soundtrack (${playableSoundtracks.length})`}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
 
             {/* Info Row ScrollView with Gradient Fade */}
             <View style={styles.infoRowContainer}>
@@ -2380,6 +2459,11 @@ const styles = StyleSheet.create({
   trailerButtonText: {
     fontWeight: '800',
     letterSpacing: 0.5,
+    flexShrink: 1,
+  },
+  soundtrackSkeleton: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   infoRowContainer: {
     position: 'relative',

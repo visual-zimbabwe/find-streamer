@@ -276,3 +276,26 @@ test('normalizeWatchlistItems preserves basedOn field', () => {
   ]);
   assert.equal(normalized[0].wikidataEnriched, true);
 });
+
+test('normalizeWatchlistItems preserves soundtracks field', () => {
+  const item = {
+    tmdbId: 27205,
+    mediaType: 'movie',
+    title: 'Inception',
+    watchlistCategoryId: 'watch_next',
+    soundtracks: [
+      {
+        wikidataId: 'Q123456',
+        title: 'Inception: Music from the Motion Picture',
+        year: 2010,
+        coverUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/cover.jpg',
+        spotifyAlbumId: 'abc123',
+      },
+    ],
+    wikidataEnriched: true,
+  };
+
+  const normalized = normalizeWatchlistItems([item]);
+  assert.equal(normalized.length, 1);
+  assert.deepEqual(normalized[0].soundtracks, item.soundtracks);
+});
