@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
-  Platform,
+  SectionList,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -30,46 +29,55 @@ import {
 } from '../lib/collectionPrefsStorage';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { moderateScale, scale, verticalScale } from '../utils/responsive';
-import { ContentRail } from './HomeScreen';
+import { CollectionContentRail } from './CollectionContentRail';
 import { CollectionFindSheet } from './CollectionFindSheet';
 
 const ALPHA_LETTER_FONT_SIZE = moderateScale(14, 0.4);
 
-// Approximate ContentRail block height for scrollToIndex without rendering every row.
-const RAIL_ITEM_HEIGHT = 280;
-
-function CollapsibleSection({
+function SectionHeader({
   title,
   count,
   expanded,
+  collapsible,
   onToggle,
   colors,
   typography,
-  children,
 }) {
-  return (
-    <View style={styles.sectionBlock}>
-      <TouchableOpacity
-        style={[styles.sectionHeader, { backgroundColor: colors.surfaceContainerHigh }]}
-        onPress={onToggle}
-        activeOpacity={0.82}
-        accessibilityRole="button"
-        accessibilityLabel={`${title}, ${count} collections, ${expanded ? 'expanded' : 'collapsed'}`}
-      >
+  if (!collapsible) {
+    return (
+      <View style={[styles.catalogSectionHeader, { backgroundColor: colors.surfaceContainerHigh }]}>
         <Text style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '800', flex: 1 }]}>
           {title}
         </Text>
-        <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', marginRight: 8 }]}>
-          {count}
-        </Text>
-        <Ionicons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={colors.onSurfaceVariant}
-        />
-      </TouchableOpacity>
-      {expanded ? children : null}
-    </View>
+        {count != null && (
+          <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
+            {count}
+          </Text>
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={[styles.sectionHeader, { backgroundColor: colors.surfaceContainerHigh }]}
+      onPress={onToggle}
+      activeOpacity={0.82}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${count} collections, ${expanded ? 'expanded' : 'collapsed'}`}
+    >
+      <Text style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '800', flex: 1 }]}>
+        {title}
+      </Text>
+      <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', marginRight: 8 }]}>
+        {count}
+      </Text>
+      <Ionicons
+        name={expanded ? 'chevron-up' : 'chevron-down'}
+        size={18}
+        color={colors.onSurfaceVariant}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -101,7 +109,7 @@ function CollectionRail({
   );
 
   return (
-    <ContentRail
+    <CollectionContentRail
       title={row.title}
       data={row.items}
       colors={colors}
@@ -184,6 +192,8 @@ export function FranchiseRailsView({
   const insets = useSafeAreaInsets();
   const listRef = useRef(null);
   const skipNextCatalogResetRef = useRef(false);
+  const scrollOffsetRef = useRef(0);
+  const pendingScrollRestoreRef = useRef(null);
 
   const [sortMode, setSortMode] = useState('rating');
   const [catalogScrollTarget, setCatalogScrollTarget] = useState(null);
@@ -248,6 +258,45 @@ export function FranchiseRailsView({
     return sortCollectionRows(filtered, sortMode);
   }, [allRows, searchQuery, sizeFilters, decadeFilters, customDecadeRange, sortMode]);
 
+  const sections = useMemo(() => {
+    const result = [];
+
+    if (libraryRows.length > 0) {
+      result.push({
+        key: 'library',
+        title: 'In your library',
+        count: libraryRows.length,
+        collapsible: true,
+        data: sectionCollapsed.library ? [] : libraryRows,
+      });
+    }
+
+    if (pinnedRows.length > 0) {
+      result.push({
+        key: 'pinned',
+        title: 'Pinned',
+        count: pinnedRows.length,
+        collapsible: true,
+        data: sectionCollapsed.pinned ? [] : pinnedRows,
+      });
+    }
+
+    result.push({
+      key: 'catalog',
+      title: 'All Collections',
+      count: filteredMainRows.length,
+      collapsible: false,
+      data: filteredMainRows,
+    });
+
+    return result;
+  }, [libraryRows, pinnedRows, sectionCollapsed, filteredMainRows]);
+
+  const catalogSectionIndex = useMemo(
+    () => sections.findIndex((section) => section.key === 'catalog'),
+    [sections],
+  );
+
   const indexLetters = useMemo(
     () => getIndexLetters(filteredMainRows),
     [filteredMainRows],
@@ -271,37 +320,44 @@ export function FranchiseRailsView({
     });
   }, [searchQuery, sizeFilters, decadeFilters, customDecadeRange, sortMode]);
 
+  useLayoutEffect(() => {
+    if (pendingScrollRestoreRef.current != null) {
+      const offset = pendingScrollRestoreRef.current;
+      pendingScrollRestoreRef.current = null;
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset?.({ offset, animated: false });
+      });
+    }
+  }, [sectionCollapsed, sections]);
+
   const scrollToCatalogIndex = useCallback((targetIndex, { requireAz = false } = {}) => {
-    if (targetIndex < 0) return;
-    setCatalogScrollTarget({ index: targetIndex, requireAz });
-  }, []);
+    if (targetIndex < 0 || catalogSectionIndex < 0) return;
+    setCatalogScrollTarget({ sectionIndex: catalogSectionIndex, itemIndex: targetIndex, requireAz });
+  }, [catalogSectionIndex]);
 
   useLayoutEffect(() => {
     if (!catalogScrollTarget) return;
     if (catalogScrollTarget.requireAz && sortMode !== 'az') return;
-    if (catalogScrollTarget.index >= filteredMainRows.length) return;
+    if (catalogScrollTarget.sectionIndex >= sections.length) return;
 
-    const { index: targetIndex } = catalogScrollTarget;
+    const { sectionIndex, itemIndex: targetIndex } = catalogScrollTarget;
+    const section = sections[sectionIndex];
+    if (!section || targetIndex >= section.data.length) return;
+
     const list = listRef.current;
     if (!list) return;
 
     requestAnimationFrame(() => {
-      try {
-        list.scrollToIndex({
-          index: targetIndex,
-          animated: true,
-          viewPosition: 0,
-        });
-        setCatalogScrollTarget(null);
-      } catch {
-        list.scrollToOffset({
-          offset: Math.max(0, targetIndex * RAIL_ITEM_HEIGHT),
-          animated: true,
-        });
-        setCatalogScrollTarget(null);
-      }
+      list.scrollToLocation({
+        sectionIndex,
+        itemIndex: targetIndex,
+        animated: true,
+        viewOffset: 0,
+        viewPosition: 0,
+      });
+      setCatalogScrollTarget(null);
     });
-  }, [catalogScrollTarget, sortMode, filteredMainRows.length]);
+  }, [catalogScrollTarget, sortMode, sections]);
 
   const scrollToRowId = useCallback((rowId) => {
     const targetIndex = filteredMainRows.findIndex((row) => row.id === rowId);
@@ -346,6 +402,7 @@ export function FranchiseRailsView({
   }, [libraryIds]);
 
   const handleToggleSection = useCallback((sectionKey) => {
+    pendingScrollRestoreRef.current = scrollOffsetRef.current;
     setSectionCollapsed((prev) => {
       const next = { ...prev, [sectionKey]: !prev[sectionKey] };
       saveCollectionSectionCollapsed(next);
@@ -375,11 +432,12 @@ export function FranchiseRailsView({
     setCustomDecadeRange({ min: null, max: null });
   }, []);
 
-  const bottomNavScroll = useBottomNavScroll();
+  const bottomNavScroll = useBottomNavScroll((event) => {
+    scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+  });
 
   const renderCollectionRail = useCallback((row) => (
     <CollectionRail
-      key={row.id}
       row={row}
       inLibrary={libraryIds.has(row.id)}
       isPinned={pinnedIds.includes(row.id)}
@@ -391,42 +449,90 @@ export function FranchiseRailsView({
     />
   ), [colors, typography, radii, onSelectItem, libraryIds, pinnedIds, handleTogglePin]);
 
-  const listHeader = useMemo(() => (
-    <View>
-      {libraryRows.length > 0 && (
-        <CollapsibleSection
-          title="In your library"
-          count={libraryRows.length}
-          expanded={!sectionCollapsed.library}
-          onToggle={() => handleToggleSection('library')}
-          colors={colors}
-          typography={typography}
+  const renderSectionHeader = useCallback(({ section }) => {
+    const expanded = section.collapsible
+      ? !sectionCollapsed[section.key]
+      : true;
+
+    return (
+      <SectionHeader
+        title={section.title}
+        count={section.count}
+        expanded={expanded}
+        collapsible={section.collapsible}
+        onToggle={section.collapsible ? () => handleToggleSection(section.key) : undefined}
+        colors={colors}
+        typography={typography}
+      />
+    );
+  }, [sectionCollapsed, colors, typography, handleToggleSection]);
+
+  const renderItem = useCallback(({ item }) => (
+    renderCollectionRail(item)
+  ), [renderCollectionRail]);
+
+  const keyExtractor = useCallback((item, index) => `${item.id}-${index}`, []);
+
+  const handleScrollToIndexFailed = useCallback((info) => {
+    setTimeout(() => {
+      const list = listRef.current;
+      if (!list) return;
+      list.scrollToLocation({
+        sectionIndex: info.sectionIndex,
+        itemIndex: info.index,
+        animated: true,
+        viewOffset: 0,
+        viewPosition: 0,
+      });
+      setCatalogScrollTarget(null);
+    }, 100);
+  }, []);
+
+  const renderCatalogEmpty = useCallback(() => {
+    if (filteredMainRows.length > 0) return null;
+
+    if (loading) {
+      return (
+        <View style={[styles.statePanel, { backgroundColor: colors.surfaceContainerHighest }]}>
+          <ActivityIndicator color={colors.primary} accessibilityLabel="Loading collections" />
+          <Text style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+            Finding top-rated movie collections...
+          </Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <TouchableOpacity
+          style={[styles.statePanel, { backgroundColor: colors.surfaceContainerHighest }]}
+          onPress={onRetry}
+          activeOpacity={0.82}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading movie collections"
         >
-          {libraryRows.map(renderCollectionRail)}
-        </CollapsibleSection>
-      )}
-      {pinnedRows.length > 0 && (
-        <CollapsibleSection
-          title="Pinned"
-          count={pinnedRows.length}
-          expanded={!sectionCollapsed.pinned}
-          onToggle={() => handleToggleSection('pinned')}
-          colors={colors}
-          typography={typography}
-        >
-          {pinnedRows.map(renderCollectionRail)}
-        </CollapsibleSection>
-      )}
-    </View>
-  ), [
-    libraryRows,
-    pinnedRows,
-    sectionCollapsed,
-    colors,
-    typography,
-    handleToggleSection,
-    renderCollectionRail,
-  ]);
+          <Ionicons name="refresh-outline" size={24} color={colors.primary} />
+          <Text style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+            Collections could not load. Tap to retry.
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View style={[styles.statePanel, { backgroundColor: colors.surfaceContainerHighest }]}>
+        <Ionicons name="albums-outline" size={26} color={colors.onSurfaceVariant} />
+        <Text style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+          No collections match your filters.
+        </Text>
+      </View>
+    );
+  }, [filteredMainRows.length, loading, error, colors, typography, onRetry]);
+
+  const renderSectionFooter = useCallback(({ section }) => {
+    if (section.key !== 'catalog') return null;
+    return renderCatalogEmpty();
+  }, [renderCatalogEmpty]);
 
   return (
     <View style={styles.root}>
@@ -475,11 +581,10 @@ export function FranchiseRailsView({
         />
       </View>
 
-      <FlatList
+      <SectionList
         ref={listRef}
-        data={filteredMainRows}
-        extraData={sortMode}
-        keyExtractor={(row) => String(row.id)}
+        sections={sections}
+        keyExtractor={keyExtractor}
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollInner,
@@ -488,75 +593,16 @@ export function FranchiseRailsView({
             paddingBottom: insets.bottom + 112,
             paddingRight: scale(42),
           },
+          filteredMainRows.length === 0 && styles.scrollInnerEmpty,
         ]}
         showsVerticalScrollIndicator={false}
-        windowSize={5}
-        maxToRenderPerBatch={4}
-        initialNumToRender={5}
-        removeClippedSubviews={Platform.OS === 'ios'}
-        getItemLayout={(_, index) => ({
-          length: RAIL_ITEM_HEIGHT,
-          offset: RAIL_ITEM_HEIGHT * index,
-          index,
-        })}
-        onScrollToIndexFailed={(info) => {
-          setTimeout(() => {
-            const list = listRef.current;
-            if (!list) return;
-            try {
-              list.scrollToIndex({
-                index: info.index,
-                animated: true,
-                viewPosition: 0,
-              });
-            } catch {
-              list.scrollToOffset({
-                offset: Math.max(0, info.index * RAIL_ITEM_HEIGHT),
-                animated: true,
-              });
-            }
-            setCatalogScrollTarget(null);
-          }, 100);
-        }}
+        nestedScrollEnabled
+        stickySectionHeadersEnabled={false}
+        renderSectionHeader={renderSectionHeader}
+        renderSectionFooter={renderSectionFooter}
+        renderItem={renderItem}
+        onScrollToIndexFailed={handleScrollToIndexFailed}
         {...bottomNavScroll}
-        ListHeaderComponent={listHeader}
-        renderItem={({ item: row }) => renderCollectionRail(row)}
-        ListEmptyComponent={() => {
-          if (loading) {
-            return (
-              <View style={[styles.statePanel, { backgroundColor: colors.surfaceContainerHighest }]}>
-                <ActivityIndicator color={colors.primary} accessibilityLabel="Loading collections" />
-                <Text style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                  Finding top-rated movie collections...
-                </Text>
-              </View>
-            );
-          }
-          if (error) {
-            return (
-              <TouchableOpacity
-                style={[styles.statePanel, { backgroundColor: colors.surfaceContainerHighest }]}
-                onPress={onRetry}
-                activeOpacity={0.82}
-                accessibilityRole="button"
-                accessibilityLabel="Retry loading movie collections"
-              >
-                <Ionicons name="refresh-outline" size={24} color={colors.primary} />
-                <Text style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                  Collections could not load. Tap to retry.
-                </Text>
-              </TouchableOpacity>
-            );
-          }
-          return (
-            <View style={[styles.statePanel, { backgroundColor: colors.surfaceContainerHighest }]}>
-              <Ionicons name="albums-outline" size={26} color={colors.onSurfaceVariant} />
-              <Text style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                No collections match your filters.
-              </Text>
-            </View>
-          );
-        }}
       />
 
       <CollectionFindSheet
@@ -590,6 +636,9 @@ const styles = StyleSheet.create({
   },
   scrollInner: {
     paddingTop: 0,
+  },
+  scrollInnerEmpty: {
+    flexGrow: 1,
   },
   findButton: {
     position: 'absolute',
@@ -654,10 +703,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
-  sectionBlock: {
-    marginBottom: 8,
-  },
   sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  catalogSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 16,
