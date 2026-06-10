@@ -68,13 +68,20 @@ function HomePosterCard({ item, colors, typography, radii, onPress }) {
   );
 }
 
-export function ContentRail({ title, data, colors, typography, radii, onSelectItem }) {
+export function ContentRail({ title, data, colors, typography, radii, onSelectItem, headerRight = null }) {
   if (!data?.length) return null;
   return (
     <View style={styles.railBlock}>
-      <Text style={[styles.railTitle, { color: colors.onSurface, ...typography.titleMd }]} accessibilityRole="header">
-        {title}
-      </Text>
+      <View style={styles.railHeaderRow}>
+        <Text
+          style={[styles.railTitle, { color: colors.onSurface, ...typography.titleMd }]}
+          accessibilityRole="header"
+          numberOfLines={2}
+        >
+          {title}
+        </Text>
+        {headerRight}
+      </View>
       <FlatList
         horizontal
         data={data}
@@ -510,10 +517,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   railBlock: { marginTop: 22 },
+  railHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 4,
+    marginBottom: 12,
+    gap: 8,
+  },
   railTitle: {
+    flex: 1,
     fontWeight: '800',
     paddingHorizontal: 20,
-    marginBottom: 12,
   },
   railList: { paddingHorizontal: 16 },
   posterCard: { width: POSTER_W },
