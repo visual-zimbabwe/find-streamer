@@ -11,6 +11,12 @@
       <category android:name="android.intent.category.BROWSABLE"/>
       <data android:scheme="https"/>
     </intent>
+    <intent>
+      <action android:name="android.intent.action.VIEW"/>
+      <category android:name="android.intent.category.BROWSABLE"/>
+      <data android:scheme="spotify"/>
+    </intent>
+    <package android:name="com.spotify.music"/>
   </queries>
   <queries>
     <package android:name="com.google.android.googlequicksearchbox"/>
