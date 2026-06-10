@@ -131,6 +131,12 @@ function personKey(person, index) {
 
 const isEntityUri = (val) => typeof val === 'string' && val.startsWith('http://www.wikidata.org/entity/');
 
+function wikidataIdFromUri(uri) {
+  if (!uri || typeof uri !== 'string') return null;
+  const match = uri.match(/\/entity\/(Q\d+)$/i);
+  return match ? match[1].toUpperCase() : null;
+}
+
 async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
   const clauses = [];
   if (imdbId) {
@@ -190,25 +196,28 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     if (b.countryLabel?.value && !isEntityUri(b.countryLabel.value)) {
       countriesSet.add(b.countryLabel.value);
     }
-    if (b.basedOnLabel?.value && !isEntityUri(b.basedOnLabel.value)) {
+    const basedOnUri = b.basedOn?.value;
+    if (isEntityUri(basedOnUri) && b.basedOnLabel?.value && !isEntityUri(b.basedOnLabel.value)) {
       const name = b.basedOnLabel.value;
+      const id = wikidataIdFromUri(basedOnUri);
       const author = (b.authorLabel?.value && !isEntityUri(b.authorLabel.value)) ? b.authorLabel.value : null;
       const type = (b.typeLabel?.value && !isEntityUri(b.typeLabel.value)) ? b.typeLabel.value : null;
 
-      if (!basedOnMap.has(name)) {
-        basedOnMap.set(name, { authors: new Set(), types: new Set() });
+      if (!basedOnMap.has(basedOnUri)) {
+        basedOnMap.set(basedOnUri, { id, name, authors: new Set(), types: new Set() });
       }
       if (author) {
-        basedOnMap.get(name).authors.add(author);
+        basedOnMap.get(basedOnUri).authors.add(author);
       }
       if (type) {
-        basedOnMap.get(name).types.add(type);
+        basedOnMap.get(basedOnUri).types.add(type);
       }
     }
   }
 
-  const basedOn = Array.from(basedOnMap.entries()).map(([name, data]) => ({
-    name,
+  const basedOn = Array.from(basedOnMap.values()).map((data) => ({
+    id: data.id,
+    name: data.name,
     authors: Array.from(data.authors),
     types: Array.from(data.types),
   }));
@@ -437,8 +446,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   const shareSheetIdRef = useRef(null);
 
   // ── Wikidata enrichment state ────────────────────────────────────────────
-  const [wikiData, setWikiData] = useState({ languages: [], countries: [], basedOn: [] });
+  const [wikiData, setWikiData] = useState({ languages: [], countries: [], basedOn: null });
   const [wikiLoading, setWikiLoading] = useState(false);
+  const [wikiError, setWikiError] = useState(false);
+  const [wikiRetryToken, setWikiRetryToken] = useState(0);
 
   // ── Dynamic poster palette ───────────────────────────────────────────────
   const { palette } = usePosterTheme(result?.posterUrl);
@@ -459,29 +470,30 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   useEffect(() => {
     setShowAllCast(false);
     setIsSynopsisExpanded(false);
-    setWikiData({ languages: [], countries: [], basedOn: [] });
+    setWikiData({ languages: [], countries: [], basedOn: null });
     setWikiLoading(false);
+    setWikiError(false);
   }, [result?.tmdbId]);
 
   // ── Wikidata SPARQL fetch ────────────────────────────────────────────────
   useEffect(() => {
     if (!result?.tmdbId) return;
 
-    // Use cached data from watchlist if already available
-    const cachedLanguages = result.originalLanguage;
-    const cachedCountries = result.countryOfOrigin;
-    const cachedBasedOn = result.basedOn;
-    if (Array.isArray(cachedLanguages) && cachedLanguages.length > 0 && Array.isArray(cachedBasedOn)) {
+    const hasCachedEnrichment = result.wikidataEnriched === true || result.basedOn !== undefined;
+    if (hasCachedEnrichment) {
       setWikiData({
-        languages: cachedLanguages,
-        countries: cachedCountries || [],
-        basedOn: cachedBasedOn,
+        languages: Array.isArray(result.originalLanguage) ? result.originalLanguage : [],
+        countries: Array.isArray(result.countryOfOrigin) ? result.countryOfOrigin : [],
+        basedOn: Array.isArray(result.basedOn) ? result.basedOn : [],
       });
+      setWikiLoading(false);
+      setWikiError(false);
       return;
     }
 
     let cancelled = false;
     setWikiLoading(true);
+    setWikiError(false);
 
     fetchWikidataDetails(result.imdbId, String(result.tmdbId), result.mediaType)
       .then((data) => {
@@ -489,21 +501,36 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
         setWikiData(data);
         setWikiLoading(false);
 
-        // Persist into watchlist if the item is bookmarked
-        if (onEnrichWatchlistItem && (data.languages.length > 0 || data.countries.length > 0 || data.basedOn.length > 0)) {
+        if (onEnrichWatchlistItem && isInWatchlist) {
           onEnrichWatchlistItem(result.tmdbId, result.mediaType, {
             originalLanguage: data.languages,
             countryOfOrigin: data.countries,
             basedOn: data.basedOn,
+            wikidataEnriched: true,
           });
         }
       })
       .catch(() => {
-        if (!cancelled) setWikiLoading(false);
+        if (!cancelled) {
+          setWikiLoading(false);
+          setWikiError(true);
+        }
       });
 
     return () => { cancelled = true; };
-  }, [result?.tmdbId, result?.imdbId, result?.mediaType, result?.originalLanguage, result?.countryOfOrigin, result?.basedOn, onEnrichWatchlistItem]);
+  }, [result?.tmdbId, result?.imdbId, result?.mediaType, result?.originalLanguage, result?.countryOfOrigin, result?.basedOn, result?.wikidataEnriched, onEnrichWatchlistItem, isInWatchlist, wikiRetryToken]);
+
+  const handleBasedOnPress = useCallback((work) => {
+    if (!work?.id) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL(`https://www.wikidata.org/wiki/${work.id}`);
+  }, []);
+
+  const handleWikiRetry = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setWikiError(false);
+    setWikiRetryToken((token) => token + 1);
+  }, []);
 
   const handlePersonPressWithFallback = useCallback(async (person, role) => {
     if (!onPersonPress) return;
@@ -1132,10 +1159,24 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
               <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Based On</Text>
               <View style={styles.basedOnContainer}>
                 <View style={[styles.basedOnCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
-                  <Ionicons name="book-outline" size={18} color={colors.primary} style={styles.basedOnIcon} />
                   <SkeletonBlock style={{ width: 140, height: 16, borderRadius: 4 }} />
                 </View>
               </View>
+            </View>
+          ) : wikiError ? (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Based On</Text>
+              <TouchableOpacity
+                onPress={handleWikiRetry}
+                style={[styles.basedOnRetry, { borderColor: colors.outlineVariant }]}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading source material"
+              >
+                <Ionicons name="refresh-outline" size={16} color={colors.onSurfaceVariant} />
+                <Text style={[styles.basedOnRetryText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+                  Couldn&apos;t load source material. Tap to retry.
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : (
             wikiData.basedOn && wikiData.basedOn.length > 0 && (
@@ -1148,9 +1189,8 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                       : '';
                     const specificType = getSpecificType(work.types);
                     const typeLabel = specificType ? capitalize(specificType) : '';
-                    return (
-                      <View key={idx} style={[styles.basedOnCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
-                        <Ionicons name="book-outline" size={18} color={colors.primary} style={styles.basedOnIcon} />
+                    const cardContent = (
+                      <>
                         <Text style={[styles.basedOnText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
                           {typeLabel ? (
                             <Text style={{ color: colors.primary, fontWeight: '700' }}>
@@ -1160,6 +1200,26 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                           <Text style={{ fontWeight: 'bold' }}>{work.name}</Text>
                           {authorText}
                         </Text>
+                        {work.id ? (
+                          <Ionicons name="open-outline" size={16} color={colors.onSurfaceVariant} />
+                        ) : null}
+                      </>
+                    );
+                    const cardStyle = [styles.basedOnCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }];
+                    return work.id ? (
+                      <TouchableOpacity
+                        key={work.id}
+                        style={cardStyle}
+                        onPress={() => handleBasedOnPress(work)}
+                        activeOpacity={0.78}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open ${work.name} on Wikidata`}
+                      >
+                        {cardContent}
+                      </TouchableOpacity>
+                    ) : (
+                      <View key={`based-on-${idx}`} style={cardStyle}>
+                        {cardContent}
                       </View>
                     );
                   })}
@@ -2356,10 +2416,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
   },
-  basedOnIcon: {
-    marginRight: 2,
-  },
   basedOnText: {
+    flex: 1,
+    lineHeight: 20,
+  },
+  basedOnRetry: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  basedOnRetryText: {
     flex: 1,
     lineHeight: 20,
   },

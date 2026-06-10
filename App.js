@@ -925,18 +925,21 @@ function MobileApp() {
       const originalLanguage = fields.originalLanguage || [];
       const countryOfOrigin = fields.countryOfOrigin || [];
       const basedOn = fields.basedOn || [];
+      const wikidataEnriched = fields.wikidataEnriched === true;
 
       const languagesSame = JSON.stringify(prevRow.originalLanguage || []) === JSON.stringify(originalLanguage);
       const countriesSame = JSON.stringify(prevRow.countryOfOrigin || []) === JSON.stringify(countryOfOrigin);
       const basedOnSame = JSON.stringify(prevRow.basedOn || []) === JSON.stringify(basedOn);
+      const enrichedSame = prevRow.wikidataEnriched === wikidataEnriched;
 
-      if (languagesSame && countriesSame && basedOnSame) return prev;
+      if (languagesSame && countriesSame && basedOnSame && enrichedSame) return prev;
 
       const merged = normalizeWatchlistItem({
         ...prevRow,
         originalLanguage,
         countryOfOrigin,
         basedOn,
+        wikidataEnriched,
       });
       if (!merged) return prev;
 

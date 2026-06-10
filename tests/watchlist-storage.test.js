@@ -264,13 +264,15 @@ test('normalizeWatchlistItems preserves basedOn field', () => {
     title: 'The Lord of the Rings',
     watchlistCategoryId: 'watch_next',
     basedOn: [
-      { name: 'The Fellowship of the Ring', authors: ['J. R. R. Tolkien'], types: ['novel'] }
-    ]
+      { id: 'Q123', name: 'The Fellowship of the Ring', authors: ['J. R. R. Tolkien'], types: ['novel'] }
+    ],
+    wikidataEnriched: true,
   };
 
   const normalized = normalizeWatchlistItems([item]);
   assert.equal(normalized.length, 1);
   assert.deepEqual(normalized[0].basedOn, [
-    { name: 'The Fellowship of the Ring', authors: ['J. R. R. Tolkien'], types: ['novel'] }
+    { id: 'Q123', name: 'The Fellowship of the Ring', authors: ['J. R. R. Tolkien'], types: ['novel'] }
   ]);
+  assert.equal(normalized[0].wikidataEnriched, true);
 });
