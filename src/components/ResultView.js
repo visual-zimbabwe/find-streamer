@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert, Platform } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useBottomNavScroll, useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +20,11 @@ import { SoundtrackPickerSheetContent } from './SoundtrackPickerSheet';
 import { searchPersonByName, fetchPersonFilmography } from '../lib/tmdb';
 import { openSpotifyAlbum } from '../lib/spotify';
 import { parseSoundtracksFromBindings } from '../lib/wikidataSoundtracks';
+import {
+  formatAwardCounts,
+  fetchWikidataAwards,
+  parseOmdbAwardsFallback,
+} from '../lib/wikidataAwards';
 import { scale, verticalScale, screenHeight } from '../utils/responsive';
 import { useBottomSheet } from './StackBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,50 +49,6 @@ function ratingForCard(rating) {
   return s.split('/')[0];
 }
 
-// ── Award logo definitions ────────────────────────────────────────────────
-const AWARD_DEFS = [
-  {
-    key: 'oscar',
-    label: 'Oscars',
-    regex: /oscars?|academy awards?/i,
-    winRegex: /won\s+(\d+)\s+(?:oscars?|academy awards?)/i,
-    logoUri: 'https://images.ctfassets.net/mqgaq446dh9d/1hRNcghUHboflQc5dN5lhO/f331d2533a40ce9f53d25eecf77adaf4/oscars_logo_white_mode.jpg?fm=jpg&q=80&w=768',
-  },
-  {
-    key: 'emmy',
-    label: 'Emmys',
-    regex: /emmys?|emmy awards?/i,
-    winRegex: /won\s+(\d+)\s+(?:primetime\s+|daytime\s+|international\s+)?(?:emmys?|emmy awards?)/i,
-    logoUri: 'https://www.televisionacademy.com/build/assets/tva-logo.png',
-  },
-  {
-    key: 'globe',
-    label: 'Golden Globes',
-    regex: /golden globes?(?: awards?)?/i,
-    winRegex: /won\s+(\d+)\s+golden globes?(?: awards?)?/i,
-    logoUri: 'https://goldenglobes.com/wp-content/uploads/2025/12/default-stacked.jpg',
-  },
-];
-
-/**
- * Parse the raw OMDb Awards string and return only official-logo awards with wins.
- */
-function parseAwards(awardsStr) {
-  if (!awardsStr) return { badges: [] };
-  const badges = [];
-
-  for (const def of AWARD_DEFS) {
-    if (!def.regex.test(awardsStr)) continue;
-    const wonMatch = awardsStr.match(def.winRegex);
-    const won = wonMatch ? parseInt(wonMatch[1], 10) : null;
-    if (!won) continue;
-
-    badges.push({ ...def, won });
-  }
-
-  return { badges };
-}
-
 function formatRuntime(minutes, mediaType) {
   if (!minutes) return null;
   if (mediaType === 'tv') return `${minutes}m episodes`;
@@ -98,6 +60,33 @@ function formatRuntime(minutes, mediaType) {
 }
 
 const HERO_HEIGHT = verticalScale(480);
+
+function AwardLogoImage({ uri, label, style, fallbackStyle, iconColor }) {
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setFailed(false);
+  }, [uri]);
+
+  if (!uri || failed) {
+    return (
+      <View style={fallbackStyle}>
+        <Ionicons name="trophy-outline" size={28} color={iconColor} />
+      </View>
+    );
+  }
+
+  return (
+    <ExpoImage
+      source={{ uri }}
+      style={style}
+      contentFit="contain"
+      transition={150}
+      onError={() => setFailed(true)}
+      accessibilityLabel={`${label} logo`}
+    />
+  );
+}
 
 function splitPeople(value) {
   if (!hasValue(value)) return [];
@@ -160,7 +149,7 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     }
   }
 
-  if (clauses.length === 0) return { languages: [], countries: [], basedOn: [], soundtracks: [] };
+  if (clauses.length === 0) return { languages: [], countries: [], basedOn: [], soundtracks: [], awards: [] };
 
   const unionClause = clauses.map((c) => `{ ${c} }`).join(' UNION ');
 
@@ -186,13 +175,16 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
 
   const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
 
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'User-Agent': 'Trova/1.0 (juwimana.database@gmail.com)',
-      'Accept': 'application/sparql-results+json',
-    },
-  });
+  const [response, awards] = await Promise.all([
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Trova/1.0 (juwimana.database@gmail.com)',
+        'Accept': 'application/sparql-results+json',
+      },
+    }),
+    fetchWikidataAwards(imdbId, tmdbId, mediaType),
+  ]);
 
   if (!response.ok) {
     throw new Error(`Wikidata SPARQL request failed with status ${response.status}`);
@@ -245,6 +237,7 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     countries: Array.from(countriesSet),
     basedOn,
     soundtracks,
+    awards,
   };
 }
 
@@ -465,7 +458,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   const shareSheetIdRef = useRef(null);
 
   // ── Wikidata enrichment state ────────────────────────────────────────────
-  const [wikiData, setWikiData] = useState({ languages: [], countries: [], basedOn: null, soundtracks: [] });
+  const [wikiData, setWikiData] = useState({ languages: [], countries: [], basedOn: null, soundtracks: [], awards: [] });
   const [wikiLoading, setWikiLoading] = useState(false);
   const [wikiError, setWikiError] = useState(false);
   const [wikiRetryToken, setWikiRetryToken] = useState(0);
@@ -489,7 +482,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   useEffect(() => {
     setShowAllCast(false);
     setIsSynopsisExpanded(false);
-    setWikiData({ languages: [], countries: [], basedOn: null, soundtracks: [] });
+    setWikiData({ languages: [], countries: [], basedOn: null, soundtracks: [], awards: [] });
     setWikiLoading(false);
     setWikiError(false);
   }, [result?.tmdbId]);
@@ -500,12 +493,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
 
     const hasCachedEnrichment = result.wikidataEnriched === true || result.basedOn !== undefined;
     const hasCachedSoundtracks = Array.isArray(result.soundtracks);
-    if (hasCachedEnrichment && hasCachedSoundtracks) {
+    const hasCachedAwards = Array.isArray(result.awards);
+    if (hasCachedEnrichment && hasCachedSoundtracks && hasCachedAwards) {
       setWikiData({
         languages: Array.isArray(result.originalLanguage) ? result.originalLanguage : [],
         countries: Array.isArray(result.countryOfOrigin) ? result.countryOfOrigin : [],
         basedOn: Array.isArray(result.basedOn) ? result.basedOn : [],
         soundtracks: result.soundtracks,
+        awards: result.awards,
       });
       setWikiLoading(false);
       setWikiError(false);
@@ -528,6 +523,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
             countryOfOrigin: data.countries,
             basedOn: data.basedOn,
             soundtracks: data.soundtracks,
+            awards: data.awards,
             wikidataEnriched: true,
           });
         }
@@ -540,13 +536,31 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
       });
 
     return () => { cancelled = true; };
-  }, [result?.tmdbId, result?.imdbId, result?.mediaType, result?.originalLanguage, result?.countryOfOrigin, result?.basedOn, result?.soundtracks, result?.wikidataEnriched, onEnrichWatchlistItem, isInWatchlist, wikiRetryToken]);
+  }, [result?.tmdbId, result?.imdbId, result?.mediaType, result?.originalLanguage, result?.countryOfOrigin, result?.basedOn, result?.soundtracks, result?.awards, result?.wikidataEnriched, onEnrichWatchlistItem, isInWatchlist, wikiRetryToken]);
 
   const handleBasedOnPress = useCallback((work) => {
     if (!work?.id) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Linking.openURL(`https://www.wikidata.org/wiki/${work.id}`);
   }, []);
+
+  const handleAwardPress = useCallback((award) => {
+    if (!award?.wikidataId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL(`https://www.wikidata.org/wiki/${award.wikidataId}`);
+  }, []);
+
+  const displayAwards = useMemo(() => {
+    if (wikiData.awards?.length) {
+      return wikiData.awards;
+    }
+
+    if (wikiLoading) {
+      return [];
+    }
+
+    return parseOmdbAwardsFallback(result?.omdbRatings?.awards);
+  }, [wikiData.awards, wikiLoading, result?.omdbRatings?.awards]);
 
   const handleWikiRetry = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1526,40 +1540,74 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
 
 
           {/* ─── Awards ──────────────────────────────────────────────────── */}
-          {result.omdbRatings?.awards && (() => {
-            const parsed = parseAwards(result.omdbRatings.awards);
-            const hasBadges = parsed.badges && parsed.badges.length > 0;
-            if (!hasBadges) return null;
+          {(wikiLoading || displayAwards.length > 0) && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Awards & Recognition</Text>
 
-            return (
-              <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Awards & Recognition</Text>
-
+              {wikiLoading && displayAwards.length === 0 ? (
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.awardsScroll}
                 >
-                  {parsed.badges.map((badge) => (
-                    <View
-                      key={badge.key}
-                      style={styles.awardTile}
-                    >
-                      <Image
-                        source={{ uri: badge.logoUri }}
-                        style={styles.awardLogo}
-                        resizeMode="contain"
-                        accessibilityLabel={`${badge.label} logo`}
-                      />
-                      <Text style={[styles.awardWonText, { color: colors.onSurface, ...typography.labelSm }]}>
-                        {badge.won} {badge.won === 1 ? 'Win' : 'Wins'}
-                      </Text>
+                  {[0, 1, 2].map((index) => (
+                    <View key={`award-skeleton-${index}`} style={styles.awardTile}>
+                      <SkeletonBlock width={86} height={54} borderRadius={8} />
+                      <SkeletonBlock width={72} height={12} borderRadius={6} />
                     </View>
                   ))}
                 </ScrollView>
-              </View>
-            );
-          })()}
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.awardsScroll}
+                >
+                  {displayAwards.map((award) => {
+                    const awardKey = award.wikidataId || award.key || award.label;
+                    const tile = (
+                      <>
+                        <AwardLogoImage
+                          uri={award.logoUrl}
+                          label={award.label}
+                          style={styles.awardLogo}
+                          fallbackStyle={[styles.awardLogoFallback, { backgroundColor: colors.surfaceContainerHigh }]}
+                          iconColor={colors.primary}
+                        />
+                        <Text style={[styles.awardCountText, { color: colors.onSurface, ...typography.labelSm }]}>
+                          {formatAwardCounts(award)}
+                        </Text>
+                        <Text style={[styles.awardLabelText, { color: colors.onSurfaceVariant, ...typography.labelSm }]} numberOfLines={2}>
+                          {award.label}
+                        </Text>
+                      </>
+                    );
+
+                    if (award.wikidataId) {
+                      return (
+                        <TouchableOpacity
+                          key={awardKey}
+                          style={styles.awardTile}
+                          onPress={() => handleAwardPress(award)}
+                          activeOpacity={0.78}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Open ${award.label} on Wikidata`}
+                        >
+                          {tile}
+                        </TouchableOpacity>
+                      );
+                    }
+
+                    return (
+                      <View key={awardKey} style={styles.awardTile}>
+                        {tile}
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+          )}
 
           {result.productionCompanies && result.productionCompanies.length > 0 && (
             <View style={styles.section}>
@@ -2379,9 +2427,22 @@ const styles = StyleSheet.create({
     width: 86,
     height: 54,
   },
-  awardWonText: {
+  awardCountText: {
     fontWeight: '800',
     letterSpacing: 0.3,
+    textAlign: 'center',
+  },
+  awardLabelText: {
+    fontWeight: '700',
+    textAlign: 'center',
+    minHeight: 32,
+  },
+  awardLogoFallback: {
+    width: 86,
+    height: 54,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // ── Production Companies ────────────────────────────────────────────────
   productionScroll: {

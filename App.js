@@ -926,15 +926,17 @@ function MobileApp() {
       const countryOfOrigin = fields.countryOfOrigin || [];
       const basedOn = fields.basedOn || [];
       const soundtracks = fields.soundtracks || [];
+      const awards = fields.awards || [];
       const wikidataEnriched = fields.wikidataEnriched === true;
 
       const languagesSame = JSON.stringify(prevRow.originalLanguage || []) === JSON.stringify(originalLanguage);
       const countriesSame = JSON.stringify(prevRow.countryOfOrigin || []) === JSON.stringify(countryOfOrigin);
       const basedOnSame = JSON.stringify(prevRow.basedOn || []) === JSON.stringify(basedOn);
       const soundtracksSame = JSON.stringify(prevRow.soundtracks || []) === JSON.stringify(soundtracks);
+      const awardsSame = JSON.stringify(prevRow.awards || []) === JSON.stringify(awards);
       const enrichedSame = prevRow.wikidataEnriched === wikidataEnriched;
 
-      if (languagesSame && countriesSame && basedOnSame && soundtracksSame && enrichedSame) return prev;
+      if (languagesSame && countriesSame && basedOnSame && soundtracksSame && awardsSame && enrichedSame) return prev;
 
       const merged = normalizeWatchlistItem({
         ...prevRow,
@@ -942,6 +944,7 @@ function MobileApp() {
         countryOfOrigin,
         basedOn,
         soundtracks,
+        awards,
         wikidataEnriched,
       });
       if (!merged) return prev;
