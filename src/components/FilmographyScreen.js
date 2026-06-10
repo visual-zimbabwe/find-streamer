@@ -24,16 +24,18 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
   const { colors, typography, radii } = theme;
   const bottomNavScroll = useBottomNavScroll();
 
-  // role: 'movie' = director, 'tv' = creator, 'cast' = actor, 'writer' = writing credits, 'company' = production company
+  // role: 'movie' = director, 'tv' = creator, 'cast' = actor, 'writer' = writing credits, 'composer' = music credits, 'company' = production company
   const roleLabel = role === 'cast'
     ? 'Starring In'
     : role === 'writer'
       ? 'Writing Credits'
-      : role === 'company'
-        ? 'Titles From'
-        : role === 'movie'
-          ? 'Directed By'
-          : 'Created By';
+      : role === 'composer'
+        ? 'Music By'
+        : role === 'company'
+          ? 'Titles From'
+          : role === 'movie'
+            ? 'Directed By'
+            : 'Created By';
   const countText = `${results.length} title${results.length !== 1 ? 's' : ''}`;
 
   const renderItem = ({ item, index }) => {
@@ -52,8 +54,8 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
           <View style={styles.ratingBadge}>
             <Text style={styles.ratingText}>{ratingForCard(item.rating)}</Text>
           </View>
-          {/* Movie / TV badge — mixed lists: cast, writer, company */}
-          {(role === 'cast' || role === 'writer' || role === 'company') && (
+          {/* Movie / TV badge — mixed lists: cast, writer, composer, company */}
+          {(role === 'cast' || role === 'writer' || role === 'composer' || role === 'company') && (
             <View style={[styles.typeBadge, { backgroundColor: colors.primary + 'CC' }]}>
               <Ionicons name={mediaIcon} size={10} color="#fff" />
             </View>
@@ -79,7 +81,7 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
             <MediaArtwork uri={profileUrl} style={styles.avatarImage} accessibilityLabel={`${personName} profile photo`} title={personName} icon="person-outline" compactFallback />
           ) : (
             <Ionicons
-              name={role === 'cast' ? 'star' : role === 'writer' ? 'create-outline' : role === 'company' ? 'business-outline' : 'person'}
+              name={role === 'cast' ? 'star' : role === 'writer' ? 'create-outline' : role === 'composer' ? 'musical-notes-outline' : role === 'company' ? 'business-outline' : 'person'}
               size={26}
               color={colors.primary}
             />

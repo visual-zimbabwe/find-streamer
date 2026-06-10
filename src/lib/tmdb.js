@@ -549,6 +549,7 @@ function uniquePeople(people = []) {
 }
 
 const WRITER_CREW_JOBS = new Set(['Writer', 'Screenplay', 'Story', 'Teleplay', 'Novel', 'Characters']);
+const COMPOSER_CREW_JOB = 'Original Music Composer';
 
 async function getCredits(mediaType, tmdbId) {
   const data = await tmdbGet(`/${mediaType}/${tmdbId}/credits`);
@@ -557,6 +558,7 @@ async function getCredits(mediaType, tmdbId) {
   const directors = uniquePeople(crew.filter((person) => person.job === 'Director'));
   const director = directors[0] ?? crew.find((person) => person.department === 'Directing');
   const writers = uniquePeople(crew.filter((person) => WRITER_CREW_JOBS.has(person.job))).slice(0, 12);
+  const composers = uniquePeople(crew.filter((person) => person.job === COMPOSER_CREW_JOB));
   const fullCast = (data.cast || [])
     .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
   const topCast = fullCast.slice(0, 5);
@@ -579,6 +581,14 @@ async function getCredits(mediaType, tmdbId) {
         id: p.id || null,
         name: p.name,
         job: p.job || 'Writer',
+        profileUrl: personProfileUrl(p.profile_path),
+      })),
+    composerPersons: composers
+      .filter((p) => p.name)
+      .map((p) => ({
+        id: p.id || null,
+        name: p.name,
+        job: p.job || COMPOSER_CREW_JOB,
         profileUrl: personProfileUrl(p.profile_path),
       })),
     starring: topCast.map((person) => person.name).join(', ') || 'N/A',
@@ -1246,10 +1256,11 @@ export async function resolveMatch(query, match) {
   const availability = await getProviderCountries(match.mediaType, match.tmdbId);
 
   const personIds = Array.from(new Set([
-    ...credits.directorPersons.map(p => p.id),
-    ...credits.writerPersons.map(p => p.id),
-    ...credits.starringPersons.map(p => p.id),
-  ])).filter(Boolean);
+    ...credits.directorPersons.map((p) => p.id),
+    ...credits.writerPersons.map((p) => p.id),
+    ...credits.composerPersons.map((p) => p.id),
+    ...credits.starringPersons.map((p) => p.id),
+  ].filter(Boolean)));
 
   const [omdbRatings, moreFromCastAndCrew] = await Promise.all([
     fetchOmdbRatings(metadata.imdbId || null),
@@ -1285,10 +1296,10 @@ export async function resolveMatch(query, match) {
  * Fetch filmography for a TMDB person.
  * @param {number} personId  TMDB person ID
  * @param {string} personName Display name
- * @param {'movie'|'tv'|'cast'|'writer'} role  Director (movie), TV creator, actor, or writer credits
+ * @param {'movie'|'tv'|'cast'|'writer'|'composer'} role  Director (movie), TV creator, actor, writer, or composer credits
  */
 export async function fetchPersonFilmography(personId, personName, role) {
-  // role: 'movie' (director), 'tv' (creator), 'cast' (actor), or 'writer' (writing credits)
+  // role: 'movie' (director), 'tv' (creator), 'cast' (actor), 'writer', or 'composer'
   let items;
   let resolvedMediaType; // used to set mediaType on result items
 
@@ -1369,6 +1380,44 @@ export async function fetchPersonFilmography(personId, personName, role) {
     const profileUrl = personData.profile_path ? `https://image.tmdb.org/t/p/w185${personData.profile_path}` : null;
 
     return { personName, role: 'writer', results, profileUrl };
+  }
+
+  if (role === 'composer') {
+    const data = await tmdbGet(`/person/${personId}/combined_credits`, { language: 'en-US' });
+    const crewCredits = (data.crew || [])
+      .filter((c) => c.job === COMPOSER_CREW_JOB)
+      .filter((c) => c.media_type === 'movie' || c.media_type === 'tv')
+      .filter((c) => (c.vote_count ?? 0) >= 5);
+
+    const seen = new Set();
+    const unique = crewCredits.filter((item) => {
+      const key = `${item.media_type}:${item.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    unique.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+
+    const results = unique.map((item) => {
+      const dateValue = item.release_date || item.first_air_date || '';
+      return {
+        mediaType: item.media_type,
+        tmdbId: item.id,
+        title: item.title || item.name || '(Untitled)',
+        year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+        synopsis: (item.overview || '').trim() || 'No synopsis available.',
+        posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+        backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+        ratingValue: item.vote_average || 0,
+        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+      };
+    });
+
+    const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
+    const profileUrl = personData.profile_path ? `https://image.tmdb.org/t/p/w185${personData.profile_path}` : null;
+
+    return { personName, role: 'composer', results, profileUrl };
   }
 
   // Director / Creator path
