@@ -132,6 +132,13 @@ function personKey(person, index) {
   return `${person.role || 'person'}-${person.id || person.name}-${index}`;
 }
 
+function filmographyRoleForPerson(person) {
+  if (person.role === 'creator') return 'tv';
+  if (person.role === 'writer') return 'writer';
+  if (person.role === 'composer') return 'composer';
+  return 'movie';
+}
+
 const isEntityUri = (val) => typeof val === 'string' && val.startsWith('http://www.wikidata.org/entity/');
 
 function wikidataIdFromUri(uri) {
@@ -767,8 +774,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
       roleLabel: person.character ? person.character : 'Cast',
     }));
 
+    const composerPeople = (current.composerPersons || []).map((person) => ({
+      ...person,
+      role: 'composer',
+      roleLabel: 'Composer',
+    }));
+
     return {
-      crewPeople: [...directorPeople, ...writerPeople],
+      crewPeople: [...directorPeople, ...writerPeople, ...composerPeople],
       castPeople,
     };
   }, [result]);
@@ -1435,16 +1448,15 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                   <TouchableOpacity
                     key={personKey(person, index)}
                     style={styles.personCard}
-                    onPress={() => {
-                      const filmographyRole = person.role === 'creator'
-                        ? 'tv'
-                        : person.role === 'writer'
-                          ? 'writer'
-                          : 'movie';
-                      handlePersonPressWithFallback(person, filmographyRole);
-                    }}
+                    onPress={() => handlePersonPressWithFallback(person, filmographyRoleForPerson(person))}
+                    onLongPress={person.role === 'composer' && person.id
+                      ? () => handleActorLongPress(person, 'composer')
+                      : undefined}
+                    delayLongPress={person.role === 'composer' ? 400 : undefined}
                     accessibilityRole="button"
-                    accessibilityLabel={`View work by ${person.name}`}
+                    accessibilityLabel={person.role === 'composer' && person.id
+                      ? `View filmography for ${person.name}. Long press for a quick preview.`
+                      : `View work by ${person.name}`}
                     activeOpacity={0.78}
                   >
                     <View style={[styles.avatarRing, !person.profileUrl && { backgroundColor: colors.primaryContainer }]}>
