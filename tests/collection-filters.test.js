@@ -4,6 +4,9 @@ import {
   filterCollectionRows,
   rowMatchesSize,
   rowMatchesDecade,
+  getEarliestRowYear,
+  validateCustomDecadeRange,
+  resolveCustomDecadeRange,
   countActiveFindBadge,
   findRowIndexForLetter,
   getLibraryCollectionIds,
@@ -38,13 +41,40 @@ test('size buckets match franchise movie counts', () => {
   assert.equal(rowMatchesSize(sampleRows[1], ['medium']), true);
 });
 
-test('decade filter matches any movie in franchise', () => {
+test('earliest row year uses minimum release year', () => {
+  assert.equal(getEarliestRowYear(sampleRows[0]), 1977);
+  assert.equal(getEarliestRowYear(sampleRows[1]), 1979);
+});
+
+test('decade filter matches earliest movie year in franchise', () => {
   assert.equal(rowMatchesDecade(sampleRows[0], ['1970s']), true);
   assert.equal(rowMatchesDecade(sampleRows[0], ['2010s']), false);
   assert.equal(
     rowMatchesDecade(sampleRows[0], [], { min: 1975, max: 1985 }),
     true,
   );
+});
+
+test('decade filter ignores later sequel years', () => {
+  assert.equal(rowMatchesDecade(sampleRows[1], ['1990s']), false);
+});
+
+test('custom decade range defaults missing bounds', () => {
+  const curYear = new Date().getFullYear();
+  assert.deepEqual(resolveCustomDecadeRange({ min: 2012, max: null }), {
+    min: 2012,
+    max: curYear,
+  });
+  assert.deepEqual(resolveCustomDecadeRange({ min: null, max: 2013 }), {
+    min: 1800,
+    max: 2013,
+  });
+});
+
+test('invalid custom decade range is blocked from filtering', () => {
+  assert.match(validateCustomDecadeRange({ min: 19, max: null }), /From Year/);
+  assert.equal(resolveCustomDecadeRange({ min: 19, max: null }), null);
+  assert.equal(rowMatchesDecade(sampleRows[0], [], { min: 19, max: 2010 }), true);
 });
 
 test('filters combine with AND across dimensions', () => {

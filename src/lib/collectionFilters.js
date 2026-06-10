@@ -28,6 +28,43 @@ export function rowItemYears(row) {
   return row.items.map(getMovieYear).filter((year) => year != null);
 }
 
+export function getEarliestRowYear(row) {
+  const years = rowItemYears(row);
+  if (!years.length) return null;
+  return Math.min(...years);
+}
+
+export function customDecadeRangeHasInput(customDecadeRange = null) {
+  return customDecadeRange != null
+    && (customDecadeRange.min != null || customDecadeRange.max != null);
+}
+
+export function validateCustomDecadeRange(customDecadeRange = null) {
+  if (!customDecadeRangeHasInput(customDecadeRange)) return null;
+
+  const curYear = new Date().getFullYear();
+  const { min, max } = customDecadeRange;
+
+  if (min != null && (min < 1900 || min > curYear + 5)) {
+    return `"From Year" must be between 1900 and ${curYear + 5}.`;
+  }
+  if (max != null && (max < 1900 || max > curYear + 5)) {
+    return `"To Year" must be between 1900 and ${curYear + 5}.`;
+  }
+  return null;
+}
+
+export function resolveCustomDecadeRange(customDecadeRange = null) {
+  if (!customDecadeRangeHasInput(customDecadeRange)) return null;
+  if (validateCustomDecadeRange(customDecadeRange)) return null;
+
+  const curYear = new Date().getFullYear();
+  return {
+    min: customDecadeRange.min ?? 1800,
+    max: customDecadeRange.max ?? curYear,
+  };
+}
+
 export function rowMatchesSize(row, selectedSizes = []) {
   if (!selectedSizes.length) return true;
   const count = row.items.length;
@@ -38,7 +75,7 @@ export function rowMatchesSize(row, selectedSizes = []) {
   });
 }
 
-export function yearMatchesDecadeFilters(year, decadeFilters = [], customDecadeRange = null) {
+export function yearMatchesDecadeFilters(year, decadeFilters = [], resolvedCustomRange = null) {
   if (year == null) return false;
 
   const presetMatch = decadeFilters.some((decadeKey) => {
@@ -47,14 +84,9 @@ export function yearMatchesDecadeFilters(year, decadeFilters = [], customDecadeR
     return year >= preset.min && year <= preset.max;
   });
 
-  const hasCustomRange = customDecadeRange
-    && (customDecadeRange.min != null || customDecadeRange.max != null);
+  if (!resolvedCustomRange) return presetMatch;
 
-  if (!hasCustomRange) return presetMatch;
-
-  const min = customDecadeRange.min ?? 1800;
-  const max = customDecadeRange.max ?? 2100;
-  const customMatch = year >= min && year <= max;
+  const customMatch = year >= resolvedCustomRange.min && year <= resolvedCustomRange.max;
 
   if (!decadeFilters.length) return customMatch;
   return presetMatch || customMatch;
@@ -62,12 +94,15 @@ export function yearMatchesDecadeFilters(year, decadeFilters = [], customDecadeR
 
 export function rowMatchesDecade(row, decadeFilters = [], customDecadeRange = null) {
   const hasDecadeFilters = decadeFilters.length > 0;
-  const hasCustomRange = customDecadeRange
-    && (customDecadeRange.min != null || customDecadeRange.max != null);
+  const resolvedCustomRange = resolveCustomDecadeRange(customDecadeRange);
+  const hasCustomRange = resolvedCustomRange != null;
 
   if (!hasDecadeFilters && !hasCustomRange) return true;
 
-  return rowItemYears(row).some((year) => yearMatchesDecadeFilters(year, decadeFilters, customDecadeRange));
+  const year = getEarliestRowYear(row);
+  if (year == null) return false;
+
+  return yearMatchesDecadeFilters(year, decadeFilters, resolvedCustomRange);
 }
 
 export function rowMatchesSearch(row, searchQuery = '') {
@@ -123,7 +158,7 @@ export function countActiveFindBadge({
   customDecadeRange = null,
 }) {
   let count = sizeFilters.length + decadeFilters.length;
-  if (customDecadeRange && (customDecadeRange.min != null || customDecadeRange.max != null)) {
+  if (customDecadeRangeHasInput(customDecadeRange)) {
     count += 1;
   }
   if (searchQuery.trim()) count += 1;
