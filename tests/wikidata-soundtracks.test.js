@@ -3,7 +3,9 @@ const assert = require('node:assert/strict');
 
 const {
   commonsCoverUrl,
+  lookupCommonsThumb,
   parseSoundtracksFromBindings,
+  resolveCommonsThumbUrls,
   sortSoundtracks,
   yearFromWikidataDate,
 } = require('../src/lib/wikidataSoundtracks.js');
@@ -25,6 +27,19 @@ test('commonsCoverUrl builds a Special:FilePath URL', () => {
     'https://commons.wikimedia.org/wiki/Special:FilePath/Inception_soundtrack_cover.jpg',
   );
   assert.equal(commonsCoverUrl('File:Example.png'), 'https://commons.wikimedia.org/wiki/Special:FilePath/Example.png');
+});
+
+test('commonsCoverUrl normalizes full Commons URLs', () => {
+  assert.equal(
+    commonsCoverUrl('http://commons.wikimedia.org/wiki/Special:FilePath/Oscar-free-version.svg'),
+    'https://commons.wikimedia.org/wiki/Special:FilePath/Oscar-free-version.svg',
+  );
+});
+
+test('resolveCommonsThumbUrls returns upload.wikimedia.org thumbnails', async () => {
+  const thumbMap = await resolveCommonsThumbUrls(['La La Land Logo.svg', 'Oscar-free-version.svg']);
+  assert.match(lookupCommonsThumb('La La Land Logo.svg', thumbMap), /upload\.wikimedia\.org.*\.png/);
+  assert.match(lookupCommonsThumb('Oscar-free-version.svg', thumbMap), /upload\.wikimedia\.org.*\.png/);
 });
 
 test('parseSoundtracksFromBindings dedupes, filters, and sorts soundtracks', () => {
