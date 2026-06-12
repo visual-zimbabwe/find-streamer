@@ -1,10 +1,17 @@
 import React from 'react';
-import { View, ScrollView, Modal, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  Platform,
+} from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchPanel } from '../components/SearchPanel';
 import { MatchResults } from '../components/MatchResults';
@@ -14,12 +21,19 @@ import { FilmographyScreen } from '../components/FilmographyScreen';
 import { useAppState } from '../context/AppStateContext';
 import { useStackScreenOptions } from './useStackScreenOptions';
 import { watchlistEntryKey } from '../lib/watchlistModel';
+import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
+import { useTheme } from '../theme/ThemeProvider';
+import { scale, verticalScale } from '../utils/responsive';
 
 const Stack = createNativeStackNavigator();
+const GOLD_ACCENT = '#D4A853';
 
 function SearchMainScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const { theme, resolvedMode } = useTheme();
+  const { colors } = theme;
+  const bottomNavScroll = useBottomNavScroll();
   const {
     query,
     handleQueryChange,
@@ -45,9 +59,28 @@ function SearchMainScreen() {
     clearSearchResults,
   } = useAppState();
 
+  const atmosphereColors = [
+    resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
+    colors.background,
+  ];
+  const surpriseSurface = resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.94)' : 'rgba(247, 247, 242, 0.94)';
+
   return (
-    <View style={{ flex: 1 }}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={searchStyles.scrollContent}>
+    <View style={[searchStyles.root, { backgroundColor: colors.background }]}>
+      <LinearGradient
+        colors={atmosphereColors}
+        style={searchStyles.atmosphereTop}
+        pointerEvents="none"
+      />
+
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[searchStyles.scrollContent, { paddingBottom: insets.bottom + 112 }]}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={Platform.OS === 'android'}
+        overScrollMode="never"
+        {...bottomNavScroll}
+      >
         <SearchPanel
           value={query}
           onChangeText={handleQueryChange}
@@ -84,12 +117,12 @@ function SearchMainScreen() {
                   icon: 'close-circle-outline',
                   onPress: () => setFilter(null),
                   accessibilityLabel: 'Clear result filters',
-                          } : {
-                            label: 'Check Spelling',
-                            icon: 'create-outline',
-                            onPress: clearSearchResults,
-                            accessibilityLabel: 'Edit search text',
-                          }}
+                } : {
+                  label: 'Check Spelling',
+                  icon: 'create-outline',
+                  onPress: clearSearchResults,
+                  accessibilityLabel: 'Edit search text',
+                }}
                 secondaryAction={{
                   label: 'Discover',
                   onPress: () => handleTabPress('discover'),
@@ -102,30 +135,38 @@ function SearchMainScreen() {
         )}
       </ScrollView>
 
-      <TouchableOpacity
-        style={[searchStyles.surpriseFab, { bottom: insets.bottom + 88 }]}
-        onPress={() => setSurprisePickerVisible(true)}
-        disabled={surpriseLoading}
-        activeOpacity={0.88}
-        accessibilityRole="button"
-        accessibilityLabel="Surprise Me – pick a random movie or show"
-        accessibilityState={{ busy: Boolean(surpriseLoading) }}
-      >
-        <LinearGradient
-          colors={['#ff7a59', '#ffcf33', '#20d6b5']}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={searchStyles.surpriseFabGradient}
+      <View style={[searchStyles.surpriseDock, { bottom: insets.bottom + 88, paddingHorizontal: scale(22) }]}>
+        <TouchableOpacity
+          style={[searchStyles.surpriseButton, { backgroundColor: surpriseSurface, borderColor: 'rgba(212, 168, 83, 0.48)' }]}
+          onPress={() => setSurprisePickerVisible(true)}
+          disabled={surpriseLoading}
+          activeOpacity={0.86}
+          accessibilityRole="button"
+          accessibilityLabel="Surprise Me – pick a random movie or show"
+          accessibilityState={{ busy: Boolean(surpriseLoading) }}
         >
-          {surpriseLoading
-            ? <ActivityIndicator color="#111" size="small" />
-            : <Ionicons name="sparkles" size={22} color="#111" />
-          }
-          <Text style={searchStyles.surpriseFabLabel}>
-            {surpriseLoading ? 'Shuffling…' : 'Surprise'}
-          </Text>
-        </LinearGradient>
-      </TouchableOpacity>
+          <LinearGradient
+            colors={['rgba(212,168,83,0.28)', 'rgba(212,168,83,0.08)']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={searchStyles.surpriseFabGradient}
+          >
+            {surpriseLoading
+              ? <ActivityIndicator color={GOLD_ACCENT} size="small" />
+              : <Ionicons name="sparkles" size={18} color={GOLD_ACCENT} />
+            }
+            <View style={searchStyles.surpriseCopy}>
+              <Text style={[searchStyles.surpriseEyebrow, { color: GOLD_ACCENT }]}>
+                {surpriseLoading ? 'Shuffling' : 'Programme Roulette'}
+              </Text>
+              <Text style={[searchStyles.surpriseFabLabel, { color: colors.onSurface }]}>
+                {surpriseLoading ? 'Finding your pick…' : 'Surprise Me'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={GOLD_ACCENT} style={{ opacity: 0.8 }} />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -192,31 +233,52 @@ export function SearchStack() {
 }
 
 const searchStyles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: 180,
+  root: {
+    flex: 1,
   },
-  surpriseFab: {
+  atmosphereTop: {
+    height: verticalScale(280),
+    left: 0,
+    opacity: 0.55,
     position: 'absolute',
-    right: 20,
-    shadowColor: '#ffb23f',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.38,
-    shadowRadius: 18,
-    elevation: 8,
-    borderRadius: 28,
+    right: 0,
+    top: 0,
+  },
+  scrollContent: {
+    paddingTop: scale(4),
+  },
+  surpriseDock: {
+    left: 0,
+    position: 'absolute',
+    right: 0,
+  },
+  surpriseButton: {
+    borderRadius: scale(16),
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
   surpriseFabGradient: {
-    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 28,
-    paddingHorizontal: 18,
-    paddingVertical: 13,
-    gap: 7,
+    flexDirection: 'row',
+    gap: scale(10),
+    minHeight: 52,
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+  },
+  surpriseCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  surpriseEyebrow: {
+    fontSize: scale(9),
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    marginBottom: 2,
+    textTransform: 'uppercase',
   },
   surpriseFabLabel: {
-    color: '#111',
-    fontWeight: '900',
-    fontSize: 14,
-    letterSpacing: -0.2,
+    fontSize: scale(14),
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
 });
