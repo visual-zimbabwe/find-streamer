@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +28,16 @@ import { ResultsSkeleton } from './SkeletonLoaders';
 import { REGION_PRESETS, SPECIAL_PRESETS, findPreset } from '../lib/languagePresets';
 import { COUNTRY_PRESETS, findCountryPreset, filterCountriesByPreset } from '../lib/countryPresets';
 import { useBottomSheet } from './StackBottomSheet';
+import { scale } from '../utils/responsive';
+
+const WINDOW_W = Dimensions.get('window').width;
+const GRID_PAD = scale(22);
+const GRID_GAP = scale(14);
+const GRID_COL_W = (WINDOW_W - GRID_PAD * 2 - GRID_GAP) / 2;
+const GRID_POSTER_H = GRID_COL_W * 1.5;
+const GOLD_ACCENT = '#D4A853';
+const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
+const FADE_MS = 320;
 
 // ─── Sort Options (media-type-aware) ──────────────────────────────────────────
 const SORT_OPTIONS_MOVIE = [
@@ -44,15 +55,6 @@ const SORT_OPTIONS_TV = [
   { value: 'first_air_date.asc',   label: 'Oldest First' },
 ];
 
-// ─── Genre Icons ───────────────────────────────────────────────────────────────
-const GENRE_ICONS = {
-  28: '⚡', 12: '🗺️', 16: '🎨', 35: '😂', 80: '🔫', 99: '📽️',
-  18: '🎭', 10751: '👨‍👩‍👧', 14: '🧙', 36: '📜', 27: '👻', 10402: '🎵',
-  9648: '🔍', 10749: '💕', 878: '🚀', 53: '😰', 10752: '⚔️', 37: '🤠',
-  10759: '⚡', 10762: '🎨', 10763: '📰', 10764: '🎪', 10765: '🧙',
-  10766: '💕', 10767: '🎙️', 10768: '⚔️',
-};
-
 function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {
   if (!selectedCodes.length) return emptyLabel;
 
@@ -64,23 +66,96 @@ function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {
   return `${labels.slice(0, 2).join(', ')} +${labels.length - 2} ${noun}`;
 }
 
+function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
+  return (
+    <View style={styles.sectionHeader}>
+      {eyebrow ? (
+        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>{eyebrow}</Text>
+      ) : null}
+      <Text
+        style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
+        accessibilityRole="header"
+      >
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text style={[styles.sectionSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function FilterDivider() {
+  return <View style={[styles.filterDivider, { backgroundColor: GOLD_DIM }]} />;
+}
+
+function MediaTypeTabs({ mediaType, onChange, colors, typography }) {
+  const tabs = [
+    { key: 'movie', label: 'Movies', icon: 'film-outline' },
+    { key: 'tv', label: 'Shows', icon: 'tv-outline' },
+  ];
+
+  return (
+    <View style={styles.mediaTabsRow}>
+      {tabs.map((tab) => {
+        const active = mediaType === tab.key;
+        return (
+          <TouchableOpacity
+            key={tab.key}
+            style={styles.mediaTab}
+            onPress={() => {
+              if (!active) {
+                Haptics.selectionAsync();
+                onChange(tab.key);
+              }
+            }}
+            activeOpacity={0.78}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.key === 'movie' ? 'Show movie filters' : 'Show TV show filters'}
+            accessibilityState={{ selected: active }}
+          >
+            <Ionicons
+              name={tab.icon}
+              size={14}
+              color={active ? GOLD_ACCENT : colors.onSurfaceVariant}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.mediaTabLabel,
+                { color: active ? colors.onSurface : colors.onSurfaceVariant, ...typography.labelSm },
+                active && styles.mediaTabLabelActive,
+              ]}
+            >
+              {tab.label}
+            </Text>
+            {active && <View style={[styles.mediaTabUnderline, { backgroundColor: GOLD_ACCENT }]} />}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 // ─── Searchable Picker Modal ───────────────────────────────────────────────────
 const PickerItem = React.memo(({ item, active, onPress, colors, typography }) => {
   return (
     <TouchableOpacity
       style={[
         pickerStyles.pickerRow,
-        active && { backgroundColor: colors.primary + '18' },
+        active && { backgroundColor: GOLD_ACCENT + '18' },
       ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={item.label}
       accessibilityState={{ selected: active }}
     >
-      <Text style={[{ flex: 1, color: active ? colors.primary : colors.onSurface, ...typography.bodyMd, fontWeight: active ? '700' : '400' }]}>
+      <Text style={[{ flex: 1, color: active ? GOLD_ACCENT : colors.onSurface, ...typography.bodyMd, fontWeight: active ? '700' : '400' }]}>
         {item.label}
       </Text>
-      {active && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+      {active && <Ionicons name="checkmark" size={18} color={GOLD_ACCENT} />}
     </TouchableOpacity>
   );
 });
@@ -162,7 +237,7 @@ function SearchablePickerModal({
                 accessibilityRole="button"
                 accessibilityLabel={`Done selecting ${title.toLowerCase()}`}
               >
-                <Text style={[{ color: colors.primary, ...typography.labelSm, fontWeight: '800' }]}>Done</Text>
+                <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '800' }]}>Done</Text>
               </TouchableOpacity>
             </View>
 
@@ -190,7 +265,7 @@ function SearchablePickerModal({
             </View>
 
             {loading ? (
-              <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
+              <ActivityIndicator color={GOLD_ACCENT} style={{ marginTop: 32 }} />
             ) : (
               <FlatList
                 data={filtered}
@@ -219,7 +294,7 @@ function SearchablePickerModal({
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistIds = [] }) {
-  const { theme } = useTheme();
+  const { theme, resolvedMode } = useTheme();
   const { colors, typography, radii } = theme;
   const c = colors;
   const insets = useSafeAreaInsets();
@@ -390,6 +465,15 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     }, 120);
   };
 
+  const filterSurface = useMemo(
+    () => (resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.96)' : 'rgba(247, 247, 242, 0.96)'),
+    [resolvedMode],
+  );
+
+  const atmosphereColors = useMemo(
+    () => [colors.surfaceContainerHigh, colors.background],
+    [colors.surfaceContainerHigh, colors.background],
+  );
 
   return (
     <KeyboardAvoidingView
@@ -397,68 +481,43 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={insets.top + 72}
     >
+      <LinearGradient
+        colors={atmosphereColors}
+        style={styles.atmosphereTop}
+        pointerEvents="none"
+      />
       <ScrollView
         ref={scrollRef}
         style={styles.root}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 112 }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        removeClippedSubviews={Platform.OS === 'android'}
         {...bottomNavScroll}
       >
-      {/* ── Page Header ── */}
-      <View style={styles.pageHeader}>
-        <Text style={[styles.pageTitle, { color: c.onSurface, ...typography.headlineMd }]}>
-          Discover
-        </Text>
-        <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd }]}>
-          Filter movies &amp; shows by criteria
-        </Text>
-      </View>
+      <ProgrammeSectionHeader
+        eyebrow="FILTER"
+        title="Refine your programme"
+        subtitle="Set criteria, then search the catalogue"
+        colors={c}
+        typography={typography}
+      />
 
-      {/* ── Filter Card ── */}
-      <View style={[styles.card, { backgroundColor: c.surfaceContainer, borderRadius: radii.xl }]}>
+      <MediaTypeTabs
+        mediaType={vm.filters.mediaType}
+        onChange={(type) => vm.updateFilter('mediaType', type)}
+        colors={c}
+        typography={typography}
+      />
 
-        {/* ── Content Type Toggle ── */}
-        <SectionLabel label="Content Type" colors={c} typography={typography} />
-        <View style={styles.toggleRow}>
-          {['movie', 'tv'].map((type) => {
-            const active = vm.filters.mediaType === type;
-            return (
-              <TouchableOpacity
-                key={type}
-                style={[
-                  styles.typeButton,
-                  { borderRadius: radii.md, borderColor: c.outlineVariant + '40' },
-                  active && { backgroundColor: c.primary },
-                  !active && { backgroundColor: c.surfaceContainerHigh, borderWidth: 1 },
-                ]}
-                onPress={() => vm.updateFilter('mediaType', type)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={type === 'movie' ? 'Show movie filters' : 'Show TV show filters'}
-                accessibilityState={{ selected: active }}
-              >
-                <Ionicons
-                  name={type === 'movie' ? 'film-outline' : 'tv-outline'}
-                  size={18}
-                  color={active ? c.onPrimary : c.onSurfaceVariant}
-                />
-                <Text style={[styles.typeLabel, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
-                  {type === 'movie' ? 'Movies' : 'TV Shows'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+      <FilterDivider />
 
-        <Divider color={c.outlineVariant} />
-
-        {/* ── Genre Filter ── */}
+      <View style={styles.filterBand}>
         <View style={styles.sectionRow}>
           <SectionLabel label="Genres" colors={c} typography={typography} />
           {(vm.filters.genreIds.length > 0 || vm.filters.excludeGenreIds.length > 0 || vm.filters.excludeSmartTags.length > 0) && (
             <TouchableOpacity onPress={() => { vm.updateFilter('genreIds', []); vm.updateFilter('excludeGenreIds', []); vm.updateFilter('excludeSmartTags', []); }} accessibilityRole="button" accessibilityLabel="Clear all genre filters">
-              <Text style={[{ color: c.primary, ...typography.labelSm }]}>Clear all</Text>
+              <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm }]}>Clear all</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -471,10 +530,11 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           typography={typography}
           radii={radii}
         />
+      </View>
 
-        <Divider color={c.outlineVariant} />
+      <FilterDivider />
 
-        {/* ── Minimum Rating ── */}
+      <View style={styles.filterBand}>
         <SectionLabel label="Minimum Rating" colors={c} typography={typography} />
         <RatingSlider
           value={vm.filters.minRating}
@@ -483,17 +543,19 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           typography={typography}
           radii={radii}
         />
+      </View>
 
-        <Divider color={c.outlineVariant} />
+      <FilterDivider />
 
-        {/* ── More Filters ── */}
+      <View style={styles.filterBand}>
+        <SectionLabel label="Region" colors={c} typography={typography} />
         <TouchableOpacity
           style={[
             styles.moreFiltersBtn,
             {
-              backgroundColor: advancedFilterActive ? c.primary + '15' : c.surfaceContainerHigh,
+              backgroundColor: advancedFilterActive ? GOLD_ACCENT + '12' : filterSurface,
               borderRadius: radii.md,
-              borderColor: advancedFilterActive ? c.primary + '55' : c.outlineVariant + '40',
+              borderColor: advancedFilterActive ? GOLD_ACCENT + '55' : GOLD_DIM,
             },
           ]}
           onPress={handleOpenMoreFilters}
@@ -502,17 +564,17 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           accessibilityLabel="Open advanced filter options: language and country"
         >
           <Ionicons
-            name="options-outline"
+            name="globe-outline"
             size={18}
-            color={advancedFilterActive ? c.primary : c.onSurfaceVariant}
+            color={advancedFilterActive ? GOLD_ACCENT : c.onSurfaceVariant}
             style={{ marginRight: 10 }}
           />
           <View style={{ flex: 1 }}>
-            <Text style={[{ color: advancedFilterActive ? c.primary : c.onSurface, ...typography.bodyMd, fontWeight: '700' }]}>
+            <Text style={[{ color: advancedFilterActive ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd, fontWeight: '700' }]}>
               Language &amp; Country
             </Text>
             {advancedFilterSummary ? (
-              <Text style={[{ color: c.primary, ...typography.labelSm, marginTop: 2 }]} numberOfLines={1}>
+              <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, marginTop: 2 }]} numberOfLines={1}>
                 {advancedFilterSummary}
               </Text>
             ) : (
@@ -522,19 +584,23 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
             )}
           </View>
           {advancedFilterActive && (
-            <View style={[{ backgroundColor: c.primary, borderRadius: radii.sm, paddingHorizontal: 7, paddingVertical: 3, marginRight: 8 }]}>
-              <Text style={{ color: c.onPrimary, fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>Active</Text>
+            <View style={[{ backgroundColor: GOLD_ACCENT, borderRadius: radii.sm, paddingHorizontal: 7, paddingVertical: 3, marginRight: 8 }]}>
+              <Text style={{ color: '#141414', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>Active</Text>
             </View>
           )}
-          <Ionicons name="chevron-forward-outline" size={16} color={advancedFilterActive ? c.primary : c.onSurfaceVariant} />
+          <Ionicons name="chevron-forward-outline" size={16} color={advancedFilterActive ? GOLD_ACCENT : c.onSurfaceVariant} />
         </TouchableOpacity>
-        <Divider color={c.outlineVariant} />
+      </View>
 
-        {/* ── Release Year Range ── */}
-        <View onLayout={(e) => { yearRangeYRef.current = e.nativeEvent.layout.y; }}>
-          <SectionLabel label="Release Year Range" colors={c} typography={typography} />
-          <View style={styles.yearRow}>
-          <View style={[styles.yearInput, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, flex: 1 }]}>
+      <FilterDivider />
+
+      <View
+        style={styles.filterBand}
+        onLayout={(e) => { yearRangeYRef.current = e.nativeEvent.layout.y; }}
+      >
+        <SectionLabel label="Release Year" colors={c} typography={typography} />
+        <View style={styles.yearRow}>
+          <View style={[styles.yearInput, { backgroundColor: filterSurface, borderRadius: radii.md, flex: 1, borderColor: GOLD_DIM }]}>
             <TextInput
               style={[{ color: c.onSurface, ...typography.bodyMd, paddingHorizontal: 12, paddingVertical: 10 }]}
               placeholder="From (e.g. 2010)"
@@ -546,8 +612,8 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
               onChangeText={(v) => vm.updateFilter('fromYear', v.replace(/[^0-9]/g, ''))}
             />
           </View>
-          <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, marginHorizontal: 8 }]}>→</Text>
-          <View style={[styles.yearInput, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, flex: 1 }]}>
+          <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, marginHorizontal: 8 }]}>—</Text>
+          <View style={[styles.yearInput, { backgroundColor: filterSurface, borderRadius: radii.md, flex: 1, borderColor: GOLD_DIM }]}>
             <TextInput
               style={[{ color: c.onSurface, ...typography.bodyMd, paddingHorizontal: 12, paddingVertical: 10 }]}
               placeholder="To (e.g. 2024)"
@@ -559,13 +625,13 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
               onChangeText={(v) => vm.updateFilter('toYear', v.replace(/[^0-9]/g, ''))}
             />
           </View>
-          </View>
         </View>
+      </View>
 
-        <Divider color={c.outlineVariant} />
+      <FilterDivider />
 
-        {/* ── Sort By ── */}
-        <SectionLabel label="Sort By" colors={c} typography={typography} />
+      <View style={styles.filterBand}>
+        <SectionLabel label="Sort" colors={c} typography={typography} />
         <SortByControl
           sortOptions={sortOptions}
           displayedSortBy={displayedSortBy}
@@ -574,50 +640,48 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           typography={typography}
           radii={radii}
         />
-
-
-
-        {/* ── Validation Error ── */}
-        {vm.validationError && (
-          <View style={[styles.validationBanner, { backgroundColor: colors.error + '18', borderRadius: radii.md }]}>
-            <Ionicons name="warning-outline" size={16} color={colors.error} />
-            <Text style={[styles.validationText, { color: colors.error, ...typography.bodyMd }]}>
-              {vm.validationError}
-            </Text>
-          </View>
-        )}
-
-        {/* ── Action Row ── */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.resetBtn, { borderRadius: radii.md, borderColor: c.outlineVariant + '40' }]}
-            onPress={vm.resetFilters}
-            accessibilityRole="button"
-            accessibilityLabel="Reset discover filters"
-          >
-            <Ionicons name="refresh-outline" size={16} color={c.onSurfaceVariant} />
-            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginLeft: 6 }]}>Reset</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.searchBtn, { backgroundColor: c.primary, borderRadius: radii.md }]}
-            onPress={vm.search}
-            activeOpacity={0.85}
-            disabled={vm.loading}
-            accessibilityRole="button"
-            accessibilityLabel="Search with selected filters"
-            accessibilityState={{ disabled: vm.loading }}
-          >
-            {vm.loading
-              ? <ActivityIndicator color={c.onPrimary} size="small" />
-              : <>
-                  <Ionicons name="search-outline" size={16} color={c.onPrimary} />
-                  <Text style={[styles.searchBtnText, { color: c.onPrimary, ...typography.labelSm }]}>Search</Text>
-                </>
-            }
-          </TouchableOpacity>
-        </View>
       </View>
+
+      {vm.validationError && (
+        <View style={[styles.validationBanner, { backgroundColor: colors.error + '18', borderRadius: radii.md }]}>
+          <Ionicons name="warning-outline" size={16} color={colors.error} />
+          <Text style={[styles.validationText, { color: colors.error, ...typography.bodyMd }]}>
+            {vm.validationError}
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.actionRow}>
+        <TouchableOpacity
+          style={[styles.resetBtn, { borderRadius: radii.md, borderColor: GOLD_DIM }]}
+          onPress={vm.resetFilters}
+          accessibilityRole="button"
+          accessibilityLabel="Reset discover filters"
+        >
+          <Ionicons name="refresh-outline" size={16} color={c.onSurfaceVariant} />
+          <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginLeft: 6 }]}>Reset</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.searchBtn, { backgroundColor: GOLD_ACCENT, borderRadius: radii.md }]}
+          onPress={vm.search}
+          activeOpacity={0.85}
+          disabled={vm.loading}
+          accessibilityRole="button"
+          accessibilityLabel="Search with selected filters"
+          accessibilityState={{ disabled: vm.loading }}
+        >
+          {vm.loading
+            ? <ActivityIndicator color="#141414" size="small" />
+            : <>
+                <Ionicons name="search-outline" size={16} color="#141414" />
+                <Text style={[styles.searchBtnText, { color: '#141414', ...typography.labelSm }]}>Search</Text>
+              </>
+          }
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.resultsRule, { backgroundColor: GOLD_DIM }]} />
 
       {/* ── Results Section ── */}
       <ResultsSection
@@ -709,7 +773,6 @@ function RatingSlider({ value, onChange, colors: c, typography, radii }) {
       thumbAnim.setValue((snapped / SLIDER_MAX) * width);
       if (Math.abs(snapped - lastHapticVal.current) >= STEP) {
         lastHapticVal.current = snapped;
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onChange(snapped);
       }
     },
@@ -743,10 +806,10 @@ function RatingSlider({ value, onChange, colors: c, typography, radii }) {
         }}
         {...pan.panHandlers}
       >
-        <Animated.View style={[sliderStyles.fill, { width: fillWidth, backgroundColor: c.primary, borderRadius: radii.full }]} />
-        <Animated.View style={[sliderStyles.thumb, { transform: [{ translateX: thumbTranslate }], backgroundColor: c.surface, borderColor: c.primary }]}>
-          <Animated.View style={[sliderStyles.tooltip, { backgroundColor: c.primary, borderRadius: radii.sm, opacity: tooltipOpacity }]}>
-            <Text style={{ color: c.onPrimary, fontSize: 11, fontWeight: '900' }}>{value.toFixed(1)}</Text>
+        <Animated.View style={[sliderStyles.fill, { width: fillWidth, backgroundColor: GOLD_ACCENT, borderRadius: radii.full }]} />
+        <Animated.View style={[sliderStyles.thumb, { transform: [{ translateX: thumbTranslate }], backgroundColor: c.surface, borderColor: GOLD_ACCENT }]}>
+          <Animated.View style={[sliderStyles.tooltip, { backgroundColor: GOLD_ACCENT, borderRadius: radii.sm, opacity: tooltipOpacity }]}>
+            <Text style={{ color: '#141414', fontSize: 11, fontWeight: '900' }}>{value.toFixed(1)}</Text>
           </Animated.View>
         </Animated.View>
       </View>
@@ -776,38 +839,36 @@ function HorizontalGenreScroll({ genres, genreIds, excludeGenreIds, onOpenSheet,
     <View style={{ marginBottom: 4 }}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={genreScrollStyles.row}>
         <TouchableOpacity
-          style={[genreScrollStyles.chip, { borderRadius: radii.full, backgroundColor: hasSelections ? c.primary + '18' : c.surfaceContainerHigh, borderWidth: 1, borderColor: hasSelections ? c.primary : c.outlineVariant + '40' }]}
-          onPress={onOpenSheet}
+          style={[genreScrollStyles.chip, { borderRadius: radii.md, backgroundColor: hasSelections ? GOLD_ACCENT + '18' : c.surfaceContainerHigh, borderWidth: 1, borderColor: hasSelections ? GOLD_ACCENT : GOLD_DIM }]}
+          onPress={() => { Haptics.selectionAsync(); onOpenSheet(); }}
           accessibilityRole="button"
           accessibilityLabel="Open genre filter sheet"
         >
-          <Ionicons name="options-outline" size={14} color={hasSelections ? c.primary : c.onSurfaceVariant} style={{ marginRight: 5 }} />
-          <Text style={[{ color: hasSelections ? c.primary : c.onSurface, ...typography.labelSm, fontWeight: '800' }]}>
-            Genres{totalActive > 0 ? ` (${totalActive})` : ''}
+          <Ionicons name="options-outline" size={14} color={hasSelections ? GOLD_ACCENT : c.onSurfaceVariant} style={{ marginRight: 5 }} />
+          <Text style={[styles.chipTextUpper, { color: hasSelections ? GOLD_ACCENT : c.onSurface }]}>
+            All Genres{totalActive > 0 ? ` (${totalActive})` : ''}
           </Text>
-          <Ionicons name="chevron-down-outline" size={12} color={hasSelections ? c.primary : c.onSurfaceVariant} style={{ marginLeft: 4 }} />
+          <Ionicons name="chevron-down-outline" size={12} color={hasSelections ? GOLD_ACCENT : c.onSurfaceVariant} style={{ marginLeft: 4 }} />
         </TouchableOpacity>
 
         {sorted.slice(0, 12).map((genre) => {
           const included = genreIds.includes(genre.id);
           const excluded = excludeGenreIds.includes(genre.id);
-          const icon = GENRE_ICONS[genre.id] || '🎬';
           let bg = c.surfaceContainerHigh;
-          let border = c.outlineVariant + '40';
+          let border = GOLD_DIM;
           let textColor = c.onSurfaceVariant;
-          if (included) { bg = c.primary; border = c.primary; textColor = c.onPrimary; }
+          if (included) { bg = GOLD_ACCENT; border = GOLD_ACCENT; textColor = '#141414'; }
           if (excluded) { bg = c.error + '22'; border = c.error + '66'; textColor = c.error; }
           return (
             <TouchableOpacity
               key={genre.id}
-              style={[genreScrollStyles.chip, { borderRadius: radii.full, backgroundColor: bg, borderWidth: 1, borderColor: border }]}
-              onPress={onOpenSheet}
+              style={[genreScrollStyles.chip, { borderRadius: radii.md, backgroundColor: bg, borderWidth: 1, borderColor: border }]}
+              onPress={() => { Haptics.selectionAsync(); onOpenSheet(); }}
               accessibilityRole="button"
               accessibilityLabel={`${included ? 'Included' : excluded ? 'Excluded' : ''} genre ${genre.name}`}
             >
-              <Text style={{ fontSize: 12, marginRight: 5 }}>{icon}</Text>
-              <Text style={[{ color: textColor, ...typography.labelSm, fontWeight: included || excluded ? '800' : '600' }]}>{genre.name}</Text>
-              {included && <Ionicons name="checkmark" size={12} color={c.onPrimary} style={{ marginLeft: 3 }} />}
+              <Text style={[styles.chipTextUpper, { color: textColor }]}>{genre.name}</Text>
+              {included && <Ionicons name="checkmark" size={12} color="#141414" style={{ marginLeft: 3 }} />}
               {excluded && <Ionicons name="close" size={12} color={c.error} style={{ marginLeft: 3 }} />}
             </TouchableOpacity>
           );
@@ -815,12 +876,12 @@ function HorizontalGenreScroll({ genres, genreIds, excludeGenreIds, onOpenSheet,
 
         {sorted.length > 12 && (
           <TouchableOpacity
-            style={[genreScrollStyles.chip, { borderRadius: radii.full, backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' }]}
-            onPress={onOpenSheet}
+            style={[genreScrollStyles.chip, { borderRadius: radii.md, backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: GOLD_DIM }]}
+            onPress={() => { Haptics.selectionAsync(); onOpenSheet(); }}
             accessibilityRole="button"
             accessibilityLabel="View all genres"
           >
-            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>+{sorted.length - 12} more</Text>
+            <Text style={[styles.chipTextUpper, { color: c.onSurfaceVariant }]}>+{sorted.length - 12} more</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -868,13 +929,13 @@ function GenreBottomSheet({ visible, embedded, onClose, genres, genresLoading, g
               <View style={{ flex: 1 }}>
                 <Text style={[{ color: c.onSurface, ...typography.titleMd, fontWeight: '700' }]}>Genre Filters</Text>
                 {totalActive > 0 && (
-                  <Text style={[{ color: c.primary, ...typography.labelSm, marginTop: 2 }]}>
+                  <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, marginTop: 2 }]}>
                     {genreIds.length > 0 ? `${genreIds.length} included` : ''}{genreIds.length > 0 && (excludeGenreIds.length + excludeSmartTags.length) > 0 ? ' · ' : ''}{(excludeGenreIds.length + excludeSmartTags.length) > 0 ? `${excludeGenreIds.length + excludeSmartTags.length} excluded` : ''}
                   </Text>
                 )}
               </View>
               <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="Close genre sheet">
-                <Text style={[{ color: c.primary, ...typography.labelSm, fontWeight: '800' }]}>Done</Text>
+                <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '800' }]}>Done</Text>
               </TouchableOpacity>
             </View>
             {content}
@@ -898,18 +959,18 @@ function SortByControl({ sortOptions, displayedSortBy, onChange, colors: c, typo
               key={opt.value}
               style={[
                 styles.chip,
-                { borderRadius: radii.full },
+                { borderRadius: radii.md },
                 active
-                  ? { backgroundColor: c.primary }
-                  : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' },
+                  ? { backgroundColor: GOLD_ACCENT }
+                  : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: GOLD_DIM },
               ]}
-              onPress={() => onChange(opt.value)}
+              onPress={() => { Haptics.selectionAsync(); onChange(opt.value); }}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel={`Sort by ${opt.label}`}
               accessibilityState={{ selected: active }}
             >
-              <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>
+              <Text style={[styles.chipTextUpper, { color: active ? '#141414' : c.onSurfaceVariant, ...typography.labelSm }]}>
                 {opt.label}
               </Text>
             </TouchableOpacity>
@@ -941,16 +1002,16 @@ function MoreFiltersSheetContent({
           {SPECIAL_PRESETS.map((preset) => {
             const active = vm.filters.activePreset === preset.id;
             return (
-              <TouchableOpacity key={preset.id} style={[styles.chip, { borderRadius: radii.full }, active ? { backgroundColor: c.secondaryContainer, borderWidth: 1, borderColor: c.secondary } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' }]} onPress={() => active ? vm.clearPreset() : vm.applyPreset(preset.id)}>
-                <Text style={[styles.chipText, { color: active ? c.onSecondaryContainer : c.onSurfaceVariant, ...typography.labelSm }]}>{preset.label}</Text>
+              <TouchableOpacity key={preset.id} style={[styles.chip, { borderRadius: radii.md }, active ? { backgroundColor: GOLD_ACCENT + '22', borderWidth: 1, borderColor: GOLD_ACCENT } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: GOLD_DIM }]} onPress={() => active ? vm.clearPreset() : vm.applyPreset(preset.id)}>
+                <Text style={[styles.chipTextUpper, { color: active ? GOLD_ACCENT : c.onSurfaceVariant, ...typography.labelSm }]}>{preset.label}</Text>
               </TouchableOpacity>
             );
           })}
           {REGION_PRESETS.map((preset) => {
             const active = vm.filters.activePreset === preset.id;
             return (
-              <TouchableOpacity key={preset.id} style={[styles.chip, { borderRadius: radii.full }, active ? { backgroundColor: c.primary } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' }]} onPress={() => active ? vm.clearPreset() : vm.applyPreset(preset.id)}>
-                <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>{preset.label}</Text>
+              <TouchableOpacity key={preset.id} style={[styles.chip, { borderRadius: radii.md }, active ? { backgroundColor: GOLD_ACCENT } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: GOLD_DIM }]} onPress={() => active ? vm.clearPreset() : vm.applyPreset(preset.id)}>
+                <Text style={[styles.chipTextUpper, { color: active ? '#141414' : c.onSurfaceVariant, ...typography.labelSm }]}>{preset.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -958,7 +1019,7 @@ function MoreFiltersSheetContent({
       </ScrollView>
 
       {vm.filters.activePreset && (
-        <View style={[genreStyles.infoBanner, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderLeftColor: c.primary, marginBottom: 16 }]}>
+        <View style={[genreStyles.infoBanner, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderLeftColor: GOLD_ACCENT, marginBottom: 16 }]}>
           <View style={{ flex: 1 }}>
             <Text style={[{ color: c.onSurface, ...typography.labelSm, fontWeight: '700', marginBottom: 2 }]}>{findPreset(vm.filters.activePreset)?.label}</Text>
             <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>{findPreset(vm.filters.activePreset)?.description}</Text>
@@ -981,15 +1042,15 @@ function MoreFiltersSheetContent({
         </View>
       )}
 
-      <Divider color={c.outlineVariant} />
+      <FilterDivider />
 
       {/* Advanced Language Filter */}
       <View style={styles.sectionRow}>
         <SectionLabel label="Advanced Language Filter" colors={c} typography={typography} />
-        {vm.filters.activePreset && (<View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Ionicons name="flash-outline" size={12} color={c.primary} /><Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>Preset Active</Text></View>)}
+        {vm.filters.activePreset && (<View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Ionicons name="flash-outline" size={12} color={GOLD_ACCENT} /><Text style={[{ color: GOLD_ACCENT, fontSize: 10, fontWeight: '800' }]}>Preset Active</Text></View>)}
       </View>
-      <TouchableOpacity style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activePreset ? c.primary + '40' : c.outlineVariant + '40' }]} onPress={onOpenLangModal} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Original language, ${langLabel}`}>
-        <Ionicons name="language-outline" size={16} color={selectedLanguageCodes.length || vm.filters.excludeEnglish ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
+      <TouchableOpacity style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activePreset ? GOLD_ACCENT + '40' : GOLD_DIM }]} onPress={onOpenLangModal} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Original language, ${langLabel}`}>
+        <Ionicons name="language-outline" size={16} color={selectedLanguageCodes.length || vm.filters.excludeEnglish ? GOLD_ACCENT : c.onSurfaceVariant} style={{ marginRight: 8 }} />
         <Text style={[{ flex: 1, color: (selectedLanguageCodes.length || vm.filters.excludeEnglish) ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>{vm.filters.activePreset ? findPreset(vm.filters.activePreset).label : langLabel}</Text>
         {(selectedLanguageCodes.length > 0 || vm.filters.excludeEnglish) && (<TouchableOpacity onPress={() => vm.clearPreset()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Clear selected languages"><Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} /></TouchableOpacity>)}
         <Ionicons name="chevron-down-outline" size={16} color={c.onSurfaceVariant} style={{ marginLeft: 4 }} />
@@ -998,35 +1059,35 @@ function MoreFiltersSheetContent({
       {/* Origin Country — TV only */}
       {vm.filters.mediaType === 'tv' && (
         <>
-          <Divider color={c.outlineVariant} />
+          <FilterDivider />
           <View style={styles.sectionRow}>
             <SectionLabel label="Country Presets" colors={c} typography={typography} />
-            {vm.filters.activeCountryPreset && (<TouchableOpacity onPress={() => vm.clearCountryPreset()} accessibilityRole="button" accessibilityLabel="Clear country preset"><Text style={[{ color: c.primary, ...typography.labelSm }]}>Clear</Text></TouchableOpacity>)}
+            {vm.filters.activeCountryPreset && (<TouchableOpacity onPress={() => vm.clearCountryPreset()} accessibilityRole="button" accessibilityLabel="Clear country preset"><Text style={[{ color: GOLD_ACCENT, ...typography.labelSm }]}>Clear</Text></TouchableOpacity>)}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.hScroll, { marginBottom: 12 }]}>
             <View style={styles.hChipRow}>
               {COUNTRY_PRESETS.map((preset) => {
                 const active = vm.filters.activeCountryPreset === preset.id;
                 return (
-                  <TouchableOpacity key={preset.id} style={[styles.chip, { borderRadius: radii.full }, active ? { backgroundColor: c.primary } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: c.outlineVariant + '40' }]} onPress={() => active ? vm.clearCountryPreset() : vm.applyCountryPreset(preset.id)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Filter countries by ${preset.label}`} accessibilityState={{ selected: active }}>
-                    <Text style={[styles.chipText, { color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm }]}>{preset.label}</Text>
+                  <TouchableOpacity key={preset.id} style={[styles.chip, { borderRadius: radii.md }, active ? { backgroundColor: GOLD_ACCENT } : { backgroundColor: c.surfaceContainerHigh, borderWidth: 1, borderColor: GOLD_DIM }]} onPress={() => active ? vm.clearCountryPreset() : vm.applyCountryPreset(preset.id)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Filter countries by ${preset.label}`} accessibilityState={{ selected: active }}>
+                    <Text style={[styles.chipTextUpper, { color: active ? '#141414' : c.onSurfaceVariant, ...typography.labelSm }]}>{preset.label}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
           </ScrollView>
           {vm.filters.activeCountryPreset && (
-            <View style={[genreStyles.infoBanner, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderLeftColor: c.primary, marginBottom: 16 }]}>
+            <View style={[genreStyles.infoBanner, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderLeftColor: GOLD_ACCENT, marginBottom: 16 }]}>
               <View style={{ flex: 1 }}><Text style={[{ color: c.onSurface, ...typography.labelSm, fontWeight: '700', marginBottom: 2 }]}>{findCountryPreset(vm.filters.activeCountryPreset)?.label}</Text><Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>{findCountryPreset(vm.filters.activeCountryPreset)?.description}</Text></View>
               <TouchableOpacity onPress={() => vm.clearCountryPreset()} style={{ marginLeft: 8 }}><Ionicons name="close-circle" size={20} color={c.onSurfaceVariant} /></TouchableOpacity>
             </View>
           )}
           <View style={styles.sectionRow}>
             <SectionLabel label="Origin Country (TV)" colors={c} typography={typography} />
-            {vm.filters.activeCountryPreset && (<View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Ionicons name="flash-outline" size={12} color={c.primary} /><Text style={[{ color: c.primary, fontSize: 10, fontWeight: '800' }]}>Preset Active</Text></View>)}
+            {vm.filters.activeCountryPreset && (<View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Ionicons name="flash-outline" size={12} color={GOLD_ACCENT} /><Text style={[{ color: GOLD_ACCENT, fontSize: 10, fontWeight: '800' }]}>Preset Active</Text></View>)}
           </View>
-          <TouchableOpacity style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activeCountryPreset ? c.primary + '40' : c.outlineVariant + '40' }]} onPress={onOpenCountryModal} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Origin country, ${countryLabel}`}>
-            <Ionicons name="globe-outline" size={16} color={selectedOriginCountries.length ? c.primary : c.onSurfaceVariant} style={{ marginRight: 8 }} />
+          <TouchableOpacity style={[styles.pickerButton, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: vm.filters.activeCountryPreset ? GOLD_ACCENT + '40' : GOLD_DIM }]} onPress={onOpenCountryModal} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Origin country, ${countryLabel}`}>
+            <Ionicons name="globe-outline" size={16} color={selectedOriginCountries.length ? GOLD_ACCENT : c.onSurfaceVariant} style={{ marginRight: 8 }} />
             <Text style={[{ flex: 1, color: selectedOriginCountries.length ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>{vm.filters.activeCountryPreset && !selectedOriginCountries.length ? `All ${findCountryPreset(vm.filters.activeCountryPreset)?.label} countries` : countryLabel}</Text>
             {selectedOriginCountries.length > 0 && (<TouchableOpacity onPress={() => vm.updateFilter('originCountries', [])} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Clear selected countries"><Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} /></TouchableOpacity>)}
             <Ionicons name="chevron-down-outline" size={16} color={c.onSurfaceVariant} style={{ marginLeft: 4 }} />
@@ -1090,7 +1151,7 @@ function GenreFilterSection({
             accessibilityRole="button"
             accessibilityLabel="Clear all genre filters"
           >
-            <Text style={[{ color: c.primary, ...typography.labelSm }]}>Clear all</Text>
+            <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm }]}>Clear all</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -1098,7 +1159,7 @@ function GenreFilterSection({
       {/* ── Include / Exclude tab switcher ── */}
       <View style={[genreStyles.tabRow, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.lg }]}>
         {[
-          { key: 'include', label: 'Include', count: includeCount, activeColor: c.primary },
+          { key: 'include', label: 'Include', count: includeCount, activeColor: GOLD_ACCENT },
           { key: 'exclude', label: 'Exclude', count: excludeCount, activeColor: c.error },
         ].map((tab) => {
           const isActive = activeTab === tab.key;
@@ -1119,7 +1180,7 @@ function GenreFilterSection({
               <Text
                 style={[
                   {
-                    color: isActive ? c.onPrimary : c.onSurfaceVariant,
+                    color: isActive ? (tab.key === 'include' ? '#141414' : c.onPrimary) : c.onSurfaceVariant,
                     ...typography.labelSm,
                     fontWeight: '700',
                   },
@@ -1147,13 +1208,13 @@ function GenreFilterSection({
                 return (
                   <TouchableOpacity
                     key={mode}
-                    style={[styles.logicOption, active && { backgroundColor: c.primary, borderRadius: radii.full }]}
+                    style={[styles.logicOption, active && { backgroundColor: GOLD_ACCENT, borderRadius: radii.full }]}
                     onPress={() => onUpdateGenreLogic(mode)}
                     accessibilityRole="button"
                     accessibilityLabel={`Use ${mode} genre matching`}
                     accessibilityState={{ selected: active }}
                   >
-                    <Text style={[{ color: active ? c.onPrimary : c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
+                    <Text style={[{ color: active ? '#141414' : c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
                       {mode}
                     </Text>
                   </TouchableOpacity>
@@ -1166,7 +1227,7 @@ function GenreFilterSection({
           </View>
 
           {genresLoading ? (
-            <ActivityIndicator color={c.primary} style={{ marginVertical: 12 }} />
+            <ActivityIndicator color={GOLD_ACCENT} style={{ marginVertical: 12 }} />
           ) : (
             <View style={styles.chipWrap}>
               {genres.map((genre) => {
@@ -1174,9 +1235,9 @@ function GenreFilterSection({
                 const excluded = excludeGenreIds.includes(genre.id);
                 // Chip state: included → primary, excluded → dimmed-error, else neutral
                 let chipBg = c.surfaceContainerHigh;
-                let chipBorder = { borderWidth: 1, borderColor: c.outlineVariant + '40' };
+                let chipBorder = { borderWidth: 1, borderColor: GOLD_DIM };
                 let textColor = c.onSurfaceVariant;
-                if (included) { chipBg = c.primary; chipBorder = {}; textColor = c.onPrimary; }
+                if (included) { chipBg = GOLD_ACCENT; chipBorder = {}; textColor = '#141414'; }
                 if (excluded) { chipBg = c.error + '22'; chipBorder = { borderWidth: 1, borderColor: c.error + '55' }; textColor = c.error; }
 
                 return (
@@ -1190,7 +1251,7 @@ function GenreFilterSection({
                     accessibilityState={{ selected: included }}
                   >
                     {included && (
-                      <Ionicons name="checkmark" size={12} color={c.onPrimary} style={{ marginRight: 3 }} />
+                      <Ionicons name="checkmark" size={12} color="#141414" style={{ marginRight: 3 }} />
                     )}
                     {excluded && (
                       <Ionicons name="remove-circle-outline" size={12} color={c.error} style={{ marginRight: 3 }} />
@@ -1234,7 +1295,7 @@ function GenreFilterSection({
                 let chipBorder = { borderWidth: 1, borderColor: c.outlineVariant + '40' };
                 let textColor = c.onSurfaceVariant;
                 if (excluded) { chipBg = c.error; chipBorder = {}; textColor = c.onPrimary; }
-                if (included) { chipBg = c.primary + '22'; chipBorder = { borderWidth: 1, borderColor: c.primary + '55' }; textColor = c.primary; }
+                if (included) { chipBg = GOLD_ACCENT + '22'; chipBorder = { borderWidth: 1, borderColor: GOLD_ACCENT + '55' }; textColor = GOLD_ACCENT; }
 
                 return (
                   <TouchableOpacity
@@ -1250,7 +1311,7 @@ function GenreFilterSection({
                       <Ionicons name="close" size={12} color={c.onPrimary} style={{ marginRight: 3 }} />
                     )}
                     {included && (
-                      <Ionicons name="checkmark" size={12} color={c.primary} style={{ marginRight: 3 }} />
+                      <Ionicons name="checkmark" size={12} color={GOLD_ACCENT} style={{ marginRight: 3 }} />
                     )}
                     <Text style={[styles.chipText, { color: textColor, ...typography.labelSm }]}>
                       {genre.name}
@@ -1354,11 +1415,7 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem, onTogg
   if (loading) {
     return (
       <View style={styles.resultsSection}>
-        <View style={styles.resultsHeader}>
-          <Text style={[{ color: c.onSurface, ...typography.titleLg, fontWeight: '800' }]}>
-            Searching
-          </Text>
-        </View>
+        <ProgrammeSectionHeader eyebrow="RESULTS" title="Searching" colors={c} typography={typography} />
         <ResultsSkeleton count={4} />
       </View>
     );
@@ -1386,9 +1443,10 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem, onTogg
   if (!hasSearched) {
     return (
       <View style={styles.stateBox}>
-        <View style={[styles.stateIconCircle, { backgroundColor: c.primary + '15' }]}>
-          <Ionicons name="telescope-outline" size={48} color={c.primary} />
+        <View style={[styles.stateIconCircle, { backgroundColor: GOLD_ACCENT + '15' }]}>
+          <Ionicons name="telescope-outline" size={48} color={GOLD_ACCENT} />
         </View>
+        <Text style={[styles.stateEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>PROGRAMME</Text>
         <Text style={[{ color: c.onSurface, ...typography.titleLg, textAlign: 'center', marginBottom: 8 }]}>
           Set your filters
         </Text>
@@ -1423,47 +1481,52 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem, onTogg
     );
   }
 
+  const gridRows = [];
+  for (let i = 0; i < results.length; i += 2) {
+    gridRows.push(results.slice(i, i + 2));
+  }
+
   return (
     <View style={styles.resultsSection}>
-      {/* Results count */}
       <View style={styles.resultsHeader}>
-        <Text style={[{ color: c.onSurface, ...typography.titleLg, fontWeight: '800' }]}>
-          Results
-        </Text>
+        <ProgrammeSectionHeader eyebrow="RESULTS" title="Programme" colors={c} typography={typography} />
         <View style={styles.resultsHeaderBadges}>
           {enrichingResults && (
-            <View style={[styles.enrichmentBadge, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full, borderColor: c.outlineVariant + '40' }]}>
-              <ActivityIndicator color={c.primary} size="small" />
+            <View style={[styles.enrichmentBadge, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full, borderColor: GOLD_DIM }]}>
+              <ActivityIndicator color={GOLD_ACCENT} size="small" />
               <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', marginLeft: 6 }]}>
                 ratings
               </Text>
             </View>
           )}
-          <View style={[styles.countBadge, { backgroundColor: c.primary + '20', borderRadius: radii.full }]}>
-            <Text style={[{ color: c.primary, ...typography.labelSm, fontWeight: '700' }]}>
+          <View style={[styles.countBadge, { backgroundColor: GOLD_ACCENT + '18', borderRadius: radii.full }]}>
+            <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '700' }]}>
               {totalResults.toLocaleString()} found
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Grid */}
-      <View style={styles.grid}>
-        {results.map((item) => (
-          <DiscoverCard
-            key={`${item.tmdbId}-${item.mediaType}`}
-            item={item}
-            colors={c}
-            typography={typography}
-            radii={radii}
-            onPress={() => onSelectItem(item)}
-            onQuickSave={() => onToggleWatchlist?.(item)}
-            isSaved={watchlistIds.includes(watchlistEntryKey(item))}
-          />
+      <View style={styles.gridBody}>
+        {gridRows.map((row, rowIndex) => (
+          <View key={`row-${rowIndex}`} style={styles.gridRow}>
+            {row.map((item) => (
+              <DiscoverCard
+                key={`${item.tmdbId}-${item.mediaType}`}
+                item={item}
+                colors={c}
+                typography={typography}
+                radii={radii}
+                onPress={() => onSelectItem(item)}
+                onQuickSave={() => onToggleWatchlist?.(item)}
+                isSaved={watchlistIds.includes(watchlistEntryKey(item))}
+              />
+            ))}
+            {row.length === 1 && <View style={styles.gridCardSpacer} />}
+          </View>
         ))}
       </View>
 
-      {/* Load More */}
       {loadMoreError ? (
         <TouchableOpacity
           style={[styles.loadMoreBtn, styles.loadMoreErrorBtn, { backgroundColor: c.error + '12', borderRadius: radii.md, borderColor: c.error + '44' }]}
@@ -1479,7 +1542,7 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem, onTogg
         </TouchableOpacity>
       ) : hasMore && (
         <TouchableOpacity
-          style={[styles.loadMoreBtn, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: c.outlineVariant + '40' }]}
+          style={[styles.loadMoreBtn, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.md, borderColor: GOLD_DIM }]}
           onPress={loadMore}
           disabled={loadingMore}
           activeOpacity={0.8}
@@ -1488,10 +1551,10 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem, onTogg
           accessibilityState={{ disabled: loadingMore }}
         >
           {loadingMore
-            ? <ActivityIndicator color={c.primary} size="small" />
+            ? <ActivityIndicator color={GOLD_ACCENT} size="small" />
             : <>
-                <Ionicons name="chevron-down-outline" size={16} color={c.primary} />
-                <Text style={[{ color: c.primary, ...typography.labelSm, fontWeight: '700', marginLeft: 6 }]}>
+                <Ionicons name="chevron-down-outline" size={16} color={GOLD_ACCENT} />
+                <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '700', marginLeft: 6 }]}>
                   Load More
                 </Text>
               </>
@@ -1508,13 +1571,11 @@ function ResultsSection({ vm, colors: c, typography, radii, onSelectItem, onTogg
   );
 }
 
-// ─── Discover Card ─────────────────────────────────────────────────────────────
-// Swipe RIGHT → Quick Save to Watchlist (green bookmark hint)
-// Swipe LEFT  → (no-op in Discover; reserved for future)
+// Swipe RIGHT → quick save to watchlist (gold bookmark hint)
 
-const SWIPE_THRESHOLD = 64; // px to trigger quick-save
+const SWIPE_THRESHOLD = 64;
 
-function DiscoverCard({ item, colors: c, typography, radii, onPress, onQuickSave, isSaved, watchers, trendingRank }) {
+function DiscoverCard({ item, colors: c, typography, radii, onPress, onQuickSave, isSaved, watchers }) {
   const omdb = item.omdbRatings || {};
   const imdbRating = omdb.imdbRating ? omdb.imdbRating.replace('/10', '') : null;
   const rottenTomatoes = omdb.rottenTomatoes || null;
@@ -1533,26 +1594,24 @@ function DiscoverCard({ item, colors: c, typography, radii, onPress, onQuickSave
         isTriggered.current = false;
       },
       onPanResponderMove: (_, g) => {
-        // Only allow rightward drag (positive dx)
         const clamped = Math.max(0, Math.min(g.dx, SWIPE_THRESHOLD * 1.4));
         translateX.setValue(clamped);
         hintOpacity.setValue(Math.min(1, clamped / SWIPE_THRESHOLD));
 
         if (!isTriggered.current && clamped >= SWIPE_THRESHOLD) {
           isTriggered.current = true;
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          Haptics.selectionAsync();
         }
       },
       onPanResponderRelease: (_, g) => {
         const triggered = g.dx >= SWIPE_THRESHOLD;
-        // Snap back
         Animated.parallel([
-          Animated.spring(translateX, { toValue: 0, tension: 300, friction: 12, useNativeDriver: true }),
-          Animated.timing(hintOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+          Animated.timing(translateX, { toValue: 0, duration: FADE_MS, useNativeDriver: true }),
+          Animated.timing(hintOpacity, { toValue: 0, duration: FADE_MS, useNativeDriver: true }),
         ]).start();
 
         if (triggered) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Haptics.selectionAsync();
           onQuickSave?.();
         }
       },
@@ -1560,14 +1619,13 @@ function DiscoverCard({ item, colors: c, typography, radii, onPress, onQuickSave
   ).current;
 
   return (
-    <View style={styles.cardItem}>
-      {/* Swipe hint layer — revealed behind the card as user drags right */}
+    <View style={styles.gridCard}>
       <Animated.View
         style={[
           styles.swipeHint,
           {
             opacity: hintOpacity,
-            backgroundColor: isSaved ? c.surfaceContainerHigh : '#1DB954',
+            backgroundColor: isSaved ? c.surfaceContainerHigh : GOLD_ACCENT + '28',
             borderRadius: radii.xl,
           },
         ]}
@@ -1575,63 +1633,75 @@ function DiscoverCard({ item, colors: c, typography, radii, onPress, onQuickSave
         <Ionicons
           name={isSaved ? 'bookmark' : 'bookmark-outline'}
           size={26}
-          color={isSaved ? c.primary : '#fff'}
+          color={GOLD_ACCENT}
         />
       </Animated.View>
 
       <Animated.View style={{ transform: [{ translateX }] }}>
         <TouchableOpacity
           onPress={onPress}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel={`Open details for ${item.title}`}
           {...panResponder.panHandlers}
         >
-          <View style={[styles.posterWrapper, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.xl }]}>
-            <MediaArtwork uri={item.posterUrl} style={styles.poster} resizeMode="cover" accessibilityLabel={`${item.title} poster`} title={item.title} />
+          <View style={[styles.gridPosterWrap, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.xl }]}>
+            <MediaArtwork
+              uri={item.posterUrl}
+              style={styles.gridPosterImg}
+              resizeMode="cover"
+              accessibilityLabel={`${item.title} poster`}
+              title={item.title}
+              instant
+            />
             {item.ratingValue > 0 && (
-              <View style={[styles.ratingBadge, { backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: radii.sm }]}>
-                <Text style={{ color: '#FFD700', fontSize: 10, fontWeight: '800' }}>★ {item.ratingValue.toFixed(1)}</Text>
+              <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
+                <Text style={styles.ratingBadgeText}>★ {item.ratingValue.toFixed(1)}</Text>
               </View>
             )}
-            {isSaved && (
-              <View style={[styles.savedCorner, { backgroundColor: c.primary }]}>
-                <Ionicons name="bookmark" size={12} color={c.onPrimary} />
-              </View>
+            {onQuickSave && (
+              <TouchableOpacity
+                style={[styles.gridBookmark, { borderColor: isSaved ? GOLD_ACCENT : 'rgba(255,255,255,0.2)' }]}
+                onPress={(event) => {
+                  event.stopPropagation?.();
+                  Haptics.selectionAsync();
+                  onQuickSave();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={isSaved ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`}
+                accessibilityState={{ selected: isSaved }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                  size={18}
+                  color={isSaved ? GOLD_ACCENT : '#fff'}
+                />
+              </TouchableOpacity>
             )}
           </View>
-          <Text style={[styles.cardTitle, { color: c.onSurface, ...typography.labelSm, fontWeight: '700' }]} numberOfLines={2}>
+          <Text style={[styles.cardTitle, { color: c.onSurface, ...typography.labelSm }]} numberOfLines={2}>
             {item.title}
           </Text>
-          <View style={styles.cardMetaRow}>
-            <Ionicons name={item.mediaType === 'movie' ? 'film-outline' : 'tv-outline'} size={11} color={c.onSurfaceVariant} />
-            <Text style={[{ color: c.onSurfaceVariant, fontSize: 10, fontWeight: '600', marginLeft: 4 }]}>{item.year}</Text>
+          <View style={styles.cardMeta}>
+            <Ionicons name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'} size={11} color={c.onSurfaceVariant} />
+            <Text style={[styles.cardYear, { color: c.onSurfaceVariant }]}>
+              {item.mediaType === 'tv' ? 'Series' : 'Movie'} · {item.year}
+            </Text>
             {watchers > 0 && (
-              <View style={[styles.watchersBadge, { backgroundColor: c.primary + '18' }]}>
-                <Text style={{ color: c.primary, fontSize: 9, fontWeight: '800' }}>
-                  🔥 {watchers >= 1000 ? `${(watchers / 1000).toFixed(1)}k` : watchers}
-                </Text>
-              </View>
+              <Text style={[styles.watchersMeta, { color: GOLD_ACCENT }]}>
+                · {watchers >= 1000 ? `${(watchers / 1000).toFixed(1)}k` : watchers} watching
+              </Text>
             )}
           </View>
           {hasOmdbMetadata && (
-            <View style={styles.omdbBadgeRow}>
-              {imdbRating && (
-                <View style={[styles.omdbPill, { backgroundColor: '#F5C518', borderRadius: radii.sm }]}>
-                  <Text style={styles.imdbPillText}>IMDb {imdbRating}</Text>
-                </View>
-              )}
-              {rottenTomatoes && (
-                <View style={[styles.omdbPill, { backgroundColor: '#F04438', borderRadius: radii.sm }]}>
-                  <Text style={styles.omdbPillText}>RT {rottenTomatoes}</Text>
-                </View>
-              )}
-              {contentRating && (
-                <View style={[styles.omdbPill, { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.sm, borderWidth: 1, borderColor: c.outlineVariant + '40' }]}>
-                  <Text style={[styles.contentRatingText, { color: c.onSurfaceVariant }]}>{contentRating}</Text>
-                </View>
-              )}
-            </View>
+            <Text style={[styles.omdbMetaLine, { color: c.onSurfaceVariant, ...typography.labelSm }]} numberOfLines={1}>
+              {imdbRating ? <>IMDb {imdbRating}</> : null}
+              {imdbRating && rottenTomatoes ? ' · ' : ''}
+              {rottenTomatoes ? <>RT {rottenTomatoes}</> : null}
+              {(imdbRating || rottenTomatoes) && contentRating ? ' · ' : ''}
+              {contentRating}
+            </Text>
           )}
         </TouchableOpacity>
       </Animated.View>
@@ -1643,14 +1713,10 @@ function DiscoverCard({ item, colors: c, typography, radii, onPress, onQuickSave
 
 function SectionLabel({ label, colors, typography }) {
   return (
-    <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+    <Text style={[styles.sectionLabel, { color: colors.onSurface, ...typography.labelSm }]}>
       {label}
     </Text>
   );
-}
-
-function Divider({ color }) {
-  return <View style={[styles.divider, { backgroundColor: color + '20' }]} />;
 }
 
 // ─── Slider Styles ────────────────────────────────────────────────────────────
@@ -1807,19 +1873,91 @@ const genreStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 120, paddingTop: 16 },
+  atmosphereTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: scale(220),
+    zIndex: 0,
+  },
+  content: {
+    paddingHorizontal: GRID_PAD,
+    paddingTop: scale(8),
+  },
 
-  pageHeader: { marginBottom: 20 },
-  pageTitle: { fontWeight: '900', letterSpacing: -0.5, marginBottom: 4 },
+  sectionHeader: {
+    alignItems: 'center',
+    marginBottom: scale(18),
+  },
+  sectionEyebrow: {
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  sectionTitle: {
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+  sectionSubtitle: {
+    marginTop: 6,
+    textAlign: 'center',
+    opacity: 0.82,
+  },
 
-  card: { padding: 20, marginBottom: 24 },
+  mediaTabsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: scale(28),
+    marginBottom: scale(4),
+  },
+  mediaTab: {
+    alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: scale(4),
+    position: 'relative',
+  },
+  mediaTabLabel: {
+    fontWeight: '600',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  mediaTabLabelActive: {
+    fontWeight: '800',
+  },
+  mediaTabUnderline: {
+    position: 'absolute',
+    bottom: 2,
+    height: 2,
+    width: '100%',
+    borderRadius: 1,
+  },
 
-  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sectionLabel: { fontWeight: '700', letterSpacing: 1, marginBottom: 12 },
+  filterBand: {
+    paddingVertical: scale(14),
+  },
+  filterDivider: {
+    height: StyleSheet.hairlineWidth,
+    opacity: 0.65,
+  },
+  resultsRule: {
+    height: StyleSheet.hairlineWidth,
+    marginTop: scale(8),
+    marginBottom: scale(24),
+    opacity: 0.65,
+  },
 
-  toggleRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
-  typeButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, gap: 6 },
-  typeLabel: { fontWeight: '700' },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: scale(12) },
+  sectionLabel: {
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: scale(12),
+    textTransform: 'uppercase',
+    fontSize: scale(11),
+  },
 
   logicPill: { flexDirection: 'row', padding: 3 },
   logicOption: { minHeight: 44, minWidth: 48, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center', justifyContent: 'center' },
@@ -1827,90 +1965,109 @@ const styles = StyleSheet.create({
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   chip: { paddingHorizontal: 14, paddingVertical: 7, minHeight: 48, justifyContent: 'center' },
   chipText: { fontWeight: '700' },
+  chipTextUpper: {
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    fontSize: scale(10),
+  },
   hScroll: { marginBottom: 4 },
-  hChipRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
-  clearGenres: { marginTop: 8, alignSelf: 'flex-start' },
+  hChipRow: { flexDirection: 'row', gap: 8, paddingVertical: 4, paddingRight: GRID_PAD },
 
   moreFiltersBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 14,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 4,
+    minHeight: 48,
   },
   pickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 4,
+    minHeight: 48,
   },
 
   yearRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  yearInput: {},
+  yearInput: { borderWidth: StyleSheet.hairlineWidth },
 
   validationBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, marginTop: 16 },
   validationText: { flex: 1 },
 
-  divider: { height: 1, marginVertical: 20 },
+  actionRow: { flexDirection: 'row', gap: 12, marginTop: scale(20), marginBottom: scale(8) },
+  resetBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderWidth: StyleSheet.hairlineWidth, minHeight: 48 },
+  searchBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8, minHeight: 48 },
+  searchBtnText: { fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
 
-  actionRow: { flexDirection: 'row', gap: 12, marginTop: 20 },
-  resetBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderWidth: 1 },
-  searchBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8 },
-  searchBtnText: { fontWeight: '800' },
-
-  // State
   stateBox: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 32 },
-  stateText: { textAlign: 'center' },
-  stateIconCircle: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
-  retryBtn: { paddingHorizontal: 32, paddingVertical: 12 },
-
-  // Results
-  resultsSection: { marginBottom: 32 },
-  resultsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  resultsHeaderBadges: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  countBadge: { paddingHorizontal: 12, paddingVertical: 5 },
-  enrichmentBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
-
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-  cardItem: { width: '46%', marginBottom: 8, position: 'relative' },
-  swipeHint: {
-    position: 'absolute',
-    inset: 0,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    aspectRatio: 2 / 3,
-    alignItems: 'center',
-    justifyContent: 'center',
+  stateEyebrow: {
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 8,
+    textTransform: 'uppercase',
   },
-  savedCorner: {
+  stateIconCircle: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+
+  resultsSection: { marginBottom: 32 },
+  resultsHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: scale(20), gap: 12 },
+  resultsHeaderBadges: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: scale(4) },
+  countBadge: { paddingHorizontal: 12, paddingVertical: 5 },
+  enrichmentBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderWidth: StyleSheet.hairlineWidth },
+
+  gridBody: { gap: GRID_GAP },
+  gridRow: { flexDirection: 'row', gap: GRID_GAP },
+  gridCard: { width: GRID_COL_W, position: 'relative' },
+  gridCardSpacer: { width: GRID_COL_W },
+  gridPosterWrap: {
+    width: GRID_COL_W,
+    height: GRID_POSTER_H,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  gridPosterImg: { width: '100%', height: '100%' },
+  gridBookmark: {
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    backgroundColor: 'rgba(0,0,0,0.42)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  posterWrapper: { aspectRatio: 2 / 3, overflow: 'hidden', marginBottom: 8, position: 'relative' },
-  poster: { width: '100%', height: '100%' },
-  posterPlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
-  ratingBadge: { position: 'absolute', top: 8, left: 8, paddingHorizontal: 7, paddingVertical: 3 },
-  cardTitle: { marginBottom: 2 },
-  cardMetaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  watchersBadge: { marginLeft: 8, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
-  omdbBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  omdbPill: { paddingHorizontal: 5, paddingVertical: 3, minHeight: 20, justifyContent: 'center' },
-  imdbPillText: { color: '#141414', fontSize: 9, fontWeight: '900' },
-  omdbPillText: { color: '#ffffff', fontSize: 9, fontWeight: '900' },
-  contentRatingText: { fontSize: 9, fontWeight: '900' },
+  swipeHint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: GRID_COL_W,
+    height: GRID_POSTER_H,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 0,
+  },
+  ratingBadge: {
+    position: 'absolute',
+    left: 8,
+    top: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+  },
+  ratingBadgeText: { color: '#FFD700', fontSize: 10, fontWeight: '800' },
+  cardTitle: { marginTop: 8, fontWeight: '700', minHeight: 34 },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, flexWrap: 'wrap' },
+  cardYear: { fontSize: 11, fontWeight: '600' },
+  watchersMeta: { fontSize: 10, fontWeight: '700' },
+  omdbMetaLine: { marginTop: 4, fontWeight: '600', letterSpacing: 0.2 },
 
-  loadMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, marginTop: 24, borderWidth: 1 },
+  loadMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, marginTop: 24, borderWidth: StyleSheet.hairlineWidth, minHeight: 48 },
   loadMoreErrorBtn: { paddingHorizontal: 12 },
-  endText: { textAlign: 'center', marginTop: 24, letterSpacing: 1 },
+  endText: { textAlign: 'center', marginTop: 24, letterSpacing: 1, textTransform: 'uppercase', fontSize: scale(10), fontWeight: '700' },
 });
