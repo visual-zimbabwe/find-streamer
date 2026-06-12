@@ -4,7 +4,7 @@ import { isInUserLibrary } from './watchlistModel';
 
 export const HOME_RAIL_LIMIT = 10;
 export const HOME_SPOTLIGHT_MAX = 6;
-export const HOME_HERO_ROTATION_MS = 7000;
+export const HOME_HERO_ROTATION_MS = 8000;
 export const HOME_HERO_RESUME_DELAY_MS = 3200;
 
 const SPOTLIGHT_CATEGORY_ORDER = [

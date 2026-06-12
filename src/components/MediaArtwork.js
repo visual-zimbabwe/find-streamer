@@ -13,6 +13,7 @@ export function MediaArtwork({
   accessibilityLabel,
   title,
   compactFallback = false,
+  instant = false,
 }) {
   const { theme } = useTheme();
   const { colors, typography } = theme;
@@ -46,7 +47,9 @@ export function MediaArtwork({
         source={{ uri }}
         style={style}
         contentFit={resizeMode === 'stretch' ? 'fill' : resizeMode === 'center' ? 'none' : resizeMode}
-        transition={250}
+        transition={instant ? 0 : 250}
+        cachePolicy="memory-disk"
+        recyclingKey={uri}
         onError={() => setFailedUri(uri)}
         accessible={Boolean(accessibilityLabel)}
         accessibilityLabel={accessibilityLabel}
