@@ -1,5 +1,17 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { Animated, PanResponder, StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
+import React, { memo, useMemo, useRef, useState, useEffect } from 'react';
+import {
+  Animated,
+  PanResponder,
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Platform,
+  Dimensions,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { StatePanel } from './StatePanel';
@@ -13,42 +25,103 @@ import {
 import { fetchNowPlayingMovies } from '../lib/tmdb';
 import { classifyAppError } from '../lib/errors';
 import { scale, verticalScale } from '../utils/responsive';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { useBottomNavScroll, useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
+import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const WINDOW_W = Dimensions.get('window').width;
+const GRID_PAD = scale(22);
+const GRID_GAP = scale(14);
+const GRID_COL_W = (WINDOW_W - GRID_PAD * 2 - GRID_GAP) / 2;
+const GRID_POSTER_H = GRID_COL_W * 1.5;
+const GOLD_ACCENT = '#D4A853';
+const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
 
-/** Match ResultView: TMDB overview, else OMDb plot (detail fetches this; watchlist rows may only store one). */
-function synopsisForCard(item) {
-  if (!item) return '';
-  const s = item.synopsis;
-  if (s && s !== 'No synopsis available.') return s;
-  return item.omdbRatings?.plot || s || '';
+function parseRatingValue(rating) {
+  if (rating == null || rating === '') return 0;
+  const n = parseFloat(String(rating).split('/')[0]);
+  return Number.isFinite(n) ? n : 0;
 }
 
-/** Match ResultView hero strip: numeric part only (no "/10"). */
-function tmdbRatingNumber(rating) {
-  if (rating == null || rating === '') return '';
-  return String(rating).split('/')[0];
+function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
+  return (
+    <View style={styles.sectionHeader}>
+      {eyebrow ? (
+        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>{eyebrow}</Text>
+      ) : null}
+      <Text
+        style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
+        accessibilityRole="header"
+      >
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text style={[styles.sectionSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
 }
 
-function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typography, radii }) {
+function SectionHairline({ color }) {
+  return <View style={[styles.sectionDivider, { backgroundColor: color || GOLD_DIM }]} />;
+}
+
+const NowPlayingGridCard = memo(function NowPlayingGridCard({ item, colors, typography, radii, onSelect }) {
+  const ratingValue = parseRatingValue(item.rating);
+
+  return (
+    <TouchableOpacity
+      style={styles.gridCard}
+      onPress={() => onSelect(item)}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={`Open details for ${item.title}`}
+    >
+      <View style={[styles.gridPosterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl }]}>
+        <MediaArtwork
+          uri={item.posterUrl}
+          style={styles.gridPosterImg}
+          resizeMode="cover"
+          accessibilityLabel={`${item.title} poster`}
+          title={item.title}
+          instant
+        />
+        {ratingValue > 0 && (
+          <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
+            <Text style={styles.ratingBadgeText}>★ {ratingValue.toFixed(1)}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]} numberOfLines={2}>
+        {item.title}
+      </Text>
+      <View style={styles.cardMeta}>
+        <Ionicons name="film-outline" size={11} color={colors.onSurfaceVariant} />
+        <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>Movie · {item.year}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+function WatchlistGridCard({ item, colors, typography, radii, onSelect, onRemove, onMarkWatched }) {
   const translateX = useRef(new Animated.Value(0)).current;
-  const SWIPE_THRESHOLD = 88;
+  const SWIPE_THRESHOLD = 72;
+  const ratingValue = parseRatingValue(item.rating);
 
   const resetPosition = () => {
-    Animated.spring(translateX, {
+    Animated.timing(translateX, {
       toValue: 0,
-      tension: 80,
-      friction: 12,
+      duration: 220,
       useNativeDriver: true,
     }).start();
   };
 
   const completeSwipe = (direction) => {
+    Haptics.selectionAsync();
     Animated.timing(translateX, {
-      toValue: direction === 'left' ? -420 : 420,
+      toValue: direction === 'left' ? -GRID_COL_W : GRID_COL_W,
       duration: 180,
       useNativeDriver: true,
     }).start(() => {
@@ -66,7 +139,7 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
       onMoveShouldSetPanResponder: (_, gesture) =>
         Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
       onPanResponderMove: (_, gesture) => {
-        const clamped = Math.max(-128, Math.min(128, gesture.dx));
+        const clamped = Math.max(-96, Math.min(96, gesture.dx));
         translateX.setValue(clamped);
       },
       onPanResponderRelease: (_, gesture) => {
@@ -83,80 +156,71 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
   ).current;
 
   const removeOpacity = translateX.interpolate({
-    inputRange: [0, 90],
+    inputRange: [0, 72],
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
   const watchedOpacity = translateX.interpolate({
-    inputRange: [-90, 0],
+    inputRange: [-72, 0],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
 
   return (
-    <View style={styles.swipeShell}>
-      <Animated.View
-        style={[
-          styles.swipeAction,
-          styles.swipeRemoveAction,
-          { opacity: removeOpacity, backgroundColor: colors.error + '18', borderRadius: radii.xl },
-        ]}
-      >
-        <Ionicons name="trash-outline" size={22} color={colors.error} />
+    <View style={[styles.swipeShell, { width: GRID_COL_W }]}>
+      <Animated.View style={[styles.swipeAction, styles.swipeRemoveAction, { opacity: removeOpacity }]}>
+        <Ionicons name="trash-outline" size={18} color={colors.error} />
         <Text style={[styles.swipeActionText, { color: colors.error, ...typography.labelSm }]}>Remove</Text>
       </Animated.View>
-      <Animated.View
-        style={[
-          styles.swipeAction,
-          styles.swipeWatchedAction,
-          { opacity: watchedOpacity, backgroundColor: colors.primary + '18', borderRadius: radii.xl },
-        ]}
-      >
-        <Text style={[styles.swipeActionText, { color: colors.primary, ...typography.labelSm }]}>Watched</Text>
-        <Ionicons name="checkmark-circle-outline" size={22} color={colors.primary} />
+      <Animated.View style={[styles.swipeAction, styles.swipeWatchedAction, { opacity: watchedOpacity }]}>
+        <Text style={[styles.swipeActionText, { color: GOLD_ACCENT, ...typography.labelSm }]}>Watched</Text>
+        <Ionicons name="checkmark-circle-outline" size={18} color={GOLD_ACCENT} />
       </Animated.View>
 
-      <Animated.View
-        style={{ transform: [{ translateX }] }}
-        {...panResponder.panHandlers}
-      >
+      <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
         <TouchableOpacity
-          style={[styles.card, { backgroundColor: colors.surface }]}
-          activeOpacity={0.8}
+          style={styles.gridCard}
+          activeOpacity={0.85}
           onPress={() => onSelect(item)}
           accessibilityRole="button"
           accessibilityLabel={`Open details for ${item.title}. Swipe left to mark as watched, or swipe right to remove.`}
         >
-          <View style={[styles.posterWrapper, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
-            <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
-          </View>
-          <View style={styles.info}>
-            <Text style={[styles.itemTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
-              {item.title}
-            </Text>
-            {item.status && item.status !== 'saved' && (
-              <View style={[styles.statusBadge, { backgroundColor: item.status === 'watched' ? colors.primary + '18' : colors.surfaceContainerHigh, borderColor: item.status === 'watched' ? colors.primary + '44' : colors.outlineVariant + '40', borderRadius: radii.full }]}>
-                <Ionicons
-                  name={item.status === 'watched' ? 'checkmark-circle-outline' : item.status === 'watching' ? 'play-circle-outline' : 'archive-outline'}
-                  size={13}
-                  color={item.status === 'watched' ? colors.primary : colors.onSurfaceVariant}
-                />
-                <Text style={[styles.statusBadgeText, { color: item.status === 'watched' ? colors.primary : colors.onSurfaceVariant, ...typography.labelSm }]}>
-                  {getStatusLabel(item.status)}
-                </Text>
+          <View style={[styles.gridPosterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl }]}>
+            <MediaArtwork
+              uri={item.posterUrl}
+              style={styles.gridPosterImg}
+              resizeMode="cover"
+              accessibilityLabel={`${item.title} poster`}
+              title={item.title}
+              instant
+            />
+            {ratingValue > 0 && (
+              <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
+                <Text style={styles.ratingBadgeText}>★ {ratingValue.toFixed(1)}</Text>
               </View>
             )}
-            <View style={styles.meta}>
-              <View style={styles.metaTmdbRating}>
-                <View style={styles.badgeTmdb}>
-                  <Text style={styles.badgeTmdbText}>TMDb</Text>
-                </View>
-                <Text style={{ color: colors.primary, fontWeight: '900', ...typography.labelSm }}>{tmdbRatingNumber(item.rating)}</Text>
+            {item.status && item.status !== 'saved' && (
+              <View style={[styles.statusPill, { backgroundColor: 'rgba(0,0,0,0.62)', borderRadius: radii.sm }]}>
+                <Ionicons
+                  name={item.status === 'watched' ? 'checkmark-circle-outline' : item.status === 'watching' ? 'play-circle-outline' : 'archive-outline'}
+                  size={11}
+                  color={item.status === 'watched' ? GOLD_ACCENT : '#fff'}
+                />
+                <Text style={[styles.statusPillText, typography.labelSm]}>{getStatusLabel(item.status)}</Text>
               </View>
-              <Text style={{ color: colors.onSurfaceVariant }}>• {item.year}</Text>
-            </View>
-            <Text style={[styles.synopsis, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
-              {synopsisForCard(item)}
+            )}
+          </View>
+          <Text style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <View style={styles.cardMeta}>
+            <Ionicons
+              name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
+              size={11}
+              color={colors.onSurfaceVariant}
+            />
+            <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>
+              {item.mediaType === 'tv' ? 'Series' : 'Movie'} · {item.year}
             </Text>
           </View>
         </TouchableOpacity>
@@ -165,64 +229,37 @@ function WatchlistItem({ item, onSelect, onRemove, onMarkWatched, colors, typogr
   );
 }
 
+function buildGridRows(items) {
+  const rows = [];
+  for (let i = 0; i < items.length; i += 2) {
+    rows.push(items.slice(i, i + 2));
+  }
+  return rows;
+}
+
+function PosterGrid({ items, renderItem }) {
+  const rows = buildGridRows(items);
+  return (
+    <View style={styles.gridBody}>
+      {rows.map((row, rowIndex) => (
+        <View key={`row-${rowIndex}`} style={styles.gridRow}>
+          {row.map((item) => (
+            <View key={watchlistEntryKey(item)}>{renderItem(item)}</View>
+          ))}
+          {row.length === 1 ? <View style={styles.gridCardSpacer} /> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function WatchlistView({ items, collections = [], onRemove, onMarkWatched, onSelect, onBrowseMovies, onBrowseTV }) {
-  const { theme } = useTheme();
+  const { theme, resolvedMode } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const bottomNavScroll = useBottomNavScroll();
 
-  const { setVisible: setBottomNavVisible } = useBottomNavVisibility();
-  const lastOffset = useRef(0);
-
-  const scrollHandler = useRef(
-    Animated.event(
-      [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-      {
-        useNativeDriver: true,
-        listener: (event) => {
-          if (!event || !event.nativeEvent || !event.nativeEvent.contentOffset) return;
-          const currentOffset = event.nativeEvent.contentOffset.y;
-          const diff = currentOffset - lastOffset.current;
-          
-          const contentSize = event.nativeEvent.contentSize;
-          const layoutMeasurement = event.nativeEvent.layoutMeasurement;
-
-          if (contentSize && layoutMeasurement) {
-            const contentHeight = contentSize.height;
-            const layoutHeight = layoutMeasurement.height;
-            const maxOffset = contentHeight - layoutHeight;
-
-            if (currentOffset <= 50) {
-              setBottomNavVisible(true);
-            } else if (!isNaN(maxOffset) && currentOffset >= maxOffset - 50) {
-              setBottomNavVisible(true);
-            } else if (Math.abs(diff) > 12) {
-              if (diff > 0) {
-                setBottomNavVisible(false);
-              } else {
-                setBottomNavVisible(true);
-              }
-            }
-          } else {
-            if (currentOffset <= 50) {
-              setBottomNavVisible(true);
-            } else if (Math.abs(diff) > 12) {
-              if (diff > 0) {
-                setBottomNavVisible(false);
-              } else {
-                setBottomNavVisible(true);
-              }
-            }
-          }
-          lastOffset.current = currentOffset;
-        }
-      }
-    )
-  ).current;
-  const fabOpen = useRef(new Animated.Value(0)).current;
-  const [fabExpanded, setFabExpanded] = useState(false);
   const [randomPick, setRandomPick] = useState(null);
-  const pickScale = useRef(new Animated.Value(0.96)).current;
   const pickOpacity = useRef(new Animated.Value(0)).current;
   const [collapsedCategoryIds, setCollapsedCategoryIds] = useState({});
   const [collapsedGroupKeys, setCollapsedGroupKeys] = useState({});
@@ -231,17 +268,11 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
   const [nowPlayingLoading, setNowPlayingLoading] = useState(true);
   const [nowPlayingError, setNowPlayingError] = useState(null);
 
-  const toggleFab = () => {
-    const toValue = fabExpanded ? 0 : 1;
-    Animated.spring(fabOpen, {
-      toValue,
-      damping: 15,
-      stiffness: 200,
-      useNativeDriver: true,
-    }).start();
-    setFabExpanded(!fabExpanded);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
+  const glassSurface = resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.96)' : 'rgba(247, 247, 242, 0.96)';
+  const atmosphereColors = [
+    resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
+    colors.background,
+  ];
 
   const libraryItems = useMemo(
     () => (items || []).filter(isInUserLibrary),
@@ -258,21 +289,13 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
     if (!source?.length) return;
     const nextPick = source[Math.floor(Math.random() * source.length)];
     setRandomPick(nextPick);
-    pickScale.setValue(0.94);
     pickOpacity.setValue(0);
-    Animated.parallel([
-      Animated.spring(pickScale, {
-        toValue: 1,
-        tension: 80,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-      Animated.timing(pickOpacity, {
-        toValue: 1,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    Haptics.selectionAsync();
+    Animated.timing(pickOpacity, {
+      toValue: 1,
+      duration: 320,
+      useNativeDriver: true,
+    }).start();
   };
 
   useEffect(() => {
@@ -297,7 +320,7 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
   }
 
   const sortByRatingDesc = (arr) =>
-    [...arr].sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
+    [...arr].sort((a, b) => parseRatingValue(b.rating) - parseRatingValue(a.rating));
 
   const availableCollections = collections.length ? collections : getUserWatchlistCollections();
   const groupedItems = availableCollections
@@ -319,6 +342,7 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
   const isCategoryCollapsed = (categoryId) => collapsedCategoryIds[categoryId] ?? true;
 
   const toggleCategory = (categoryId) => {
+    Haptics.selectionAsync();
     setCollapsedCategoryIds((current) => {
       const collapsed = current[categoryId] ?? true;
       return { ...current, [categoryId]: !collapsed };
@@ -328,8 +352,9 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
   const groupKey = (categoryId, groupLabel) => `${categoryId}::${groupLabel}`;
 
   const toggleGroup = (categoryId, groupLabel) => {
-    const key = groupKey(categoryId, groupLabel);
+    Haptics.selectionAsync();
     setCollapsedGroupKeys((current) => {
+      const key = groupKey(categoryId, groupLabel);
       const collapsed = current[key] ?? true;
       return { ...current, [key]: !collapsed };
     });
@@ -338,369 +363,358 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
   const isGroupCollapsed = (categoryId, groupLabel) =>
     collapsedGroupKeys[groupKey(categoryId, groupLabel)] ?? true;
 
-  const headerBlurOpacity = scrollY.interpolate({
-    inputRange: [0, 60],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
+  const retryNowPlaying = () => {
+    setNowPlayingLoading(true);
+    setNowPlayingError(null);
+    fetchNowPlayingMovies()
+      .then(setNowPlaying)
+      .catch((err) => setNowPlayingError(classifyAppError(err).message || 'Could not load Now Playing.'))
+      .finally(() => setNowPlayingLoading(false));
+  };
 
   return (
-    <View style={{ flex: 1 }}>
-      {/* Sticky blur header — fades in as user scrolls */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.stickyHeader,
-          { opacity: headerBlurOpacity },
-        ]}
-      >
-        {Platform.OS === 'ios' ? (
-          <BlurView intensity={64} tint="dark" style={StyleSheet.absoluteFill} />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, styles.stickyHeaderAndroid]} />
-        )}
-      </Animated.View>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
 
-      <Animated.ScrollView
+      <ScrollView
         style={styles.container}
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom > 0 ? insets.bottom + 160 : 160 }
-        ]}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 112 }]}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={Platform.OS === 'android'}
+        overScrollMode="never"
+        {...bottomNavScroll}
       >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.onSurface, ...typography.headlineLg }]}>My Watchlist</Text>
-        <Text style={[styles.subtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-          You have {libraryItems.length} titles saved to watch later.
-        </Text>
-      </View>
+        <ProgrammeSectionHeader
+          eyebrow="Personal Ledger"
+          title="My Watchlist"
+          subtitle={`${libraryItems.length} ${libraryItems.length === 1 ? 'Title' : 'Titles'} Saved`}
+          colors={colors}
+          typography={typography}
+        />
 
-      <View style={[styles.randomPanel, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '55', borderRadius: radii.xl }]}>
-        <View style={styles.randomCopy}>
-          <Text style={[styles.randomEyebrow, { color: colors.primary, ...typography.labelSm }]}>Random Pick</Text>
-          <Text style={[styles.randomTitle, { color: colors.onSurface, ...typography.titleLg }]}>What should I watch?</Text>
-          <Text style={[styles.randomSubtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-            Shuffle your saved titles when decision fatigue hits.
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.randomButton, { backgroundColor: colors.primary, borderRadius: radii.full }]}
-          onPress={chooseRandomPick}
-          accessibilityRole="button"
-          accessibilityLabel="Pick a random title from your watchlist"
+        <View
+          style={[
+            styles.randomPanel,
+            {
+              backgroundColor: glassSurface,
+              borderColor: GOLD_DIM,
+              borderRadius: radii.xl,
+            },
+          ]}
         >
-          <Ionicons name="shuffle" size={18} color={colors.onPrimary} />
-          <Text style={[styles.randomButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>Pick</Text>
-        </TouchableOpacity>
-        {randomPick && (
-          <Animated.View
-            style={[
-              styles.randomResult,
-              {
-                opacity: pickOpacity,
-                transform: [{ scale: pickScale }],
-                backgroundColor: colors.primary + '14',
-                borderColor: colors.primary + '33',
-                borderRadius: radii.lg,
-              },
-            ]}
-          >
-            <MediaArtwork uri={randomPick.posterUrl} style={[styles.randomPoster, { borderRadius: radii.md }]} accessibilityLabel={`${randomPick.title} poster`} title={randomPick.title} />
-            <View style={styles.randomResultCopy}>
-              <Text style={[styles.randomResultLabel, { color: colors.primary, ...typography.labelSm }]}>Tonight's Pick</Text>
-              <Text style={[styles.randomResultTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>{randomPick.title}</Text>
-              <Text style={[styles.randomResultMeta, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
-                {randomPick.year} • {getStatusLabel(randomPick.status)}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.randomOpenButton, { borderColor: colors.primary + '66', borderRadius: radii.full }]}
-              onPress={() => onSelect(randomPick)}
-              accessibilityRole="button"
-              accessibilityLabel={`Open details for ${randomPick.title}`}
-            >
-              <Ionicons name="arrow-forward" size={18} color={colors.primary} />
-            </TouchableOpacity>
-          </Animated.View>
-        )}
-      </View>
-
-      <View style={styles.categoryStack}>
-        {/* ── Now Playing ── */}
-        <View style={styles.categorySection}>
+          <View style={styles.randomCopy}>
+            <Text style={[styles.randomEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>Random Pick</Text>
+            <Text style={[styles.randomTitle, { color: colors.onSurface, ...typography.titleLg }]}>What should I watch?</Text>
+            <Text style={[styles.randomSubtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+              Shuffle your saved titles when decision fatigue hits.
+            </Text>
+          </View>
           <TouchableOpacity
-            style={styles.categoryHeading}
-            activeOpacity={0.75}
-            onPress={() => toggleCategory('now_playing')}
+            style={[styles.randomButton, { borderColor: GOLD_ACCENT, borderRadius: radii.full }]}
+            onPress={chooseRandomPick}
             accessibilityRole="button"
-            accessibilityLabel={`${isCategoryCollapsed('now_playing') ? 'Expand' : 'Collapse'} Now Playing`}
-            accessibilityState={{ expanded: !isCategoryCollapsed('now_playing') }}
+            accessibilityLabel="Pick a random title from your watchlist"
           >
-            <View style={[styles.categoryIcon, { backgroundColor: colors.primary + '22' }]}>
-              <Ionicons name="film-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.categoryHeadingText}>
-              <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]}>Now Playing</Text>
-              <Text style={[styles.categoryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                {nowPlayingLoading ? 'Loading…' : nowPlayingError ? 'Unavailable' : `${nowPlaying.length} ${nowPlaying.length === 1 ? 'Title' : 'Titles'}`}
-              </Text>
-            </View>
-            <View style={[styles.categoryToggle, { borderColor: colors.outlineVariant }]}>
-              <Ionicons
-                name={isCategoryCollapsed('now_playing') ? 'chevron-down' : 'chevron-up'}
-                size={18}
-                color={colors.onSurfaceVariant}
-              />
-            </View>
+            <Ionicons name="shuffle" size={18} color={GOLD_ACCENT} />
+            <Text style={[styles.randomButtonText, { color: GOLD_ACCENT, ...typography.labelSm }]}>Pick</Text>
           </TouchableOpacity>
-
-          {!isCategoryCollapsed('now_playing') && (
-            <View style={styles.list}>
-              {nowPlayingLoading && (
-                <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 16 }} />
-              )}
-              {!nowPlayingLoading && nowPlayingError && (
-                <TouchableOpacity
-                  style={[styles.inlineRetry, { backgroundColor: colors.error + '12', borderColor: colors.error + '33', borderRadius: radii.md }]}
-                  onPress={() => {
-                    setNowPlayingLoading(true);
-                    setNowPlayingError(null);
-                    fetchNowPlayingMovies()
-                      .then(setNowPlaying)
-                      .catch((err) => setNowPlayingError(classifyAppError(err).message || 'Could not load Now Playing.'))
-                      .finally(() => setNowPlayingLoading(false));
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Retry loading Now Playing"
-                >
-                  <Ionicons name="refresh-outline" size={16} color={colors.error} />
-                  <Text style={[styles.inlineRetryText, { color: colors.error, ...typography.bodyMd }]}>
-                    Could not load this section. Tap to retry.
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {!nowPlayingLoading && !nowPlayingError && nowPlaying.map((item) => (
-                <TouchableOpacity
-                  key={watchlistEntryKey(item)}
-                  style={styles.card}
-                  activeOpacity={0.8}
-                  onPress={() => onSelect(item)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open details for ${item.title}`}
-                >
-                  <View style={[styles.posterWrapper, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
-                    <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
-                  </View>
-                  <View style={styles.info}>
-                    <View style={styles.badgeRow}>
-                      <Text style={[styles.mediaType, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Movie</Text>
-                    </View>
-                    <Text style={[styles.itemTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
-                      {item.title}
-                    </Text>
-                    <View style={styles.meta}>
-                      <View style={styles.metaTmdbRating}>
-                        <View style={styles.badgeTmdb}>
-                          <Text style={styles.badgeTmdbText}>TMDb</Text>
-                        </View>
-                        <Text style={{ color: colors.primary, fontWeight: '900', ...typography.labelSm }}>{tmdbRatingNumber(item.rating)}</Text>
-                      </View>
-                      <Text style={{ color: colors.onSurfaceVariant }}>• {item.year}</Text>
-                    </View>
-                    <Text style={[styles.synopsis, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
-                      {synopsisForCard(item)}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
+          {randomPick && (
+            <Animated.View
+              style={[
+                styles.randomResult,
+                {
+                  opacity: pickOpacity,
+                  backgroundColor: resolvedMode === 'dark' ? 'rgba(212,168,83,0.08)' : 'rgba(212,168,83,0.12)',
+                  borderColor: GOLD_DIM,
+                  borderRadius: radii.lg,
+                },
+              ]}
+            >
+              <MediaArtwork
+                uri={randomPick.posterUrl}
+                style={[styles.randomPoster, { borderRadius: radii.md }]}
+                accessibilityLabel={`${randomPick.title} poster`}
+                title={randomPick.title}
+                instant
+              />
+              <View style={styles.randomResultCopy}>
+                <Text style={[styles.randomResultLabel, { color: GOLD_ACCENT, ...typography.labelSm }]}>Tonight's Pick</Text>
+                <Text style={[styles.randomResultTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
+                  {randomPick.title}
+                </Text>
+                <Text style={[styles.randomResultMeta, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
+                  {randomPick.year} · {getStatusLabel(randomPick.status)}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.randomOpenButton, { borderColor: GOLD_DIM, borderRadius: radii.full }]}
+                onPress={() => onSelect(randomPick)}
+                accessibilityRole="button"
+                accessibilityLabel={`Open details for ${randomPick.title}`}
+              >
+                <Ionicons name="chevron-forward" size={18} color={GOLD_ACCENT} />
+              </TouchableOpacity>
+            </Animated.View>
           )}
         </View>
 
-        {/* ── User watchlist categories ── */}
-        {groupedItems.map((category) => {
-          const isCollapsed = isCategoryCollapsed(category.id);
+        <SectionHairline />
 
-          return (
-            <View key={category.id} style={styles.categorySection}>
-              <TouchableOpacity
-                style={styles.categoryHeading}
-                activeOpacity={0.75}
-                onPress={() => toggleCategory(category.id)}
-                accessibilityRole="button"
-                accessibilityLabel={`${isCollapsed ? 'Expand' : 'Collapse'} ${category.label}`}
-                accessibilityState={{ expanded: !isCollapsed }}
-              >
-                <View style={[styles.categoryIcon, { backgroundColor: colors.primary + '22' }]}>
-                  <Ionicons name={category.icon} size={20} color={colors.primary} />
-                </View>
-                <View style={styles.categoryHeadingText}>
-                  <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]}>{category.label}</Text>
-                  <Text style={[styles.categoryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                    {category.totalCount} {category.totalCount === 1 ? 'Title' : 'Titles'}
-                  </Text>
-                </View>
-                <View style={[styles.categoryToggle, { borderColor: colors.outlineVariant }]}>
-                  <Ionicons
-                    name={isCollapsed ? 'chevron-down' : 'chevron-up'}
-                    size={18}
-                    color={colors.onSurfaceVariant}
+        <View style={styles.categoryStack}>
+          <View style={styles.categorySection}>
+            <TouchableOpacity
+              style={styles.categoryHeading}
+              activeOpacity={0.75}
+              onPress={() => toggleCategory('now_playing')}
+              accessibilityRole="button"
+              accessibilityLabel={`${isCategoryCollapsed('now_playing') ? 'Expand' : 'Collapse'} Now Playing`}
+              accessibilityState={{ expanded: !isCategoryCollapsed('now_playing') }}
+            >
+              <View style={[styles.categoryIcon, { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM }]}>
+                <Ionicons name="film-outline" size={18} color={GOLD_ACCENT} />
+              </View>
+              <View style={styles.categoryHeadingText}>
+                <Text style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>In Theatres</Text>
+                <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}>Now Playing</Text>
+                <Text style={[styles.categoryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                  {nowPlayingLoading ? 'Loading…' : nowPlayingError ? 'Unavailable' : `${nowPlaying.length} ${nowPlaying.length === 1 ? 'Title' : 'Titles'}`}
+                </Text>
+              </View>
+              <View style={[styles.categoryToggle, { borderColor: GOLD_DIM }]}>
+                <Ionicons
+                  name={isCategoryCollapsed('now_playing') ? 'chevron-down' : 'chevron-up'}
+                  size={16}
+                  color={colors.onSurfaceVariant}
+                />
+              </View>
+            </TouchableOpacity>
+
+            {!isCategoryCollapsed('now_playing') && (
+              <View style={styles.sectionBody}>
+                {nowPlayingLoading && (
+                  <ActivityIndicator size="small" color={GOLD_ACCENT} style={styles.sectionLoader} accessibilityLabel="Loading Now Playing" />
+                )}
+                {!nowPlayingLoading && nowPlayingError && (
+                  <TouchableOpacity
+                    style={[styles.inlineRetry, { backgroundColor: colors.error + '12', borderColor: colors.error + '33', borderRadius: radii.md }]}
+                    onPress={retryNowPlaying}
+                    accessibilityRole="button"
+                    accessibilityLabel="Retry loading Now Playing"
+                  >
+                    <Ionicons name="refresh-outline" size={16} color={colors.error} />
+                    <Text style={[styles.inlineRetryText, { color: colors.error, ...typography.bodyMd }]}>
+                      Could not load this section. Tap to retry.
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {!nowPlayingLoading && !nowPlayingError && nowPlaying.length > 0 && (
+                  <PosterGrid
+                    items={nowPlaying}
+                    renderItem={(item) => (
+                      <NowPlayingGridCard
+                        item={item}
+                        colors={colors}
+                        typography={typography}
+                        radii={radii}
+                        onSelect={onSelect}
+                      />
+                    )}
                   />
-                </View>
-              </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
 
-              {!isCollapsed && (
-                <View style={styles.groupStack}>
-                  {[{ label: 'Movies', icon: 'film-outline', data: category.movies }, { label: 'TV Shows', icon: 'tv-outline', data: category.tvShows }]
-                    .filter((g) => g.data.length > 0)
-                    .map((group) => {
-                      const groupCollapsed = isGroupCollapsed(category.id, group.label);
-                      return (
-                        <View key={group.label} style={styles.mediaGroup}>
-                          <TouchableOpacity
-                            style={styles.mediaGroupHeader}
-                            activeOpacity={0.75}
-                            onPress={() => toggleGroup(category.id, group.label)}
-                            accessibilityRole="button"
-                            accessibilityLabel={`${groupCollapsed ? 'Expand' : 'Collapse'} ${group.label}`}
-                            accessibilityState={{ expanded: !groupCollapsed }}
-                          >
-                            <Ionicons name={group.icon} size={14} color={colors.onSurfaceVariant} />
-                            <Text style={[styles.mediaGroupLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                              {group.label}
-                            </Text>
-                            <Text style={[styles.mediaGroupCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                              {group.data.length}
-                            </Text>
-                            <View style={[styles.mediaGroupDivider, { backgroundColor: colors.outlineVariant }]} />
-                            <Ionicons
-                              name={groupCollapsed ? 'chevron-down' : 'chevron-up'}
-                              size={14}
-                              color={colors.onSurfaceVariant}
-                            />
-                          </TouchableOpacity>
+          {groupedItems.map((category, categoryIndex) => {
+            const isCollapsed = isCategoryCollapsed(category.id);
 
-                          {!groupCollapsed && (
-                            <View style={styles.list}>
-                              {group.data.map((item) => (
-                                <WatchlistItem
-                                  key={watchlistEntryKey(item)}
-                                  item={item}
-                                  onSelect={onSelect}
-                                  onRemove={onRemove}
-                                  onMarkWatched={onMarkWatched}
-                                  colors={colors}
-                                  typography={typography}
-                                  radii={radii}
+            return (
+              <View key={category.id}>
+                {categoryIndex > 0 || !isCategoryCollapsed('now_playing') ? <SectionHairline /> : null}
+                <View style={styles.categorySection}>
+                  <TouchableOpacity
+                    style={styles.categoryHeading}
+                    activeOpacity={0.75}
+                    onPress={() => toggleCategory(category.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${isCollapsed ? 'Expand' : 'Collapse'} ${category.label}`}
+                    accessibilityState={{ expanded: !isCollapsed }}
+                  >
+                    <View style={[styles.categoryIcon, { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM }]}>
+                      <Ionicons name={category.icon} size={18} color={GOLD_ACCENT} />
+                    </View>
+                    <View style={styles.categoryHeadingText}>
+                      <Text style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>Collection</Text>
+                      <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}>{category.label}</Text>
+                      <Text style={[styles.categoryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                        {category.totalCount} {category.totalCount === 1 ? 'Title' : 'Titles'}
+                      </Text>
+                    </View>
+                    <View style={[styles.categoryToggle, { borderColor: GOLD_DIM }]}>
+                      <Ionicons
+                        name={isCollapsed ? 'chevron-down' : 'chevron-up'}
+                        size={16}
+                        color={colors.onSurfaceVariant}
+                      />
+                    </View>
+                  </TouchableOpacity>
+
+                  {!isCollapsed && (
+                    <View style={styles.groupStack}>
+                      {[
+                        { label: 'Movies', icon: 'film-outline', data: category.movies },
+                        { label: 'TV Shows', icon: 'tv-outline', data: category.tvShows },
+                      ]
+                        .filter((g) => g.data.length > 0)
+                        .map((group) => {
+                          const groupCollapsed = isGroupCollapsed(category.id, group.label);
+                          return (
+                            <View key={group.label} style={styles.mediaGroup}>
+                              <TouchableOpacity
+                                style={styles.mediaGroupHeader}
+                                activeOpacity={0.75}
+                                onPress={() => toggleGroup(category.id, group.label)}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${groupCollapsed ? 'Expand' : 'Collapse'} ${group.label}`}
+                                accessibilityState={{ expanded: !groupCollapsed }}
+                              >
+                                <Ionicons name={group.icon} size={13} color={GOLD_ACCENT} />
+                                <Text style={[styles.mediaGroupLabel, { color: colors.onSurface, ...typography.labelSm }]}>
+                                  {group.label}
+                                </Text>
+                                <Text style={[styles.mediaGroupCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                                  {group.data.length}
+                                </Text>
+                                <View style={[styles.mediaGroupDivider, { backgroundColor: GOLD_DIM }]} />
+                                <Ionicons
+                                  name={groupCollapsed ? 'chevron-down' : 'chevron-up'}
+                                  size={13}
+                                  color={colors.onSurfaceVariant}
                                 />
-                              ))}
+                              </TouchableOpacity>
+
+                              {!groupCollapsed && (
+                                <PosterGrid
+                                  items={group.data}
+                                  renderItem={(item) => (
+                                    <WatchlistGridCard
+                                      item={item}
+                                      colors={colors}
+                                      typography={typography}
+                                      radii={radii}
+                                      onSelect={onSelect}
+                                      onRemove={onRemove}
+                                      onMarkWatched={onMarkWatched}
+                                    />
+                                  )}
+                                />
+                              )}
                             </View>
-                          )}
-                        </View>
-                      );
-                    })
-                  }
+                          );
+                        })}
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
-          );
-        })}
-      </View>
-      </Animated.ScrollView>
+              </View>
+            );
+          })}
+        </View>
+      </ScrollView>
 
-      {/* ── FAB ───────────────────────── */}
-      <View style={[styles.fabShell, { bottom: insets.bottom > 0 ? insets.bottom + 92 : 96 }]} pointerEvents="box-none">
-        {/* Action 1 – Browse Movies */}
-        <Animated.View style={{
-          position: 'absolute',
-          opacity: fabOpen,
-          transform: [{ translateY: fabOpen.interpolate({ inputRange: [0,1], outputRange: [0, -56] }) }],
-        }}>
-          <TouchableOpacity style={[styles.fabMini, { backgroundColor: colors.surfaceContainer }]}
-            onPress={() => { toggleFab(); onBrowseMovies?.(); }}
-            accessibilityLabel="Browse movies">
-            <Ionicons name="film-outline" size={18} color={colors.primary} />
+      <View style={[styles.browseDock, { bottom: insets.bottom + 88, paddingHorizontal: GRID_PAD }]}>
+        <View style={[styles.browseDockInner, { backgroundColor: glassSurface, borderColor: GOLD_DIM, borderRadius: radii.xl }]}>
+          <TouchableOpacity
+            style={styles.browseDockAction}
+            onPress={() => {
+              Haptics.selectionAsync();
+              onBrowseMovies?.();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Browse movies"
+          >
+            <Ionicons name="film-outline" size={18} color={GOLD_ACCENT} />
+            <Text style={[styles.browseDockLabel, { color: colors.onSurface, ...typography.labelSm }]}>Movies</Text>
           </TouchableOpacity>
-        </Animated.View>
-
-        {/* Action 2 – Browse TV */}
-        <Animated.View style={{
-          position: 'absolute',
-          opacity: fabOpen,
-          transform: [{ translateY: fabOpen.interpolate({ inputRange: [0,1], outputRange: [0, -106] }) }],
-        }}>
-          <TouchableOpacity style={[styles.fabMini, { backgroundColor: colors.surfaceContainer }]}
-            onPress={() => { toggleFab(); onBrowseTV?.(); }}
-            accessibilityLabel="Browse TV shows">
-            <Ionicons name="tv-outline" size={18} color={colors.primary} />
+          <View style={[styles.browseDockDivider, { backgroundColor: GOLD_DIM }]} />
+          <TouchableOpacity
+            style={styles.browseDockAction}
+            onPress={() => {
+              Haptics.selectionAsync();
+              onBrowseTV?.();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Browse TV shows"
+          >
+            <Ionicons name="tv-outline" size={18} color={GOLD_ACCENT} />
+            <Text style={[styles.browseDockLabel, { color: colors.onSurface, ...typography.labelSm }]}>TV Shows</Text>
           </TouchableOpacity>
-        </Animated.View>
-
-        {/* Main FAB button */}
-        <TouchableOpacity
-          style={[styles.fabMain, { backgroundColor: colors.primary }]}
-          onPress={toggleFab}
-          accessibilityRole="button"
-          accessibilityLabel="Quick actions"
-        >
-          <Animated.View style={{ transform: [{ rotate: fabOpen.interpolate({ inputRange: [0,1], outputRange: ['0deg', '45deg'] }) }] }}>
-            <Ionicons name="add" size={24} color={colors.onPrimary} />
-          </Animated.View>
-        </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  stickyHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 80,
-    zIndex: 10,
-    overflow: 'hidden',
+  root: {
+    flex: 1,
   },
-  stickyHeaderAndroid: {
-    backgroundColor: 'rgba(10,10,18,0.82)',
+  atmosphereTop: {
+    height: verticalScale(220),
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
   container: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 100,
+    paddingHorizontal: GRID_PAD,
+    paddingTop: scale(28),
   },
-  header: {
-    marginBottom: 22,
+  sectionHeader: {
+    alignItems: 'center',
+    marginBottom: scale(22),
   },
-  title: {
-    fontWeight: '900',
-    letterSpacing: -1.5,
-    marginBottom: 8,
+  sectionEyebrow: {
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 6,
+    textTransform: 'uppercase',
   },
-  subtitle: {
-    fontWeight: '500',
+  sectionTitle: {
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  sectionSubtitle: {
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginTop: 6,
+    textTransform: 'uppercase',
+  },
+  sectionDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: scale(22),
+    opacity: 0.65,
   },
   randomPanel: {
-    borderWidth: 1,
-    gap: 16,
-    marginBottom: 38,
-    padding: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: scale(16),
+    marginBottom: scale(8),
+    padding: scale(18),
   },
   randomCopy: {
     gap: 4,
   },
   randomEyebrow: {
-    fontWeight: '900',
-    letterSpacing: 1.3,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
   },
   randomTitle: {
-    fontWeight: '900',
+    fontWeight: '800',
   },
   randomSubtitle: {
     fontWeight: '500',
@@ -708,18 +722,20 @@ const styles = StyleSheet.create({
   randomButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 8,
     minHeight: 48,
-    paddingHorizontal: 18,
+    paddingHorizontal: scale(18),
   },
   randomButtonText: {
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: 1.1,
+    textTransform: 'uppercase',
   },
   randomResult: {
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 12,
     padding: 12,
@@ -734,11 +750,12 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   randomResultLabel: {
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: 1.1,
+    textTransform: 'uppercase',
   },
   randomResultTitle: {
-    fontWeight: '900',
+    fontWeight: '800',
     lineHeight: 26,
   },
   randomResultMeta: {
@@ -746,16 +763,16 @@ const styles = StyleSheet.create({
   },
   randomOpenButton: {
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     height: verticalScale(48),
     justifyContent: 'center',
     width: scale(48),
   },
   categoryStack: {
-    gap: 36,
+    gap: scale(8),
   },
   categorySection: {
-    gap: 18,
+    gap: scale(16),
   },
   categoryHeading: {
     alignItems: 'center',
@@ -766,6 +783,7 @@ const styles = StyleSheet.create({
   categoryIcon: {
     alignItems: 'center',
     borderRadius: scale(20),
+    borderWidth: StyleSheet.hairlineWidth,
     height: scale(40),
     justifyContent: 'center',
     width: scale(40),
@@ -773,47 +791,127 @@ const styles = StyleSheet.create({
   categoryHeadingText: {
     flex: 1,
   },
+  categoryEyebrow: {
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
   categoryTitle: {
-    fontWeight: '900',
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
   categoryCount: {
-    fontWeight: '800',
-    letterSpacing: 1.2,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginTop: 2,
+    textTransform: 'uppercase',
   },
   categoryToggle: {
     alignItems: 'center',
     borderRadius: scale(18),
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     height: scale(36),
     justifyContent: 'center',
     width: scale(36),
   },
+  sectionBody: {
+    gap: scale(12),
+  },
+  sectionLoader: {
+    marginVertical: scale(16),
+  },
   groupStack: {
-    gap: 28,
+    gap: scale(24),
   },
   mediaGroup: {
-    gap: 16,
+    gap: scale(14),
   },
   mediaGroupHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
+    flexDirection: 'row',
     gap: 8,
+    minHeight: 40,
     paddingVertical: 4,
   },
   mediaGroupLabel: {
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   mediaGroupCount: {
     fontWeight: '700',
-    opacity: 0.6,
   },
   mediaGroupDivider: {
     flex: 1,
-    height: 1,
+    height: StyleSheet.hairlineWidth,
   },
-  list: {
-    gap: 32,
+  gridBody: {
+    gap: GRID_GAP,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    gap: GRID_GAP,
+  },
+  gridCard: {
+    width: GRID_COL_W,
+  },
+  gridCardSpacer: {
+    width: GRID_COL_W,
+  },
+  gridPosterWrap: {
+    height: GRID_POSTER_H,
+    overflow: 'hidden',
+    position: 'relative',
+    width: GRID_COL_W,
+  },
+  gridPosterImg: {
+    height: '100%',
+    width: '100%',
+  },
+  ratingBadge: {
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    left: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    position: 'absolute',
+    top: 8,
+  },
+  ratingBadgeText: {
+    color: '#FFD700',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  statusPill: {
+    alignItems: 'center',
+    bottom: 8,
+    flexDirection: 'row',
+    gap: 4,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    position: 'absolute',
+  },
+  statusPillText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  cardTitle: {
+    fontWeight: '700',
+    marginTop: 8,
+    minHeight: 34,
+  },
+  cardMeta: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 2,
+  },
+  cardYear: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   swipeShell: {
     overflow: 'hidden',
@@ -821,14 +919,13 @@ const styles = StyleSheet.create({
   },
   swipeAction: {
     alignItems: 'center',
-    bottom: 0,
+    bottom: GRID_POSTER_H + scale(42),
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     justifyContent: 'center',
-    paddingHorizontal: scale(18),
     position: 'absolute',
     top: 0,
-    width: scale(132),
+    width: '100%',
   },
   swipeRemoveAction: {
     left: 0,
@@ -837,88 +934,13 @@ const styles = StyleSheet.create({
     right: 0,
   },
   swipeActionText: {
-    fontWeight: '900',
-    letterSpacing: 1.1,
-  },
-  card: {
-    flexDirection: 'row',
-    gap: 20,
-    alignItems: 'flex-start',
-  },
-  posterWrapper: {
-    width: scale(120),
-    aspectRatio: 2 / 3,
-    overflow: 'hidden',
-    position: 'relative',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  poster: {
-    width: '100%',
-    height: '100%',
-  },
-
-  info: {
-    flex: 1,
-    gap: 8,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-  },
-  mediaType: {
     fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  itemTitle: {
-    fontWeight: '800',
-    lineHeight: 28,
-  },
-  statusBadge: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  statusBadgeText: {
-    fontWeight: '900',
-  },
-  meta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  metaTmdbRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  badgeTmdb: {
-    backgroundColor: '#0d253f',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#01b4e4',
-  },
-  badgeTmdbText: {
-    color: '#01b4e4',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  synopsis: {
-    lineHeight: 22,
-    marginTop: 4,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
   inlineRetry: {
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 8,
     padding: 12,
@@ -927,34 +949,32 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: '700',
   },
-  fabShell: {
+  browseDock: {
+    left: 0,
     position: 'absolute',
-    right: 24,
-    alignItems: 'center',
-    zIndex: 99,
+    right: 0,
+    zIndex: 20,
   },
-  fabMain: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+  browseDockInner: {
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    minHeight: 52,
+    overflow: 'hidden',
   },
-  fabMini: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  browseDockAction: {
     alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
     justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+    minHeight: 52,
+  },
+  browseDockDivider: {
+    width: StyleSheet.hairlineWidth,
+  },
+  browseDockLabel: {
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });
