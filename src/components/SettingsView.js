@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,12 +7,16 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import {
   mergeWatchlistsNoDuplicates,
@@ -27,27 +31,151 @@ import {
   getRateQuotaSnapshot,
   subscribeRateQuota,
 } from '../lib/apiRateQuota';
+import { scale, verticalScale } from '../utils/responsive';
 
-function ApiQuotaPanel({ colors, typography, spacing, radii }) {
-  const [quota, setQuota] = useState(getRateQuotaSnapshot);
+const GRID_PAD = scale(22);
+const GOLD_ACCENT = '#D4A853';
+const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
 
-  useEffect(() => subscribeRateQuota(setQuota), []);
+function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
+  return (
+    <View style={styles.sectionHeader}>
+      {eyebrow ? (
+        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>{eyebrow}</Text>
+      ) : null}
+      <Text
+        style={[styles.pageTitle, { color: colors.onSurface, ...typography.titleMd }]}
+        accessibilityRole="header"
+      >
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text style={[styles.pageSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
 
-  const { tmdb, trakt, omdb } = quota;
+function SectionHairline() {
+  return <View style={[styles.sectionDivider, { backgroundColor: GOLD_DIM }]} />;
+}
 
-  const row = (key, title, bodyLines) => (
-    <View key={key}>
-      <View style={{ paddingVertical: spacing[4], paddingHorizontal: spacing[5] }}>
-        <Text style={[typography.bodyLg, { color: colors.onSurface, fontWeight: '600' }]}>{title}</Text>
+function SectionBlockHeader({ eyebrow, title, hint, colors, typography }) {
+  return (
+    <View style={styles.blockHeader}>
+      {eyebrow ? (
+        <Text style={[styles.blockEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>{eyebrow}</Text>
+      ) : null}
+      <Text style={[styles.blockTitle, { color: colors.onSurface, ...typography.titleMd }]} accessibilityRole="header">
+        {title}
+      </Text>
+      {hint ? (
+        <Text style={[styles.blockHint, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>{hint}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+function GlassPanel({ children, glassSurface, radii, style }) {
+  return (
+    <View
+      style={[
+        styles.glassPanel,
+        {
+          backgroundColor: glassSurface,
+          borderColor: GOLD_DIM,
+          borderRadius: radii.lg,
+        },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
+function PanelDivider() {
+  return <View style={[styles.panelDivider, { backgroundColor: GOLD_DIM }]} />;
+}
+
+function AppearanceRow({ icon, label, selected, onPress, colors, typography }) {
+  return (
+    <TouchableOpacity
+      style={[styles.appearanceRow, selected && styles.appearanceRowSelected]}
+      onPress={() => {
+        if (!selected) {
+          Haptics.selectionAsync();
+          onPress();
+        }
+      }}
+      activeOpacity={0.78}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+    >
+      <View style={styles.appearanceLeft}>
+        <View style={[styles.appearanceIconWrap, { borderColor: selected ? GOLD_ACCENT : GOLD_DIM }]}>
+          <Ionicons name={icon} size={18} color={selected ? GOLD_ACCENT : colors.onSurfaceVariant} />
+        </View>
+        <Text
+          style={[
+            styles.appearanceLabel,
+            { color: selected ? colors.onSurface : colors.onSurfaceVariant, ...typography.bodyMd },
+            selected && styles.appearanceLabelActive,
+          ]}
+        >
+          {label}
+        </Text>
+      </View>
+      {selected ? (
+        <Ionicons name="checkmark" size={18} color={GOLD_ACCENT} />
+      ) : (
+        <View style={styles.appearanceSpacer} />
+      )}
+    </TouchableOpacity>
+  );
+}
+
+function ActionRow({ icon, label, onPress, disabled, busy, colors, typography }) {
+  return (
+    <TouchableOpacity
+      style={styles.actionRow}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.78}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: Boolean(disabled) }}
+    >
+      <View style={styles.actionLeft}>
+        <Ionicons name={icon} size={18} color={GOLD_ACCENT} style={styles.actionIcon} />
+        <Text style={[styles.actionLabel, { color: colors.onSurface, ...typography.bodyMd }]}>{label}</Text>
+      </View>
+      {busy ? (
+        <ActivityIndicator size="small" color={GOLD_ACCENT} accessibilityLabel={`${label} in progress`} />
+      ) : (
+        <Ionicons name="chevron-forward" size={15} color={GOLD_ACCENT} style={{ opacity: 0.72 }} />
+      )}
+    </TouchableOpacity>
+  );
+}
+
+function QuotaProviderBlock({ title, bodyLines, colors, typography, spacing, isLast }) {
+  return (
+    <View>
+      <View style={styles.quotaBlock}>
+        <Text style={[styles.quotaProvider, { color: colors.onSurface, ...typography.bodyMd }]}>{title}</Text>
         {bodyLines.map((line, i) => (
           <Text
             key={i}
             style={[
-              i === 0 ? typography.bodyMd : typography.labelSm,
+              i === 0 ? styles.quotaPrimary : styles.quotaSecondary,
               {
                 color: line.tone === 'error' ? colors.error : colors.onSurfaceVariant,
+                ...typography.labelSm,
                 marginTop: i === 0 ? spacing[2] : spacing[1],
-                lineHeight: i === 0 ? 20 : 16,
               },
             ]}
           >
@@ -55,8 +183,17 @@ function ApiQuotaPanel({ colors, typography, spacing, radii }) {
           </Text>
         ))}
       </View>
+      {!isLast ? <PanelDivider /> : null}
     </View>
   );
+}
+
+function ApiQuotaPanel({ colors, typography, spacing, glassSurface, radii }) {
+  const [quota, setQuota] = useState(getRateQuotaSnapshot);
+
+  useEffect(() => subscribeRateQuota(setQuota), []);
+
+  const { tmdb, trakt, omdb } = quota;
 
   const linesFor = (state) => {
     const out = [];
@@ -110,14 +247,26 @@ function ApiQuotaPanel({ colors, typography, spacing, radii }) {
     return out;
   };
 
+  const providers = [
+    { key: 'tmdb', title: 'The Movie Database (TMDB)', lines: linesFor(tmdb) },
+    { key: 'trakt', title: 'Trakt', lines: linesFor(trakt) },
+    { key: 'omdb', title: 'OMDb', lines: omdbLines() },
+  ];
+
   return (
-    <View style={[styles.card, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
-      {row('tmdb', 'The Movie Database (TMDB)', linesFor(tmdb))}
-      <View style={[styles.divider, { backgroundColor: colors.outlineVariant + '26' }]} />
-      {row('trakt', 'Trakt', linesFor(trakt))}
-      <View style={[styles.divider, { backgroundColor: colors.outlineVariant + '26' }]} />
-      {row('omdb', 'OMDb', omdbLines())}
-    </View>
+    <GlassPanel glassSurface={glassSurface} radii={radii}>
+      {providers.map((provider, index) => (
+        <QuotaProviderBlock
+          key={provider.key}
+          title={provider.title}
+          bodyLines={provider.lines}
+          colors={colors}
+          typography={typography}
+          spacing={spacing}
+          isLast={index === providers.length - 1}
+        />
+      ))}
+    </GlassPanel>
   );
 }
 
@@ -127,10 +276,23 @@ export function SettingsView({
   persistWatchlistChange,
   persistCollectionsChange,
 }) {
-  const { theme, preference, setPreference } = useTheme();
+  const { theme, preference, setPreference, resolvedMode } = useTheme();
   const { colors, spacing, typography, radii } = theme;
+  const insets = useSafeAreaInsets();
   const [backupBusy, setBackupBusy] = useState(false);
   const bottomNavScroll = useBottomNavScroll();
+
+  const glassSurface = useMemo(
+    () => (resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.96)' : 'rgba(247, 247, 242, 0.96)'),
+    [resolvedMode],
+  );
+  const atmosphereColors = useMemo(
+    () => [
+      resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
+      colors.background,
+    ],
+    [resolvedMode, colors],
+  );
 
   const handleExportWatchlist = async () => {
     const baseDir = FileSystem.cacheDirectory;
@@ -266,166 +428,278 @@ export function SettingsView({
     }
   };
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 120 }} {...bottomNavScroll}>
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Appearance</Text>
-        <View style={[styles.card, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
-          <TouchableOpacity
-            style={[styles.row, preference === 'light' && { backgroundColor: colors.surfaceContainerHigh }]}
-            onPress={() => setPreference('light')}
-            accessibilityRole="button"
-            accessibilityLabel="Use light mode"
-            accessibilityState={{ selected: preference === 'light' }}
-          >
-            <Text style={[styles.rowText, { color: colors.onSurface, ...typography.bodyLg }]}>☀️ Light Mode</Text>
-            {preference === 'light' && <Text style={{ color: colors.primary }}>✓</Text>}
-          </TouchableOpacity>
-          <View style={[styles.divider, { backgroundColor: colors.outlineVariant + '26' }]} />
-          <TouchableOpacity
-            style={[styles.row, preference === 'dark' && { backgroundColor: colors.surfaceContainerHigh }]}
-            onPress={() => setPreference('dark')}
-            accessibilityRole="button"
-            accessibilityLabel="Use dark mode"
-            accessibilityState={{ selected: preference === 'dark' }}
-          >
-            <Text style={[styles.rowText, { color: colors.onSurface, ...typography.bodyLg }]}>🌙 Dark Mode</Text>
-            {preference === 'dark' && <Text style={{ color: colors.primary }}>✓</Text>}
-          </TouchableOpacity>
-          <View style={[styles.divider, { backgroundColor: colors.outlineVariant + '26' }]} />
-          <TouchableOpacity
-            style={[styles.row, preference === 'system' && { backgroundColor: colors.surfaceContainerHigh }]}
-            onPress={() => setPreference('system')}
-            accessibilityRole="button"
-            accessibilityLabel="Use system default appearance"
-            accessibilityState={{ selected: preference === 'system' }}
-          >
-            <Text style={[styles.rowText, { color: colors.onSurface, ...typography.bodyLg }]}>🖥️ System Default</Text>
-            {preference === 'system' && <Text style={{ color: colors.primary }}>✓</Text>}
-          </TouchableOpacity>
-        </View>
-      </View>
+  const appearanceOptions = [
+    { key: 'light', label: 'Light Mode', icon: 'sunny-outline', accessibilityLabel: 'Use light mode' },
+    { key: 'dark', label: 'Dark Mode', icon: 'moon-outline', accessibilityLabel: 'Use dark mode' },
+    {
+      key: 'system',
+      label: 'System Default',
+      icon: 'phone-portrait-outline',
+      accessibilityLabel: 'Use system default appearance',
+    },
+  ];
 
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Watchlist</Text>
-        <Text
-          style={[styles.sectionHint, { color: colors.onSurfaceVariant, ...typography.bodyMd, marginBottom: spacing[4] }]}
-        >
-          Export a JSON backup to move your list to another device, or import a file you exported earlier. Merge adds
-          only titles you do not already have (same movie or show).
-        </Text>
-        <View style={[styles.card, { backgroundColor: colors.surfaceContainer, borderRadius: radii.xl }]}>
-          <TouchableOpacity
-            style={[styles.row, styles.rowWithIcon]}
+  return (
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
+
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 112 }]}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={Platform.OS === 'android'}
+        overScrollMode="never"
+        {...bottomNavScroll}
+      >
+        <ProgrammeSectionHeader
+          eyebrow="Preferences"
+          title="Settings"
+          subtitle="Your Programme Specification"
+          colors={colors}
+          typography={typography}
+        />
+
+        <SectionHairline />
+
+        <SectionBlockHeader
+          eyebrow="Display"
+          title="Appearance"
+          colors={colors}
+          typography={typography}
+        />
+        <GlassPanel glassSurface={glassSurface} radii={radii} style={styles.blockPanel}>
+          {appearanceOptions.map((option, index) => (
+            <View key={option.key}>
+              <AppearanceRow
+                icon={option.icon}
+                label={option.label}
+                selected={preference === option.key}
+                onPress={() => setPreference(option.key)}
+                colors={colors}
+                typography={typography}
+              />
+              {index < appearanceOptions.length - 1 ? <PanelDivider /> : null}
+            </View>
+          ))}
+        </GlassPanel>
+
+        <SectionHairline />
+
+        <SectionBlockHeader
+          eyebrow="Library"
+          title="Watchlist Backup"
+          hint="Export a JSON backup to move your list to another device, or import a file you exported earlier. Merge adds only titles you do not already have (same movie or show)."
+          colors={colors}
+          typography={typography}
+        />
+        <GlassPanel glassSurface={glassSurface} radii={radii} style={styles.blockPanel}>
+          <ActionRow
+            icon="share-outline"
+            label="Export watchlist"
             onPress={handleExportWatchlist}
             disabled={backupBusy}
-            accessibilityRole="button"
-            accessibilityLabel="Export watchlist to a file"
-            accessibilityState={{ disabled: backupBusy }}
-          >
-            <View style={styles.rowLeft}>
-              <Ionicons name="share-outline" size={22} color={colors.primary} style={styles.rowIcon} />
-              <Text style={[styles.rowText, { color: colors.onSurface, ...typography.bodyLg }]}>Export watchlist</Text>
-            </View>
-            {backupBusy ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : (
-              <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceVariant} />
-            )}
-          </TouchableOpacity>
-          <View style={[styles.divider, { backgroundColor: colors.outlineVariant + '26' }]} />
-          <TouchableOpacity
-            style={[styles.row, styles.rowWithIcon]}
+            busy={backupBusy}
+            colors={colors}
+            typography={typography}
+          />
+          <PanelDivider />
+          <ActionRow
+            icon="download-outline"
+            label="Import watchlist"
             onPress={handleImportWatchlist}
             disabled={backupBusy}
-            accessibilityRole="button"
-            accessibilityLabel="Import watchlist from a file"
-            accessibilityState={{ disabled: backupBusy }}
-          >
-            <View style={styles.rowLeft}>
-              <Ionicons name="download-outline" size={22} color={colors.primary} style={styles.rowIcon} />
-              <Text style={[styles.rowText, { color: colors.onSurface, ...typography.bodyLg }]}>Import watchlist</Text>
-            </View>
-            {backupBusy ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : (
-              <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceVariant} />
-            )}
-          </TouchableOpacity>
+            busy={backupBusy}
+            colors={colors}
+            typography={typography}
+          />
+        </GlassPanel>
+
+        <SectionHairline />
+
+        <SectionBlockHeader
+          eyebrow="Connectivity"
+          title="API Rate Limits"
+          hint="Live figures come from each provider's response headers when they expose them. If you see a 429 message, wait for the suggested time before refreshing."
+          colors={colors}
+          typography={typography}
+        />
+        <ApiQuotaPanel
+          colors={colors}
+          typography={typography}
+          spacing={spacing}
+          glassSurface={glassSurface}
+          radii={radii}
+        />
+
+        <View style={styles.footer}>
+          <Text style={[styles.version, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+            Trova v2.4.1 (Build 882)
+          </Text>
         </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>API rate limits</Text>
-        <Text
-          style={[styles.sectionHint, { color: colors.onSurfaceVariant, ...typography.bodyMd, marginBottom: spacing[4] }]}
-        >
-          Live figures come from each provider's response headers when they expose them. If you see a 429 message,
-          wait for the suggested time before refreshing.
-        </Text>
-        <ApiQuotaPanel colors={colors} typography={typography} spacing={spacing} radii={radii} />
-      </View>
-
-      <View style={styles.footer}>
-        <Text style={[styles.version, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Trova v2.4.1 (Build 882)</Text>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  atmosphereTop: {
+    height: verticalScale(220),
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
   container: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 32,
   },
-  section: {
-    marginBottom: 40,
+  content: {
+    paddingHorizontal: GRID_PAD,
+    paddingTop: scale(28),
   },
-  sectionTitle: {
+  sectionHeader: {
+    alignItems: 'center',
+    marginBottom: scale(8),
+  },
+  sectionEyebrow: {
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  pageTitle: {
     fontWeight: '800',
-    letterSpacing: 1.5,
-    marginBottom: 16,
+    letterSpacing: 0.4,
+    textAlign: 'center',
+    textTransform: 'uppercase',
   },
-  sectionHint: {
+  pageSubtitle: {
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginTop: 6,
+    textTransform: 'uppercase',
+  },
+  sectionDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: scale(22),
+    opacity: 0.65,
+  },
+  blockHeader: {
+    gap: 6,
+    marginBottom: scale(14),
+  },
+  blockEyebrow: {
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  blockTitle: {
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  blockHint: {
     lineHeight: 20,
-    marginTop: -8,
+    marginTop: 2,
   },
-  card: {
+  blockPanel: {
+    marginBottom: scale(4),
+  },
+  glassPanel: {
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+    ...Platform.select({
+      android: { elevation: 0 },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+    }),
   },
-  row: {
-    flexDirection: 'row',
+  panelDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: scale(16),
+    opacity: 0.65,
+  },
+  appearanceRow: {
     alignItems: 'center',
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 20,
+    minHeight: 52,
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
   },
-  rowWithIcon: {
-    paddingVertical: 18,
+  appearanceRowSelected: {
+    backgroundColor: 'rgba(212, 168, 83, 0.06)',
   },
-  rowLeft: {
-    flexDirection: 'row',
+  appearanceLeft: {
     alignItems: 'center',
+    flexDirection: 'row',
     flex: 1,
+    gap: scale(12),
   },
-  rowIcon: {
-    marginRight: 14,
+  appearanceIconWrap: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
   },
-  rowText: {
+  appearanceLabel: {
     fontWeight: '500',
   },
-  divider: {
-    height: 1,
-    marginHorizontal: 20,
+  appearanceLabelActive: {
+    fontWeight: '700',
+  },
+  appearanceSpacer: {
+    width: 18,
+  },
+  actionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 52,
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(12),
+  },
+  actionLeft: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flex: 1,
+  },
+  actionIcon: {
+    marginRight: scale(12),
+  },
+  actionLabel: {
+    fontWeight: '600',
+  },
+  quotaBlock: {
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(14),
+  },
+  quotaProvider: {
+    fontWeight: '700',
+  },
+  quotaPrimary: {
+    lineHeight: 20,
+  },
+  quotaSecondary: {
+    lineHeight: 16,
   },
   footer: {
     alignItems: 'center',
-    marginTop: 20,
-    paddingBottom: 60,
+    marginTop: scale(28),
+    paddingBottom: scale(12),
   },
   version: {
     fontWeight: '700',
     letterSpacing: 2,
     opacity: 0.5,
+    textTransform: 'uppercase',
   },
 });
