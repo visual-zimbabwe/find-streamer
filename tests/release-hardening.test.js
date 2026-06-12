@@ -136,7 +136,7 @@ test('small icon controls were raised to Android-friendly target sizes', () => {
   assert.match(discover, /chip:\s*\{[^}]*minHeight:\s*48/);
   assert.match(header, /width: 48,\s*\n\s*height: 48/);
   assert.match(watchlist, /randomOpenButton:[\s\S]*width:\s*scale\(48\)/);
-  assert.match(home, /heroDotHit:\s*\{[^}]*minWidth:\s*48/);
+  assert.match(home, /spotlightChip:\s*\{[^}]*minHeight:\s*48/);
 });
 
 test('discover enrichment runs after TMDb results are shown', () => {

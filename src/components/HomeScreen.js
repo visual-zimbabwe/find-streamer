@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Animated,
   BackHandler,
   Dimensions,
-  FlatList,
   Platform,
   ScrollView,
   StyleSheet,
@@ -19,7 +20,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 import { HomeTopNav } from './HomeTopNav';
-import MorphingText from '../lib/expo-morphing-text/components/morphing-text';
 import { getUserWatchlistCollections } from '../lib/watchlistModel';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import {
@@ -31,25 +31,34 @@ import {
 import { scale, verticalScale } from '../utils/responsive';
 
 const WINDOW_W = Dimensions.get('window').width;
-const POSTER_W = scale(118);
-const POSTER_H = POSTER_W * 1.5;
+const GRID_PAD = scale(22);
+const GRID_GAP = scale(14);
+const GRID_COL_W = (WINDOW_W - GRID_PAD * 2 - GRID_GAP) / 2;
+const GRID_POSTER_H = GRID_COL_W * 1.5;
+const FEATURE_H = verticalScale(420);
+const CHIP_W = scale(248);
+const CHIP_H = CHIP_W * (9 / 16);
+const HEADER_BODY_H = scale(78);
+const GOLD_ACCENT = '#D4A853';
+const FADE_MS = 360;
 
-function HomePosterCard({ item, colors, typography, radii, onPress }) {
+const GridPosterCard = memo(function GridPosterCard({ item, colors, typography, radii, onPress }) {
   return (
     <TouchableOpacity
-      style={styles.posterCard}
+      style={styles.gridCard}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityRole="button"
       accessibilityLabel={`Open details for ${item.title}`}
     >
-      <View style={[styles.posterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl }]}>
+      <View style={[styles.gridPosterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl }]}>
         <MediaArtwork
           uri={item.posterUrl}
-          style={styles.posterImg}
+          style={styles.gridPosterImg}
           resizeMode="cover"
           accessibilityLabel={`${item.title} poster`}
           title={item.title}
+          instant
         />
         {item.ratingValue > 0 && (
           <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
@@ -66,39 +75,163 @@ function HomePosterCard({ item, colors, typography, radii, onPress }) {
       </View>
     </TouchableOpacity>
   );
-}
+});
 
-export function ContentRail({ title, data, colors, typography, radii, onSelectItem, headerRight = null }) {
+const SpotlightChip = memo(function SpotlightChip({ item, colors, typography, radii, selected, onPress }) {
+  const imageUri = item.backdropUrl || item.posterUrl;
+  return (
+    <TouchableOpacity
+      style={styles.spotlightChip}
+      onPress={onPress}
+      activeOpacity={0.88}
+      accessibilityRole="button"
+      accessibilityLabel={`Feature ${item.title} in spotlight`}
+      accessibilityState={{ selected }}
+    >
+      <View
+        style={[
+          styles.spotlightChipFrame,
+          {
+            borderRadius: radii.lg,
+            backgroundColor: colors.surfaceContainerHigh,
+            borderColor: selected ? GOLD_ACCENT : 'transparent',
+          },
+        ]}
+      >
+        <MediaArtwork
+          uri={imageUri}
+          style={styles.spotlightChipImg}
+          resizeMode="cover"
+          accessibilityLabel={`${item.title} still`}
+          title={item.title}
+          instant
+        />
+        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.82)']} style={styles.spotlightChipScrim} />
+        <Text style={[styles.spotlightChipTitle, typography.labelSm]} numberOfLines={2}>
+          {item.title}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+const FeaturedSpotlightCard = memo(function FeaturedSpotlightCard({
+  item,
+  colors,
+  typography,
+  radii,
+  fadeAnim,
+  onPress,
+  onPressIn,
+}) {
+  if (!item) return null;
+  const backdrop = item.backdropUrl || item.posterUrl;
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.92}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      accessibilityRole="button"
+      accessibilityLabel={`Open details for ${item.title}`}
+    >
+      <Animated.View style={[styles.featureCard, { borderRadius: radii.xl, opacity: fadeAnim }]}>
+        <View style={[styles.featureFrame, { borderRadius: radii.xl, backgroundColor: colors.surfaceContainerHighest }]}>
+          <MediaArtwork
+            uri={backdrop}
+            style={styles.featureImg}
+            resizeMode="cover"
+            accessibilityLabel={`Backdrop for ${item.title}`}
+            title={item.title}
+          />
+          <ProgressiveBlur
+            intensity={64}
+            tint="dark"
+            direction="bottom"
+            locations={[0.22, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+          <LinearGradient colors={['rgba(0,0,0,0.42)', 'transparent']} style={styles.featureTopScrim} />
+          <View style={styles.featureContent}>
+            <Text style={[styles.featureEyebrow, typography.labelSm]}>Spotlight</Text>
+            <Text style={[styles.featureTitle, typography.headlineLg]} numberOfLines={3}>
+              {item.title}
+            </Text>
+            <View style={styles.heroMetaRow}>
+              <Text style={[styles.heroMeta, typography.bodyMd]}>{item.year}</Text>
+              {item.ratingValue > 0 && (
+                <View style={styles.heroRatingPill}>
+                  <Text style={[styles.heroRatingText, typography.labelSm]}>
+                    TMDB {item.ratingValue.toFixed(1)}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.heroTypePill}>
+                <Ionicons name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'} size={14} color="#fff" />
+                <Text style={[styles.heroTypeText, typography.labelSm]}>
+                  {item.mediaType === 'tv' ? 'Series' : 'Movie'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+});
+
+export function ContentRail({
+  title,
+  icon = null,
+  data,
+  colors,
+  typography,
+  radii,
+  onSelectItem,
+  headerRight = null,
+}) {
   if (!data?.length) return null;
+
+  const rows = [];
+  for (let i = 0; i < data.length; i += 2) {
+    rows.push(data.slice(i, i + 2));
+  }
+
   return (
     <View style={styles.railBlock}>
+      <View style={[styles.sectionDivider, { backgroundColor: colors.outlineVariant }]} />
       <View style={styles.railHeaderRow}>
-        <Text
-          style={[styles.railTitle, { color: colors.onSurface, ...typography.titleMd }]}
-          accessibilityRole="header"
-          numberOfLines={2}
-        >
-          {title}
-        </Text>
+        <View style={styles.railHeaderLeft}>
+          {icon ? (
+            <Ionicons name={icon} size={16} color={GOLD_ACCENT} style={styles.railIcon} />
+          ) : null}
+          <Text
+            style={[styles.railTitle, { color: colors.onSurface, ...typography.titleMd }]}
+            accessibilityRole="header"
+            numberOfLines={2}
+          >
+            {title}
+          </Text>
+        </View>
         {headerRight}
       </View>
-      <FlatList
-        horizontal
-        data={data}
-        keyExtractor={(item) => `${item.mediaType || 'movie'}-${item.tmdbId}`}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.railList}
-        ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-        renderItem={({ item }) => (
-          <HomePosterCard
-            item={item}
-            colors={colors}
-            typography={typography}
-            radii={radii}
-            onPress={() => onSelectItem(item)}
-          />
-        )}
-      />
+      <View style={styles.gridBody}>
+        {rows.map((pair, rowIndex) => (
+          <View key={`row-${rowIndex}`} style={styles.gridRow}>
+            {pair.map((item) => (
+              <GridPosterCard
+                key={`${item.mediaType || 'movie'}-${item.tmdbId}`}
+                item={item}
+                colors={colors}
+                typography={typography}
+                radii={radii}
+                onPress={() => onSelectItem(item)}
+              />
+            ))}
+            {pair.length === 1 ? <View style={styles.gridCardSpacer} /> : null}
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -113,18 +246,41 @@ export function HomeScreen({
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
-  const heroH = verticalScale(400);
-  const bottomNavScroll = useBottomNavScroll();
+  const [headerScrolled, setHeaderScrolled] = useState(false);
+  const headerScrolledRef = useRef(false);
+  const bottomNavScroll = useBottomNavScroll((event) => {
+    const y = event?.nativeEvent?.contentOffset?.y ?? 0;
+    const scrolled = y > 24;
+    if (scrolled !== headerScrolledRef.current) {
+      headerScrolledRef.current = scrolled;
+      setHeaderScrolled(scrolled);
+    }
+  });
+  const headerOffset = insets.top + HEADER_BODY_H;
 
   const [spotlight, setSpotlight] = useState([]);
   const [heroLoading, setHeroLoading] = useState(true);
   const [heroIndex, setHeroIndex] = useState(0);
-  const heroListRef = useRef(null);
+  const [displayIndex, setDisplayIndex] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
   const pausedRef = useRef(false);
   const resumeTimerRef = useRef(null);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const filteredLengthRef = useRef(0);
+  const skipHeroFadeRef = useRef(true);
 
-  // heroItem is derived after filteredSpotlight is computed (below); placeholder null until then
-  // (computed further down once filteredSpotlight is available)
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (!cancelled) setReduceMotion(enabled);
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => {
+      cancelled = true;
+      sub?.remove?.();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,9 +291,8 @@ export function HomeScreen({
         if (!cancelled) {
           setSpotlight(items.slice(0, HOME_SPOTLIGHT_MAX));
           setHeroIndex(0);
-          requestAnimationFrame(() => {
-            heroListRef.current?.scrollToOffset({ offset: 0, animated: false });
-          });
+          setDisplayIndex(0);
+          fadeAnim.setValue(1);
         }
       } catch {
         if (!cancelled) setSpotlight([]);
@@ -148,24 +303,58 @@ export function HomeScreen({
     return () => {
       cancelled = true;
     };
-  }, [watchlist]);
+  }, [watchlist, fadeAnim]);
 
-  const filteredLengthRef = useRef(0);
+  const filteredSpotlight = useMemo(() => {
+    if (!mediaFilter) return spotlight;
+    return spotlight.filter((it) => it.mediaType === mediaFilter);
+  }, [spotlight, mediaFilter]);
+
+  const featuredItem = filteredSpotlight[displayIndex] || null;
 
   useEffect(() => {
-    if (spotlight.length <= 1) return undefined;
+    filteredLengthRef.current = filteredSpotlight.length;
+    setHeroIndex(0);
+    setDisplayIndex(0);
+    fadeAnim.setValue(1);
+    skipHeroFadeRef.current = true;
+  }, [filteredSpotlight.length, mediaFilter, fadeAnim]);
+
+  useEffect(() => {
+    if (skipHeroFadeRef.current) {
+      skipHeroFadeRef.current = false;
+      setDisplayIndex(heroIndex);
+      fadeAnim.setValue(1);
+      return undefined;
+    }
+    if (reduceMotion) {
+      setDisplayIndex(heroIndex);
+      fadeAnim.setValue(1);
+      return undefined;
+    }
+    let cancelled = false;
+    Animated.timing(fadeAnim, { toValue: 0, duration: FADE_MS, useNativeDriver: true }).start(({ finished }) => {
+      if (!finished || cancelled) return;
+      setDisplayIndex(heroIndex);
+      Animated.timing(fadeAnim, { toValue: 1, duration: FADE_MS, useNativeDriver: true }).start();
+    });
+    return () => {
+      cancelled = true;
+      fadeAnim.stopAnimation();
+    };
+  }, [heroIndex, fadeAnim, reduceMotion]);
+
+  useEffect(() => {
+    if (spotlight.length <= 1 || reduceMotion) return undefined;
     const tick = setInterval(() => {
       if (pausedRef.current) return;
       setHeroIndex((i) => {
         const len = filteredLengthRef.current || 1;
-        const next = (i + 1) % len;
-        heroListRef.current?.scrollToIndex({ index: next, animated: true });
-        return next;
+        return (i + 1) % len;
       });
     }, HOME_HERO_ROTATION_MS);
     return () => clearInterval(tick);
-  }, [spotlight.length]);
-
+  }, [spotlight.length, reduceMotion]);
 
   const pauseHero = useCallback(() => {
     pausedRef.current = true;
@@ -186,13 +375,12 @@ export function HomeScreen({
     []
   );
 
-  // Android back handler: return the home filter to its default state first.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (mediaFilter) {
         onMediaFilterChange?.(null);
-        return true; // consume the event
+        return true;
       }
       return false;
     });
@@ -217,100 +405,29 @@ export function HomeScreen({
     }).filter((row) => row.items.length > 0);
   }, [watchlist, mediaFilter]);
 
-  const filteredSpotlight = useMemo(() => {
-    if (!mediaFilter) return spotlight;
-    return spotlight.filter((it) => it.mediaType === mediaFilter);
-  }, [spotlight, mediaFilter]);
+  const selectSpotlightIndex = useCallback((index) => {
+    Haptics.selectionAsync();
+    pauseHero();
+    scheduleResumeHero();
+    setHeroIndex(index);
+  }, [pauseHero, scheduleResumeHero]);
 
-  const heroItem = filteredSpotlight[heroIndex] || null;
-
-  const onHeroMomentumEnd = useCallback(
-    (e) => {
-      const x = e.nativeEvent.contentOffset.x;
-      const i = Math.min(filteredSpotlight.length - 1, Math.max(0, Math.round(x / WINDOW_W)));
-      setHeroIndex(i);
-      scheduleResumeHero();
-    },
-    [filteredSpotlight.length, scheduleResumeHero]
-  );
-
-  // Sync heroIndex when filteredSpotlight changes (filter switch or spotlight load)
-  useEffect(() => {
-    filteredLengthRef.current = filteredSpotlight.length;
-    setHeroIndex(0);
-    requestAnimationFrame(() => {
-      heroListRef.current?.scrollToOffset({ offset: 0, animated: false });
-    });
-  }, [filteredSpotlight.length, mediaFilter]);
-
-  const renderHeroPage = useCallback(
-    ({ item }) => {
-      const backdrop = item.backdropUrl || item.posterUrl;
-      return (
-        <TouchableOpacity
-          style={[styles.heroPage, { width: WINDOW_W, height: heroH }]}
-          activeOpacity={0.92}
-          onPress={() => onSelectItem?.(item)}
-          accessibilityRole="button"
-          accessibilityLabel={`Open details for ${item.title}`}
-        >
-          <MediaArtwork
-            uri={backdrop}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: WINDOW_W, height: heroH }}
-            resizeMode="cover"
-            accessibilityLabel={`Backdrop for ${item.title}`}
-            title={item.title}
-          />
-          <ProgressiveBlur
-            intensity={72}
-            tint="dark"
-            direction="bottom"
-            locations={[0.18, 1]}
-            style={StyleSheet.absoluteFill}
-          />
-          <LinearGradient colors={['rgba(0,0,0,0.55)', 'transparent']} style={styles.heroTopScrim} />
-          <View style={[styles.heroContent, { paddingBottom: 52 + insets.bottom * 0.2 }]}>
-            <MorphingText
-              text={item.title}
-              fontSize={typography.headlineLg.fontSize || 32}
-              color="#fff"
-              fontStyle={{
-                fontWeight: '800',
-                textShadowColor: 'rgba(0,0,0,0.45)',
-                textShadowOffset: { width: 0, height: 1 },
-                textShadowRadius: 6,
-                letterSpacing: typography.headlineLg.letterSpacing,
-              }}
-              style={{ flexWrap: 'wrap' }}
-              animationDuration={300}
-            />
-            <View style={styles.heroMetaRow}>
-              <Text style={[styles.heroMeta, { ...typography.bodyMd }]}>{item.year}</Text>
-              {item.ratingValue > 0 && (
-                <View style={styles.heroRatingPill}>
-                  <Text style={[styles.heroRatingText, { ...typography.labelSm }]}>
-                    TMDB {item.ratingValue.toFixed(1)}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.heroTypePill}>
-                <Ionicons name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'} size={14} color="#fff" />
-                <Text style={[styles.heroTypeText, { ...typography.labelSm }]}>
-                  {item.mediaType === 'tv' ? 'Series' : 'Movie'}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </TouchableOpacity>
-      );
-    },
-    [heroH, insets.bottom, onSelectItem, typography]
+  const atmosphereColors = useMemo(
+    () => [colors.surfaceContainerHigh, colors.background],
+    [colors.surfaceContainerHigh, colors.background]
   );
 
   return (
-    <View style={styles.rootWrap}>
-      {/* ── Paramount-style home top navigation ───────────────────────── */}
+    <View style={[styles.rootWrap, { backgroundColor: colors.background }]}>
+      <LinearGradient
+        colors={atmosphereColors}
+        style={styles.atmosphereTop}
+        pointerEvents="none"
+      />
+
       <HomeTopNav
+        variant="programme"
+        headerScrolled={headerScrolled}
         selectedKey={mediaFilter}
         onSelect={(key, selected) => {
           if (key === 'collections') {
@@ -323,99 +440,86 @@ export function HomeScreen({
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollInner, { paddingBottom: insets.bottom + 112 }]}
+        contentContainerStyle={[styles.scrollInner, { paddingTop: headerOffset, paddingBottom: insets.bottom + 112 }]}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews={Platform.OS === 'android'}
+        nestedScrollEnabled
+        overScrollMode="never"
+        decelerationRate="normal"
         {...bottomNavScroll}
       >
-      <View style={[styles.heroShell, { height: heroH }]}>
-        {heroLoading ? (
-          <View style={[styles.heroLoading, { backgroundColor: colors.surfaceContainerHighest }]}>
-            <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading spotlight" />
-          </View>
-        ) : filteredSpotlight.length ? (
-          <>
-            <FlatList
-              ref={heroListRef}
-              style={styles.heroList}
-              data={filteredSpotlight}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(it) => `${it.mediaType || 'movie'}-${it.tmdbId}`}
-              renderItem={renderHeroPage}
-              getItemLayout={(_, index) => ({
-                length: WINDOW_W,
-                offset: WINDOW_W * index,
-                index,
-              })}
-              onScrollBeginDrag={pauseHero}
-              onMomentumScrollEnd={onHeroMomentumEnd}
-              onScrollToIndexFailed={(info) => {
-                setTimeout(() => {
-                  heroListRef.current?.scrollToIndex({
-                    index: info.index,
-                    animated: true,
-                  });
-                }, 350);
-              }}
-            />
-            {filteredSpotlight.length > 1 ? (
-              <View
-                style={[styles.heroDotsOverlay, { paddingBottom: 10 + insets.bottom * 0.25 }]}
-                pointerEvents="box-none"
-                accessibilityLabel="Spotlight pages"
-              >
-                <View style={styles.dotsRow}>
-                  {filteredSpotlight.map((_, i) => (
-                    <TouchableOpacity
-                      key={`dot-${i}`}
-                      style={styles.heroDotHit}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setHeroIndex(i);
-                        pauseHero();
-                        scheduleResumeHero();
-                        heroListRef.current?.scrollToIndex({ index: i, animated: true });
-                      }}
-                      hitSlop={10}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Show spotlight item ${i + 1} of ${filteredSpotlight.length}`}
-                    >
-                      <View
-                        style={[
-                          styles.dot,
-                          i === heroIndex ? styles.dotActive : styles.dotIdle,
-                          i === heroIndex && { backgroundColor: colors.primary },
-                        ]}
-                      />
-                    </TouchableOpacity>
-                  ))}
+        <View style={styles.spotlightSection}>
+          {heroLoading ? (
+            <View style={[styles.featureLoading, { height: FEATURE_H, backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.xl }]}>
+              <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading spotlight" />
+            </View>
+          ) : filteredSpotlight.length ? (
+            <>
+              <FeaturedSpotlightCard
+                item={featuredItem}
+                colors={colors}
+                typography={typography}
+                radii={radii}
+                fadeAnim={fadeAnim}
+                onPress={() => onSelectItem?.(featuredItem)}
+                onPressIn={pauseHero}
+              />
+              {filteredSpotlight.length > 1 ? (
+                <View style={styles.secondarySpotlightBlock}>
+                  <View style={styles.secondaryHeaderRow}>
+                    <Text style={[styles.secondaryTitle, { color: colors.onSurface, ...typography.labelSm }]}>
+                      Also in Spotlight
+                    </Text>
+                    <Text style={[styles.secondaryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                      {displayIndex + 1} / {filteredSpotlight.length}
+                    </Text>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipList}
+                    nestedScrollEnabled
+                    overScrollMode="never"
+                    decelerationRate="fast"
+                  >
+                    {filteredSpotlight.map((item, index) => (
+                      <View key={`${item.mediaType || 'movie'}-${item.tmdbId}-${index}`} style={index > 0 ? styles.chipGap : null}>
+                        <SpotlightChip
+                          item={item}
+                          colors={colors}
+                          typography={typography}
+                          radii={radii}
+                          selected={index === displayIndex}
+                          onPress={() => selectSpotlightIndex(index)}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
                 </View>
-              </View>
-            ) : null}
-          </>
-        ) : (
-          <View style={[styles.heroEmpty, { backgroundColor: colors.surfaceContainerHighest }]}>
-            <Ionicons name="planet-outline" size={40} color={colors.onSurfaceVariant} />
-            <Text style={[{ color: colors.onSurfaceVariant, ...typography.bodyLg, marginTop: 12, textAlign: 'center' }]}>
-              Pulling fresh picks… check back in a moment.
-            </Text>
-          </View>
-        )}
-      </View>
+              ) : null}
+            </>
+          ) : (
+            <View style={[styles.featureEmpty, { height: FEATURE_H, backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.xl }]}>
+              <Ionicons name="planet-outline" size={40} color={colors.onSurfaceVariant} />
+              <Text style={[{ color: colors.onSurfaceVariant, ...typography.bodyLg, marginTop: 12, textAlign: 'center' }]}>
+                Pulling fresh picks… check back in a moment.
+              </Text>
+            </View>
+          )}
+        </View>
 
-      {watchlistRows.map(({ category, items }) => (
-        <ContentRail
-          key={category.id}
-          title={category.label}
-          data={items}
-          colors={colors}
-          typography={typography}
-          radii={radii}
-          onSelectItem={onSelectItem}
-        />
-      ))}
-
+        {watchlistRows.map(({ category, items }) => (
+          <ContentRail
+            key={category.id}
+            title={category.label}
+            icon={category.icon}
+            data={items}
+            colors={colors}
+            typography={typography}
+            radii={radii}
+            onSelectItem={onSelectItem}
+          />
+        ))}
       </ScrollView>
     </View>
   );
@@ -423,59 +527,76 @@ export function HomeScreen({
 
 const styles = StyleSheet.create({
   rootWrap: { flex: 1 },
-  scroll: { flex: 1 },
-  scrollInner: { paddingTop: 0 },
-
-  heroShell: {
-    width: WINDOW_W,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  heroList: { width: WINDOW_W, flexGrow: 0, flexShrink: 0 },
-  heroPage: { position: 'relative', overflow: 'hidden' },
-  heroDotsOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-  },
-  heroTopScrim: {
+  atmosphereTop: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
-    height: 120,
+    height: verticalScale(320),
+    opacity: 0.55,
   },
-  heroLoading: {
+  scroll: { flex: 1 },
+  scrollInner: {},
+
+  spotlightSection: {
+    paddingHorizontal: GRID_PAD,
+  },
+  featureCard: {
+    height: FEATURE_H,
+  },
+  featureFrame: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
   },
-  heroEmpty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
+  featureImg: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
   },
-  heroContent: {
+  featureTopScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 100,
+  },
+  featureContent: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: scale(20),
+    paddingBottom: scale(24),
   },
-  heroTitle: {
+  featureEyebrow: {
+    color: GOLD_ACCENT,
+    fontWeight: '700',
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  featureTitle: {
+    color: '#fff',
     fontWeight: '800',
     textShadowColor: 'rgba(0,0,0,0.45)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
   },
+  featureLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
   heroMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    marginTop: 8,
+    marginTop: 10,
     gap: 8,
   },
   heroMeta: { color: 'rgba(255,255,255,0.88)', fontWeight: '600' },
@@ -496,49 +617,114 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.12)',
   },
   heroTypeText: { color: '#fff', fontWeight: '700' },
-  dotsRow: {
+
+  secondarySpotlightBlock: {
+    marginTop: scale(22),
+  },
+  secondaryHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 14,
-    gap: 8,
+    justifyContent: 'space-between',
+    marginBottom: scale(12),
   },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+  secondaryTitle: {
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
   },
-  dotIdle: { backgroundColor: 'rgba(255,255,255,0.35)' },
-  dotActive: { width: 20, borderRadius: 5 },
-  heroDotHit: {
-    minWidth: 48,
+  secondaryCount: {
+    fontWeight: '600',
+  },
+  chipList: {
+    paddingRight: GRID_PAD,
+  },
+  chipGap: {
+    marginLeft: scale(12),
+  },
+  spotlightChip: {
+    width: CHIP_W,
     minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  railBlock: { marginTop: 22 },
+  spotlightChipFrame: {
+    width: CHIP_W,
+    height: CHIP_H,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  spotlightChipImg: {
+    width: '100%',
+    height: '100%',
+  },
+  spotlightChipScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '62%',
+  },
+  spotlightChipTitle: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 10,
+    color: '#fff',
+    fontWeight: '700',
+  },
+
+  railBlock: {
+    marginTop: scale(28),
+    paddingHorizontal: GRID_PAD,
+  },
+  sectionDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginBottom: scale(18),
+    opacity: 0.65,
+  },
   railHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingRight: 4,
-    marginBottom: 12,
+    marginBottom: scale(14),
     gap: 8,
+  },
+  railHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 8,
+  },
+  railIcon: {
+    marginTop: 1,
   },
   railTitle: {
     flex: 1,
     fontWeight: '800',
-    paddingHorizontal: 20,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    fontSize: scale(13),
   },
-  railList: { paddingHorizontal: 16 },
-  posterCard: { width: POSTER_W },
-  posterWrap: {
-    width: POSTER_W,
-    height: POSTER_H,
+  gridBody: {
+    gap: GRID_GAP,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    gap: GRID_GAP,
+  },
+  gridCard: {
+    width: GRID_COL_W,
+  },
+  gridCardSpacer: {
+    width: GRID_COL_W,
+  },
+  gridPosterWrap: {
+    width: GRID_COL_W,
+    height: GRID_POSTER_H,
     overflow: 'hidden',
     position: 'relative',
   },
-  posterImg: { width: '100%', height: '100%' },
+  gridPosterImg: { width: '100%', height: '100%' },
   ratingBadge: {
     position: 'absolute',
     left: 8,
