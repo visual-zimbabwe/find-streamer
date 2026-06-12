@@ -1,12 +1,13 @@
 /**
  * StackBottomSheet — Trova's custom implementation of the expo-stack-bottom-sheet pattern.
  *
+ * Programme design system: theme-aware glass surfaces, gold hairlines, editorial
+ * eyebrow + title headers, restrained timing-based motion (no spring bounce).
+ *
  * Architecture mirrors rit3zh/expo-stack-bottom-sheet:
  *   - BottomSheetProvider  — React context that owns the sheet stack
  *   - useBottomSheet()     — hook to show / dismiss sheets
  *   - BottomSheetPortal    — drop-in <View> that renders the sheet stack on top of everything
- *
- * No extra native deps: uses react-native-reanimated + Animated (already installed).
  *
  * Usage:
  *   // In App.js, wrap everything with <BottomSheetProvider>
@@ -14,11 +15,16 @@
  *
  *   // Anywhere:
  *   const { show, dismiss, dismissAll } = useBottomSheet();
- *   const id = show(<MyContent />, { title: 'Actor', size: 'medium' });
+ *   const id = show(<MyContent />, {
+ *     eyebrow: 'CAST',
+ *     title: 'Actor Name',
+ *     subtitle: 'Filmography',
+ *     size: 'medium',
+ *   });
  */
 
 import React, {
-  createContext, useCallback, useContext, useEffect, useRef, useState,
+  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
 } from 'react';
 import {
   Animated, Easing, Platform, Pressable, ScrollView,
@@ -26,8 +32,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../theme/ThemeProvider';
+import { scale } from '../utils/responsive';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+const GOLD_ACCENT = '#D4A853';
+const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
+
 const SIZE_HEIGHT_RATIO = {
   small: 0.38,
   medium: 0.55,
@@ -35,10 +45,16 @@ const SIZE_HEIGHT_RATIO = {
   full: 0.88,
 };
 
-const STACK_OFFSET = 20;   // px each stacked sheet shifts up
-const STACK_SCALE  = 0.085; // scale reduction per depth level
+const STACK_OFFSET = 14;
 const SHEET_SIDE_GUTTER = 0;
-const CONTENT_BOTTOM_GAP = 24;
+const CONTENT_BOTTOM_GAP = scale(20);
+const H_PAD = scale(22);
+
+const ENTRANCE_MS = 320;
+const EXIT_MS = 300;
+const STACK_MS = 280;
+
+const EASE_OUT = Easing.out(Easing.cubic);
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 const BottomSheetCtx = createContext(undefined);
@@ -61,6 +77,8 @@ export function BottomSheetProvider({ children }) {
       options: {
         size: 'medium',
         title: '',
+        eyebrow: '',
+        subtitle: '',
         showCloseButton: true,
         dismissOnBackdrop: true,
         scrollable: false,
@@ -83,7 +101,6 @@ export function BottomSheetProvider({ children }) {
   }, []);
 
   const dismiss = useCallback((id) => {
-    // Actual removal is triggered by the sheet's own animation callback
     setSheets(prev => prev.filter(s => s.id !== id));
   }, []);
 
@@ -100,68 +117,81 @@ export function BottomSheetProvider({ children }) {
 
 // ─── Individual Sheet ─────────────────────────────────────────────────────────
 function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
+  const { theme, resolvedMode } = useTheme();
+  const { colors, typography, radii } = theme;
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 16 : 12);
 
-  const translateY  = useRef(new Animated.Value(windowHeight)).current;
-  const scaleAnim   = useRef(new Animated.Value(0.95)).current;
+  const translateY = useRef(new Animated.Value(windowHeight)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const sheetSurface = useMemo(
+    () => (resolvedMode === 'dark'
+      ? 'rgba(12, 12, 14, 0.96)'
+      : 'rgba(247, 247, 242, 0.96)'),
+    [resolvedMode],
+  );
 
   const size = sheet.options.size || 'medium';
   const heightRatio = SIZE_HEIGHT_RATIO[size] || SIZE_HEIGHT_RATIO.medium;
   const topClearance = Math.max(insets.top + 12, size === 'full' ? 24 : 48);
   const sheetHeight = Math.min(
     windowHeight - topClearance,
-    Math.round(windowHeight * heightRatio) + bottomInset
+    Math.round(windowHeight * heightRatio) + bottomInset,
   );
 
-  const getTargetY = (depth = index) => {
-    return -Math.min(depth * STACK_OFFSET, STACK_OFFSET * 3);
-  };
+  const getTargetY = (depth = index) => -Math.min(depth * STACK_OFFSET, STACK_OFFSET * 3);
 
-  const getTargetScale = (depth = index) =>
-    Math.max(1 - depth * STACK_SCALE, 0.7);
-
-  // Entrance animation (staggered)
   useEffect(() => {
-    const delay = index * 70;
+    const delay = index * 60;
     const timer = setTimeout(() => {
       if (index === 0 && backdropOpacity) {
         Animated.timing(backdropOpacity, {
-          toValue: 1, duration: 320, useNativeDriver: true,
+          toValue: 1,
+          duration: ENTRANCE_MS,
+          easing: EASE_OUT,
+          useNativeDriver: true,
         }).start();
       }
       Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 350, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.spring(translateY, { toValue: getTargetY(), damping: 28, stiffness: 220, mass: 0.8, useNativeDriver: true }),
-        Animated.spring(scaleAnim, { toValue: getTargetScale(), damping: 28, stiffness: 220, mass: 0.8, useNativeDriver: true }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: ENTRANCE_MS,
+          easing: EASE_OUT,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: getTargetY(),
+          duration: ENTRANCE_MS,
+          easing: EASE_OUT,
+          useNativeDriver: true,
+        }),
       ]).start();
     }, delay);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-stack when a new sheet is pushed on top
   const prevIndex = useRef(index);
   useEffect(() => {
     if (prevIndex.current !== index) {
-      Animated.parallel([
-        Animated.spring(translateY, { toValue: getTargetY(), damping: 30, stiffness: 250, mass: 0.6, useNativeDriver: true }),
-        Animated.spring(scaleAnim, { toValue: getTargetScale(), damping: 30, stiffness: 250, mass: 0.6, useNativeDriver: true }),
-      ]).start();
+      Animated.timing(translateY, {
+        toValue: getTargetY(),
+        duration: STACK_MS,
+        easing: EASE_OUT,
+        useNativeDriver: true,
+      }).start();
       prevIndex.current = index;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, windowHeight, sheetHeight, bottomInset]);
 
-  // Keep open sheets aligned when the device rotates or the window size changes.
   useEffect(() => {
-    Animated.spring(translateY, {
+    Animated.timing(translateY, {
       toValue: getTargetY(),
-      damping: 30,
-      stiffness: 250,
-      mass: 0.6,
+      duration: STACK_MS,
+      easing: EASE_OUT,
       useNativeDriver: true,
     }).start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,19 +200,34 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
   const dismissWithAnimation = useCallback(() => {
     const isTop = index === 0;
     Animated.parallel([
-      Animated.timing(opacityAnim, { toValue: 0, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: windowHeight + sheetHeight, duration: 360, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 0.85, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(opacityAnim, {
+        toValue: 0,
+        duration: EXIT_MS,
+        easing: EASE_OUT,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: windowHeight + sheetHeight,
+        duration: ENTRANCE_MS + 40,
+        easing: EASE_OUT,
+        useNativeDriver: true,
+      }),
       ...(isTop && totalSheets === 1 && backdropOpacity ? [
-        Animated.timing(backdropOpacity, { toValue: 0, duration: 320, useNativeDriver: true }),
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: EXIT_MS,
+          useNativeDriver: true,
+        }),
       ] : []),
     ]).start(() => {
       onDismiss(sheet.id);
       sheet.options.onClose?.();
     });
-  }, [index, totalSheets, sheet, backdropOpacity, onDismiss, opacityAnim, translateY, scaleAnim, windowHeight, sheetHeight]);
+  }, [
+    index, totalSheets, sheet, backdropOpacity, onDismiss,
+    opacityAnim, translateY, windowHeight, sheetHeight,
+  ]);
 
-  // Gesture drag-to-dismiss (top sheet only)
   const gestureStartY = useRef(0);
   const pan = useRef(PanResponder.create({
     onMoveShouldSetPanResponder: (_, g) =>
@@ -199,8 +244,11 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
       if (g.dy > 100 || g.vy > 1.2) {
         dismissWithAnimation();
       } else {
-        Animated.spring(translateY, {
-          toValue: getTargetY(), damping: 25, stiffness: 400, mass: 0.6, useNativeDriver: true,
+        Animated.timing(translateY, {
+          toValue: getTargetY(),
+          duration: 240,
+          easing: EASE_OUT,
+          useNativeDriver: true,
         }).start();
       }
     },
@@ -208,11 +256,13 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
 
   const animStyle = {
     opacity: opacityAnim,
-    transform: [{ translateY }, { scale: scaleAnim }],
+    transform: [{ translateY }],
     zIndex: 2000 - index,
   };
 
   const isScrollable = sheet.options.scrollable === true;
+  const { eyebrow, title, subtitle, showCloseButton } = sheet.options;
+  const showHeader = eyebrow || title || subtitle || showCloseButton !== false;
 
   return (
     <Animated.View
@@ -223,35 +273,64 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
           height: sheetHeight,
           left: SHEET_SIDE_GUTTER,
           right: SHEET_SIDE_GUTTER,
+          backgroundColor: sheetSurface,
+          borderTopLeftRadius: radii.xl,
+          borderTopRightRadius: radii.xl,
+          borderColor: GOLD_DIM,
         },
       ]}
       {...pan.panHandlers}
     >
-      {/* Handle */}
-      <View style={sheetStyles.handle} />
+      <View style={sheetStyles.handleRow}>
+        <View style={[sheetStyles.handle, { backgroundColor: GOLD_DIM }]} />
+      </View>
 
-      {/* Header */}
-      {(sheet.options.title || sheet.options.showCloseButton) && (
-        <View style={sheetStyles.header}>
-          <Text style={sheetStyles.title} numberOfLines={1}>
-            {sheet.options.title || ''}
-          </Text>
-          {sheet.options.showCloseButton !== false && (
+      {showHeader && (
+        <View style={[sheetStyles.header, { paddingHorizontal: H_PAD }]}>
+          <View style={sheetStyles.headerTextBlock}>
+            {!!eyebrow && (
+              <Text
+                style={[sheetStyles.eyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}
+                numberOfLines={1}
+              >
+                {eyebrow}
+              </Text>
+            )}
+            {!!title && (
+              <Text
+                style={[sheetStyles.title, { color: colors.onSurface, ...typography.titleLg }]}
+                numberOfLines={2}
+              >
+                {title}
+              </Text>
+            )}
+            {!!subtitle && (
+              <Text
+                style={[sheetStyles.subtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+                numberOfLines={2}
+              >
+                {subtitle}
+              </Text>
+            )}
+          </View>
+          {showCloseButton !== false && (
             <TouchableOpacity
               onPress={dismissWithAnimation}
-              style={sheetStyles.closeBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={[sheetStyles.closeBtn, { backgroundColor: colors.surfaceContainerHighest }]}
               accessibilityRole="button"
               accessibilityLabel="Close sheet"
             >
-              <Ionicons name="close" size={20} color="#888" />
+              <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
             </TouchableOpacity>
           )}
         </View>
       )}
 
-      {/* Content */}
-      <View style={[sheetStyles.contentWrap, { paddingBottom: bottomInset + CONTENT_BOTTOM_GAP }]}>
+      {showHeader && (
+        <View style={[sheetStyles.headerRule, { backgroundColor: GOLD_DIM, marginHorizontal: H_PAD }]} />
+      )}
+
+      <View style={[sheetStyles.contentWrap, { paddingHorizontal: H_PAD, paddingBottom: bottomInset + CONTENT_BOTTOM_GAP }]}>
         {isScrollable ? (
           <ScrollView
             style={sheetStyles.scroll}
@@ -265,12 +344,12 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
             ]}
           >
             {typeof sheet.content === 'string'
-              ? <Text style={sheetStyles.text}>{sheet.content}</Text>
+              ? <Text style={[sheetStyles.text, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>{sheet.content}</Text>
               : sheet.content}
           </ScrollView>
         ) : (
           typeof sheet.content === 'string'
-            ? <Text style={sheetStyles.text}>{sheet.content}</Text>
+            ? <Text style={[sheetStyles.text, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>{sheet.content}</Text>
             : sheet.content
         )}
       </View>
@@ -283,11 +362,12 @@ export function BottomSheetPortal() {
   const { sheets, dismiss } = useBottomSheet();
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
-  // Keep backdrop in sync when all sheets close externally (e.g. dismissAll)
   useEffect(() => {
     if (sheets.length === 0) {
       Animated.timing(backdropOpacity, {
-        toValue: 0, duration: 280, useNativeDriver: true,
+        toValue: 0,
+        duration: EXIT_MS,
+        useNativeDriver: true,
       }).start();
     }
   }, [sheets.length, backdropOpacity]);
@@ -296,15 +376,12 @@ export function BottomSheetPortal() {
 
   const handleDismissTop = () => {
     if (sheets.length > 0) {
-      // Trigger dismiss for the topmost (index 0 = front) sheet
-      // The sheet handles its own animation; we remove it after
       dismiss(sheets[sheets.length - 1].id);
     }
   };
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* Dimmed backdrop — tapping it dismisses the front sheet */}
       <Animated.View
         style={[sheetStyles.backdrop, { opacity: backdropOpacity }]}
         pointerEvents={sheets.length > 0 ? 'auto' : 'none'}
@@ -320,13 +397,10 @@ export function BottomSheetPortal() {
         />
       </Animated.View>
 
-      {/* Sheets rendered bottom-to-top; first item is deepest (lowest zIndex) */}
       {sheets.map((sheet, i) => (
         <Sheet
           key={sheet.id}
           sheet={sheet}
-          // index 0 = frontmost sheet (receives gestures)
-          // As new sheets are pushed, older sheets get a higher index = deeper stack
           index={sheets.length - 1 - i}
           totalSheets={sheets.length}
           backdropOpacity={i === 0 ? backdropOpacity : undefined}
@@ -341,62 +415,72 @@ export function BottomSheetPortal() {
 const sheetStyles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.58)',
+    backgroundColor: 'rgba(0, 0, 0, 0.62)',
     zIndex: 1999,
   },
   sheet: {
     position: 'absolute',
     bottom: 0,
-    backgroundColor: '#1a1a2e',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 20,
-    elevation: 28,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 24,
+  },
+  handleRow: {
+    alignItems: 'center',
+    paddingTop: scale(10),
+    paddingBottom: scale(6),
+    flexShrink: 0,
   },
   handle: {
-    alignSelf: 'center',
-    width: 38,
-    height: 4,
+    width: scale(40),
+    height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    marginTop: 10,
-    marginBottom: 4,
-    flexShrink: 0,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'flex-start',
+    gap: scale(14),
+    paddingTop: scale(4),
+    paddingBottom: scale(14),
     flexShrink: 0,
   },
-  title: {
+  headerTextBlock: {
     flex: 1,
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    minWidth: 0,
+  },
+  eyebrow: {
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  title: {
+    fontWeight: '900',
+  },
+  subtitle: {
+    marginTop: 4,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
+    flexShrink: 0,
+  },
+  headerRule: {
+    height: StyleSheet.hairlineWidth,
+    marginBottom: scale(8),
+    flexShrink: 0,
   },
   contentWrap: {
     flex: 1,
     minHeight: 0,
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: scale(4),
   },
   scroll: {
     flex: 1,
@@ -406,8 +490,6 @@ const sheetStyles = StyleSheet.create({
     flexGrow: 1,
   },
   text: {
-    color: '#ccc',
-    fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
   },
 });
