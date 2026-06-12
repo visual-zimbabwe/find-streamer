@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
-  FlatList,
+  Dimensions,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,25 +10,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { MediaArtwork } from './MediaArtwork';
 import { scale } from '../utils/responsive';
 
-const POSTER_W = scale(118);
-const POSTER_H = POSTER_W * 1.5;
+const WINDOW_W = Dimensions.get('window').width;
+const GRID_PAD = scale(22);
+const GRID_GAP = scale(14);
+const GRID_COL_W = (WINDOW_W - GRID_PAD * 2 - GRID_GAP) / 2;
+const GRID_POSTER_H = GRID_COL_W * 1.5;
+const GOLD_ACCENT = '#D4A853';
+const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
 
-function CollectionPosterCard({ item, colors, typography, radii, onPress }) {
+const GridPosterCard = memo(function GridPosterCard({ item, colors, typography, radii, onPress }) {
   return (
     <TouchableOpacity
-      style={styles.posterCard}
+      style={styles.gridCard}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityRole="button"
       accessibilityLabel={`Open details for ${item.title}`}
     >
-      <View style={[styles.posterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl }]}>
+      <View style={[styles.gridPosterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl }]}>
         <MediaArtwork
           uri={item.posterUrl}
-          style={styles.posterImg}
+          style={styles.gridPosterImg}
           resizeMode="cover"
           accessibilityLabel={`${item.title} poster`}
           title={item.title}
+          instant
         />
         {item.ratingValue > 0 && (
           <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
@@ -45,7 +51,7 @@ function CollectionPosterCard({ item, colors, typography, radii, onPress }) {
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 export function CollectionContentRail({
   title,
@@ -58,36 +64,44 @@ export function CollectionContentRail({
 }) {
   if (!data?.length) return null;
 
+  const rows = [];
+  for (let i = 0; i < data.length; i += 2) {
+    rows.push(data.slice(i, i + 2));
+  }
+
   return (
     <View style={styles.railBlock}>
+      <View style={[styles.sectionDivider, { backgroundColor: GOLD_DIM }]} />
       <View style={styles.railHeaderRow}>
-        <Text
-          style={[styles.railTitle, { color: colors.onSurface, ...typography.titleMd }]}
-          accessibilityRole="header"
-          numberOfLines={2}
-        >
-          {title}
-        </Text>
+        <View style={styles.railHeaderLeft}>
+          <Ionicons name="albums-outline" size={16} color={GOLD_ACCENT} style={styles.railIcon} />
+          <Text
+            style={[styles.railTitle, { color: colors.onSurface, ...typography.titleMd }]}
+            accessibilityRole="header"
+            numberOfLines={2}
+          >
+            {title}
+          </Text>
+        </View>
         {headerRight}
       </View>
-      <FlatList
-        horizontal
-        nestedScrollEnabled
-        data={data}
-        keyExtractor={(item) => `${item.mediaType || 'movie'}-${item.tmdbId}`}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.railList}
-        ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-        renderItem={({ item }) => (
-          <CollectionPosterCard
-            item={item}
-            colors={colors}
-            typography={typography}
-            radii={radii}
-            onPress={() => onSelectItem(item)}
-          />
-        )}
-      />
+      <View style={styles.gridBody}>
+        {rows.map((pair, rowIndex) => (
+          <View key={`row-${rowIndex}`} style={styles.gridRow}>
+            {pair.map((item) => (
+              <GridPosterCard
+                key={`${item.mediaType || 'movie'}-${item.tmdbId}`}
+                item={item}
+                colors={colors}
+                typography={typography}
+                radii={radii}
+                onPress={() => onSelectItem(item)}
+              />
+            ))}
+            {pair.length === 1 ? <View style={styles.gridCardSpacer} /> : null}
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -96,34 +110,57 @@ const styles = StyleSheet.create({
   railBlock: {
     marginTop: 4,
   },
+  sectionDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: GRID_PAD,
+    marginBottom: scale(16),
+  },
   railHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingRight: 4,
-    marginBottom: 12,
+    paddingHorizontal: GRID_PAD,
+    marginBottom: scale(12),
     gap: 8,
+  },
+  railHeaderLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  railIcon: {
+    flexShrink: 0,
   },
   railTitle: {
     flex: 1,
     fontWeight: '800',
-    paddingHorizontal: 20,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
-  railList: {
-    paddingHorizontal: 16,
+  gridBody: {
+    paddingHorizontal: GRID_PAD,
+    gap: GRID_GAP,
   },
-  posterCard: {
-    width: POSTER_W,
+  gridRow: {
+    flexDirection: 'row',
+    gap: GRID_GAP,
   },
-  posterWrap: {
-    width: POSTER_W,
-    height: POSTER_H,
+  gridCard: {
+    width: GRID_COL_W,
+  },
+  gridCardSpacer: {
+    width: GRID_COL_W,
+  },
+  gridPosterWrap: {
+    width: GRID_COL_W,
+    height: GRID_POSTER_H,
     overflow: 'hidden',
     position: 'relative',
   },
-  posterImg: {
-    width: '100%',
-    height: '100%',
+  gridPosterImg: {
+    width: GRID_COL_W,
+    height: GRID_POSTER_H,
   },
   ratingBadge: {
     position: 'absolute',

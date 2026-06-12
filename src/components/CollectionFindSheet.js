@@ -20,8 +20,11 @@ import {
   buildJumpToNames,
   validateCustomDecadeRange,
 } from '../lib/collectionFilters';
+import { scale } from '../utils/responsive';
 
 const SHEET_HEADER_HEIGHT = 52;
+const GOLD_ACCENT = '#D4A853';
+const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
 
 function FilterChip({ label, active, onPress, colors, typography, radii }) {
   return (
@@ -29,8 +32,8 @@ function FilterChip({ label, active, onPress, colors, typography, radii }) {
       style={[
         styles.chip,
         {
-          backgroundColor: active ? colors.primary + '22' : colors.surfaceContainerHigh,
-          borderColor: active ? colors.primary : colors.outlineVariant,
+          backgroundColor: active ? GOLD_ACCENT + '18' : colors.surfaceContainerHigh,
+          borderColor: active ? GOLD_ACCENT : GOLD_DIM,
           borderRadius: radii.full,
         },
       ]}
@@ -39,7 +42,7 @@ function FilterChip({ label, active, onPress, colors, typography, radii }) {
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
     >
-      <Text style={[{ color: active ? colors.primary : colors.onSurface, ...typography.labelSm, fontWeight: '700' }]}>
+      <Text style={[{ color: active ? GOLD_ACCENT : colors.onSurface, ...typography.labelSm, fontWeight: '700' }]}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -178,7 +181,7 @@ export function CollectionFindSheet({
 
   const renderJumpItem = useCallback(({ item }) => (
     <TouchableOpacity
-      style={[styles.jumpRow, { borderBottomColor: colors.outlineVariant }]}
+      style={[styles.jumpRow, { borderBottomColor: GOLD_DIM }]}
       onPress={() => handleJump(item.id)}
       accessibilityRole="button"
       accessibilityLabel={`Jump to ${item.title}`}
@@ -186,7 +189,7 @@ export function CollectionFindSheet({
       <Text style={[{ color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
         {item.title}
       </Text>
-      <Ionicons name="arrow-forward" size={16} color={colors.onSurfaceVariant} />
+      <Ionicons name="chevron-forward" size={16} color={GOLD_ACCENT} />
     </TouchableOpacity>
   ), [colors, typography, handleJump]);
 
@@ -213,16 +216,19 @@ export function CollectionFindSheet({
           ]}
           >
             <View style={styles.sheetHeader}>
-              <Text style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '800' }]}>
-                Find collection
-              </Text>
+              <View>
+                <Text style={[styles.sheetEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>Find</Text>
+                <Text style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '800' }]}>
+                  Collection
+                </Text>
+              </View>
               <TouchableOpacity
                 onPress={handleClose}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 accessibilityRole="button"
                 accessibilityLabel="Close find collection"
               >
-                <Text style={[{ color: colors.primary, ...typography.labelSm, fontWeight: '800' }]}>Done</Text>
+                <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '800' }]}>Done</Text>
               </TouchableOpacity>
             </View>
 
@@ -241,8 +247,8 @@ export function CollectionFindSheet({
               ]}
             >
               <View ref={scrollContentRef} collapsable={false}>
-                <View style={[styles.searchBox, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.md }]}>
-                  <Ionicons name="search-outline" size={16} color={colors.onSurfaceVariant} style={styles.searchIcon} />
+                <View style={[styles.searchBox, { backgroundColor: colors.surfaceContainerHigh, borderColor: GOLD_DIM, borderRadius: radii.md }]}>
+                  <Ionicons name="search-outline" size={16} color={GOLD_ACCENT} style={styles.searchIcon} />
                   <TextInput
                     style={[{ flex: 1, color: colors.onSurface, ...typography.bodyMd }]}
                     placeholder="Search franchises…"
@@ -265,9 +271,9 @@ export function CollectionFindSheet({
 
                 <View style={styles.filterSection}>
                   <View style={styles.filterHeaderRow}>
-                    <Text style={[{ color: colors.onSurface, ...typography.labelSm, fontWeight: '800' }]}>Size</Text>
+                    <Text style={[styles.filterEyebrow, { color: colors.onSurface, ...typography.labelSm }]}>Size</Text>
                     <TouchableOpacity onPress={handleReset} accessibilityRole="button" accessibilityLabel="Reset filters">
-                      <Text style={[{ color: colors.primary, ...typography.labelSm, fontWeight: '700' }]}>Reset</Text>
+                      <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '700' }]}>Reset</Text>
                     </TouchableOpacity>
                   </View>
                   <View style={styles.chipRow}>
@@ -286,7 +292,7 @@ export function CollectionFindSheet({
                 </View>
 
                 <View style={styles.filterSection}>
-                  <Text style={[{ color: colors.onSurface, ...typography.labelSm, fontWeight: '800' }]}>Decade</Text>
+                  <Text style={[styles.filterEyebrow, { color: colors.onSurface, ...typography.labelSm }]}>Decade</Text>
                   <View style={styles.chipRow}>
                     {DECADE_PRESETS.map((preset) => (
                       <FilterChip
@@ -313,7 +319,7 @@ export function CollectionFindSheet({
                       <View style={styles.customRangeRow}>
                         <TextInput
                           ref={minInputRef}
-                          style={[styles.yearInput, { color: colors.onSurface, borderColor: colors.outlineVariant, borderRadius: radii.md }]}
+                          style={[styles.yearInput, { color: colors.onSurface, borderColor: GOLD_DIM, borderRadius: radii.md }]}
                           placeholder="From"
                           placeholderTextColor={colors.onSurfaceVariant}
                           keyboardType="number-pad"
@@ -326,7 +332,7 @@ export function CollectionFindSheet({
                         <Text style={{ color: colors.onSurfaceVariant, ...typography.bodyMd }}>–</Text>
                         <TextInput
                           ref={maxInputRef}
-                          style={[styles.yearInput, { color: colors.onSurface, borderColor: colors.outlineVariant, borderRadius: radii.md }]}
+                          style={[styles.yearInput, { color: colors.onSurface, borderColor: GOLD_DIM, borderRadius: radii.md }]}
                           placeholder="To"
                           placeholderTextColor={colors.onSurfaceVariant}
                           keyboardType="number-pad"
@@ -350,7 +356,7 @@ export function CollectionFindSheet({
                 </View>
 
                 <View style={styles.filterSection}>
-                  <Text style={[{ color: colors.onSurface, ...typography.labelSm, fontWeight: '800' }]}>Jump to</Text>
+                  <Text style={[styles.filterEyebrow, { color: colors.onSurface, ...typography.labelSm }]}>Jump to</Text>
                   <FlatList
                     data={jumpToNames}
                     keyExtractor={(item) => String(item.id)}
@@ -389,7 +395,7 @@ const styles = StyleSheet.create({
   sheet: {
     width: '100%',
     paddingTop: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: scale(22),
   },
   sheetScroll: {
     flexGrow: 0,
@@ -402,6 +408,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     minHeight: SHEET_HEADER_HEIGHT,
   },
+  sheetEyebrow: {
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
   sheetBody: {
     paddingBottom: 8,
     gap: 16,
@@ -411,6 +423,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   searchIcon: {
     marginRight: 8,
@@ -423,13 +436,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  filterEyebrow: {
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   chip: {
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -440,7 +458,7 @@ const styles = StyleSheet.create({
   },
   yearInput: {
     flex: 1,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },

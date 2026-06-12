@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   SectionList,
   StyleSheet,
   Text,
@@ -9,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import {
   countActiveFindBadge,
@@ -32,7 +34,31 @@ import { moderateScale, scale, verticalScale } from '../utils/responsive';
 import { CollectionContentRail } from './CollectionContentRail';
 import { CollectionFindSheet } from './CollectionFindSheet';
 
+const GRID_PAD = scale(22);
+const GOLD_ACCENT = '#D4A853';
+const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
 const ALPHA_LETTER_FONT_SIZE = moderateScale(14, 0.4);
+
+function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
+  return (
+    <View style={styles.pageHeader}>
+      {eyebrow ? (
+        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>{eyebrow}</Text>
+      ) : null}
+      <Text
+        style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
+        accessibilityRole="header"
+      >
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text style={[styles.sectionSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
 
 function SectionHeader({
   title,
@@ -43,40 +69,48 @@ function SectionHeader({
   colors,
   typography,
 }) {
-  if (!collapsible) {
-    return (
-      <View style={[styles.catalogSectionHeader, { backgroundColor: colors.surfaceContainerHigh }]}>
+  const content = (
+    <>
+      <View style={styles.sectionHeaderLeft}>
+        <Text style={[styles.sectionHeaderEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+          {collapsible ? 'Your Library' : 'Catalogue'}
+        </Text>
         <Text style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '800', flex: 1 }]}>
           {title}
         </Text>
-        {count != null && (
-          <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
-            {count}
-          </Text>
-        )}
+      </View>
+      {count != null && (
+        <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
+          {count}
+        </Text>
+      )}
+      {collapsible && (
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color={GOLD_ACCENT}
+        />
+      )}
+    </>
+  );
+
+  if (!collapsible) {
+    return (
+      <View style={styles.catalogSectionHeader}>
+        {content}
       </View>
     );
   }
 
   return (
     <TouchableOpacity
-      style={[styles.sectionHeader, { backgroundColor: colors.surfaceContainerHigh }]}
+      style={styles.sectionHeader}
       onPress={onToggle}
       activeOpacity={0.82}
       accessibilityRole="button"
       accessibilityLabel={`${title}, ${count} collections, ${expanded ? 'expanded' : 'collapsed'}`}
     >
-      <Text style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '800', flex: 1 }]}>
-        {title}
-      </Text>
-      <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', marginRight: 8 }]}>
-        {count}
-      </Text>
-      <Ionicons
-        name={expanded ? 'chevron-up' : 'chevron-down'}
-        size={18}
-        color={colors.onSurfaceVariant}
-      />
+      {content}
     </TouchableOpacity>
   );
 }
@@ -95,15 +129,18 @@ function CollectionRail({
 
   const headerRight = pinHidden ? null : (
     <TouchableOpacity
-      style={[styles.pinButton, { borderColor: colors.outlineVariant }]}
-      onPress={() => onTogglePin(row.id)}
+      style={[styles.pinButton, { borderColor: isPinned ? GOLD_ACCENT : GOLD_DIM }]}
+      onPress={() => {
+        Haptics.selectionAsync();
+        onTogglePin(row.id);
+      }}
       accessibilityRole="button"
       accessibilityLabel={isPinned ? `Unpin ${row.title}` : `Pin ${row.title}`}
     >
       <Ionicons
         name={isPinned ? 'pin' : 'pin-outline'}
         size={18}
-        color={isPinned ? colors.primary : colors.onSurfaceVariant}
+        color={isPinned ? GOLD_ACCENT : colors.onSurfaceVariant}
       />
     </TouchableOpacity>
   );
@@ -123,7 +160,7 @@ function CollectionRail({
 
 function SortToggle({ sortMode, onChange, colors, typography, radii }) {
   return (
-    <View style={[styles.sortToggle, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.full }]}>
+    <View style={[styles.sortToggle, { backgroundColor: colors.surfaceContainerHigh, borderColor: GOLD_DIM, borderRadius: radii.full }]}>
       {['rating', 'az'].map((mode) => {
         const active = sortMode === mode;
         const label = mode === 'rating' ? 'RTG' : 'A–Z';
@@ -132,16 +169,19 @@ function SortToggle({ sortMode, onChange, colors, typography, radii }) {
             key={mode}
             style={[
               styles.sortOption,
-              active && { backgroundColor: colors.primary + '22' },
+              active && { backgroundColor: GOLD_ACCENT + '18' },
               { borderRadius: radii.full },
             ]}
-            onPress={() => onChange(mode)}
+            onPress={() => {
+              Haptics.selectionAsync();
+              onChange(mode);
+            }}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             accessibilityLabel={mode === 'rating' ? 'Sort by rating' : 'Sort by A to Z'}
           >
             <Text style={[{
-              color: active ? colors.primary : colors.onSurfaceVariant,
+              color: active ? GOLD_ACCENT : colors.onSurfaceVariant,
               ...typography.labelSm,
               fontWeight: '800',
             }]}
@@ -164,17 +204,43 @@ function AlphabetIndex({ letters, onSelect, colors }) {
         <TouchableOpacity
           key={letter}
           style={styles.alphaLetterTap}
-          onPress={() => onSelect(letter)}
+          onPress={() => {
+            Haptics.selectionAsync();
+            onSelect(letter);
+          }}
           hitSlop={{ top: 2, bottom: 2, left: 8, right: 8 }}
           accessibilityRole="button"
           accessibilityLabel={`Jump to collections starting with ${letter}`}
         >
-          <Text style={[styles.alphaLetterText, { color: colors.primary, fontSize: ALPHA_LETTER_FONT_SIZE }]}>
+          <Text style={[styles.alphaLetterText, { color: GOLD_ACCENT, fontSize: ALPHA_LETTER_FONT_SIZE }]}>
             {letter}
           </Text>
         </TouchableOpacity>
       ))}
     </View>
+  );
+}
+
+function FindBar({ badgeCount, onPress, colors, typography, radii }) {
+  return (
+    <TouchableOpacity
+      style={[styles.findBar, { backgroundColor: colors.surfaceContainerHigh, borderColor: GOLD_DIM, borderRadius: radii.lg }]}
+      onPress={onPress}
+      activeOpacity={0.82}
+      accessibilityRole="button"
+      accessibilityLabel="Find collection"
+    >
+      <Ionicons name="search-outline" size={18} color={GOLD_ACCENT} />
+      <Text style={[styles.findBarText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+        Find collection
+      </Text>
+      {badgeCount > 0 && (
+        <View style={[styles.findBadge, { backgroundColor: GOLD_ACCENT }]}>
+          <Text style={[styles.findBadgeText, typography.labelSm]}>{badgeCount}</Text>
+        </View>
+      )}
+      <Ionicons name="chevron-forward" size={16} color={GOLD_ACCENT} style={{ opacity: 0.8 }} />
+    </TouchableOpacity>
   );
 }
 
@@ -188,6 +254,7 @@ export function FranchiseRailsView({
   typography,
   radii,
   onSelectItem,
+  onHeaderScroll,
 }) {
   const insets = useSafeAreaInsets();
   const listRef = useRef(null);
@@ -434,6 +501,7 @@ export function FranchiseRailsView({
 
   const bottomNavScroll = useBottomNavScroll((event) => {
     scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+    onHeaderScroll?.(event);
   });
 
   const renderCollectionRail = useCallback((row) => (
@@ -493,8 +561,8 @@ export function FranchiseRailsView({
 
     if (loading) {
       return (
-        <View style={[styles.statePanel, { backgroundColor: colors.surfaceContainerHighest }]}>
-          <ActivityIndicator color={colors.primary} accessibilityLabel="Loading collections" />
+        <View style={styles.statePanel}>
+          <ActivityIndicator color={GOLD_ACCENT} accessibilityLabel="Loading collections" />
           <Text style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
             Finding top-rated movie collections...
           </Text>
@@ -505,13 +573,13 @@ export function FranchiseRailsView({
     if (error) {
       return (
         <TouchableOpacity
-          style={[styles.statePanel, { backgroundColor: colors.surfaceContainerHighest }]}
+          style={styles.statePanel}
           onPress={onRetry}
           activeOpacity={0.82}
           accessibilityRole="button"
           accessibilityLabel="Retry loading movie collections"
         >
-          <Ionicons name="refresh-outline" size={24} color={colors.primary} />
+          <Ionicons name="refresh-outline" size={24} color={GOLD_ACCENT} />
           <Text style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
             Collections could not load. Tap to retry.
           </Text>
@@ -520,7 +588,7 @@ export function FranchiseRailsView({
     }
 
     return (
-      <View style={[styles.statePanel, { backgroundColor: colors.surfaceContainerHighest }]}>
+      <View style={styles.statePanel}>
         <Ionicons name="albums-outline" size={26} color={colors.onSurfaceVariant} />
         <Text style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
           No collections match your filters.
@@ -534,34 +602,32 @@ export function FranchiseRailsView({
     return renderCatalogEmpty();
   }, [renderCatalogEmpty]);
 
+  const listHeader = useMemo(() => (
+    <View style={styles.listHeader}>
+      <ProgrammeSectionHeader
+        eyebrow="Franchises"
+        title="Collection Index"
+        subtitle={`${filteredMainRows.length} collections`}
+        colors={colors}
+        typography={typography}
+      />
+      <FindBar
+        badgeCount={badgeCount}
+        onPress={() => setFindVisible(true)}
+        colors={colors}
+        typography={typography}
+        radii={radii}
+      />
+    </View>
+  ), [filteredMainRows.length, badgeCount, colors, typography, radii]);
+
   return (
     <View style={styles.root}>
-      <TouchableOpacity
-        style={[
-          styles.findButton,
-          {
-            top: insets.top + 58,
-            backgroundColor: colors.surfaceContainerHigh,
-            borderRadius: radii.full,
-          },
-        ]}
-        onPress={() => setFindVisible(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Find collection"
-      >
-        <Ionicons name="search-outline" size={20} color={colors.onSurface} />
-        {badgeCount > 0 && (
-          <View style={[styles.findBadge, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.findBadgeText, typography.labelSm]}>{badgeCount}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-
       <View
         style={[
           styles.sideControls,
           {
-            top: insets.top + verticalScale(100),
+            top: insets.top + verticalScale(180),
             bottom: insets.bottom + verticalScale(88),
           },
         ]}
@@ -598,10 +664,12 @@ export function FranchiseRailsView({
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
         stickySectionHeadersEnabled={false}
+        ListHeaderComponent={listHeader}
         renderSectionHeader={renderSectionHeader}
         renderSectionFooter={renderSectionFooter}
         renderItem={renderItem}
         onScrollToIndexFailed={handleScrollToIndexFailed}
+        removeClippedSubviews={Platform.OS === 'android'}
         {...bottomNavScroll}
       />
 
@@ -640,19 +708,44 @@ const styles = StyleSheet.create({
   scrollInnerEmpty: {
     flexGrow: 1,
   },
-  findButton: {
-    position: 'absolute',
-    right: 16,
-    zIndex: 20,
-    width: 44,
-    height: 44,
+  listHeader: {
+    paddingHorizontal: GRID_PAD,
+    gap: scale(16),
+    marginBottom: scale(8),
+  },
+  pageHeader: {
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
+  },
+  sectionEyebrow: {
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  sectionTitle: {
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  sectionSubtitle: {
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+  findBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  findBarText: {
+    flex: 1,
+    fontWeight: '600',
   },
   findBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
@@ -661,7 +754,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   findBadgeText: {
-    color: '#fff',
+    color: '#0c0c0e',
     fontWeight: '800',
     fontSize: 10,
   },
@@ -680,6 +773,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     padding: 2,
     gap: 2,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   sortOption: {
     paddingHorizontal: 4,
@@ -706,34 +800,43 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
+    marginHorizontal: GRID_PAD,
     marginTop: 12,
     marginBottom: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 14,
+    gap: 8,
   },
   catalogSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
+    marginHorizontal: GRID_PAD,
     marginTop: 12,
     marginBottom: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 14,
+    gap: 8,
+  },
+  sectionHeaderLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  sectionHeaderEyebrow: {
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
   pinButton: {
     padding: 6,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 999,
-    marginRight: 16,
+    marginRight: GRID_PAD,
   },
   statePanel: {
     alignItems: 'center',
     gap: 10,
     justifyContent: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: GRID_PAD,
     marginTop: 22,
     minHeight: 150,
     paddingHorizontal: 22,
