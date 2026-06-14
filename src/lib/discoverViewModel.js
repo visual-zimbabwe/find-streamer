@@ -20,6 +20,8 @@ const DEFAULT_FILTERS = {
   originCountries: [],
   fromYear: '',
   toYear: '',
+  minRuntime: '',
+  maxRuntime: '',
   sortBy: 'popularity.desc',
   // ── Language preset (region shortcut) ─────────────────────────────────────
   // Stores the active preset id ('europe', 'east_asia', 'exclude_english', …)
@@ -317,6 +319,12 @@ export function useDiscoverViewModel() {
 
   // ── Validation ─────────────────────────────────────────────────────────────
 
+  function appliedRuntime(value) {
+    const parsed = parseInt(value, 10);
+    if (!value || isNaN(parsed) || parsed === 0) return null;
+    return parsed;
+  }
+
   function validate(f) {
     const from = parseInt(f.fromYear, 10);
     const to = parseInt(f.toYear, 10);
@@ -330,6 +338,26 @@ export function useDiscoverViewModel() {
     if (f.toYear && !isNaN(to) && (to < 1900 || to > curYear + 5)) {
       return `"To Year" must be between 1900 and ${curYear + 5}.`;
     }
+
+    if (f.minRuntime) {
+      const rawMin = parseInt(f.minRuntime, 10);
+      if (isNaN(rawMin) || rawMin < 0 || rawMin > 999) {
+        return 'Min runtime must be between 0 and 999.';
+      }
+    }
+    if (f.maxRuntime) {
+      const rawMax = parseInt(f.maxRuntime, 10);
+      if (isNaN(rawMax) || rawMax < 0 || rawMax > 999) {
+        return 'Max runtime must be between 0 and 999.';
+      }
+    }
+
+    const minRuntime = appliedRuntime(f.minRuntime);
+    const maxRuntime = appliedRuntime(f.maxRuntime);
+    if (minRuntime != null && maxRuntime != null && minRuntime > maxRuntime) {
+      return 'Min runtime cannot be greater than max runtime';
+    }
+
     return null;
   }
 

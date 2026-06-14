@@ -975,6 +975,8 @@ function isLikelyAnime(rawItem) {
  *   originCountries: string[],     // ISO 3166-1, TV only, e.g. ['US', 'KR']
  *   fromYear: string | null,       // '2010'
  *   toYear: string | null,         // '2024'
+ *   minRuntime: string | null,     // movie only, minutes, e.g. '90'
+ *   maxRuntime: string | null,     // movie only, minutes, e.g. '180'
  *   sortBy: string,                // 'popularity.desc' etc.
  *   page: number,
  * }
@@ -993,6 +995,8 @@ export async function discoverTitles(filters = {}) {
     originCountries = [],
     fromYear = null,
     toYear = null,
+    minRuntime = null,
+    maxRuntime = null,
     sortBy = 'popularity.desc',
     excludeEnglish = false,
     watchRegion = null,
@@ -1046,6 +1050,15 @@ export async function discoverTitles(filters = {}) {
   if (mediaType === 'movie') {
     if (fromYear) params['primary_release_date.gte'] = `${fromYear}-01-01`;
     if (toYear)   params['primary_release_date.lte'] = `${toYear}-12-31`;
+
+    const minRuntimeMinutes = parseInt(minRuntime, 10);
+    const maxRuntimeMinutes = parseInt(maxRuntime, 10);
+    if (minRuntime && !isNaN(minRuntimeMinutes) && minRuntimeMinutes > 0) {
+      params['with_runtime.gte'] = minRuntimeMinutes;
+    }
+    if (maxRuntime && !isNaN(maxRuntimeMinutes) && maxRuntimeMinutes > 0) {
+      params['with_runtime.lte'] = maxRuntimeMinutes;
+    }
   } else {
     if (fromYear) params['first_air_date.gte'] = `${fromYear}-01-01`;
     if (toYear)   params['first_air_date.lte'] = `${toYear}-12-31`;
