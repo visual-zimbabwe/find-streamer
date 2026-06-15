@@ -304,6 +304,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const genreSheetIdRef = useRef(null);
   const scrollRef = useRef(null);
   const yearRangeYRef = useRef(0);
+  const runtimeRangeYRef = useRef(0);
 
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
@@ -348,6 +349,10 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
       vm.updateFilter('excludeSmartTags', []);
       if (vm.filters.mediaType === 'movie') {
         vm.updateFilter('originCountries', []);
+      }
+      if (vm.filters.mediaType === 'tv') {
+        vm.updateFilter('minRuntime', '');
+        vm.updateFilter('maxRuntime', '');
       }
       if (vm.filters.mediaType === 'tv' && vm.filters.sortBy === 'revenue.desc') {
         vm.updateFilter('sortBy', 'popularity.desc');
@@ -460,6 +465,15 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     setTimeout(() => {
       scrollRef.current?.scrollTo({
         y: Math.max(0, yearRangeYRef.current - 24),
+        animated: true,
+      });
+    }, 120);
+  };
+
+  const scrollToRuntimeRange = () => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, runtimeRangeYRef.current - 24),
         animated: true,
       });
     }, 120);
@@ -627,6 +641,48 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           </View>
         </View>
       </View>
+
+      {vm.filters.mediaType === 'movie' && (
+        <>
+          <FilterDivider />
+
+          <View
+            style={styles.filterBand}
+            onLayout={(e) => { runtimeRangeYRef.current = e.nativeEvent.layout.y; }}
+          >
+            <SectionLabel label="Runtime" colors={c} typography={typography} />
+            <View style={styles.yearRow}>
+              <View style={[styles.yearInput, { backgroundColor: filterSurface, borderRadius: radii.md, flex: 1, borderColor: GOLD_DIM }]}>
+                <TextInput
+                  style={[{ color: c.onSurface, ...typography.bodyMd, paddingHorizontal: 12, paddingVertical: 10 }]}
+                  placeholder="From (e.g. 90)"
+                  placeholderTextColor={c.onSurfaceVariant}
+                  keyboardType="numeric"
+                  maxLength={3}
+                  value={vm.filters.minRuntime}
+                  onFocus={scrollToRuntimeRange}
+                  onChangeText={(v) => vm.updateFilter('minRuntime', v.replace(/[^0-9]/g, ''))}
+                  accessibilityLabel="Minimum runtime in minutes"
+                />
+              </View>
+              <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, marginHorizontal: 8 }]}>—</Text>
+              <View style={[styles.yearInput, { backgroundColor: filterSurface, borderRadius: radii.md, flex: 1, borderColor: GOLD_DIM }]}>
+                <TextInput
+                  style={[{ color: c.onSurface, ...typography.bodyMd, paddingHorizontal: 12, paddingVertical: 10 }]}
+                  placeholder="To (e.g. 180)"
+                  placeholderTextColor={c.onSurfaceVariant}
+                  keyboardType="numeric"
+                  maxLength={3}
+                  value={vm.filters.maxRuntime}
+                  onFocus={scrollToRuntimeRange}
+                  onChangeText={(v) => vm.updateFilter('maxRuntime', v.replace(/[^0-9]/g, ''))}
+                  accessibilityLabel="Maximum runtime in minutes"
+                />
+              </View>
+            </View>
+          </View>
+        </>
+      )}
 
       <FilterDivider />
 
