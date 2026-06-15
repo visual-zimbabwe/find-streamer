@@ -7,21 +7,21 @@
     "orientation": "portrait",
     "icon": "./icon.png",
     "platforms": [
-      "ios",
       "android"
     ],
     "userInterfaceStyle": "automatic",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#0f1726"
+      "backgroundColor": "#0C0C0E"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "android": {
+      "icon": "./icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./icon.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./icon-light.png",
+        "backgroundColor": "#F7F7F2"
       },
       "package": "kkadogo.findstreamer.com",
       "usesCleartextTraffic": false,
