@@ -156,11 +156,11 @@ test('discover enrichment runs after TMDb results are shown', () => {
 });
 
 test('live search suggestions include people with profile artwork', () => {
-  const app = read('App.js');
+  const searchController = read('src/hooks/useSearchController.js');
   const searchPanel = read('src/components/SearchPanel.js');
   const tmdb = read('src/lib/tmdb.js');
 
-  assert.match(app, /searchLiveCandidates/);
+  assert.match(searchController, /searchLiveCandidates/);
   assert.match(tmdb, /export async function searchLiveCandidates/);
   assert.match(tmdb, /resultType:\s*'person'/);
   assert.match(tmdb, /profileUrl/);
@@ -188,14 +188,14 @@ test('search bar exposes voice search controls and native speech config', () => 
 });
 
 test('search view includes surprise roulette and visual recently viewed history', () => {
-  const app = read('App.js');
+  const surpriseController = read('src/hooks/useSurpriseController.js');
   const searchStack = read('src/navigation/SearchStack.js');
   const appShell = read('src/navigation/AppShell.js');
   const searchPanel = read('src/components/SearchPanel.js');
   const storage = read('src/lib/storage.js');
   const tmdb = read('src/lib/tmdb.js');
 
-  assert.match(app, /fetchSurpriseRecommendation/);
+  assert.match(surpriseController, /fetchSurpriseRecommendation/);
   assert.match(searchStack, /recentViewed=\{recentViewed\}/);
   assert.match(appShell, /Surprise Roulette/);
   assert.match(searchStack, /LinearGradient/);
@@ -224,16 +224,16 @@ test('movie franchise detection is backed by TMDB collection parts', () => {
 });
 
 test('home collections tab uses TMDB collection rows', () => {
-  const app = read('App.js');
+  const appNavigation = read('src/hooks/useAppNavigation.js');
   const home = read('src/components/HomeScreen.js');
   const collections = read('src/components/CollectionsScreen.js');
   const homeTopNav = read('src/components/HomeTopNav.js');
   const homeFeed = read('src/lib/homeFeed.js');
   const tmdb = read('src/lib/tmdb.js');
 
-  assert.match(app, /openCollections/);
-  assert.match(app, /navigateToTabRoot\('home'\)/);
-  assert.match(app, /setHomeMediaFilter\(null\)/);
+  assert.match(appNavigation, /openCollections/);
+  assert.match(appNavigation, /navigateToTabRoot\('home'\)/);
+  assert.match(appNavigation, /setHomeMediaFilter\(null\)/);
   assert.match(home, /onOpenCollections/);
   assert.match(collections, /fetchStaticCollectionRows/);
   assert.match(collections, /FranchiseRailsView/);
