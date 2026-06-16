@@ -223,26 +223,29 @@ export function useWatchlistController({ showToast }) {
     [userWatchlistCollections, dismissSheet, showSheet, updateSheet],
   );
 
-  const handleToggleWatchlist = async (result) => {
-    const { action, item, watchlist: nextWatchlist } = addOrRestoreItem(watchlist, result);
+  const handleToggleWatchlist = useCallback(
+    async (result) => {
+      const { action, item, watchlist: nextWatchlist } = addOrRestoreItem(watchlist, result);
 
-    if (action === 'exists') {
-      openWatchlistSheet(item);
-      return;
-    }
+      if (action === 'exists') {
+        openWatchlistSheet(item);
+        return;
+      }
 
-    setWatchlist(nextWatchlist);
-    watchlistRef.current = nextWatchlist;
-    try {
-      await saveWatchlist(nextWatchlist);
-      toastiva.success('Added to Library');
-      openWatchlistSheet(item);
-    } catch {
-      setWatchlist(watchlist);
-      watchlistRef.current = watchlist;
-      toastiva.error('Failed to save to Watchlist');
-    }
-  };
+      setWatchlist(nextWatchlist);
+      watchlistRef.current = nextWatchlist;
+      try {
+        await saveWatchlist(nextWatchlist);
+        toastiva.success('Added to Library');
+        openWatchlistSheet(item);
+      } catch {
+        setWatchlist(watchlist);
+        watchlistRef.current = watchlist;
+        toastiva.error('Failed to save to Watchlist');
+      }
+    },
+    [watchlist, openWatchlistSheet],
+  );
 
   const handleEnrichWatchlistItem = useCallback(async (tmdbId, mediaType, fields) => {
     const key = `${mediaType}:${tmdbId}`;
@@ -299,48 +302,52 @@ export function useWatchlistController({ showToast }) {
     });
   }, []);
 
-  const persistWatchlistChange = async (
-    nextWatchlist,
-    rollbackWatchlist,
-    successMessage,
-    successIcon,
-  ) => {
-    setWatchlist(nextWatchlist);
-    watchlistRef.current = nextWatchlist;
-    try {
-      await saveWatchlist(nextWatchlist);
-      showToast(successMessage, {
-        title: 'Watchlist',
-        icon: successIcon,
-      });
-    } catch {
-      setWatchlist(rollbackWatchlist);
-      watchlistRef.current = rollbackWatchlist;
-      toastiva.error('Failed to update Watchlist');
-    }
-  };
+  const persistWatchlistChange = useCallback(
+    async (nextWatchlist, rollbackWatchlist, successMessage, successIcon) => {
+      setWatchlist(nextWatchlist);
+      watchlistRef.current = nextWatchlist;
+      try {
+        await saveWatchlist(nextWatchlist);
+        showToast(successMessage, {
+          title: 'Watchlist',
+          icon: successIcon,
+        });
+      } catch {
+        setWatchlist(rollbackWatchlist);
+        watchlistRef.current = rollbackWatchlist;
+        toastiva.error('Failed to update Watchlist');
+      }
+    },
+    [showToast],
+  );
 
-  const handleRemoveWatchlistItem = async (target) => {
-    const nextWatchlist = removeItem(watchlist, watchlistEntryKey(target));
-    if (nextWatchlist === watchlist) return;
-    await persistWatchlistChange(
-      nextWatchlist,
-      watchlist,
-      'Removed from Watchlist.',
-      'trash-outline',
-    );
-  };
+  const handleRemoveWatchlistItem = useCallback(
+    async (target) => {
+      const nextWatchlist = removeItem(watchlist, watchlistEntryKey(target));
+      if (nextWatchlist === watchlist) return;
+      await persistWatchlistChange(
+        nextWatchlist,
+        watchlist,
+        'Removed from Watchlist.',
+        'trash-outline',
+      );
+    },
+    [watchlist, persistWatchlistChange],
+  );
 
-  const handleMarkWatched = async (target) => {
-    const nextWatchlist = markItemWatched(watchlist, watchlistEntryKey(target));
-    if (nextWatchlist === watchlist) return;
-    await persistWatchlistChange(
-      nextWatchlist,
-      watchlist,
-      'Marked as watched.',
-      'checkmark-circle-outline',
-    );
-  };
+  const handleMarkWatched = useCallback(
+    async (target) => {
+      const nextWatchlist = markItemWatched(watchlist, watchlistEntryKey(target));
+      if (nextWatchlist === watchlist) return;
+      await persistWatchlistChange(
+        nextWatchlist,
+        watchlist,
+        'Marked as watched.',
+        'checkmark-circle-outline',
+      );
+    },
+    [watchlist, persistWatchlistChange],
+  );
 
   const persistCollectionsChange = useCallback(async (nextCollections, rollbackCollections) => {
     setWatchlistCollections(nextCollections);

@@ -1,14 +1,14 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SettingsView } from '../components/SettingsView';
-import { useAppState } from '../context/AppStateContext';
+import { useWatchlist } from '../context/domainContexts';
 import { useStackScreenOptions } from './useStackScreenOptions';
 
 const Stack = createNativeStackNavigator();
 
 function SettingsMainScreen() {
   const { watchlist, watchlistCollections, persistWatchlistChange, persistCollectionsChange } =
-    useAppState();
+    useWatchlist();
 
   return (
     <SettingsView

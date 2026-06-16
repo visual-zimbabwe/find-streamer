@@ -18,7 +18,14 @@ import { MatchResults } from '../components/MatchResults';
 import { EmptyState } from '../components/EmptyState';
 import { ResultView } from '../components/ResultView';
 import { FilmographyScreen } from '../components/FilmographyScreen';
-import { useAppState } from '../context/AppStateContext';
+import {
+  useSearch,
+  useDetail,
+  useWatchlist,
+  useSurprise,
+  useNav,
+  usePeople,
+} from '../context/domainContexts';
 import { useStackScreenOptions } from './useStackScreenOptions';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
@@ -38,9 +45,7 @@ function SearchMainScreen() {
     query,
     handleQueryChange,
     handleSearch,
-    loading,
     recentSearches,
-    recentViewed,
     results,
     filteredResults,
     filter,
@@ -51,13 +56,12 @@ function SearchMainScreen() {
     toggleVoiceSearch,
     voiceListening,
     handleSelectMatch,
-    handleToggleWatchlist,
-    savedWatchlistKeys,
-    surpriseLoading,
-    setSurprisePickerVisible,
-    handleTabPress,
     clearSearchResults,
-  } = useAppState();
+  } = useSearch();
+  const { loading, recentViewed } = useDetail();
+  const { handleToggleWatchlist, savedWatchlistKeys } = useWatchlist();
+  const { surpriseLoading, setSurprisePickerVisible } = useSurprise();
+  const { handleTabPress } = useNav();
 
   const atmosphereColors = [
     resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
@@ -194,15 +198,14 @@ function SearchMainScreen() {
 
 function SearchDetailScreen() {
   const navigation = useNavigation();
+  const { selectedResult } = useDetail();
   const {
-    selectedResult,
     handleToggleWatchlist,
     handleEnrichWatchlistItem,
     savedWatchlistKeys,
-    handleSelectMatch,
-    handlePersonPress,
-    handleCompanyPress,
-  } = useAppState();
+  } = useWatchlist();
+  const { handleSelectMatch } = useSearch();
+  const { handlePersonPress, handleCompanyPress } = usePeople();
 
   return (
     <ResultView
@@ -225,7 +228,7 @@ function SearchDetailScreen() {
 function SearchFilmographyScreen() {
   const navigation = useNavigation();
   const { filmographyPerson, filmographyResults, filmographyLoading, handleSelectFilmographyItem } =
-    useAppState();
+    usePeople();
 
   if (!filmographyPerson) return null;
 

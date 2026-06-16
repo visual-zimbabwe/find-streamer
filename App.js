@@ -1,12 +1,21 @@
 import 'react-native-gesture-handler';
 import { enableScreens } from 'react-native-screens';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useTheme, ThemeProvider } from './src/theme/ThemeProvider';
 import { BottomSheetProvider } from './src/components/StackBottomSheet';
-import { AppStateProvider } from './src/context/AppStateContext';
+import {
+  SearchProvider,
+  DiscoverProvider,
+  DetailProvider,
+  WatchlistProvider,
+  PeopleProvider,
+  SurpriseProvider,
+  NavProvider,
+  StatusProvider,
+} from './src/context/domainContexts';
 import { AppNavigationRoot } from './src/navigation/AppShell';
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
 import { useVoiceSearch } from './src/lib/useVoiceSearch';
@@ -138,75 +147,181 @@ function MobileApp() {
     onError: handleVoiceSearchError,
   });
 
-  const appState = {
-    watchlist: watchlistCtl.watchlist,
-    query: search.query,
-    results: search.results,
-    filteredResults: search.filteredResults,
-    filter: search.filter,
-    setFilter: search.setFilter,
-    loading: detail.loading,
-    error,
-    errorInfo,
-    selectedResult: detail.selectedResult,
-    recentSearches: search.recentSearches,
-    recentViewed: detail.recentViewed,
-    homeMediaFilter: nav.homeMediaFilter,
-    setHomeMediaFilter: nav.setHomeMediaFilter,
-    collectionsSubView: nav.collectionsSubView,
-    setCollectionsSubView: nav.setCollectionsSubView,
-    collectionsImdbTab: nav.collectionsImdbTab,
-    setCollectionsImdbTab: nav.setCollectionsImdbTab,
-    typeResults: search.typeResults,
-    typeLoading: search.typeLoading,
-    filmographyPerson: people.filmographyPerson,
-    filmographyResults: people.filmographyResults,
-    filmographyLoading: people.filmographyLoading,
-    discoverVm,
-    surpriseLoading: surprise.surpriseLoading,
-    surprisePickerVisible: surprise.surprisePickerVisible,
-    setSurprisePickerVisible: surprise.setSurprisePickerVisible,
-    offlineBanner,
-    setOfflineBanner,
-    savedWatchlistKeys: watchlistCtl.savedWatchlistKeys,
-    userWatchlistCollections: watchlistCtl.userWatchlistCollections,
-    watchlistCollections: watchlistCtl.watchlistCollections,
-    voiceListening,
-    hasHighlyRecommendedSeeds: watchlistCtl.hasHighlyRecommendedSeeds,
-    QUICK_SURPRISE_GENRES,
-    handleQueryChange: search.handleQueryChange,
-    handleSearch: search.handleSearch,
-    handleTypeSelect: search.handleTypeSelect,
-    handleSelectMatch: search.handleSelectMatch,
-    handleSelectDiscoverItem: search.handleSelectDiscoverItem,
-    handleSelectFilmographyItem: people.handleSelectFilmographyItem,
-    handleToggleWatchlist: watchlistCtl.handleToggleWatchlist,
-    handleEnrichWatchlistItem: watchlistCtl.handleEnrichWatchlistItem,
-    handlePersonPress: people.handlePersonPress,
-    handleCompanyPress: people.handleCompanyPress,
-    handleRemoveWatchlistItem: watchlistCtl.handleRemoveWatchlistItem,
-    handleMarkWatched: watchlistCtl.handleMarkWatched,
-    handleTabPress: nav.handleTabPress,
-    handleSurpriseMe: surprise.handleSurpriseMe,
-    handleSurpriseByGenre: surprise.handleSurpriseByGenre,
-    toggleVoiceSearch,
-    openCollections: nav.openCollections,
-    openHomeFromCollections: nav.openHomeFromCollections,
-    clearSearchResults: search.clearSearchResults,
-    goBack: nav.goBack,
-    persistWatchlistChange: watchlistCtl.persistWatchlistChange,
-    persistCollectionsChange: watchlistCtl.persistCollectionsChange,
-    onNavigationReady: nav.onNavigationReady,
-  };
+  // Each domain value is memoized independently so a state change in one domain
+  // (e.g. a watchlist edit) keeps the others' value references stable, letting
+  // React skip re-rendering consumers of the unchanged domains.
+  const searchValue = useMemo(
+    () => ({
+      query: search.query,
+      results: search.results,
+      filteredResults: search.filteredResults,
+      filter: search.filter,
+      setFilter: search.setFilter,
+      recentSearches: search.recentSearches,
+      typeResults: search.typeResults,
+      typeLoading: search.typeLoading,
+      handleQueryChange: search.handleQueryChange,
+      handleSearch: search.handleSearch,
+      handleTypeSelect: search.handleTypeSelect,
+      handleSelectMatch: search.handleSelectMatch,
+      handleSelectDiscoverItem: search.handleSelectDiscoverItem,
+      clearSearchResults: search.clearSearchResults,
+      voiceListening,
+      toggleVoiceSearch,
+    }),
+    [
+      search.query,
+      search.results,
+      search.filteredResults,
+      search.filter,
+      search.setFilter,
+      search.recentSearches,
+      search.typeResults,
+      search.typeLoading,
+      search.handleQueryChange,
+      search.handleSearch,
+      search.handleTypeSelect,
+      search.handleSelectMatch,
+      search.handleSelectDiscoverItem,
+      search.clearSearchResults,
+      voiceListening,
+      toggleVoiceSearch,
+    ],
+  );
+
+  const discoverValue = useMemo(() => ({ discoverVm }), [discoverVm]);
+
+  const detailValue = useMemo(
+    () => ({
+      loading: detail.loading,
+      selectedResult: detail.selectedResult,
+      recentViewed: detail.recentViewed,
+    }),
+    [detail.loading, detail.selectedResult, detail.recentViewed],
+  );
+
+  const watchlistValue = useMemo(
+    () => ({
+      watchlist: watchlistCtl.watchlist,
+      watchlistCollections: watchlistCtl.watchlistCollections,
+      userWatchlistCollections: watchlistCtl.userWatchlistCollections,
+      savedWatchlistKeys: watchlistCtl.savedWatchlistKeys,
+      hasHighlyRecommendedSeeds: watchlistCtl.hasHighlyRecommendedSeeds,
+      handleToggleWatchlist: watchlistCtl.handleToggleWatchlist,
+      handleEnrichWatchlistItem: watchlistCtl.handleEnrichWatchlistItem,
+      handleRemoveWatchlistItem: watchlistCtl.handleRemoveWatchlistItem,
+      handleMarkWatched: watchlistCtl.handleMarkWatched,
+      persistWatchlistChange: watchlistCtl.persistWatchlistChange,
+      persistCollectionsChange: watchlistCtl.persistCollectionsChange,
+    }),
+    [
+      watchlistCtl.watchlist,
+      watchlistCtl.watchlistCollections,
+      watchlistCtl.userWatchlistCollections,
+      watchlistCtl.savedWatchlistKeys,
+      watchlistCtl.hasHighlyRecommendedSeeds,
+      watchlistCtl.handleToggleWatchlist,
+      watchlistCtl.handleEnrichWatchlistItem,
+      watchlistCtl.handleRemoveWatchlistItem,
+      watchlistCtl.handleMarkWatched,
+      watchlistCtl.persistWatchlistChange,
+      watchlistCtl.persistCollectionsChange,
+    ],
+  );
+
+  const peopleValue = useMemo(
+    () => ({
+      filmographyPerson: people.filmographyPerson,
+      filmographyResults: people.filmographyResults,
+      filmographyLoading: people.filmographyLoading,
+      handleSelectFilmographyItem: people.handleSelectFilmographyItem,
+      handlePersonPress: people.handlePersonPress,
+      handleCompanyPress: people.handleCompanyPress,
+    }),
+    [
+      people.filmographyPerson,
+      people.filmographyResults,
+      people.filmographyLoading,
+      people.handleSelectFilmographyItem,
+      people.handlePersonPress,
+      people.handleCompanyPress,
+    ],
+  );
+
+  const surpriseValue = useMemo(
+    () => ({
+      surpriseLoading: surprise.surpriseLoading,
+      surprisePickerVisible: surprise.surprisePickerVisible,
+      setSurprisePickerVisible: surprise.setSurprisePickerVisible,
+      handleSurpriseMe: surprise.handleSurpriseMe,
+      handleSurpriseByGenre: surprise.handleSurpriseByGenre,
+      QUICK_SURPRISE_GENRES,
+    }),
+    [
+      surprise.surpriseLoading,
+      surprise.surprisePickerVisible,
+      surprise.setSurprisePickerVisible,
+      surprise.handleSurpriseMe,
+      surprise.handleSurpriseByGenre,
+    ],
+  );
+
+  const navValue = useMemo(
+    () => ({
+      homeMediaFilter: nav.homeMediaFilter,
+      setHomeMediaFilter: nav.setHomeMediaFilter,
+      collectionsSubView: nav.collectionsSubView,
+      setCollectionsSubView: nav.setCollectionsSubView,
+      collectionsImdbTab: nav.collectionsImdbTab,
+      setCollectionsImdbTab: nav.setCollectionsImdbTab,
+      goBack: nav.goBack,
+      handleTabPress: nav.handleTabPress,
+      openCollections: nav.openCollections,
+      openHomeFromCollections: nav.openHomeFromCollections,
+      onNavigationReady: nav.onNavigationReady,
+    }),
+    [
+      nav.homeMediaFilter,
+      nav.setHomeMediaFilter,
+      nav.collectionsSubView,
+      nav.setCollectionsSubView,
+      nav.collectionsImdbTab,
+      nav.setCollectionsImdbTab,
+      nav.goBack,
+      nav.handleTabPress,
+      nav.openCollections,
+      nav.openHomeFromCollections,
+      nav.onNavigationReady,
+    ],
+  );
+
+  const statusValue = useMemo(
+    () => ({ error, errorInfo, offlineBanner, setOfflineBanner }),
+    [error, errorInfo, offlineBanner, setOfflineBanner],
+  );
 
   const shellReady = themeReady && nav.navigationReady;
 
   return (
     <LaunchGate shellReady={shellReady} themeReady={themeReady}>
       <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} translucent />
-      <AppStateProvider value={appState}>
-        <AppNavigationRoot />
-      </AppStateProvider>
+      <StatusProvider value={statusValue}>
+        <NavProvider value={navValue}>
+          <SearchProvider value={searchValue}>
+            <DiscoverProvider value={discoverValue}>
+              <DetailProvider value={detailValue}>
+                <WatchlistProvider value={watchlistValue}>
+                  <PeopleProvider value={peopleValue}>
+                    <SurpriseProvider value={surpriseValue}>
+                      <AppNavigationRoot />
+                    </SurpriseProvider>
+                  </PeopleProvider>
+                </WatchlistProvider>
+              </DetailProvider>
+            </DiscoverProvider>
+          </SearchProvider>
+        </NavProvider>
+      </StatusProvider>
     </LaunchGate>
   );
 }
