@@ -57,6 +57,15 @@ import {
   normalizeWatchlistItem,
   watchlistEntryKey,
 } from './src/lib/watchlistModel';
+import {
+  mergeResolvedSynopsisIntoWatchlistRow,
+  applyCreateCollection,
+  applyToggleCollection,
+  applySetStatus,
+  addOrRestoreItem,
+  removeItem,
+  markItemWatched,
+} from './src/lib/watchlistActions';
 import { classifyAppError } from './src/lib/errors';
 import { BottomNavVisibilityProvider } from './src/context/BottomNavVisibilityContext';
 import { LaunchGate } from './src/components/LaunchGate';
@@ -98,19 +107,6 @@ const QUICK_SURPRISE_GENRES = [
   { id: 10765, mediaType: 'tv', label: '🧬 Sci-Fi & Fantasy (TV)' },
   { id: 9648, mediaType: 'tv', label: '🔍 Mystery (TV)' },
 ];
-
-/** Align with ResultView: TMDB synopsis unless placeholder, else OMDb plot. */
-function mergeResolvedSynopsisIntoWatchlistRow(row, fullResult) {
-  const nextSynopsis =
-    fullResult.synopsis && fullResult.synopsis !== 'No synopsis available.'
-      ? fullResult.synopsis
-      : fullResult.omdbRatings?.plot || fullResult.synopsis || row.synopsis || '';
-  return {
-    ...row,
-    synopsis: (nextSynopsis && String(nextSynopsis).trim()) || row.synopsis,
-    ...(fullResult.omdbRatings ? { omdbRatings: fullResult.omdbRatings } : {}),
-  };
-}
 
 function WatchlistCollectionsSheet({
   item,
@@ -745,15 +741,6 @@ function MobileApp() {
     [watchlist],
   );
 
-  const findWatchlistItem = useCallback(
-    (result) => {
-      const key = watchlistEntryKey(result);
-      if (!key) return null;
-      return watchlist.find((item) => watchlistEntryKey(item) === key) || null;
-    },
-    [watchlist],
-  );
-
   // Selecting a live suggestion goes straight to the detail view
   const handleTypeSelect = useCallback(
     async (match, navigation) => {
@@ -1019,39 +1006,18 @@ function MobileApp() {
               toastiva.error('Failed to create collection');
               return;
             }
-            await updateOne(
-              (item) => ({
-                ...item,
-                status: item.status === 'dropped' ? 'saved' : item.status,
-                collectionIds: [...(item.collectionIds || []), collection.id],
-              }),
-              'Collection created',
-            );
+            await updateOne((item) => applyCreateCollection(item, collection), 'Collection created');
             updateSheet(
               watchlistSheetIdRef.current,
               renderContent(
-                normalizeWatchlistItem({
-                  ...currentItem,
-                  status: currentItem.status === 'dropped' ? 'saved' : currentItem.status,
-                  collectionIds: [...(currentItem.collectionIds || []), collection.id],
-                }),
+                applyCreateCollection(currentItem, collection),
                 getUserWatchlistCollections(nextCollections),
               ),
             );
           }}
           onToggleCollection={async (collectionId) => {
             const selected = currentItem.collectionIds?.includes(collectionId);
-            let newStatus = currentItem.status === 'dropped' ? 'saved' : currentItem.status;
-            if (collectionId === 'watched') {
-              newStatus = selected ? 'saved' : 'watched';
-            }
-            const nextItem = normalizeWatchlistItem({
-              ...currentItem,
-              status: newStatus,
-              collectionIds: selected
-                ? (currentItem.collectionIds || []).filter((id) => id !== collectionId)
-                : [...(currentItem.collectionIds || []), collectionId],
-            });
+            const nextItem = applyToggleCollection(currentItem, collectionId);
             await updateOne(
               () => nextItem,
               selected ? 'Removed from collection' : 'Added to collection',
@@ -1059,15 +1025,7 @@ function MobileApp() {
             updateSheet(watchlistSheetIdRef.current, renderContent(nextItem));
           }}
           onSetStatus={async (status) => {
-            let collectionIds = currentItem.collectionIds || [];
-            if (status === 'watched') {
-              if (!collectionIds.includes('watched')) {
-                collectionIds = [...collectionIds, 'watched'];
-              }
-            } else {
-              collectionIds = collectionIds.filter((id) => id !== 'watched');
-            }
-            const nextItem = normalizeWatchlistItem({ ...currentItem, status, collectionIds });
+            const nextItem = applySetStatus(currentItem, status);
             await updateOne(() => nextItem, `Status set to ${getStatusLabel(status)}`);
             updateSheet(watchlistSheetIdRef.current, renderContent(nextItem));
           }}
@@ -1111,45 +1069,19 @@ function MobileApp() {
   );
 
   const handleToggleWatchlist = async (result) => {
-    const existingItem = findWatchlistItem(result);
-    if (existingItem) {
-      if (!isInUserLibrary(existingItem)) {
-        const restoredItem = normalizeWatchlistItem({ ...existingItem, status: 'saved' });
-        const nextWatchlist = watchlist.map((item) =>
-          watchlistEntryKey(item) === watchlistEntryKey(restoredItem) ? restoredItem : item,
-        );
-        setWatchlist(nextWatchlist);
-        watchlistRef.current = nextWatchlist;
-        try {
-          await saveWatchlist(nextWatchlist);
-          toastiva.success('Added to Library');
-          openWatchlistSheet(restoredItem);
-        } catch {
-          setWatchlist(watchlist);
-          watchlistRef.current = watchlist;
-          toastiva.error('Failed to save to Watchlist');
-        }
-        return;
-      }
-      openWatchlistSheet(existingItem);
+    const { action, item, watchlist: nextWatchlist } = addOrRestoreItem(watchlist, result);
+
+    if (action === 'exists') {
+      openWatchlistSheet(item);
       return;
     }
 
-    const newItem = normalizeWatchlistItem({
-      ...result,
-      status: 'saved',
-      collectionIds: [],
-    });
-    const nextWatchlist = [
-      newItem,
-      ...watchlist.filter((item) => watchlistEntryKey(item) !== watchlistEntryKey(newItem)),
-    ];
     setWatchlist(nextWatchlist);
     watchlistRef.current = nextWatchlist;
     try {
       await saveWatchlist(nextWatchlist);
       toastiva.success('Added to Library');
-      openWatchlistSheet(newItem);
+      openWatchlistSheet(item);
     } catch {
       setWatchlist(watchlist);
       watchlistRef.current = watchlist;
@@ -1234,10 +1166,8 @@ function MobileApp() {
   };
 
   const handleRemoveWatchlistItem = async (target) => {
-    const targetKey = watchlistEntryKey(target);
-    if (!targetKey) return;
-    const nextWatchlist = watchlist.filter((item) => watchlistEntryKey(item) !== targetKey);
-    if (nextWatchlist.length === watchlist.length) return;
+    const nextWatchlist = removeItem(watchlist, watchlistEntryKey(target));
+    if (nextWatchlist === watchlist) return;
     await persistWatchlistChange(
       nextWatchlist,
       watchlist,
@@ -1247,21 +1177,8 @@ function MobileApp() {
   };
 
   const handleMarkWatched = async (target) => {
-    const targetKey = watchlistEntryKey(target);
-    if (!targetKey) return;
-    const nextWatchlist = watchlist.map((item) =>
-      watchlistEntryKey(item) === targetKey
-        ? {
-            ...item,
-            status: 'watched',
-          }
-        : item,
-    );
-    const changed = nextWatchlist.some(
-      (item, index) =>
-        watchlistEntryKey(item) === targetKey && item.status !== watchlist[index]?.status,
-    );
-    if (!changed) return;
+    const nextWatchlist = markItemWatched(watchlist, watchlistEntryKey(target));
+    if (nextWatchlist === watchlist) return;
     await persistWatchlistChange(
       nextWatchlist,
       watchlist,
