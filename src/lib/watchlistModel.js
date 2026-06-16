@@ -1,8 +1,13 @@
+// @ts-check
 import {
   DEFAULT_WATCHLIST_CATEGORY_ID,
   WATCHLIST_CATEGORIES,
   getWatchlistCategory,
 } from './watchlistCategories.js';
+
+/** @typedef {import('./types.js').WatchlistItem} WatchlistItem */
+/** @typedef {import('./types.js').WatchlistCollection} WatchlistCollection */
+/** @typedef {import('./types.js').WatchlistStatus} WatchlistStatus */
 
 export const WATCHLIST_SCHEMA_VERSION = 2;
 
@@ -58,6 +63,12 @@ const BUILT_IN_COLLECTION_IDS = new Set([
   ...LEGACY_COLLECTIONS.map((collection) => collection.id),
 ]);
 
+/**
+ * Stable identity for a library row: `"${mediaType}:${tmdbId}"`, or null when
+ * the item is missing the fields that define identity.
+ * @param {Partial<WatchlistItem> | null | undefined} item
+ * @returns {string | null}
+ */
 export function watchlistEntryKey(item) {
   if (!item || item.tmdbId == null || !item.mediaType) return null;
   return `${item.mediaType}:${item.tmdbId}`;
@@ -115,6 +126,12 @@ function dedupeCollectionIds(ids) {
   return out;
 }
 
+/**
+ * Coerce an arbitrary object into a valid {@link WatchlistItem}, or return null
+ * when it lacks the required identity/title fields.
+ * @param {any} item
+ * @returns {WatchlistItem | null}
+ */
 export function normalizeWatchlistItem(item) {
   if (!item || item.tmdbId == null || !item.mediaType || !item.title) return null;
   if (item.mediaType !== 'movie' && item.mediaType !== 'tv') return null;
@@ -150,6 +167,11 @@ export function normalizeWatchlistItem(item) {
   };
 }
 
+/**
+ * Normalize a list of raw rows, dropping invalids and de-duping by entry key.
+ * @param {any[]} items
+ * @returns {WatchlistItem[]}
+ */
 export function normalizeWatchlistItems(items) {
   if (!Array.isArray(items)) return [];
 
@@ -165,6 +187,12 @@ export function normalizeWatchlistItems(items) {
   return out;
 }
 
+/**
+ * Normalize raw collection definitions into valid {@link WatchlistCollection}s,
+ * skipping built-in ids and de-duping by id.
+ * @param {any[]} collections
+ * @returns {WatchlistCollection[]}
+ */
 export function normalizeWatchlistCollections(collections) {
   if (!Array.isArray(collections)) return [];
 
@@ -181,15 +209,17 @@ export function normalizeWatchlistCollections(collections) {
             .replace(/[^a-z0-9]+/g, '_')}`;
     if (seen.has(id)) continue;
     seen.add(id);
-    out.push({
-      id,
-      name: collection.name.trim(),
-      description: typeof collection.description === 'string' ? collection.description : '',
-      icon: typeof collection.icon === 'string' ? collection.icon : 'albums-outline',
-      immutable: false,
-      source: 'custom',
-      createdAt: collection.createdAt || new Date().toISOString(),
-    });
+    out.push(
+      /** @type {WatchlistCollection} */ ({
+        id,
+        name: collection.name.trim(),
+        description: typeof collection.description === 'string' ? collection.description : '',
+        icon: typeof collection.icon === 'string' ? collection.icon : 'albums-outline',
+        immutable: false,
+        source: 'custom',
+        createdAt: collection.createdAt || new Date().toISOString(),
+      }),
+    );
   }
   return out;
 }

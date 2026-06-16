@@ -1,3 +1,4 @@
+// @ts-check
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   IMDB_TOP_100_COLLECTION_IDS,
@@ -5,6 +6,9 @@ import {
   normalizeWatchlistCollections,
   normalizeWatchlistItems,
 } from './watchlistModel.js';
+
+/** @typedef {import('./types.js').WatchlistItem} WatchlistItem */
+/** @typedef {import('./types.js').WatchlistCollection} WatchlistCollection */
 
 const KEYS = {
   themePreference: 'find-streamer/theme-preference',
@@ -21,6 +25,7 @@ const KEYS = {
 const WATCHLIST_CHUNK_SIZE = 25;
 const WATCHLIST_SYNOPSIS_STORAGE_MAX = 480;
 
+/** @type {Promise<unknown>} */
 let watchlistSaveChain = Promise.resolve();
 
 function compactWatchlistRowForStorage(item) {

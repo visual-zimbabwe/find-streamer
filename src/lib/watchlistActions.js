@@ -1,13 +1,22 @@
+// @ts-check
 import {
   isInUserLibrary,
   normalizeWatchlistItem,
   watchlistEntryKey,
 } from './watchlistModel.js';
 
+/** @typedef {import('./types.js').WatchlistItem} WatchlistItem */
+/** @typedef {import('./types.js').WatchlistCollection} WatchlistCollection */
+/** @typedef {import('./types.js').ResolvedDetailResult} ResolvedDetailResult */
+/** @typedef {import('./types.js').SearchResult} SearchResult */
+
 /**
  * Align a stored watchlist row's synopsis with what ResultView would show:
  * prefer a real TMDB synopsis, fall back to the OMDb plot, then the existing row.
  * Pure: returns a new row, never mutates the input.
+ * @param {WatchlistItem} row
+ * @param {ResolvedDetailResult} fullResult
+ * @returns {WatchlistItem}
  */
 export function mergeResolvedSynopsisIntoWatchlistRow(row, fullResult) {
   const nextSynopsis =
@@ -24,6 +33,9 @@ export function mergeResolvedSynopsisIntoWatchlistRow(row, fullResult) {
 /**
  * Adding a title to a new collection un-drops it (dropped -> saved) and appends
  * the collection id. Returns a normalized item.
+ * @param {WatchlistItem} item
+ * @param {WatchlistCollection} collection
+ * @returns {WatchlistItem | null}
  */
 export function applyCreateCollection(item, collection) {
   return normalizeWatchlistItem({
@@ -37,6 +49,9 @@ export function applyCreateCollection(item, collection) {
  * Toggle a collection membership for an item. Adding (when previously dropped)
  * un-drops it; the special `watched` collection is kept in sync with the item's
  * status. Returns a normalized item.
+ * @param {WatchlistItem} item
+ * @param {string} collectionId
+ * @returns {WatchlistItem | null}
  */
 export function applyToggleCollection(item, collectionId) {
   const selected = item.collectionIds?.includes(collectionId);
@@ -56,6 +71,9 @@ export function applyToggleCollection(item, collectionId) {
 /**
  * Set an item's status, keeping the special `watched` collection membership in
  * sync (added when watched, removed otherwise). Returns a normalized item.
+ * @param {WatchlistItem} item
+ * @param {import('./types.js').WatchlistStatus} status
+ * @returns {WatchlistItem | null}
  */
 export function applySetStatus(item, status) {
   let collectionIds = item.collectionIds || [];
@@ -73,7 +91,9 @@ export function applySetStatus(item, status) {
  * Resolve a bookmark toggle against the current watchlist. Pure: computes the
  * next list plus what happened, leaving persistence/UI to the caller.
  *
- * @returns {{ action: 'added'|'restored'|'exists', item: object, watchlist: object[] }}
+ * @param {WatchlistItem[]} watchlist
+ * @param {SearchResult | ResolvedDetailResult | WatchlistItem} result
+ * @returns {{ action: 'added'|'restored'|'exists', item: WatchlistItem | null, watchlist: WatchlistItem[] }}
  *   - `added`: brand new saved item prepended (deduped by entry key)
  *   - `restored`: a dropped item brought back to `saved`
  *   - `exists`: already in the library; list returned unchanged
@@ -110,6 +130,9 @@ export function addOrRestoreItem(watchlist, result) {
 /**
  * Remove an item by entry key. Returns the same array reference (a no-op
  * sentinel the caller can detect with `===`) when nothing matched.
+ * @param {WatchlistItem[]} watchlist
+ * @param {string | null} key
+ * @returns {WatchlistItem[]}
  */
 export function removeItem(watchlist, key) {
   if (!key) return watchlist;
@@ -121,11 +144,16 @@ export function removeItem(watchlist, key) {
  * Mark an item watched by entry key. Mirrors the lightweight in-place status
  * flip used by the row action (no normalization, no collection sync). Returns
  * the same array reference when the status was already `watched`.
+ * @param {WatchlistItem[]} watchlist
+ * @param {string | null} key
+ * @returns {WatchlistItem[]}
  */
 export function markItemWatched(watchlist, key) {
   if (!key) return watchlist;
   const next = watchlist.map((item) =>
-    watchlistEntryKey(item) === key ? { ...item, status: 'watched' } : item,
+    watchlistEntryKey(item) === key
+      ? /** @type {WatchlistItem} */ ({ ...item, status: 'watched' })
+      : item,
   );
   const changed = next.some(
     (item, index) =>
