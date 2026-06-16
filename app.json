@@ -12,7 +12,10 @@
     "userInterfaceStyle": "automatic",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#0C0C0E"
+      "backgroundColor": "#F7F7F2",
+      "dark": {
+        "backgroundColor": "#0C0C0E"
+      }
     },
     "assetBundlePatterns": [
       "**/*"
@@ -34,6 +37,8 @@
       ]
     },
     "plugins": [
+      "expo-splash-screen",
+      "expo-system-ui",
       "expo-asset",
       "expo-sharing",
       [

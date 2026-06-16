@@ -6,9 +6,26 @@ import { loadThemePreference, saveThemePreference } from '../lib/storage';
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
-  const systemScheme = useColorScheme() || Appearance.getColorScheme() || 'light';
+  const hookScheme = useColorScheme();
+  const [systemScheme, setSystemScheme] = useState(() => Appearance.getColorScheme() ?? hookScheme ?? 'light');
   const [preference, setPreference] = useState('system');
   const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      if (colorScheme) {
+        setSystemScheme(colorScheme);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    if (hookScheme) {
+      setSystemScheme(hookScheme);
+    }
+  }, [hookScheme]);
 
   useEffect(() => {
     let active = true;
@@ -17,15 +34,21 @@ export function ThemeProvider({ children }) {
         if (active) setPreference(value);
       })
       .finally(() => {
-        if (active) setReady(true);
+        if (active) {
+          const latestScheme = Appearance.getColorScheme() ?? hookScheme ?? 'light';
+          setSystemScheme(latestScheme);
+          setReady(true);
+        }
       });
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [hookScheme]);
 
-  const resolvedMode = preference === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : preference;
+  const resolvedMode = preference === 'system'
+    ? (systemScheme === 'dark' ? 'dark' : 'light')
+    : preference;
 
   const value = useMemo(
     () => ({

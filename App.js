@@ -34,6 +34,7 @@ import {
 } from './src/lib/watchlistModel';
 import { classifyAppError } from './src/lib/errors';
 import { BottomNavVisibilityProvider } from './src/context/BottomNavVisibilityContext';
+import { LaunchGate } from './src/components/LaunchGate';
 
 enableScreens(true);
 
@@ -251,7 +252,8 @@ function WatchlistCollectionsSheet({
 }
 
 function MobileApp() {
-  const { resolvedMode } = useTheme();
+  const { resolvedMode, ready: themeReady } = useTheme();
+  const [navigationReady, setNavigationReady] = useState(false);
   const { show: showSheet, update: updateSheet, dismiss: dismissSheet } = useBottomSheet();
 
   const [query, setQuery] = useState('');
@@ -1030,7 +1032,9 @@ function MobileApp() {
     }
   }, []);
 
-  const onNavigationReady = useCallback(() => {}, []);
+  const onNavigationReady = useCallback(() => {
+    setNavigationReady(true);
+  }, []);
 
   const appState = {
     watchlist,
@@ -1093,13 +1097,15 @@ function MobileApp() {
     onNavigationReady,
   };
 
+  const shellReady = themeReady && navigationReady;
+
   return (
-    <>
+    <LaunchGate shellReady={shellReady} themeReady={themeReady}>
       <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} translucent />
       <AppStateProvider value={appState}>
         <AppNavigationRoot />
       </AppStateProvider>
-    </>
+    </LaunchGate>
   );
 }
 
