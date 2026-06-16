@@ -81,20 +81,20 @@ function DetailScreenRoute() {
       onEnrichWatchlistItem={handleEnrichWatchlistItem}
       isInWatchlist={savedWatchlistKeys.includes(watchlistEntryKey(selectedResult))}
       onSelectSimilar={(match) => handleSelectMatch(match, navigation)}
-      onPersonPress={(personId, personName, role) => handlePersonPress(personId, personName, role, navigation)}
-      onCompanyPress={(companyId, companyName, logoUrl) => handleCompanyPress(companyId, companyName, logoUrl, navigation)}
+      onPersonPress={(personId, personName, role) =>
+        handlePersonPress(personId, personName, role, navigation)
+      }
+      onCompanyPress={(companyId, companyName, logoUrl) =>
+        handleCompanyPress(companyId, companyName, logoUrl, navigation)
+      }
     />
   );
 }
 
 function FilmographyScreenRoute() {
   const navigation = useNavigation();
-  const {
-    filmographyPerson,
-    filmographyResults,
-    filmographyLoading,
-    handleSelectFilmographyItem,
-  } = useAppState();
+  const { filmographyPerson, filmographyResults, filmographyLoading, handleSelectFilmographyItem } =
+    useAppState();
 
   if (!filmographyPerson) return null;
 

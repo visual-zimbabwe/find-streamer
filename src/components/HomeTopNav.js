@@ -30,11 +30,10 @@ function OverlayNav({ selectedKey, onSelect, navSet }) {
   const items = NAV_SETS[navSet] || NAV_SETS.home;
 
   return (
-    <View
-      style={[styles.homeTopNav, { top: insets.top + 8 }]}
-      pointerEvents="box-none"
-    >
-      <Text style={styles.homeWordmark} accessibilityRole="header">Trova</Text>
+    <View style={[styles.homeTopNav, { top: insets.top + 8 }]} pointerEvents="box-none">
+      <Text style={styles.homeWordmark} accessibilityRole="header">
+        Trova
+      </Text>
       <View style={styles.glassBar}>
         {items.map((item) => {
           const selected = selectedKey === item.key;
@@ -62,7 +61,12 @@ function OverlayNav({ selectedKey, onSelect, navSet }) {
   );
 }
 
-const ProgrammeNav = memo(function ProgrammeNav({ selectedKey, onSelect, navSet, headerScrolled = false }) {
+const ProgrammeNav = memo(function ProgrammeNav({
+  selectedKey,
+  onSelect,
+  navSet,
+  headerScrolled = false,
+}) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { colors, typography } = theme;
@@ -92,9 +96,7 @@ const ProgrammeNav = memo(function ProgrammeNav({ selectedKey, onSelect, navSet,
         <Text
           style={[
             styles.programmeWordmark,
-            onLightBackdrop
-              ? styles.programmeWordmarkLight
-              : { color: colors.onSurface },
+            onLightBackdrop ? styles.programmeWordmarkLight : { color: colors.onSurface },
           ]}
           accessibilityRole="header"
         >
@@ -123,9 +125,10 @@ const ProgrammeNav = memo(function ProgrammeNav({ selectedKey, onSelect, navSet,
                     onLightBackdrop
                       ? styles.programmeTabTextLight
                       : { color: colors.onSurfaceVariant },
-                    selected && (onLightBackdrop
-                      ? styles.programmeTabTextSelectedLight
-                      : { color: colors.onSurface, fontWeight: '800' }),
+                    selected &&
+                      (onLightBackdrop
+                        ? styles.programmeTabTextSelectedLight
+                        : { color: colors.onSurface, fontWeight: '800' }),
                   ]}
                 >
                   {item.label}

@@ -26,7 +26,16 @@ const GRID_PAD = scale(22);
 const GOLD_ACCENT = '#D4A853';
 const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
 
-function ImdbRankedRow({ item, rank, colors, typography, radii, saved, onSelectItem, onToggleWatchlist }) {
+function ImdbRankedRow({
+  item,
+  rank,
+  colors,
+  typography,
+  radii,
+  saved,
+  onSelectItem,
+  onToggleWatchlist,
+}) {
   const key = watchlistEntryKey(item);
   const inLibrary = saved && key && saved.has(key);
 
@@ -39,16 +48,19 @@ function ImdbRankedRow({ item, rank, colors, typography, radii, saved, onSelectI
       accessibilityLabel={`Open details for ${item.title}, ranked ${rank}`}
     >
       <Text style={[styles.imdbRank, { color: GOLD_ACCENT, ...typography.labelSm }]}>{rank}</Text>
-      <View style={[styles.imdbPosterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.md }]}>
-        <MediaArtwork
-          uri={item.posterUrl}
-          style={styles.imdbPoster}
-          title={item.title}
-          instant
-        />
+      <View
+        style={[
+          styles.imdbPosterWrap,
+          { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.md },
+        ]}
+      >
+        <MediaArtwork uri={item.posterUrl} style={styles.imdbPoster} title={item.title} instant />
       </View>
       <View style={styles.imdbCopy}>
-        <Text style={[styles.imdbTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+        <Text
+          style={[styles.imdbTitle, { color: colors.onSurface, ...typography.bodyMd }]}
+          numberOfLines={1}
+        >
           {item.title}
         </Text>
         <Text style={[styles.imdbMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
@@ -64,7 +76,9 @@ function ImdbRankedRow({ item, rank, colors, typography, radii, saved, onSelectI
             onToggleWatchlist(item);
           }}
           accessibilityRole="button"
-          accessibilityLabel={inLibrary ? `Manage library entry for ${item.title}` : `Save ${item.title} to library`}
+          accessibilityLabel={
+            inLibrary ? `Manage library entry for ${item.title}` : `Save ${item.title} to library`
+          }
         >
           <Ionicons
             name={inLibrary ? 'bookmark' : 'bookmark-outline'}
@@ -88,7 +102,9 @@ function ImdbPageHeader({ colors, typography, count, mediaTab }) {
       >
         Top 100
       </Text>
-      <Text style={[styles.imdbPageSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+      <Text
+        style={[styles.imdbPageSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+      >
         {count} {mediaTab === 'tv' ? 'series' : 'films'}
       </Text>
     </View>
@@ -191,9 +207,8 @@ export function CollectionsScreen({
   });
 
   const topNavSet = subView === 'imdb' ? 'imdbTop100' : 'collectionsRoot';
-  const topNavSelected = subView === 'imdb'
-    ? (imdbMediaTab === 'tv' ? 'tv' : 'movie')
-    : 'collections';
+  const topNavSelected =
+    subView === 'imdb' ? (imdbMediaTab === 'tv' ? 'tv' : 'movie') : 'collections';
 
   if (subView === 'imdb') {
     return (
@@ -224,14 +239,14 @@ export function CollectionsScreen({
           ]}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={Platform.OS === 'android'}
-          ListHeaderComponent={(
+          ListHeaderComponent={
             <ImdbPageHeader
               colors={colors}
               typography={typography}
               count={imdbItems.length}
               mediaTab={imdbMediaTab}
             />
-          )}
+          }
           {...bottomNavScroll}
           renderItem={({ item, index }) => (
             <ImdbRankedRow
@@ -252,11 +267,7 @@ export function CollectionsScreen({
 
   return (
     <View style={[styles.rootWrap, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={atmosphereColors}
-        style={styles.atmosphereTop}
-        pointerEvents="none"
-      />
+      <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
       <HomeTopNav
         navSet={topNavSet}
         selectedKey={topNavSelected}

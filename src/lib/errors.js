@@ -12,7 +12,16 @@ export function classifyAppError(error) {
   const message = error?.message || '';
   const status = error?.status;
 
-  console.error('[classifyAppError] Caught error:', error, 'Code:', code, 'Status:', status, 'Message:', message);
+  console.error(
+    '[classifyAppError] Caught error:',
+    error,
+    'Code:',
+    code,
+    'Status:',
+    status,
+    'Message:',
+    message,
+  );
   if (error instanceof Error && error.stack) {
     console.error('[classifyAppError] Stack trace:', error.stack);
   }
@@ -78,11 +87,14 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function retryWithBackoff(task, {
-  retries = 2,
-  initialDelayMs = 350,
-  shouldRetry = (error) => classifyAppError(error).retryable,
-} = {}) {
+export async function retryWithBackoff(
+  task,
+  {
+    retries = 2,
+    initialDelayMs = 350,
+    shouldRetry = (error) => classifyAppError(error).retryable,
+  } = {},
+) {
   let lastError;
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
@@ -91,7 +103,7 @@ export async function retryWithBackoff(task, {
     } catch (error) {
       lastError = error;
       if (attempt >= retries || !shouldRetry(error)) break;
-      await wait(initialDelayMs * (2 ** attempt));
+      await wait(initialDelayMs * 2 ** attempt);
     }
   }
 

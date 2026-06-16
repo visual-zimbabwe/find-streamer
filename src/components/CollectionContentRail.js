@@ -1,11 +1,5 @@
 import React, { memo } from 'react';
-import {
-  Dimensions,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MediaArtwork } from './MediaArtwork';
 import { scale } from '../utils/responsive';
@@ -27,7 +21,12 @@ const GridPosterCard = memo(function GridPosterCard({ item, colors, typography, 
       accessibilityRole="button"
       accessibilityLabel={`Open details for ${item.title}`}
     >
-      <View style={[styles.gridPosterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl }]}>
+      <View
+        style={[
+          styles.gridPosterWrap,
+          { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
+        ]}
+      >
         <MediaArtwork
           uri={item.posterUrl}
           style={styles.gridPosterImg}
@@ -42,11 +41,18 @@ const GridPosterCard = memo(function GridPosterCard({ item, colors, typography, 
           </View>
         )}
       </View>
-      <Text style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]} numberOfLines={2}>
+      <Text
+        style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
+        numberOfLines={2}
+      >
         {item.title}
       </Text>
       <View style={styles.cardMeta}>
-        <Ionicons name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'} size={11} color={colors.onSurfaceVariant} />
+        <Ionicons
+          name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
+          size={11}
+          color={colors.onSurfaceVariant}
+        />
         <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>{item.year}</Text>
       </View>
     </TouchableOpacity>

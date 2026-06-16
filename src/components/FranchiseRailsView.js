@@ -43,7 +43,9 @@ function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }
   return (
     <View style={styles.pageHeader}>
       {eyebrow ? (
-        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>{eyebrow}</Text>
+        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+          {eyebrow}
+        </Text>
       ) : null}
       <Text
         style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
@@ -52,7 +54,12 @@ function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }
         {title}
       </Text>
       {subtitle ? (
-        <Text style={[styles.sectionSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+        <Text
+          style={[
+            styles.sectionSubtitle,
+            { color: colors.onSurfaceVariant, ...typography.labelSm },
+          ]}
+        >
           {subtitle}
         </Text>
       ) : null}
@@ -60,46 +67,34 @@ function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }
   );
 }
 
-function SectionHeader({
-  title,
-  count,
-  expanded,
-  collapsible,
-  onToggle,
-  colors,
-  typography,
-}) {
+function SectionHeader({ title, count, expanded, collapsible, onToggle, colors, typography }) {
   const content = (
     <>
       <View style={styles.sectionHeaderLeft}>
         <Text style={[styles.sectionHeaderEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
           {collapsible ? 'Your Library' : 'Catalogue'}
         </Text>
-        <Text style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '800', flex: 1 }]}>
+        <Text
+          style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '800', flex: 1 }]}
+        >
           {title}
         </Text>
       </View>
       {count != null && (
-        <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
+        <Text
+          style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}
+        >
           {count}
         </Text>
       )}
       {collapsible && (
-        <Ionicons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={GOLD_ACCENT}
-        />
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={GOLD_ACCENT} />
       )}
     </>
   );
 
   if (!collapsible) {
-    return (
-      <View style={styles.catalogSectionHeader}>
-        {content}
-      </View>
-    );
+    return <View style={styles.catalogSectionHeader}>{content}</View>;
   }
 
   return (
@@ -160,7 +155,16 @@ function CollectionRail({
 
 function SortToggle({ sortMode, onChange, colors, typography, radii }) {
   return (
-    <View style={[styles.sortToggle, { backgroundColor: colors.surfaceContainerHigh, borderColor: GOLD_DIM, borderRadius: radii.full }]}>
+    <View
+      style={[
+        styles.sortToggle,
+        {
+          backgroundColor: colors.surfaceContainerHigh,
+          borderColor: GOLD_DIM,
+          borderRadius: radii.full,
+        },
+      ]}
+    >
       {['rating', 'az'].map((mode) => {
         const active = sortMode === mode;
         const label = mode === 'rating' ? 'RTG' : 'A–Z';
@@ -180,11 +184,14 @@ function SortToggle({ sortMode, onChange, colors, typography, radii }) {
             accessibilityState={{ selected: active }}
             accessibilityLabel={mode === 'rating' ? 'Sort by rating' : 'Sort by A to Z'}
           >
-            <Text style={[{
-              color: active ? GOLD_ACCENT : colors.onSurfaceVariant,
-              ...typography.labelSm,
-              fontWeight: '800',
-            }]}
+            <Text
+              style={[
+                {
+                  color: active ? GOLD_ACCENT : colors.onSurfaceVariant,
+                  ...typography.labelSm,
+                  fontWeight: '800',
+                },
+              ]}
             >
               {label}
             </Text>
@@ -212,7 +219,12 @@ function AlphabetIndex({ letters, onSelect, colors }) {
           accessibilityRole="button"
           accessibilityLabel={`Jump to collections starting with ${letter}`}
         >
-          <Text style={[styles.alphaLetterText, { color: GOLD_ACCENT, fontSize: ALPHA_LETTER_FONT_SIZE }]}>
+          <Text
+            style={[
+              styles.alphaLetterText,
+              { color: GOLD_ACCENT, fontSize: ALPHA_LETTER_FONT_SIZE },
+            ]}
+          >
             {letter}
           </Text>
         </TouchableOpacity>
@@ -224,7 +236,14 @@ function AlphabetIndex({ letters, onSelect, colors }) {
 function FindBar({ badgeCount, onPress, colors, typography, radii }) {
   return (
     <TouchableOpacity
-      style={[styles.findBar, { backgroundColor: colors.surfaceContainerHigh, borderColor: GOLD_DIM, borderRadius: radii.lg }]}
+      style={[
+        styles.findBar,
+        {
+          backgroundColor: colors.surfaceContainerHigh,
+          borderColor: GOLD_DIM,
+          borderRadius: radii.lg,
+        },
+      ]}
       onPress={onPress}
       activeOpacity={0.82}
       accessibilityRole="button"
@@ -287,7 +306,9 @@ export function FranchiseRailsView({
       setSectionCollapsed(collapsed);
       setPrefsLoaded(true);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -364,17 +385,18 @@ export function FranchiseRailsView({
     [sections],
   );
 
-  const indexLetters = useMemo(
-    () => getIndexLetters(filteredMainRows),
-    [filteredMainRows],
-  );
+  const indexLetters = useMemo(() => getIndexLetters(filteredMainRows), [filteredMainRows]);
 
-  const badgeCount = useMemo(() => countActiveFindBadge({
-    searchQuery,
-    sizeFilters,
-    decadeFilters,
-    customDecadeRange,
-  }), [searchQuery, sizeFilters, decadeFilters, customDecadeRange]);
+  const badgeCount = useMemo(
+    () =>
+      countActiveFindBadge({
+        searchQuery,
+        sizeFilters,
+        decadeFilters,
+        customDecadeRange,
+      }),
+    [searchQuery, sizeFilters, decadeFilters, customDecadeRange],
+  );
 
   useEffect(() => {
     if (skipNextCatalogResetRef.current) {
@@ -397,10 +419,17 @@ export function FranchiseRailsView({
     }
   }, [sectionCollapsed, sections]);
 
-  const scrollToCatalogIndex = useCallback((targetIndex, { requireAz = false } = {}) => {
-    if (targetIndex < 0 || catalogSectionIndex < 0) return;
-    setCatalogScrollTarget({ sectionIndex: catalogSectionIndex, itemIndex: targetIndex, requireAz });
-  }, [catalogSectionIndex]);
+  const scrollToCatalogIndex = useCallback(
+    (targetIndex, { requireAz = false } = {}) => {
+      if (targetIndex < 0 || catalogSectionIndex < 0) return;
+      setCatalogScrollTarget({
+        sectionIndex: catalogSectionIndex,
+        itemIndex: targetIndex,
+        requireAz,
+      });
+    },
+    [catalogSectionIndex],
+  );
 
   useLayoutEffect(() => {
     if (!catalogScrollTarget) return;
@@ -426,47 +455,54 @@ export function FranchiseRailsView({
     });
   }, [catalogScrollTarget, sortMode, sections]);
 
-  const scrollToRowId = useCallback((rowId) => {
-    const targetIndex = filteredMainRows.findIndex((row) => row.id === rowId);
-    scrollToCatalogIndex(targetIndex);
-  }, [filteredMainRows, scrollToCatalogIndex]);
+  const scrollToRowId = useCallback(
+    (rowId) => {
+      const targetIndex = filteredMainRows.findIndex((row) => row.id === rowId);
+      scrollToCatalogIndex(targetIndex);
+    },
+    [filteredMainRows, scrollToCatalogIndex],
+  );
 
-  const scrollToLetter = useCallback((letter) => {
-    const filtered = filterCollectionRows(allRows, {
+  const scrollToLetter = useCallback(
+    (letter) => {
+      const filtered = filterCollectionRows(allRows, {
+        searchQuery,
+        sizeFilters,
+        decadeFilters,
+        customDecadeRange,
+      });
+      const azRows = sortCollectionRows(filtered, 'az');
+      const targetIndex = findRowIndexForLetter(azRows, letter);
+      if (targetIndex < 0) return;
+
+      if (sortMode !== 'az') {
+        skipNextCatalogResetRef.current = true;
+        setSortMode('az');
+      }
+      scrollToCatalogIndex(targetIndex, { requireAz: true });
+    },
+    [
+      allRows,
       searchQuery,
       sizeFilters,
       decadeFilters,
       customDecadeRange,
-    });
-    const azRows = sortCollectionRows(filtered, 'az');
-    const targetIndex = findRowIndexForLetter(azRows, letter);
-    if (targetIndex < 0) return;
+      sortMode,
+      scrollToCatalogIndex,
+    ],
+  );
 
-    if (sortMode !== 'az') {
-      skipNextCatalogResetRef.current = true;
-      setSortMode('az');
-    }
-    scrollToCatalogIndex(targetIndex, { requireAz: true });
-  }, [
-    allRows,
-    searchQuery,
-    sizeFilters,
-    decadeFilters,
-    customDecadeRange,
-    sortMode,
-    scrollToCatalogIndex,
-  ]);
-
-  const handleTogglePin = useCallback((rowId) => {
-    if (libraryIds.has(rowId)) return;
-    setPinnedIds((prev) => {
-      const next = prev.includes(rowId)
-        ? prev.filter((id) => id !== rowId)
-        : [...prev, rowId];
-      savePinnedCollectionIds(next);
-      return next;
-    });
-  }, [libraryIds]);
+  const handleTogglePin = useCallback(
+    (rowId) => {
+      if (libraryIds.has(rowId)) return;
+      setPinnedIds((prev) => {
+        const next = prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId];
+        savePinnedCollectionIds(next);
+        return next;
+      });
+    },
+    [libraryIds],
+  );
 
   const handleToggleSection = useCallback((sectionKey) => {
     pendingScrollRestoreRef.current = scrollOffsetRef.current;
@@ -478,19 +514,15 @@ export function FranchiseRailsView({
   }, []);
 
   const handleToggleSizeFilter = useCallback((sizeKey) => {
-    setSizeFilters((prev) => (
-      prev.includes(sizeKey)
-        ? prev.filter((key) => key !== sizeKey)
-        : [...prev, sizeKey]
-    ));
+    setSizeFilters((prev) =>
+      prev.includes(sizeKey) ? prev.filter((key) => key !== sizeKey) : [...prev, sizeKey],
+    );
   }, []);
 
   const handleToggleDecadeFilter = useCallback((decadeKey) => {
-    setDecadeFilters((prev) => (
-      prev.includes(decadeKey)
-        ? prev.filter((key) => key !== decadeKey)
-        : [...prev, decadeKey]
-    ));
+    setDecadeFilters((prev) =>
+      prev.includes(decadeKey) ? prev.filter((key) => key !== decadeKey) : [...prev, decadeKey],
+    );
   }, []);
 
   const handleResetFilters = useCallback(() => {
@@ -504,40 +536,42 @@ export function FranchiseRailsView({
     onHeaderScroll?.(event);
   });
 
-  const renderCollectionRail = useCallback((row) => (
-    <CollectionRail
-      row={row}
-      inLibrary={libraryIds.has(row.id)}
-      isPinned={pinnedIds.includes(row.id)}
-      onTogglePin={handleTogglePin}
-      colors={colors}
-      typography={typography}
-      radii={radii}
-      onSelectItem={onSelectItem}
-    />
-  ), [colors, typography, radii, onSelectItem, libraryIds, pinnedIds, handleTogglePin]);
-
-  const renderSectionHeader = useCallback(({ section }) => {
-    const expanded = section.collapsible
-      ? !sectionCollapsed[section.key]
-      : true;
-
-    return (
-      <SectionHeader
-        title={section.title}
-        count={section.count}
-        expanded={expanded}
-        collapsible={section.collapsible}
-        onToggle={section.collapsible ? () => handleToggleSection(section.key) : undefined}
+  const renderCollectionRail = useCallback(
+    (row) => (
+      <CollectionRail
+        row={row}
+        inLibrary={libraryIds.has(row.id)}
+        isPinned={pinnedIds.includes(row.id)}
+        onTogglePin={handleTogglePin}
         colors={colors}
         typography={typography}
+        radii={radii}
+        onSelectItem={onSelectItem}
       />
-    );
-  }, [sectionCollapsed, colors, typography, handleToggleSection]);
+    ),
+    [colors, typography, radii, onSelectItem, libraryIds, pinnedIds, handleTogglePin],
+  );
 
-  const renderItem = useCallback(({ item }) => (
-    renderCollectionRail(item)
-  ), [renderCollectionRail]);
+  const renderSectionHeader = useCallback(
+    ({ section }) => {
+      const expanded = section.collapsible ? !sectionCollapsed[section.key] : true;
+
+      return (
+        <SectionHeader
+          title={section.title}
+          count={section.count}
+          expanded={expanded}
+          collapsible={section.collapsible}
+          onToggle={section.collapsible ? () => handleToggleSection(section.key) : undefined}
+          colors={colors}
+          typography={typography}
+        />
+      );
+    },
+    [sectionCollapsed, colors, typography, handleToggleSection],
+  );
+
+  const renderItem = useCallback(({ item }) => renderCollectionRail(item), [renderCollectionRail]);
 
   const keyExtractor = useCallback((item, index) => `${item.id}-${index}`, []);
 
@@ -563,7 +597,9 @@ export function FranchiseRailsView({
       return (
         <View style={styles.statePanel}>
           <ActivityIndicator color={GOLD_ACCENT} accessibilityLabel="Loading collections" />
-          <Text style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+          <Text
+            style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+          >
             Finding top-rated movie collections...
           </Text>
         </View>
@@ -580,7 +616,9 @@ export function FranchiseRailsView({
           accessibilityLabel="Retry loading movie collections"
         >
           <Ionicons name="refresh-outline" size={24} color={GOLD_ACCENT} />
-          <Text style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+          <Text
+            style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+          >
             Collections could not load. Tap to retry.
           </Text>
         </TouchableOpacity>
@@ -597,29 +635,35 @@ export function FranchiseRailsView({
     );
   }, [filteredMainRows.length, loading, error, colors, typography, onRetry]);
 
-  const renderSectionFooter = useCallback(({ section }) => {
-    if (section.key !== 'catalog') return null;
-    return renderCatalogEmpty();
-  }, [renderCatalogEmpty]);
+  const renderSectionFooter = useCallback(
+    ({ section }) => {
+      if (section.key !== 'catalog') return null;
+      return renderCatalogEmpty();
+    },
+    [renderCatalogEmpty],
+  );
 
-  const listHeader = useMemo(() => (
-    <View style={styles.listHeader}>
-      <ProgrammeSectionHeader
-        eyebrow="Franchises"
-        title="Collection Index"
-        subtitle={`${filteredMainRows.length} collections`}
-        colors={colors}
-        typography={typography}
-      />
-      <FindBar
-        badgeCount={badgeCount}
-        onPress={() => setFindVisible(true)}
-        colors={colors}
-        typography={typography}
-        radii={radii}
-      />
-    </View>
-  ), [filteredMainRows.length, badgeCount, colors, typography, radii]);
+  const listHeader = useMemo(
+    () => (
+      <View style={styles.listHeader}>
+        <ProgrammeSectionHeader
+          eyebrow="Franchises"
+          title="Collection Index"
+          subtitle={`${filteredMainRows.length} collections`}
+          colors={colors}
+          typography={typography}
+        />
+        <FindBar
+          badgeCount={badgeCount}
+          onPress={() => setFindVisible(true)}
+          colors={colors}
+          typography={typography}
+          radii={radii}
+        />
+      </View>
+    ),
+    [filteredMainRows.length, badgeCount, colors, typography, radii],
+  );
 
   return (
     <View style={styles.root}>
@@ -640,11 +684,7 @@ export function FranchiseRailsView({
           typography={typography}
           radii={radii}
         />
-        <AlphabetIndex
-          letters={indexLetters}
-          onSelect={scrollToLetter}
-          colors={colors}
-        />
+        <AlphabetIndex letters={indexLetters} onSelect={scrollToLetter} colors={colors} />
       </View>
 
       <SectionList

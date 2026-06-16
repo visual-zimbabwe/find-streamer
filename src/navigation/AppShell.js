@@ -1,12 +1,5 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import {
-  StyleSheet,
-  View,
-  ScrollView,
-  Modal,
-  Text,
-  TouchableOpacity,
-} from 'react-native';
+import { StyleSheet, View, ScrollView, Modal, Text, TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,12 +12,7 @@ import { ErrorBanner } from '../components/ErrorBanner';
 import { BottomSheetPortal } from '../components/StackBottomSheet';
 import { useAppState } from '../context/AppStateContext';
 import { RootTabs } from './RootTabs';
-import {
-  navigationRef,
-  getFocusedRouteName,
-  getCurrentTabId,
-  canStackPop,
-} from './navigationRef';
+import { navigationRef, getFocusedRouteName, getCurrentTabId, canStackPop } from './navigationRef';
 import { buildNavigationTheme } from './navigationTheme';
 
 const GOLD_ACCENT = '#D4A853';
@@ -77,13 +65,13 @@ function AppShellInner({ rootNavState }) {
   const showBack = stackCanPop;
   // In-tab flows (search submit, filmography → title) use local loaders; never unmount tabs.
   const showLoading =
-    loading
-    && activeView !== 'detail'
-    && activeView !== 'discover'
-    && activeView !== 'home'
-    && activeView !== 'collections'
-    && activeView !== 'search'
-    && activeView !== 'filmography';
+    loading &&
+    activeView !== 'detail' &&
+    activeView !== 'discover' &&
+    activeView !== 'home' &&
+    activeView !== 'collections' &&
+    activeView !== 'search' &&
+    activeView !== 'filmography';
 
   const bottomNavFixed = activeTab === 'search' && focusedRoute === 'Search';
 
@@ -103,13 +91,23 @@ function AppShellInner({ rootNavState }) {
         <RootTabs />
         {showLoading && (
           <View style={[styles.mainOverlay, { backgroundColor: colors.background }]}>
-            <StatePanel type="loading" title="Searching..." description="Please wait while we find your movie." />
+            <StatePanel
+              type="loading"
+              title="Searching..."
+              description="Please wait while we find your movie."
+            />
           </View>
         )}
         {error && (
           <View style={[styles.mainOverlay, { backgroundColor: colors.background }]}>
             <StatePanel
-              type={errorInfo?.severity === 'offline' ? 'offline' : errorInfo?.severity === 'service' ? 'service' : 'error'}
+              type={
+                errorInfo?.severity === 'offline'
+                  ? 'offline'
+                  : errorInfo?.severity === 'service'
+                    ? 'service'
+                    : 'error'
+              }
               title={errorInfo?.title || 'Search Error'}
               description={error}
               onRetry={() => handleSearch(query)}
@@ -127,11 +125,31 @@ function AppShellInner({ rootNavState }) {
       >
         <GestureHandlerRootView style={{ flex: 1 }}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.categorySheet, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant + '4D', borderRadius: radii.xl }]}>
+            <View
+              style={[
+                styles.categorySheet,
+                {
+                  backgroundColor: colors.surfaceContainer,
+                  borderColor: colors.outlineVariant + '4D',
+                  borderRadius: radii.xl,
+                },
+              ]}
+            >
               <View style={styles.categoryHeader}>
                 <View style={styles.categoryTitleBlock}>
-                  <Text style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>Surprise Roulette</Text>
-                  <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleLg }]}>Surprise Me</Text>
+                  <Text
+                    style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}
+                  >
+                    Surprise Roulette
+                  </Text>
+                  <Text
+                    style={[
+                      styles.categoryTitle,
+                      { color: colors.onSurface, ...typography.titleLg },
+                    ]}
+                  >
+                    Surprise Me
+                  </Text>
                 </View>
                 <TouchableOpacity
                   style={[styles.closeButton, { backgroundColor: colors.surfaceContainerHighest }]}
@@ -144,25 +162,80 @@ function AppShellInner({ rootNavState }) {
               </View>
 
               <TouchableOpacity
-                style={[styles.surpriseQuickBtn, { backgroundColor: hasHighlyRecommendedSeeds ? GOLD_ACCENT + '18' : colors.surfaceContainerHigh, borderColor: hasHighlyRecommendedSeeds ? GOLD_ACCENT + '55' : GOLD_DIM, borderRadius: radii.lg }]}
-                onPress={() => { setSurprisePickerVisible(false); handleSurpriseMe(); }}
+                style={[
+                  styles.surpriseQuickBtn,
+                  {
+                    backgroundColor: hasHighlyRecommendedSeeds
+                      ? GOLD_ACCENT + '18'
+                      : colors.surfaceContainerHigh,
+                    borderColor: hasHighlyRecommendedSeeds ? GOLD_ACCENT + '55' : GOLD_DIM,
+                    borderRadius: radii.lg,
+                  },
+                ]}
+                onPress={() => {
+                  setSurprisePickerVisible(false);
+                  handleSurpriseMe();
+                }}
                 disabled={!hasHighlyRecommendedSeeds}
                 activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityLabel="Surprise me based on my favorites"
               >
-                <Ionicons name="heart-outline" size={20} color={hasHighlyRecommendedSeeds ? GOLD_ACCENT : colors.onSurfaceVariant} />
+                <Ionicons
+                  name="heart-outline"
+                  size={20}
+                  color={hasHighlyRecommendedSeeds ? GOLD_ACCENT : colors.onSurfaceVariant}
+                />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[{ color: hasHighlyRecommendedSeeds ? GOLD_ACCENT : colors.onSurface, fontWeight: '800', ...typography.bodyLg }]}>Based on My Favorites</Text>
-                  <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>{hasHighlyRecommendedSeeds ? 'Picks from your Highly Recommend list' : 'Add to Highly Recommend to unlock'}</Text>
+                  <Text
+                    style={[
+                      {
+                        color: hasHighlyRecommendedSeeds ? GOLD_ACCENT : colors.onSurface,
+                        fontWeight: '800',
+                        ...typography.bodyLg,
+                      },
+                    ]}
+                  >
+                    Based on My Favorites
+                  </Text>
+                  <Text
+                    style={[
+                      { color: colors.onSurfaceVariant, ...typography.labelSm, marginTop: 2 },
+                    ]}
+                  >
+                    {hasHighlyRecommendedSeeds
+                      ? 'Picks from your Highly Recommend list'
+                      : 'Add to Highly Recommend to unlock'}
+                  </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={hasHighlyRecommendedSeeds ? GOLD_ACCENT : colors.onSurfaceVariant} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={hasHighlyRecommendedSeeds ? GOLD_ACCENT : colors.onSurfaceVariant}
+                />
               </TouchableOpacity>
 
               <View style={styles.surpriseDivider}>
-                <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: GOLD_DIM }} />
-                <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, marginHorizontal: 12, fontWeight: '700', letterSpacing: 1.1, textTransform: 'uppercase' }]}>Or Pick a Genre</Text>
-                <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: GOLD_DIM }} />
+                <View
+                  style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: GOLD_DIM }}
+                />
+                <Text
+                  style={[
+                    {
+                      color: colors.onSurfaceVariant,
+                      ...typography.labelSm,
+                      marginHorizontal: 12,
+                      fontWeight: '700',
+                      letterSpacing: 1.1,
+                      textTransform: 'uppercase',
+                    },
+                  ]}
+                >
+                  Or Pick a Genre
+                </Text>
+                <View
+                  style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: GOLD_DIM }}
+                />
               </View>
 
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 260 }}>
@@ -170,13 +243,34 @@ function AppShellInner({ rootNavState }) {
                   {QUICK_SURPRISE_GENRES.map((genre) => (
                     <TouchableOpacity
                       key={`${genre.id}-${genre.mediaType}`}
-                      style={[styles.genreChip, { backgroundColor: colors.surfaceContainerHigh, borderColor: GOLD_DIM, borderRadius: radii.lg }]}
+                      style={[
+                        styles.genreChip,
+                        {
+                          backgroundColor: colors.surfaceContainerHigh,
+                          borderColor: GOLD_DIM,
+                          borderRadius: radii.lg,
+                        },
+                      ]}
                       onPress={() => handleSurpriseByGenre(genre.id, genre.mediaType)}
                       activeOpacity={0.8}
                       accessibilityRole="button"
                       accessibilityLabel={`Surprise me with ${genre.label}`}
                     >
-                      <Text style={[{ color: colors.onSurface, fontWeight: '800', textAlign: 'center', letterSpacing: 0.6, textTransform: 'uppercase', fontSize: 12, ...typography.bodyMd }]}>{genre.label}</Text>
+                      <Text
+                        style={[
+                          {
+                            color: colors.onSurface,
+                            fontWeight: '800',
+                            textAlign: 'center',
+                            letterSpacing: 0.6,
+                            textTransform: 'uppercase',
+                            fontSize: 12,
+                            ...typography.bodyMd,
+                          },
+                        ]}
+                      >
+                        {genre.label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -207,10 +301,7 @@ export function AppNavigationRoot() {
     return navigationRef.isReady() ? navigationRef.getRootState() : null;
   });
 
-  const navigationTheme = useMemo(
-    () => buildNavigationTheme(resolvedMode),
-    [resolvedMode],
-  );
+  const navigationTheme = useMemo(() => buildNavigationTheme(resolvedMode), [resolvedMode]);
 
   const syncNavState = useCallback((state) => {
     const newState = state ?? (navigationRef.isReady() ? navigationRef.getRootState() : null);

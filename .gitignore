@@ -2,11 +2,19 @@
 node_modules/
 .expo/
 dist/
+web-build/
+.expo-export-check/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Android / iOS local builds
+# Android local build output
+android/build/
+android/app/build/
+android/.gradle/
+android/app/.cxx/
+
+# Android / iOS packaged builds
 *.apk
 *.aab
 

@@ -51,7 +51,12 @@ const GridPosterCard = memo(function GridPosterCard({ item, colors, typography, 
       accessibilityRole="button"
       accessibilityLabel={`Open details for ${item.title}`}
     >
-      <View style={[styles.gridPosterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl }]}>
+      <View
+        style={[
+          styles.gridPosterWrap,
+          { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
+        ]}
+      >
         <MediaArtwork
           uri={item.posterUrl}
           style={styles.gridPosterImg}
@@ -66,18 +71,32 @@ const GridPosterCard = memo(function GridPosterCard({ item, colors, typography, 
           </View>
         )}
       </View>
-      <Text style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]} numberOfLines={2}>
+      <Text
+        style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
+        numberOfLines={2}
+      >
         {item.title}
       </Text>
       <View style={styles.cardMeta}>
-        <Ionicons name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'} size={11} color={colors.onSurfaceVariant} />
+        <Ionicons
+          name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
+          size={11}
+          color={colors.onSurfaceVariant}
+        />
         <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>{item.year}</Text>
       </View>
     </TouchableOpacity>
   );
 });
 
-const SpotlightChip = memo(function SpotlightChip({ item, colors, typography, radii, selected, onPress }) {
+const SpotlightChip = memo(function SpotlightChip({
+  item,
+  colors,
+  typography,
+  radii,
+  selected,
+  onPress,
+}) {
   const imageUri = item.backdropUrl || item.posterUrl;
   return (
     <TouchableOpacity
@@ -106,7 +125,10 @@ const SpotlightChip = memo(function SpotlightChip({ item, colors, typography, ra
           title={item.title}
           instant
         />
-        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.82)']} style={styles.spotlightChipScrim} />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.82)']}
+          style={styles.spotlightChipScrim}
+        />
         <Text style={[styles.spotlightChipTitle, typography.labelSm]} numberOfLines={2}>
           {item.title}
         </Text>
@@ -136,7 +158,12 @@ const FeaturedSpotlightCard = memo(function FeaturedSpotlightCard({
       accessibilityLabel={`Open details for ${item.title}`}
     >
       <Animated.View style={[styles.featureCard, { borderRadius: radii.xl, opacity: fadeAnim }]}>
-        <View style={[styles.featureFrame, { borderRadius: radii.xl, backgroundColor: colors.surfaceContainerHighest }]}>
+        <View
+          style={[
+            styles.featureFrame,
+            { borderRadius: radii.xl, backgroundColor: colors.surfaceContainerHighest },
+          ]}
+        >
           <MediaArtwork
             uri={backdrop}
             style={styles.featureImg}
@@ -151,7 +178,10 @@ const FeaturedSpotlightCard = memo(function FeaturedSpotlightCard({
             locations={[0.22, 1]}
             style={StyleSheet.absoluteFill}
           />
-          <LinearGradient colors={['rgba(0,0,0,0.42)', 'transparent']} style={styles.featureTopScrim} />
+          <LinearGradient
+            colors={['rgba(0,0,0,0.42)', 'transparent']}
+            style={styles.featureTopScrim}
+          />
           <View style={styles.featureContent}>
             <Text style={[styles.featureEyebrow, typography.labelSm]}>Spotlight</Text>
             <Text style={[styles.featureTitle, typography.headlineLg]} numberOfLines={3}>
@@ -167,7 +197,11 @@ const FeaturedSpotlightCard = memo(function FeaturedSpotlightCard({
                 </View>
               )}
               <View style={styles.heroTypePill}>
-                <Ionicons name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'} size={14} color="#fff" />
+                <Ionicons
+                  name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
+                  size={14}
+                  color="#fff"
+                />
                 <Text style={[styles.heroTypeText, typography.labelSm]}>
                   {item.mediaType === 'tv' ? 'Series' : 'Movie'}
                 </Text>
@@ -333,11 +367,13 @@ export function HomeScreen({
       return undefined;
     }
     let cancelled = false;
-    Animated.timing(fadeAnim, { toValue: 0, duration: FADE_MS, useNativeDriver: true }).start(({ finished }) => {
-      if (!finished || cancelled) return;
-      setDisplayIndex(heroIndex);
-      Animated.timing(fadeAnim, { toValue: 1, duration: FADE_MS, useNativeDriver: true }).start();
-    });
+    Animated.timing(fadeAnim, { toValue: 0, duration: FADE_MS, useNativeDriver: true }).start(
+      ({ finished }) => {
+        if (!finished || cancelled) return;
+        setDisplayIndex(heroIndex);
+        Animated.timing(fadeAnim, { toValue: 1, duration: FADE_MS, useNativeDriver: true }).start();
+      },
+    );
     return () => {
       cancelled = true;
       fadeAnim.stopAnimation();
@@ -372,7 +408,7 @@ export function HomeScreen({
     () => () => {
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     },
-    []
+    [],
   );
 
   useEffect(() => {
@@ -388,42 +424,43 @@ export function HomeScreen({
   }, [mediaFilter, onMediaFilterChange]);
 
   const watchlistRows = useMemo(() => {
-    return getUserWatchlistCollections().map((collection) => {
-      const items = (watchlist || []).filter((w) => {
-        if (mediaFilter && w.mediaType !== mediaFilter) return false;
-        return w.collectionIds?.includes(collection.id);
-      });
-      const sorted = [...items].sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
-      return {
-        category: {
-          id: collection.id,
-          label: collection.name,
-          icon: collection.icon,
-        },
-        items: sorted,
-      };
-    }).filter((row) => row.items.length > 0);
+    return getUserWatchlistCollections()
+      .map((collection) => {
+        const items = (watchlist || []).filter((w) => {
+          if (mediaFilter && w.mediaType !== mediaFilter) return false;
+          return w.collectionIds?.includes(collection.id);
+        });
+        const sorted = [...items].sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
+        return {
+          category: {
+            id: collection.id,
+            label: collection.name,
+            icon: collection.icon,
+          },
+          items: sorted,
+        };
+      })
+      .filter((row) => row.items.length > 0);
   }, [watchlist, mediaFilter]);
 
-  const selectSpotlightIndex = useCallback((index) => {
-    Haptics.selectionAsync();
-    pauseHero();
-    scheduleResumeHero();
-    setHeroIndex(index);
-  }, [pauseHero, scheduleResumeHero]);
+  const selectSpotlightIndex = useCallback(
+    (index) => {
+      Haptics.selectionAsync();
+      pauseHero();
+      scheduleResumeHero();
+      setHeroIndex(index);
+    },
+    [pauseHero, scheduleResumeHero],
+  );
 
   const atmosphereColors = useMemo(
     () => [colors.surfaceContainerHigh, colors.background],
-    [colors.surfaceContainerHigh, colors.background]
+    [colors.surfaceContainerHigh, colors.background],
   );
 
   return (
     <View style={[styles.rootWrap, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={atmosphereColors}
-        style={styles.atmosphereTop}
-        pointerEvents="none"
-      />
+      <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
 
       <HomeTopNav
         variant="programme"
@@ -440,7 +477,10 @@ export function HomeScreen({
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollInner, { paddingTop: headerOffset, paddingBottom: insets.bottom + 112 }]}
+        contentContainerStyle={[
+          styles.scrollInner,
+          { paddingTop: headerOffset, paddingBottom: insets.bottom + 112 },
+        ]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
         nestedScrollEnabled
@@ -450,8 +490,21 @@ export function HomeScreen({
       >
         <View style={styles.spotlightSection}>
           {heroLoading ? (
-            <View style={[styles.featureLoading, { height: FEATURE_H, backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.xl }]}>
-              <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading spotlight" />
+            <View
+              style={[
+                styles.featureLoading,
+                {
+                  height: FEATURE_H,
+                  backgroundColor: colors.surfaceContainerHighest,
+                  borderRadius: radii.xl,
+                },
+              ]}
+            >
+              <ActivityIndicator
+                size="large"
+                color={colors.primary}
+                accessibilityLabel="Loading spotlight"
+              />
             </View>
           ) : filteredSpotlight.length ? (
             <>
@@ -467,10 +520,20 @@ export function HomeScreen({
               {filteredSpotlight.length > 1 ? (
                 <View style={styles.secondarySpotlightBlock}>
                   <View style={styles.secondaryHeaderRow}>
-                    <Text style={[styles.secondaryTitle, { color: colors.onSurface, ...typography.labelSm }]}>
+                    <Text
+                      style={[
+                        styles.secondaryTitle,
+                        { color: colors.onSurface, ...typography.labelSm },
+                      ]}
+                    >
                       Also in Spotlight
                     </Text>
-                    <Text style={[styles.secondaryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                    <Text
+                      style={[
+                        styles.secondaryCount,
+                        { color: colors.onSurfaceVariant, ...typography.labelSm },
+                      ]}
+                    >
                       {displayIndex + 1} / {filteredSpotlight.length}
                     </Text>
                   </View>
@@ -483,7 +546,10 @@ export function HomeScreen({
                     decelerationRate="fast"
                   >
                     {filteredSpotlight.map((item, index) => (
-                      <View key={`${item.mediaType || 'movie'}-${item.tmdbId}-${index}`} style={index > 0 ? styles.chipGap : null}>
+                      <View
+                        key={`${item.mediaType || 'movie'}-${item.tmdbId}-${index}`}
+                        style={index > 0 ? styles.chipGap : null}
+                      >
                         <SpotlightChip
                           item={item}
                           colors={colors}
@@ -499,9 +565,27 @@ export function HomeScreen({
               ) : null}
             </>
           ) : (
-            <View style={[styles.featureEmpty, { height: FEATURE_H, backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.xl }]}>
+            <View
+              style={[
+                styles.featureEmpty,
+                {
+                  height: FEATURE_H,
+                  backgroundColor: colors.surfaceContainerHighest,
+                  borderRadius: radii.xl,
+                },
+              ]}
+            >
               <Ionicons name="planet-outline" size={40} color={colors.onSurfaceVariant} />
-              <Text style={[{ color: colors.onSurfaceVariant, ...typography.bodyLg, marginTop: 12, textAlign: 'center' }]}>
+              <Text
+                style={[
+                  {
+                    color: colors.onSurfaceVariant,
+                    ...typography.bodyLg,
+                    marginTop: 12,
+                    textAlign: 'center',
+                  },
+                ]}
+              >
                 Pulling fresh picks… check back in a moment.
               </Text>
             </View>

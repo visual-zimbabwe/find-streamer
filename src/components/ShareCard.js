@@ -1,19 +1,16 @@
 import React, { forwardRef } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  SERVICE_COLORS, SERVICE_ICONS,
-  pickCountries, shortName,
-} from '../lib/shareUtils';
+import { SERVICE_COLORS, SERVICE_ICONS, pickCountries, shortName } from '../lib/shareUtils';
 import { createQrMatrix } from '../lib/qrMatrix';
 
 // Always dark palette so the card looks great in any receiver app.
-const CARD_BG      = '#0a0e14';
+const CARD_BG = '#0a0e14';
 const CARD_SURFACE = '#151a21';
-const ACCENT       = '#9aa8ff';
-const ON_SURFACE   = '#f1f3fc';
-const ON_VARIANT   = '#a8abb3';
-const BADGE_BG     = 'rgba(154, 168, 255, 0.15)';
+const ACCENT = '#9aa8ff';
+const ON_SURFACE = '#f1f3fc';
+const ON_VARIANT = '#a8abb3';
+const BADGE_BG = 'rgba(154, 168, 255, 0.15)';
 
 function ShareQrCode({ value, color, backgroundColor }) {
   const matrix = createQrMatrix(value);
@@ -24,10 +21,7 @@ function ShareQrCode({ value, color, backgroundColor }) {
           {row.map((isDark, colIndex) => (
             <View
               key={`qr-cell-${rowIndex}-${colIndex}`}
-              style={[
-                styles.qrCell,
-                { backgroundColor: isDark ? color : backgroundColor },
-              ]}
+              style={[styles.qrCell, { backgroundColor: isDark ? color : backgroundColor }]}
             />
           ))}
         </View>
@@ -46,7 +40,10 @@ function ShareQrCode({ value, color, backgroundColor }) {
  *   selectedCountries – { serviceKey: [code, ...] }  (optional)
  *                       Falls back to auto-pick if omitted.
  */
-export const ShareCard = forwardRef(function ShareCard({ result, selectedCountries, themeColors }, ref) {
+export const ShareCard = forwardRef(function ShareCard(
+  { result, selectedCountries, themeColors },
+  ref,
+) {
   if (!result) return null;
 
   const isTv = result.mediaType === 'tv';
@@ -77,17 +74,20 @@ export const ShareCard = forwardRef(function ShareCard({ result, selectedCountri
   }
 
   // First 3 genres
-  const genreShort = result.genres && result.genres !== 'N/A'
-    ? result.genres
-    .split(',')
-    .slice(0, 3)
-    .map(g => g.trim())
-    .join(' · ')
-    : null;
-  const metaParts = [result.year !== 'N/A' ? result.year : null, genreShort, runtimeLabel()].filter(Boolean);
+  const genreShort =
+    result.genres && result.genres !== 'N/A'
+      ? result.genres
+          .split(',')
+          .slice(0, 3)
+          .map((g) => g.trim())
+          .join(' · ')
+      : null;
+  const metaParts = [result.year !== 'N/A' ? result.year : null, genreShort, runtimeLabel()].filter(
+    Boolean,
+  );
 
   // Only services that are actually available
-  const availableProviders = (result.providerSummary || []).filter(p => p.count > 0);
+  const availableProviders = (result.providerSummary || []).filter((p) => p.count > 0);
 
   // Country resolution per service: use caller-supplied selection or auto-pick
   function countriesFor(serviceKey) {
@@ -128,13 +128,13 @@ export const ShareCard = forwardRef(function ShareCard({ result, selectedCountri
         </View>
 
         {/* Title */}
-        <Text style={[styles.title, { color: onSurface }]} numberOfLines={2}>{result.title}</Text>
+        <Text style={[styles.title, { color: onSurface }]} numberOfLines={2}>
+          {result.title}
+        </Text>
 
         {/* Year · Genre · Runtime */}
         {metaParts.length > 0 && (
-          <Text style={[styles.meta, { color: onVariant }]}>
-            {metaParts.join('  ·  ')}
-          </Text>
+          <Text style={[styles.meta, { color: onVariant }]}>{metaParts.join('  ·  ')}</Text>
         )}
 
         {/* Rating */}
@@ -152,7 +152,7 @@ export const ShareCard = forwardRef(function ShareCard({ result, selectedCountri
           <View style={styles.streamingSection}>
             <Text style={[styles.streamLabel, { color: onVariant }]}>Where to Stream</Text>
             <View style={styles.providerList}>
-              {availableProviders.map(p => {
+              {availableProviders.map((p) => {
                 const countries = countriesFor(p.key);
                 const color = SERVICE_COLORS[p.key];
                 return (
@@ -160,16 +160,30 @@ export const ShareCard = forwardRef(function ShareCard({ result, selectedCountri
                     {/* Service */}
                     <View style={styles.providerServiceName}>
                       {p.logoUrl ? (
-                        <Image source={{ uri: p.logoUrl }} style={styles.providerLogo} resizeMode="contain" />
+                        <Image
+                          source={{ uri: p.logoUrl }}
+                          style={styles.providerLogo}
+                          resizeMode="contain"
+                        />
                       ) : (
-                        <Ionicons name={SERVICE_ICONS[p.key] || 'play-circle'} size={11} color={color} />
+                        <Ionicons
+                          name={SERVICE_ICONS[p.key] || 'play-circle'}
+                          size={11}
+                          color={color}
+                        />
                       )}
                       <Text style={[styles.providerName, { color }]}>{p.label}</Text>
                     </View>
                     {/* Country chips */}
                     <View style={styles.countryChips}>
-                      {countries.map(code => (
-                        <View key={code} style={[styles.countryChip, { backgroundColor: surface, borderColor: color + '55' }]}>
+                      {countries.map((code) => (
+                        <View
+                          key={code}
+                          style={[
+                            styles.countryChip,
+                            { backgroundColor: surface, borderColor: color + '55' },
+                          ]}
+                        >
                           <Text style={[styles.countryChipText, { color }]}>{shortName(code)}</Text>
                         </View>
                       ))}
@@ -201,7 +215,7 @@ export const ShareCard = forwardRef(function ShareCard({ result, selectedCountri
   );
 });
 
-const CARD_W   = 420;
+const CARD_W = 420;
 const POSTER_W = 140;
 
 const styles = StyleSheet.create({

@@ -86,17 +86,20 @@ test('parseAwardQueryResults prefers P2910 icon over P154 logo', () => {
     ['Oscar-free-version.svg', 'https://upload.wikimedia.org/example/Oscar-free-version.svg.png'],
   ]);
 
-  const awards = parseAwardQueryResults({
-    wins: [
-      {
-        award: { value: 'http://www.wikidata.org/entity/Q102427' },
-        awardLabel: { value: 'Academy Award for Best Picture' },
-        awardIcon: { value: 'Oscar-icon.svg' },
-        awardLogo: { value: 'Oscar-free-version.svg' },
-      },
-    ],
-    nominations: [],
-  }, thumbMap);
+  const awards = parseAwardQueryResults(
+    {
+      wins: [
+        {
+          award: { value: 'http://www.wikidata.org/entity/Q102427' },
+          awardLabel: { value: 'Academy Award for Best Picture' },
+          awardIcon: { value: 'Oscar-icon.svg' },
+          awardLogo: { value: 'Oscar-free-version.svg' },
+        },
+      ],
+      nominations: [],
+    },
+    thumbMap,
+  );
 
   assert.equal(awards.length, 1);
   assert.equal(awards[0].logoUrl, 'https://upload.wikimedia.org/example/Oscar-icon.svg.png');
@@ -104,25 +107,33 @@ test('parseAwardQueryResults prefers P2910 icon over P154 logo', () => {
 
 test('parseAwardQueryResults inherits ceremony logos and handles Commons URLs', async () => {
   const thumbMap = await resolveCommonsThumbUrls(['Oscar-free-version.svg']);
-  const awards = parseAwardQueryResults({
-    wins: [
-      {
-        award: { value: 'http://www.wikidata.org/entity/Q102427' },
-        awardLabel: { value: 'Academy Award for Best Picture' },
-        awardLogo: { value: 'http://commons.wikimedia.org/wiki/Special:FilePath/Oscar-free-version.svg' },
-      },
-    ],
-    nominations: [
-      {
-        award: { value: 'http://www.wikidata.org/entity/Q488645' },
-        awardLabel: { value: 'Academy Award for Best Sound' },
-      },
-    ],
-  }, thumbMap);
+  const awards = parseAwardQueryResults(
+    {
+      wins: [
+        {
+          award: { value: 'http://www.wikidata.org/entity/Q102427' },
+          awardLabel: { value: 'Academy Award for Best Picture' },
+          awardLogo: {
+            value: 'http://commons.wikimedia.org/wiki/Special:FilePath/Oscar-free-version.svg',
+          },
+        },
+      ],
+      nominations: [
+        {
+          award: { value: 'http://www.wikidata.org/entity/Q488645' },
+          awardLabel: { value: 'Academy Award for Best Sound' },
+        },
+      ],
+    },
+    thumbMap,
+  );
 
   assert.equal(awards.length, 2);
   assert.match(awards[0].logoUrl, /upload\.wikimedia\.org.*Oscar-free-version\.svg\.png/);
-  assert.match(awards.find((group) => group.label.includes('Best Sound')).logoUrl, /upload\.wikimedia\.org.*Oscar-free-version\.svg\.png/);
+  assert.match(
+    awards.find((group) => group.label.includes('Best Sound')).logoUrl,
+    /upload\.wikimedia\.org.*Oscar-free-version\.svg\.png/,
+  );
 });
 
 test('parseOmdbAwardsFallback parses wins and nominations', () => {
@@ -160,5 +171,8 @@ test('sortAwardGroups orders by wins then nominations then label', () => {
     { label: 'Gamma', wins: 1, nominations: 1 },
   ]);
 
-  assert.deepEqual(sorted.map((item) => item.label), ['Gamma', 'Alpha', 'Beta']);
+  assert.deepEqual(
+    sorted.map((item) => item.label),
+    ['Gamma', 'Alpha', 'Beta'],
+  );
 });

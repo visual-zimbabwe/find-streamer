@@ -41,7 +41,9 @@ function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }
   return (
     <View style={styles.sectionHeader}>
       {eyebrow ? (
-        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>{eyebrow}</Text>
+        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+          {eyebrow}
+        </Text>
       ) : null}
       <Text
         style={[styles.pageTitle, { color: colors.onSurface, ...typography.titleMd }]}
@@ -50,7 +52,9 @@ function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }
         {title}
       </Text>
       {subtitle ? (
-        <Text style={[styles.pageSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+        <Text
+          style={[styles.pageSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+        >
           {subtitle}
         </Text>
       ) : null}
@@ -66,13 +70,20 @@ function SectionBlockHeader({ eyebrow, title, hint, colors, typography }) {
   return (
     <View style={styles.blockHeader}>
       {eyebrow ? (
-        <Text style={[styles.blockEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>{eyebrow}</Text>
+        <Text style={[styles.blockEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+          {eyebrow}
+        </Text>
       ) : null}
-      <Text style={[styles.blockTitle, { color: colors.onSurface, ...typography.titleMd }]} accessibilityRole="header">
+      <Text
+        style={[styles.blockTitle, { color: colors.onSurface, ...typography.titleMd }]}
+        accessibilityRole="header"
+      >
         {title}
       </Text>
       {hint ? (
-        <Text style={[styles.blockHint, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>{hint}</Text>
+        <Text style={[styles.blockHint, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+          {hint}
+        </Text>
       ) : null}
     </View>
   );
@@ -116,8 +127,14 @@ function AppearanceRow({ icon, label, selected, onPress, colors, typography }) {
       accessibilityState={{ selected }}
     >
       <View style={styles.appearanceLeft}>
-        <View style={[styles.appearanceIconWrap, { borderColor: selected ? GOLD_ACCENT : GOLD_DIM }]}>
-          <Ionicons name={icon} size={18} color={selected ? GOLD_ACCENT : colors.onSurfaceVariant} />
+        <View
+          style={[styles.appearanceIconWrap, { borderColor: selected ? GOLD_ACCENT : GOLD_DIM }]}
+        >
+          <Ionicons
+            name={icon}
+            size={18}
+            color={selected ? GOLD_ACCENT : colors.onSurfaceVariant}
+          />
         </View>
         <Text
           style={[
@@ -151,10 +168,16 @@ function ActionRow({ icon, label, onPress, disabled, busy, colors, typography })
     >
       <View style={styles.actionLeft}>
         <Ionicons name={icon} size={18} color={GOLD_ACCENT} style={styles.actionIcon} />
-        <Text style={[styles.actionLabel, { color: colors.onSurface, ...typography.bodyMd }]}>{label}</Text>
+        <Text style={[styles.actionLabel, { color: colors.onSurface, ...typography.bodyMd }]}>
+          {label}
+        </Text>
       </View>
       {busy ? (
-        <ActivityIndicator size="small" color={GOLD_ACCENT} accessibilityLabel={`${label} in progress`} />
+        <ActivityIndicator
+          size="small"
+          color={GOLD_ACCENT}
+          accessibilityLabel={`${label} in progress`}
+        />
       ) : (
         <Ionicons name="chevron-forward" size={15} color={GOLD_ACCENT} style={{ opacity: 0.72 }} />
       )}
@@ -166,7 +189,9 @@ function QuotaProviderBlock({ title, bodyLines, colors, typography, spacing, isL
   return (
     <View>
       <View style={styles.quotaBlock}>
-        <Text style={[styles.quotaProvider, { color: colors.onSurface, ...typography.bodyMd }]}>{title}</Text>
+        <Text style={[styles.quotaProvider, { color: colors.onSurface, ...typography.bodyMd }]}>
+          {title}
+        </Text>
         {bodyLines.map((line, i) => (
           <Text
             key={i}
@@ -306,7 +331,9 @@ export function SettingsView({
       const json = stringifyWatchlistExport(watchlist, collections);
       const safeDate = new Date().toISOString().slice(0, 10);
       const fileUri = `${baseDir}trova-watchlist-${safeDate}.json`;
-      await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
+      await FileSystem.writeAsStringAsync(fileUri, json, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
 
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
@@ -392,7 +419,7 @@ export function SettingsView({
                   void applyImportedItems(items, 'replace', importedCollections);
                 },
               },
-            ]
+            ],
           );
         },
       },
@@ -429,7 +456,12 @@ export function SettingsView({
   };
 
   const appearanceOptions = [
-    { key: 'light', label: 'Light Mode', icon: 'sunny-outline', accessibilityLabel: 'Use light mode' },
+    {
+      key: 'light',
+      label: 'Light Mode',
+      icon: 'sunny-outline',
+      accessibilityLabel: 'Use light mode',
+    },
     { key: 'dark', label: 'Dark Mode', icon: 'moon-outline', accessibilityLabel: 'Use dark mode' },
     {
       key: 'system',

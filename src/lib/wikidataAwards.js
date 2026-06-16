@@ -16,12 +16,14 @@ function isEntityUri(val) {
 }
 
 function awardLogoFromBinding(icon, logo, image, parentIcon, parentLogo, parentImage, thumbMap) {
-  return lookupCommonsThumb(icon, thumbMap)
-    || lookupCommonsThumb(parentIcon, thumbMap)
-    || lookupCommonsThumb(logo, thumbMap)
-    || lookupCommonsThumb(image, thumbMap)
-    || lookupCommonsThumb(parentLogo, thumbMap)
-    || lookupCommonsThumb(parentImage, thumbMap);
+  return (
+    lookupCommonsThumb(icon, thumbMap) ||
+    lookupCommonsThumb(parentIcon, thumbMap) ||
+    lookupCommonsThumb(logo, thumbMap) ||
+    lookupCommonsThumb(image, thumbMap) ||
+    lookupCommonsThumb(parentLogo, thumbMap) ||
+    lookupCommonsThumb(parentImage, thumbMap)
+  );
 }
 
 function collectAwardMediaValues(bindings) {
@@ -131,7 +133,19 @@ export function sortAwardGroups(groups) {
   });
 }
 
-function upsertAward(map, uri, label, icon, logo, image, parentIcon, parentLogo, parentImage, field, thumbMap) {
+function upsertAward(
+  map,
+  uri,
+  label,
+  icon,
+  logo,
+  image,
+  parentIcon,
+  parentLogo,
+  parentImage,
+  field,
+  thumbMap,
+) {
   if (!isEntityUri(uri)) return;
 
   const wikidataId = uri.match(/\/entity\/(Q\d+)$/i)?.[1]?.toUpperCase();
@@ -142,7 +156,15 @@ function upsertAward(map, uri, label, icon, logo, image, parentIcon, parentLogo,
     map.set(wikidataId, {
       wikidataId,
       label: awardLabel || wikidataId,
-      logoUrl: awardLogoFromBinding(icon, logo, image, parentIcon, parentLogo, parentImage, thumbMap),
+      logoUrl: awardLogoFromBinding(
+        icon,
+        logo,
+        image,
+        parentIcon,
+        parentLogo,
+        parentImage,
+        thumbMap,
+      ),
       wins: 0,
       nominations: 0,
     });
@@ -153,7 +175,15 @@ function upsertAward(map, uri, label, icon, logo, image, parentIcon, parentLogo,
     entry.label = awardLabel;
   }
 
-  const logoUrl = awardLogoFromBinding(icon, logo, image, parentIcon, parentLogo, parentImage, thumbMap);
+  const logoUrl = awardLogoFromBinding(
+    icon,
+    logo,
+    image,
+    parentIcon,
+    parentLogo,
+    parentImage,
+    thumbMap,
+  );
   if (logoUrl) entry.logoUrl = logoUrl;
 
   entry[field] += 1;
@@ -177,8 +207,8 @@ function inheritCeremonyLogos(groups, thumbMap) {
     for (const ceremony of CEREMONY_PATTERNS) {
       if (!ceremony.pattern.test(group.label)) continue;
 
-      const inheritedLogo = logoByCeremony.get(ceremony.key)
-        || lookupCommonsThumb(ceremony.fallbackFile, thumbMap);
+      const inheritedLogo =
+        logoByCeremony.get(ceremony.key) || lookupCommonsThumb(ceremony.fallbackFile, thumbMap);
 
       if (inheritedLogo) {
         return { ...group, logoUrl: inheritedLogo };
@@ -270,15 +300,18 @@ const OMDB_AWARD_DEFS = [
     label: 'Oscars',
     regex: /oscars?|academy awards?/i,
     winRegex: /won\s+(\d+)\s+(?:oscars?|academy awards?)/i,
-    nominationRegex: /(?:nominated\s+for\s+(\d+)\s+(?:an?\s+)?(?:oscars?|academy awards?)|(\d+)\s+nomination(?:s)?\s+for\s+(?:an?\s+)?(?:oscars?|academy awards?))/i,
-    logoUri: 'https://images.ctfassets.net/mqgaq446dh9d/1hRNcghUHboflQc5dN5lhO/f331d2533a40ce9f53d25eecf77adaf4/oscars_logo_white_mode.jpg?fm=jpg&q=80&w=768',
+    nominationRegex:
+      /(?:nominated\s+for\s+(\d+)\s+(?:an?\s+)?(?:oscars?|academy awards?)|(\d+)\s+nomination(?:s)?\s+for\s+(?:an?\s+)?(?:oscars?|academy awards?))/i,
+    logoUri:
+      'https://images.ctfassets.net/mqgaq446dh9d/1hRNcghUHboflQc5dN5lhO/f331d2533a40ce9f53d25eecf77adaf4/oscars_logo_white_mode.jpg?fm=jpg&q=80&w=768',
   },
   {
     key: 'emmy',
     label: 'Emmys',
     regex: /emmys?|emmy awards?/i,
     winRegex: /won\s+(\d+)\s+(?:primetime\s+|daytime\s+|international\s+)?(?:emmys?|emmy awards?)/i,
-    nominationRegex: /(?:nominated\s+for\s+(\d+)\s+(?:an?\s+)?(?:primetime\s+|daytime\s+|international\s+)?(?:emmys?|emmy awards?)|(\d+)\s+nomination(?:s)?\s+for\s+(?:an?\s+)?(?:primetime\s+|daytime\s+|international\s+)?(?:emmys?|emmy awards?))/i,
+    nominationRegex:
+      /(?:nominated\s+for\s+(\d+)\s+(?:an?\s+)?(?:primetime\s+|daytime\s+|international\s+)?(?:emmys?|emmy awards?)|(\d+)\s+nomination(?:s)?\s+for\s+(?:an?\s+)?(?:primetime\s+|daytime\s+|international\s+)?(?:emmys?|emmy awards?))/i,
     logoUri: 'https://www.televisionacademy.com/build/assets/tva-logo.png',
   },
   {
@@ -286,7 +319,8 @@ const OMDB_AWARD_DEFS = [
     label: 'Golden Globes',
     regex: /golden globes?(?: awards?)?/i,
     winRegex: /won\s+(\d+)\s+golden globes?(?: awards?)?/i,
-    nominationRegex: /(?:nominated\s+for\s+(\d+)\s+(?:an?\s+)?golden globes?(?: awards?)?|(\d+)\s+nomination(?:s)?\s+for\s+(?:an?\s+)?golden globes?(?: awards?)?)/i,
+    nominationRegex:
+      /(?:nominated\s+for\s+(\d+)\s+(?:an?\s+)?golden globes?(?: awards?)?|(\d+)\s+nomination(?:s)?\s+for\s+(?:an?\s+)?golden globes?(?: awards?)?)/i,
     logoUri: 'https://goldenglobes.com/wp-content/uploads/2025/12/default-stacked.jpg',
   },
 ];

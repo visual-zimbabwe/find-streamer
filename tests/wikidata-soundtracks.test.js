@@ -26,7 +26,10 @@ test('commonsCoverUrl builds a Special:FilePath URL', () => {
     commonsCoverUrl('Inception soundtrack cover.jpg'),
     'https://commons.wikimedia.org/wiki/Special:FilePath/Inception_soundtrack_cover.jpg',
   );
-  assert.equal(commonsCoverUrl('File:Example.png'), 'https://commons.wikimedia.org/wiki/Special:FilePath/Example.png');
+  assert.equal(
+    commonsCoverUrl('File:Example.png'),
+    'https://commons.wikimedia.org/wiki/Special:FilePath/Example.png',
+  );
 });
 
 test('commonsCoverUrl normalizes full Commons URLs', () => {
@@ -38,8 +41,14 @@ test('commonsCoverUrl normalizes full Commons URLs', () => {
 
 test('resolveCommonsThumbUrls returns upload.wikimedia.org thumbnails', async () => {
   const thumbMap = await resolveCommonsThumbUrls(['La La Land Logo.svg', 'Oscar-free-version.svg']);
-  assert.match(lookupCommonsThumb('La La Land Logo.svg', thumbMap), /upload\.wikimedia\.org.*\.png/);
-  assert.match(lookupCommonsThumb('Oscar-free-version.svg', thumbMap), /upload\.wikimedia\.org.*\.png/);
+  assert.match(
+    lookupCommonsThumb('La La Land Logo.svg', thumbMap),
+    /upload\.wikimedia\.org.*\.png/,
+  );
+  assert.match(
+    lookupCommonsThumb('Oscar-free-version.svg', thumbMap),
+    /upload\.wikimedia\.org.*\.png/,
+  );
 });
 
 test('parseSoundtracksFromBindings dedupes, filters, and sorts soundtracks', () => {
@@ -86,5 +95,8 @@ test('sortSoundtracks orders by year then title', () => {
     { title: 'Early', year: 1999 },
   ]);
 
-  assert.deepEqual(sorted.map((item) => item.title), ['Early', 'Alpha', 'Beta', 'No Year']);
+  assert.deepEqual(
+    sorted.map((item) => item.title),
+    ['Early', 'Alpha', 'Beta', 'No Year'],
+  );
 });

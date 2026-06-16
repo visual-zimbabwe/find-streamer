@@ -1,0 +1,24 @@
+node_modules/
+android/
+ios/
+dist/
+web-build/
+.expo/
+.expo-export-check/
+scratch/
+*.apk
+*.aab
+package-lock.json
+
+# Docs — avoid markdown reflow churn (README is rewritten in a later phase)
+*.md
+.codex/
+
+# Large generated data file
+collection_movies.json
+
+# Vendored library code
+src/lib/expo-morphing-text/
+
+# Deprecated — removed in a later phase
+eas.json

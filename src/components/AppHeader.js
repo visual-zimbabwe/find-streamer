@@ -5,10 +5,10 @@ import { useTheme } from '../theme/ThemeProvider';
 import MorphingText from '../lib/expo-morphing-text/components/morphing-text';
 
 const TAGLINES = [
-  "What are you watching tonight?",
-  "Find your next favorite...",
-  "Discover new worlds...",
-  "Your streaming companion...",
+  'What are you watching tonight?',
+  'Find your next favorite...',
+  'Discover new worlds...',
+  'Your streaming companion...',
 ];
 
 export function AppHeader({ onBack, showBack, transparent, centeredTitleOnly }) {
@@ -18,17 +18,19 @@ export function AppHeader({ onBack, showBack, transparent, centeredTitleOnly }) 
 
   React.useEffect(() => {
     const interval = setInterval(() => {
-      React_setTaglineIndex(prev => (prev + 1) % TAGLINES.length);
+      React_setTaglineIndex((prev) => (prev + 1) % TAGLINES.length);
     }, 4000);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <View style={[
-      styles.header,
-      centeredTitleOnly && styles.headerCentered,
-      { backgroundColor: transparent ? 'transparent' : colors.background },
-    ]}>
+    <View
+      style={[
+        styles.header,
+        centeredTitleOnly && styles.headerCentered,
+        { backgroundColor: transparent ? 'transparent' : colors.background },
+      ]}
+    >
       <View style={[styles.brand, centeredTitleOnly && styles.brandCentered]}>
         {showBack && (
           <TouchableOpacity
@@ -53,7 +55,9 @@ export function AppHeader({ onBack, showBack, transparent, centeredTitleOnly }) 
         )}
         {!showBack && !centeredTitleOnly && (
           <View style={styles.titleContainer}>
-            <Text style={[styles.logo, { color: colors.primary, ...typography.headlineMd }]}>Trova</Text>
+            <Text style={[styles.logo, { color: colors.primary, ...typography.headlineMd }]}>
+              Trova
+            </Text>
             <MorphingText
               text={TAGLINES[taglineIndex]}
               fontSize={12}

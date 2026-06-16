@@ -25,25 +25,74 @@ export const REGION_PRESETS = [
     id: 'europe',
     label: 'Europe 🌍',
     emoji: '🌍',
-    description: 'French, Spanish, German, Italian, Portuguese, Russian, Polish, Dutch, Swedish, Norwegian, Danish, Finnish, Czech, Romanian, Greek, Hungarian, Ukrainian',
+    description:
+      'French, Spanish, German, Italian, Portuguese, Russian, Polish, Dutch, Swedish, Norwegian, Danish, Finnish, Czech, Romanian, Greek, Hungarian, Ukrainian',
     // Note: Catalan (ca), Basque (eu), Galician (gl), Welsh (cy) omitted — minimal
     // TMDB coverage. Serbian/Croatian share content under 'hr'/'sr' but TMDB often
     // conflates them; including both for best coverage.
-    codes: ['fr', 'es', 'de', 'it', 'pt', 'ru', 'pl', 'nl', 'sv', 'no', 'da', 'fi', 'cs', 'ro', 'el', 'hu', 'uk', 'hr', 'sr', 'sk', 'bg', 'lt', 'lv', 'et'],
+    codes: [
+      'fr',
+      'es',
+      'de',
+      'it',
+      'pt',
+      'ru',
+      'pl',
+      'nl',
+      'sv',
+      'no',
+      'da',
+      'fi',
+      'cs',
+      'ro',
+      'el',
+      'hu',
+      'uk',
+      'hr',
+      'sr',
+      'sk',
+      'bg',
+      'lt',
+      'lv',
+      'et',
+    ],
     smartFilter: false,
   },
   {
     id: 'asia',
     label: 'Asia 🌏',
     emoji: '🌏',
-    description: 'Korean, Japanese, Mandarin Chinese, Cantonese, Hindi, Tamil, Telugu, Malayalam, Kannada, Bengali, Marathi, Punjabi, Sinhala, Nepali, Urdu, Thai, Vietnamese, Indonesian, Malay, Tagalog/Filipino',
+    description:
+      'Korean, Japanese, Mandarin Chinese, Cantonese, Hindi, Tamil, Telugu, Malayalam, Kannada, Bengali, Marathi, Punjabi, Sinhala, Nepali, Urdu, Thai, Vietnamese, Indonesian, Malay, Tagalog/Filipino',
     // Combines East Asia, South Asia, and Southeast Asia.
     // Note: TMDB uses 'zh' for Mandarin and 'cn' is sometimes used for Cantonese.
     // Many Indian regional languages have sparse TMDB entries; the main
     // industry languages (hi, ta, te, ml, kn) have solid coverage.
-    codes: ['ko', 'ja', 'zh', 'cn', 'hi', 'ta', 'te', 'ml', 'kn', 'bn', 'mr', 'pa', 'si', 'ne', 'ur', 'th', 'vi', 'id', 'ms', 'tl'],
+    codes: [
+      'ko',
+      'ja',
+      'zh',
+      'cn',
+      'hi',
+      'ta',
+      'te',
+      'ml',
+      'kn',
+      'bn',
+      'mr',
+      'pa',
+      'si',
+      'ne',
+      'ur',
+      'th',
+      'vi',
+      'id',
+      'ms',
+      'tl',
+    ],
     smartFilter: true,
-    smartFilterNote: 'TMDB uses \'zh\' broadly for Chinese content. Mandarin and Cantonese titles may be mixed. Results tagged with \'cn\' (Cantonese) are included for broader coverage.',
+    smartFilterNote:
+      "TMDB uses 'zh' broadly for Chinese content. Mandarin and Cantonese titles may be mixed. Results tagged with 'cn' (Cantonese) are included for broader coverage.",
   },
   {
     id: 'middle_east',
@@ -55,7 +104,8 @@ export const REGION_PRESETS = [
     // Labeled as smart filter to signal this limitation.
     codes: ['ar', 'fa', 'tr', 'he'],
     smartFilter: true,
-    smartFilterNote: 'Arabic content uses a broad regional code — results may include films from any Arabic-speaking country.',
+    smartFilterNote:
+      'Arabic content uses a broad regional code — results may include films from any Arabic-speaking country.',
   },
   {
     id: 'africa',
@@ -77,7 +127,8 @@ export const REGION_PRESETS = [
     // Spain and Latin America). Use Origin Country filter for precision.
     codes: ['es', 'pt'],
     smartFilter: true,
-    smartFilterNote: 'Spanish covers both Spain and Latin America. Use Origin Country (TV) for regional precision.',
+    smartFilterNote:
+      'Spanish covers both Spain and Latin America. Use Origin Country (TV) for regional precision.',
   },
   {
     id: 'north_america',
@@ -108,7 +159,8 @@ export const SPECIAL_PRESETS = [
     id: 'non_english_only',
     label: 'Non-English Only 🌐',
     emoji: '🌐',
-    description: 'Equivalent to Exclude English — ensures all results have a non-English original language.',
+    description:
+      'Equivalent to Exclude English — ensures all results have a non-English original language.',
     isSpecial: true,
   },
 ];
@@ -121,10 +173,10 @@ export const SPECIAL_PRESETS = [
  * user activates a language preset on the TV view.
  */
 export const LANGUAGE_TO_COUNTRY_PRESET = {
-  europe:        'europe',
-  asia:          'asia',
-  middle_east:   'middle_east',
-  africa:        'africa',
+  europe: 'europe',
+  asia: 'asia',
+  middle_east: 'middle_east',
+  africa: 'africa',
   latin_america: 'latin_america',
   north_america: 'north_america',
 };
@@ -145,15 +197,67 @@ export const LANGUAGE_TO_COUNTRY_PRESET = {
  */
 export const NON_ENGLISH_CODES = [
   // Europe
-  'fr', 'es', 'de', 'it', 'pt', 'ru', 'pl', 'nl', 'sv', 'no', 'da',
-  'fi', 'cs', 'ro', 'el', 'hu', 'uk', 'hr', 'sr', 'sk', 'bg', 'lt', 'lv', 'et',
+  'fr',
+  'es',
+  'de',
+  'it',
+  'pt',
+  'ru',
+  'pl',
+  'nl',
+  'sv',
+  'no',
+  'da',
+  'fi',
+  'cs',
+  'ro',
+  'el',
+  'hu',
+  'uk',
+  'hr',
+  'sr',
+  'sk',
+  'bg',
+  'lt',
+  'lv',
+  'et',
   // Asia
-  'ko', 'ja', 'zh', 'cn', 'hi', 'ta', 'te', 'ml', 'kn', 'bn', 'mr',
-  'pa', 'si', 'ne', 'ur', 'th', 'vi', 'id', 'ms', 'tl',
+  'ko',
+  'ja',
+  'zh',
+  'cn',
+  'hi',
+  'ta',
+  'te',
+  'ml',
+  'kn',
+  'bn',
+  'mr',
+  'pa',
+  'si',
+  'ne',
+  'ur',
+  'th',
+  'vi',
+  'id',
+  'ms',
+  'tl',
   // Middle East
-  'ar', 'fa', 'tr', 'he',
+  'ar',
+  'fa',
+  'tr',
+  'he',
   // Africa
-  'af', 'sw', 'am', 'so', 'wo', 'yo', 'ig', 'ha', 'zu', 'xh',
+  'af',
+  'sw',
+  'am',
+  'so',
+  'wo',
+  'yo',
+  'ig',
+  'ha',
+  'zu',
+  'xh',
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

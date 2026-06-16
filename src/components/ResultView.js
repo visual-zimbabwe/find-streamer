@@ -1,5 +1,18 @@
 import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
-import { Animated, Easing, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking, Image, Share, Alert, Platform } from 'react-native';
+import {
+  Animated,
+  Easing,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Linking,
+  Image,
+  Share,
+  Alert,
+  Platform,
+} from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useBottomNavScroll, useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
@@ -128,7 +141,8 @@ function filmographyRoleForPerson(person) {
   return 'movie';
 }
 
-const isEntityUri = (val) => typeof val === 'string' && val.startsWith('http://www.wikidata.org/entity/');
+const isEntityUri = (val) =>
+  typeof val === 'string' && val.startsWith('http://www.wikidata.org/entity/');
 
 function wikidataIdFromUri(uri) {
   if (!uri || typeof uri !== 'string') return null;
@@ -149,7 +163,8 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     }
   }
 
-  if (clauses.length === 0) return { languages: [], countries: [], basedOn: [], soundtracks: [], awards: [] };
+  if (clauses.length === 0)
+    return { languages: [], countries: [], basedOn: [], soundtracks: [], awards: [] };
 
   const unionClause = clauses.map((c) => `{ ${c} }`).join(' UNION ');
 
@@ -180,7 +195,7 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
       method: 'GET',
       headers: {
         'User-Agent': 'Trova/1.0 (juwimana.database@gmail.com)',
-        'Accept': 'application/sparql-results+json',
+        Accept: 'application/sparql-results+json',
       },
     }),
     fetchWikidataAwards(imdbId, tmdbId, mediaType),
@@ -208,8 +223,9 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     if (isEntityUri(basedOnUri) && b.basedOnLabel?.value && !isEntityUri(b.basedOnLabel.value)) {
       const name = b.basedOnLabel.value;
       const id = wikidataIdFromUri(basedOnUri);
-      const author = (b.authorLabel?.value && !isEntityUri(b.authorLabel.value)) ? b.authorLabel.value : null;
-      const type = (b.typeLabel?.value && !isEntityUri(b.typeLabel.value)) ? b.typeLabel.value : null;
+      const author =
+        b.authorLabel?.value && !isEntityUri(b.authorLabel.value) ? b.authorLabel.value : null;
+      const type = b.typeLabel?.value && !isEntityUri(b.typeLabel.value) ? b.typeLabel.value : null;
 
       if (!basedOnMap.has(basedOnUri)) {
         basedOnMap.set(basedOnUri, { id, name, authors: new Set(), types: new Set() });
@@ -247,12 +263,12 @@ const GENERIC_TYPES = new Set([
   'creative work',
   'work',
   'media franchise',
-  'intellectual property'
+  'intellectual property',
 ]);
 
 function getSpecificType(types) {
   if (!types || types.length === 0) return null;
-  const specific = types.find(t => !GENERIC_TYPES.has(t.toLowerCase()));
+  const specific = types.find((t) => !GENERIC_TYPES.has(t.toLowerCase()));
   return specific || types[0];
 }
 
@@ -261,14 +277,21 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-
 // ─── Actor Sheet Content ─────────────────────────────────────────────────────
 /**
  * Lightweight filmography peek sheet pushed onto the stack when an actor card
  * is long-pressed. Shows a loading state, then the first 8 credits.
  * "See full filmography" calls onPersonPress to navigate to the full screen.
  */
-function ActorFilmographySheetContent({ person, role, colors, typography, radii, onPersonPress, onDismiss }) {
+function ActorFilmographySheetContent({
+  person,
+  role,
+  colors,
+  typography,
+  radii,
+  onPersonPress,
+  onDismiss,
+}) {
   const [credits, setCredits] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
@@ -286,7 +309,9 @@ function ActorFilmographySheetContent({ person, role, colors, typography, radii,
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [person.id, person.name, role]);
 
   return (
@@ -299,11 +324,17 @@ function ActorFilmographySheetContent({ person, role, colors, typography, radii,
             style={{ width: 52, height: 52, borderRadius: 26, marginRight: 12 }}
           />
         ) : (
-          <View style={{
-            width: 52, height: 52, borderRadius: 26, marginRight: 12,
-            backgroundColor: (colors?.primaryContainer ?? '#2a2a4a'),
-            alignItems: 'center', justifyContent: 'center',
-          }}>
+          <View
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 26,
+              marginRight: 12,
+              backgroundColor: colors?.primaryContainer ?? '#2a2a4a',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             <Text style={{ color: colors?.primary ?? '#8888ff', fontWeight: '700' }}>
               {initialsForName(person.name)}
             </Text>
@@ -314,7 +345,10 @@ function ActorFilmographySheetContent({ person, role, colors, typography, radii,
             {person.name}
           </Text>
           {person.roleLabel ? (
-            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+            <Text
+              style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 }}
+              numberOfLines={1}
+            >
               {person.roleLabel}
             </Text>
           ) : null}
@@ -325,7 +359,8 @@ function ActorFilmographySheetContent({ person, role, colors, typography, radii,
             if (onPersonPress) onPersonPress(person.id, person.name, role);
           }}
           style={{
-            paddingHorizontal: 14, paddingVertical: 7,
+            paddingHorizontal: 14,
+            paddingVertical: 7,
             borderRadius: 20,
             backgroundColor: (colors?.primary ?? '#6060e0') + '28',
             borderWidth: 1,
@@ -343,19 +378,24 @@ function ActorFilmographySheetContent({ person, role, colors, typography, radii,
       {/* Credits list */}
       {loading ? (
         <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-          <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>Loading filmography…</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>
+            Loading filmography…
+          </Text>
         </View>
       ) : error ? (
         <Text style={{ color: '#ff6b6b', fontSize: 13, textAlign: 'center' }}>{error}</Text>
       ) : credits.length === 0 ? (
-        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, textAlign: 'center' }}>No credits found.</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, textAlign: 'center' }}>
+          No credits found.
+        </Text>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
           {credits.map((item, i) => (
             <View
               key={`${item.tmdbId}-${item.mediaType}-${i}`}
               style={{
-                flexDirection: 'row', alignItems: 'center',
+                flexDirection: 'row',
+                alignItems: 'center',
                 paddingVertical: 9,
                 borderBottomWidth: i < credits.length - 1 ? StyleSheet.hairlineWidth : 0,
                 borderBottomColor: 'rgba(255,255,255,0.07)',
@@ -363,7 +403,13 @@ function ActorFilmographySheetContent({ person, role, colors, typography, radii,
             >
               <Image
                 source={{ uri: item.posterUrl }}
-                style={{ width: 36, height: 54, borderRadius: 6, marginRight: 12, backgroundColor: '#111' }}
+                style={{
+                  width: 36,
+                  height: 54,
+                  borderRadius: 6,
+                  marginRight: 12,
+                  backgroundColor: '#111',
+                }}
                 resizeMode="cover"
               />
               <View style={{ flex: 1 }}>
@@ -371,10 +417,16 @@ function ActorFilmographySheetContent({ person, role, colors, typography, radii,
                   {item.title}
                 </Text>
                 <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 2 }}>
-                  {[item.year, item.character && `as ${item.character}`].filter(Boolean).join(' · ')}
+                  {[item.year, item.character && `as ${item.character}`]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </Text>
               </View>
-              <Ionicons name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'} size={14} color="rgba(255,255,255,0.3)" />
+              <Ionicons
+                name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
+                size={14}
+                color="rgba(255,255,255,0.3)"
+              />
             </View>
           ))}
         </ScrollView>
@@ -383,7 +435,16 @@ function ActorFilmographySheetContent({ person, role, colors, typography, radii,
   );
 }
 
-export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlistItem, isInWatchlist, onSelectSimilar, onPersonPress, onCompanyPress }) {
+export function ResultView({
+  result,
+  onBack,
+  onToggleWatchlist,
+  onEnrichWatchlistItem,
+  isInWatchlist,
+  onSelectSimilar,
+  onPersonPress,
+  onCompanyPress,
+}) {
   const { theme } = useTheme();
   const { typography, radii } = theme;
   const insets = useSafeAreaInsets();
@@ -395,49 +456,46 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   const lastOffset = useRef(0);
 
   const scrollHandler = useRef(
-    Animated.event(
-      [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-      {
-        useNativeDriver: true,
-        listener: (event) => {
-          if (!event || !event.nativeEvent || !event.nativeEvent.contentOffset) return;
-          const currentOffset = event.nativeEvent.contentOffset.y;
-          const diff = currentOffset - lastOffset.current;
-          
-          const contentSize = event.nativeEvent.contentSize;
-          const layoutMeasurement = event.nativeEvent.layoutMeasurement;
+    Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+      useNativeDriver: true,
+      listener: (event) => {
+        if (!event || !event.nativeEvent || !event.nativeEvent.contentOffset) return;
+        const currentOffset = event.nativeEvent.contentOffset.y;
+        const diff = currentOffset - lastOffset.current;
 
-          if (contentSize && layoutMeasurement) {
-            const contentHeight = contentSize.height;
-            const layoutHeight = layoutMeasurement.height;
-            const maxOffset = contentHeight - layoutHeight;
+        const contentSize = event.nativeEvent.contentSize;
+        const layoutMeasurement = event.nativeEvent.layoutMeasurement;
 
-            if (currentOffset <= 50) {
+        if (contentSize && layoutMeasurement) {
+          const contentHeight = contentSize.height;
+          const layoutHeight = layoutMeasurement.height;
+          const maxOffset = contentHeight - layoutHeight;
+
+          if (currentOffset <= 50) {
+            setBottomNavVisible(true);
+          } else if (!isNaN(maxOffset) && currentOffset >= maxOffset - 50) {
+            setBottomNavVisible(true);
+          } else if (Math.abs(diff) > 12) {
+            if (diff > 0) {
+              setBottomNavVisible(false);
+            } else {
               setBottomNavVisible(true);
-            } else if (!isNaN(maxOffset) && currentOffset >= maxOffset - 50) {
-              setBottomNavVisible(true);
-            } else if (Math.abs(diff) > 12) {
-              if (diff > 0) {
-                setBottomNavVisible(false);
-              } else {
-                setBottomNavVisible(true);
-              }
-            }
-          } else {
-            if (currentOffset <= 50) {
-              setBottomNavVisible(true);
-            } else if (Math.abs(diff) > 12) {
-              if (diff > 0) {
-                setBottomNavVisible(false);
-              } else {
-                setBottomNavVisible(true);
-              }
             }
           }
-          lastOffset.current = currentOffset;
+        } else {
+          if (currentOffset <= 50) {
+            setBottomNavVisible(true);
+          } else if (Math.abs(diff) > 12) {
+            if (diff > 0) {
+              setBottomNavVisible(false);
+            } else {
+              setBottomNavVisible(true);
+            }
+          }
         }
-      }
-    )
+        lastOffset.current = currentOffset;
+      },
+    }),
   ).current;
   // Sticky header appears after hero scrolls out of view
   const stickyOpacity = scrollY.interpolate({
@@ -458,7 +516,13 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   const shareSheetIdRef = useRef(null);
 
   // ── Wikidata enrichment state ────────────────────────────────────────────
-  const [wikiData, setWikiData] = useState({ languages: [], countries: [], basedOn: null, soundtracks: [], awards: [] });
+  const [wikiData, setWikiData] = useState({
+    languages: [],
+    countries: [],
+    basedOn: null,
+    soundtracks: [],
+    awards: [],
+  });
   const [wikiLoading, setWikiLoading] = useState(false);
   const [wikiError, setWikiError] = useState(false);
   const [wikiRetryToken, setWikiRetryToken] = useState(0);
@@ -535,8 +599,23 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
         }
       });
 
-    return () => { cancelled = true; };
-  }, [result?.tmdbId, result?.imdbId, result?.mediaType, result?.originalLanguage, result?.countryOfOrigin, result?.basedOn, result?.soundtracks, result?.awards, result?.wikidataEnriched, onEnrichWatchlistItem, isInWatchlist, wikiRetryToken]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    result?.tmdbId,
+    result?.imdbId,
+    result?.mediaType,
+    result?.originalLanguage,
+    result?.countryOfOrigin,
+    result?.basedOn,
+    result?.soundtracks,
+    result?.awards,
+    result?.wikidataEnriched,
+    onEnrichWatchlistItem,
+    isInWatchlist,
+    wikiRetryToken,
+  ]);
 
   const handleBasedOnPress = useCallback((work) => {
     if (!work?.id) return;
@@ -602,52 +681,64 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
     });
   }, [playableSoundtracks, colors, typography, showSheet, dismissSheet]);
 
-  const handlePersonPressWithFallback = useCallback(async (person, role) => {
-    if (!onPersonPress) return;
+  const handlePersonPressWithFallback = useCallback(
+    async (person, role) => {
+      if (!onPersonPress) return;
 
-    if (person.id) {
-      onPersonPress(person.id, person.name, role);
-      return;
-    }
-
-    // Fallback: search for the person by name to get their TMDB ID
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const found = await searchPersonByName(person.name);
-      if (found && found.id) {
-        onPersonPress(found.id, person.name, role);
-      } else {
-        Alert.alert('Person Not Found', `We couldn't find a filmography for "${person.name}" on TMDb.`);
+      if (person.id) {
+        onPersonPress(person.id, person.name, role);
+        return;
       }
-    } catch (err) {
-      Alert.alert('Search Failed', 'Unable to search for this person. Please check your connection.');
-    }
-  }, [onPersonPress]);
+
+      // Fallback: search for the person by name to get their TMDB ID
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        const found = await searchPersonByName(person.name);
+        if (found && found.id) {
+          onPersonPress(found.id, person.name, role);
+        } else {
+          Alert.alert(
+            'Person Not Found',
+            `We couldn't find a filmography for "${person.name}" on TMDb.`,
+          );
+        }
+      } catch (err) {
+        Alert.alert(
+          'Search Failed',
+          'Unable to search for this person. Please check your connection.',
+        );
+      }
+    },
+    [onPersonPress],
+  );
 
   /** Long-press an actor card → push a filmography peek sheet */
-  const handleActorLongPress = useCallback((person, role) => {
-    if (!person.id) return; // need an ID to fetch filmography
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    let sheetId;
-    const content = (
-      <ActorFilmographySheetContent
-        person={person}
-        role={role}
-        colors={colors}
-        typography={typography}
-        radii={radii}
-        onPersonPress={onPersonPress}
-        onDismiss={() => dismissSheet(sheetId)}
-      />
-    );
-    sheetId = showSheet(content, {
-      title: `⭐ ${person.name}`,
-      size: 'large',
-      scrollable: false,
-      showCloseButton: true,
-      dismissOnBackdrop: true,
-    });
-  }, [colors, typography, radii, onPersonPress, showSheet, dismissSheet]);
+  const handleActorLongPress = useCallback(
+    (person, role) => {
+      if (!person.id) return; // need an ID to fetch filmography
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      let sheetId;
+      const content = (
+        <ActorFilmographySheetContent
+          person={person}
+          role={role}
+          colors={colors}
+          typography={typography}
+          radii={radii}
+          onPersonPress={onPersonPress}
+          onDismiss={() => dismissSheet(sheetId)}
+        />
+      );
+      sheetId = showSheet(content, {
+        title: `⭐ ${person.name}`,
+        size: 'large',
+        scrollable: false,
+        showCloseButton: true,
+        dismissOnBackdrop: true,
+      });
+    },
+    [colors, typography, radii, onPersonPress, showSheet, dismissSheet],
+  );
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -664,7 +755,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
     animation.start();
     return () => animation.stop();
@@ -687,12 +778,12 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
           dialogTitle: `Check out ${result?.title}`,
           UTI: 'public.png',
         });
-        toastiva.success("Shared successfully");
+        toastiva.success('Shared successfully');
       } else {
         await Share.share({
           message: `Check out "${result?.title}" (${result?.year}) – ${result?.genres || 'Unknown Genre'}`,
         });
-        toastiva.success("Shared successfully");
+        toastiva.success('Shared successfully');
       }
     } catch (err) {
       if (err?.message !== 'User did not share') {
@@ -701,17 +792,20 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
     }
   }, [result]);
 
-  const handleShareConfirm = useCallback(async (selectedCountries) => {
-    // Dismiss the share options sheet
-    if (shareSheetIdRef.current) {
-      dismissSheet(shareSheetIdRef.current);
-      shareSheetIdRef.current = null;
-    }
-    setShareCountries(selectedCountries);
-    // Wait for ShareCard to re-render and images to load from local cache.
-    await new Promise(resolve => setTimeout(resolve, 400));
-    await doCapture();
-  }, [doCapture, dismissSheet]);
+  const handleShareConfirm = useCallback(
+    async (selectedCountries) => {
+      // Dismiss the share options sheet
+      if (shareSheetIdRef.current) {
+        dismissSheet(shareSheetIdRef.current);
+        shareSheetIdRef.current = null;
+      }
+      setShareCountries(selectedCountries);
+      // Wait for ShareCard to re-render and images to load from local cache.
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await doCapture();
+    },
+    [doCapture, dismissSheet],
+  );
 
   const handleOpenShareSheet = useCallback(() => {
     const sheetId = showSheet(
@@ -729,7 +823,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
         scrollable: false,
         showCloseButton: true,
         dismissOnBackdrop: true,
-      }
+      },
     );
     shareSheetIdRef.current = sheetId;
   }, [result, showSheet, dismissSheet, handleShareConfirm]);
@@ -743,34 +837,39 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
 
     const writerPeople = writerPersons.length
       ? writerPersons.map((person) => ({
-        ...person,
-        role: 'writer',
-        roleLabel: person.job || 'Writer',
-      }))
-      : writerNames.map((name) => {
-        const match = writerPersons.find(
-          (person) => normalizePersonName(person.name) === normalizePersonName(name),
-        );
-        return {
-          ...(match || {}),
-          name,
-          role: 'writer',
-          roleLabel: match?.job || 'Writer',
-        };
-      });
-
-    const directorPeople = current.mediaType === 'tv'
-      ? (current.createdByPersons || []).map((person) => ({
-        ...person,
-        role: 'creator',
-        roleLabel: 'Creator',
-      }))
-      : (current.directorPersons?.length ? current.directorPersons : (current.directorId && hasValue(current.director) ? [{ id: current.directorId, name: current.director }] : []))
-        .map((person) => ({
           ...person,
-          role: 'director',
-          roleLabel: 'Director',
-        }));
+          role: 'writer',
+          roleLabel: person.job || 'Writer',
+        }))
+      : writerNames.map((name) => {
+          const match = writerPersons.find(
+            (person) => normalizePersonName(person.name) === normalizePersonName(name),
+          );
+          return {
+            ...(match || {}),
+            name,
+            role: 'writer',
+            roleLabel: match?.job || 'Writer',
+          };
+        });
+
+    const directorPeople =
+      current.mediaType === 'tv'
+        ? (current.createdByPersons || []).map((person) => ({
+            ...person,
+            role: 'creator',
+            roleLabel: 'Creator',
+          }))
+        : (current.directorPersons?.length
+            ? current.directorPersons
+            : current.directorId && hasValue(current.director)
+              ? [{ id: current.directorId, name: current.director }]
+              : []
+          ).map((person) => ({
+            ...person,
+            role: 'director',
+            roleLabel: 'Director',
+          }));
 
     const tmdbCast = current.castPersons?.length
       ? current.castPersons
@@ -810,17 +909,22 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   const hasRating = hasValue(result.rating);
   const hasGenres = hasValue(result.genres);
   const hasPeople = peopleSections.crewPeople.length > 0 || peopleSections.castPeople.length > 0;
-  const visibleCastPeople = showAllCast ? peopleSections.castPeople : peopleSections.castPeople.slice(0, 10);
-  const remainingCastCount = Math.max(peopleSections.castPeople.length - visibleCastPeople.length, 0);
+  const visibleCastPeople = showAllCast
+    ? peopleSections.castPeople
+    : peopleSections.castPeople.slice(0, 10);
+  const remainingCastCount = Math.max(
+    peopleSections.castPeople.length - visibleCastPeople.length,
+    0,
+  );
   const providerSummary = result.providerSummary || [];
   const hasAvailabilityRows = (result.rows || []).length > 0;
   const hasAvailabilityData = Array.isArray(result.rows);
-  const franchiseParts = result.isFranchise && result.collection?.parts?.length
-    ? result.collection.parts
-    : [];
-  const displaySynopsis = (result.synopsis && result.synopsis !== 'No synopsis available.')
-    ? result.synopsis
-    : (result.omdbRatings?.plot || result.synopsis || 'No synopsis available.');
+  const franchiseParts =
+    result.isFranchise && result.collection?.parts?.length ? result.collection.parts : [];
+  const displaySynopsis =
+    result.synopsis && result.synopsis !== 'No synopsis available.'
+      ? result.synopsis
+      : result.omdbRatings?.plot || result.synopsis || 'No synopsis available.';
   const meshColors = colors.meshColors || [
     colors.primary,
     colors.surfaceContainerHighest,
@@ -916,16 +1020,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
   return (
     <>
       {/* Off-screen share card – captured by ViewShot, never visible to the user */}
-      <View style={{ position: 'absolute', left: 5000, width: 450, height: 800, overflow: 'hidden' }} pointerEvents="none">
-        <ViewShot
-          ref={shareCardRef}
-          options={{ format: 'png', quality: 1 }}
-          style={{ width: 420 }}
-        >
+      <View
+        style={{ position: 'absolute', left: 5000, width: 450, height: 800, overflow: 'hidden' }}
+        pointerEvents="none"
+      >
+        <ViewShot ref={shareCardRef} options={{ format: 'png', quality: 1 }} style={{ width: 420 }}>
           <ShareCard result={result} selectedCountries={shareCountries} themeColors={colors} />
         </ViewShot>
       </View>
-
 
       <TrailerModal
         visible={trailerVisible}
@@ -1005,7 +1107,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
             <View style={styles.heroMetaStack}>
               {hasGenres && (
                 <View style={styles.genreBadge}>
-                  <Text style={[styles.genreText, { color: '#ffffff', ...typography.labelSm }]} numberOfLines={1}>
+                  <Text
+                    style={[styles.genreText, { color: '#ffffff', ...typography.labelSm }]}
+                    numberOfLines={1}
+                  >
                     {result.genres}
                   </Text>
                 </View>
@@ -1020,7 +1125,9 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                   <TouchableOpacity
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      Linking.openURL(`https://www.themoviedb.org/${result.mediaType === 'tv' ? 'tv' : 'movie'}/${result.tmdbId}`);
+                      Linking.openURL(
+                        `https://www.themoviedb.org/${result.mediaType === 'tv' ? 'tv' : 'movie'}/${result.tmdbId}`,
+                      );
                     }}
                     style={styles.heroRatingItem}
                     accessibilityRole="button"
@@ -1058,7 +1165,9 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                   <TouchableOpacity
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      Linking.openURL(`https://www.rottentomatoes.com/search?search=${encodeURIComponent(result.title || '')}`);
+                      Linking.openURL(
+                        `https://www.rottentomatoes.com/search?search=${encodeURIComponent(result.title || '')}`,
+                      );
                     }}
                     style={styles.heroRatingItem}
                     accessibilityRole="button"
@@ -1077,7 +1186,9 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                   <TouchableOpacity
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      Linking.openURL(`https://www.metacritic.com/search/all/${encodeURIComponent(result.title || '')}/results`);
+                      Linking.openURL(
+                        `https://www.metacritic.com/search/all/${encodeURIComponent(result.title || '')}/results`,
+                      );
                     }}
                     style={styles.heroRatingItem}
                     accessibilityRole="button"
@@ -1095,7 +1206,9 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
             </View>
 
             {/* Title stays white — it always sits on top of the backdrop image */}
-            <Text style={[styles.title, { color: '#ffffff', ...typography.displayLg }]}>{result.title}</Text>
+            <Text style={[styles.title, { color: '#ffffff', ...typography.displayLg }]}>
+              {result.title}
+            </Text>
 
             {/* Watch Trailer full-width button */}
             {result.trailer && result.trailer !== 'N/A' && (
@@ -1109,12 +1222,22 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                 accessibilityLabel={`Watch trailer for ${result.title}`}
               >
                 <Ionicons name="play" size={18} color="#ffffff" style={{ marginRight: 6 }} />
-                <Text style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]}>Watch Trailer</Text>
+                <Text
+                  style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]}
+                >
+                  Watch Trailer
+                </Text>
               </TouchableOpacity>
             )}
 
             {wikiLoading ? (
-              <View style={[styles.trailerButton, styles.soundtrackSkeleton, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+              <View
+                style={[
+                  styles.trailerButton,
+                  styles.soundtrackSkeleton,
+                  { backgroundColor: 'rgba(255,255,255,0.12)' },
+                ]}
+              >
                 <SkeletonBlock width="62%" height={16} borderRadius={8} />
               </View>
             ) : playableSoundtracks.length === 1 ? (
@@ -1125,7 +1248,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                 accessibilityLabel={`Play ${playableSoundtracks[0].title} on Spotify`}
               >
                 <FontAwesome5 name="spotify" size={18} color="#ffffff" style={{ marginRight: 6 }} />
-                <Text style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]} numberOfLines={1}>
+                <Text
+                  style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]}
+                  numberOfLines={1}
+                >
                   {playableSoundtracks[0].title}
                 </Text>
               </TouchableOpacity>
@@ -1137,7 +1263,9 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                 accessibilityLabel={`Choose soundtrack for ${result.title}`}
               >
                 <FontAwesome5 name="spotify" size={18} color="#ffffff" style={{ marginRight: 6 }} />
-                <Text style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]}>
+                <Text
+                  style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]}
+                >
                   {`Choose Soundtrack (${playableSoundtracks.length})`}
                 </Text>
               </TouchableOpacity>
@@ -1152,12 +1280,24 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
               >
                 <View style={styles.infoPill}>
                   <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.75)" />
-                  <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>{result.year}</Text>
+                  <Text
+                    style={[
+                      styles.infoText,
+                      { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
+                    ]}
+                  >
+                    {result.year}
+                  </Text>
                 </View>
                 {isTv && seasonCount > 0 && (
                   <View style={styles.infoPill}>
                     <Ionicons name="tv-outline" size={14} color="rgba(255,255,255,0.75)" />
-                    <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
+                    <Text
+                      style={[
+                        styles.infoText,
+                        { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
+                      ]}
+                    >
                       {pluralize(seasonCount, 'season')}
                     </Text>
                   </View>
@@ -1165,14 +1305,24 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                 {!isTv && runtimeLabel && (
                   <View style={styles.infoPill}>
                     <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.75)" />
-                    <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
+                    <Text
+                      style={[
+                        styles.infoText,
+                        { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
+                      ]}
+                    >
                       {runtimeLabel}
                     </Text>
                   </View>
                 )}
                 {result.omdbRatings?.rated && (
                   <View style={[styles.infoPill, styles.ratedBadge]}>
-                    <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.85)', ...typography.labelSm }]}>
+                    <Text
+                      style={[
+                        styles.infoText,
+                        { color: 'rgba(255,255,255,0.85)', ...typography.labelSm },
+                      ]}
+                    >
                       {result.omdbRatings.rated}
                     </Text>
                   </View>
@@ -1180,7 +1330,12 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                 {result.isFranchise && (
                   <View style={[styles.infoPill, styles.ratedBadge]}>
                     <Ionicons name="albums-outline" size={14} color="rgba(255,255,255,0.85)" />
-                    <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.85)', ...typography.labelSm }]}>
+                    <Text
+                      style={[
+                        styles.infoText,
+                        { color: 'rgba(255,255,255,0.85)', ...typography.labelSm },
+                      ]}
+                    >
                       {result.franchiseLabel}
                     </Text>
                   </View>
@@ -1200,8 +1355,17 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                   <>
                     {wikiData.languages && wikiData.languages.length > 0 && (
                       <View style={styles.infoPill}>
-                        <Ionicons name="language-outline" size={14} color="rgba(255,255,255,0.75)" />
-                        <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
+                        <Ionicons
+                          name="language-outline"
+                          size={14}
+                          color="rgba(255,255,255,0.75)"
+                        />
+                        <Text
+                          style={[
+                            styles.infoText,
+                            { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
+                          ]}
+                        >
                           {wikiData.languages.join(', ')}
                         </Text>
                       </View>
@@ -1209,7 +1373,12 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                     {wikiData.countries && wikiData.countries.length > 0 && (
                       <View style={styles.infoPill}>
                         <Ionicons name="globe-outline" size={14} color="rgba(255,255,255,0.75)" />
-                        <Text style={[styles.infoText, { color: 'rgba(255,255,255,0.75)', ...typography.labelSm }]}>
+                        <Text
+                          style={[
+                            styles.infoText,
+                            { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
+                          ]}
+                        >
                           {wikiData.countries.join(', ')}
                         </Text>
                       </View>
@@ -1217,7 +1386,7 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                   </>
                 )}
               </ScrollView>
-              
+
               <LinearGradient
                 colors={['transparent', colors.background]}
                 start={{ x: 0, y: 0 }}
@@ -1232,7 +1401,11 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
         <View style={[styles.detailsContent, { backgroundColor: colors.background }]}>
           <View pointerEvents="none" style={styles.meshBackdrop}>
             <LinearGradient
-              colors={[colors.background, meshColors[3] || colors.surfaceContainer, colors.background]}
+              colors={[
+                colors.background,
+                meshColors[3] || colors.surfaceContainer,
+                colors.background,
+              ]}
               locations={[0, 0.48, 1]}
               style={StyleSheet.absoluteFill}
             />
@@ -1243,7 +1416,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
           </View>
 
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Synopsis</Text>
+            <Text
+              style={[
+                styles.sectionLabel,
+                { color: colors.onSurfaceVariant, ...typography.labelSm },
+              ]}
+            >
+              Synopsis
+            </Text>
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1262,16 +1442,38 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
           {/* Based On Section */}
           {wikiLoading ? (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Based On</Text>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                Based On
+              </Text>
               <View style={styles.basedOnContainer}>
-                <View style={[styles.basedOnCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
+                <View
+                  style={[
+                    styles.basedOnCard,
+                    {
+                      backgroundColor: colors.surfaceContainer,
+                      borderColor: colors.outlineVariant,
+                    },
+                  ]}
+                >
                   <SkeletonBlock style={{ width: 140, height: 16, borderRadius: 4 }} />
                 </View>
               </View>
             </View>
           ) : wikiError ? (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Based On</Text>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                Based On
+              </Text>
               <TouchableOpacity
                 onPress={handleWikiRetry}
                 style={[styles.basedOnRetry, { borderColor: colors.outlineVariant }]}
@@ -1279,25 +1481,45 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                 accessibilityLabel="Retry loading source material"
               >
                 <Ionicons name="refresh-outline" size={16} color={colors.onSurfaceVariant} />
-                <Text style={[styles.basedOnRetryText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+                <Text
+                  style={[
+                    styles.basedOnRetryText,
+                    { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                  ]}
+                >
                   Couldn&apos;t load source material. Tap to retry.
                 </Text>
               </TouchableOpacity>
             </View>
           ) : (
-            wikiData.basedOn && wikiData.basedOn.length > 0 && (
+            wikiData.basedOn &&
+            wikiData.basedOn.length > 0 && (
               <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Based On</Text>
+                <Text
+                  style={[
+                    styles.sectionLabel,
+                    { color: colors.onSurfaceVariant, ...typography.labelSm },
+                  ]}
+                >
+                  Based On
+                </Text>
                 <View style={styles.basedOnContainer}>
                   {wikiData.basedOn.map((work, idx) => {
-                    const authorText = work.authors && work.authors.length > 0
-                      ? ` by ${work.authors.join(', ')}`
-                      : '';
+                    const authorText =
+                      work.authors && work.authors.length > 0
+                        ? ` by ${work.authors.join(', ')}`
+                        : '';
                     const specificType = getSpecificType(work.types);
                     const typeLabel = specificType ? capitalize(specificType) : '';
                     const cardContent = (
                       <>
-                        <Text style={[styles.basedOnText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+                        <Text
+                          style={[
+                            styles.basedOnText,
+                            { color: colors.onSurface, ...typography.bodyMd },
+                          ]}
+                          numberOfLines={2}
+                        >
                           {typeLabel ? (
                             <Text style={{ color: colors.primary, fontWeight: '700' }}>
                               {typeLabel}:{' '}
@@ -1311,7 +1533,13 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                         ) : null}
                       </>
                     );
-                    const cardStyle = [styles.basedOnCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }];
+                    const cardStyle = [
+                      styles.basedOnCard,
+                      {
+                        backgroundColor: colors.surfaceContainer,
+                        borderColor: colors.outlineVariant,
+                      },
+                    ];
                     return work.id ? (
                       <TouchableOpacity
                         key={work.id}
@@ -1341,15 +1569,31 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                   <Ionicons name="albums-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.franchiseHeaderText}>
-                  <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 4 }]}>
+                  <Text
+                    style={[
+                      styles.sectionLabel,
+                      { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 4 },
+                    ]}
+                  >
                     Franchise
                   </Text>
-                  <Text style={[styles.franchiseTitle, { color: colors.onSurface, ...typography.titleMd }]} numberOfLines={2}>
+                  <Text
+                    style={[
+                      styles.franchiseTitle,
+                      { color: colors.onSurface, ...typography.titleMd },
+                    ]}
+                    numberOfLines={2}
+                  >
                     {result.collection?.name || `${result.title} ${result.franchiseLabel}`}
                   </Text>
                 </View>
                 <View style={[styles.franchiseCountBadge, { borderColor: colors.outlineVariant }]}>
-                  <Text style={[styles.franchiseCountText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                  <Text
+                    style={[
+                      styles.franchiseCountText,
+                      { color: colors.onSurfaceVariant, ...typography.labelSm },
+                    ]}
+                  >
                     {pluralize(franchiseParts.length, 'film')}
                   </Text>
                 </View>
@@ -1369,27 +1613,51 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                       onPress={() => !isCurrentMovie && onSelectSimilar(item)}
                       disabled={isCurrentMovie}
                       accessibilityRole="button"
-                      accessibilityLabel={isCurrentMovie ? `${item.title}, current movie` : `Open details for ${item.title}`}
+                      accessibilityLabel={
+                        isCurrentMovie
+                          ? `${item.title}, current movie`
+                          : `Open details for ${item.title}`
+                      }
                       accessibilityState={{ selected: isCurrentMovie }}
                       activeOpacity={0.78}
                     >
-                      <View style={[
-                        styles.similarPoster,
-                        styles.franchisePoster,
-                        { borderRadius: radii.md },
-                        isCurrentMovie && { borderColor: colors.primary, borderWidth: 2 },
-                      ]}>
-                        <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
-                        <View style={[styles.franchiseOrderBadge, { backgroundColor: colors.primary }]}>
+                      <View
+                        style={[
+                          styles.similarPoster,
+                          styles.franchisePoster,
+                          { borderRadius: radii.md },
+                          isCurrentMovie && { borderColor: colors.primary, borderWidth: 2 },
+                        ]}
+                      >
+                        <MediaArtwork
+                          uri={item.posterUrl}
+                          style={styles.poster}
+                          accessibilityLabel={`${item.title} poster`}
+                          title={item.title}
+                        />
+                        <View
+                          style={[styles.franchiseOrderBadge, { backgroundColor: colors.primary }]}
+                        >
                           <Text style={[styles.franchiseOrderText, { color: colors.onPrimary }]}>
                             {index + 1}
                           </Text>
                         </View>
                       </View>
-                      <Text style={[styles.similarTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+                      <Text
+                        style={[
+                          styles.similarTitle,
+                          { color: colors.onSurface, ...typography.bodyMd },
+                        ]}
+                        numberOfLines={1}
+                      >
                         {item.title}
                       </Text>
-                      <Text style={[styles.franchiseYear, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                      <Text
+                        style={[
+                          styles.franchiseYear,
+                          { color: colors.onSurfaceVariant, ...typography.labelSm },
+                        ]}
+                      >
                         {isCurrentMovie ? `${item.year} · Current` : item.year}
                       </Text>
                     </TouchableOpacity>
@@ -1405,10 +1673,22 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                 <View style={styles.seriesStats}>
                   <View style={styles.seriesStat}>
                     <Ionicons name="timer-outline" size={22} color={colors.primary} />
-                    <Text style={[styles.seriesStatValue, { color: colors.onSurface, ...typography.titleLg }]}>
+                    <Text
+                      style={[
+                        styles.seriesStatValue,
+                        { color: colors.onSurface, ...typography.titleLg },
+                      ]}
+                    >
                       {`${result.runtimeMinutes}m`}
                     </Text>
-                    <Text style={[styles.seriesStatLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Avg Length</Text>
+                    <Text
+                      style={[
+                        styles.seriesStatLabel,
+                        { color: colors.onSurfaceVariant, ...typography.labelSm },
+                      ]}
+                    >
+                      Avg Length
+                    </Text>
                   </View>
                 </View>
               )}
@@ -1421,12 +1701,29 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                 >
                   {result.seasons.map((season) => (
                     <View key={season.id || season.seasonNumber} style={styles.seasonCard}>
-                      <MediaArtwork uri={season.posterUrl} style={styles.seasonPoster} accessibilityLabel={`${season.name} poster`} title={season.name} icon="tv-outline" />
+                      <MediaArtwork
+                        uri={season.posterUrl}
+                        style={styles.seasonPoster}
+                        accessibilityLabel={`${season.name} poster`}
+                        title={season.name}
+                        icon="tv-outline"
+                      />
                       <View style={styles.seasonBody}>
-                        <Text style={[styles.seasonName, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+                        <Text
+                          style={[
+                            styles.seasonName,
+                            { color: colors.onSurface, ...typography.bodyMd },
+                          ]}
+                          numberOfLines={2}
+                        >
                           {season.name}
                         </Text>
-                        <Text style={[styles.seasonMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                        <Text
+                          style={[
+                            styles.seasonMeta,
+                            { color: colors.onSurfaceVariant, ...typography.labelSm },
+                          ]}
+                        >
                           {season.year} • {pluralize(season.episodeCount, 'episode')}
                         </Text>
                       </View>
@@ -1440,7 +1737,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
           {hasPeople && (
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 0 }]}>Cast & Crew</Text>
+                <Text
+                  style={[
+                    styles.sectionLabel,
+                    { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 0 },
+                  ]}
+                >
+                  Cast & Crew
+                </Text>
                 {remainingCastCount > 0 && (
                   <TouchableOpacity
                     onPress={() => setShowAllCast(true)}
@@ -1448,7 +1752,11 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                     accessibilityLabel={`Show ${remainingCastCount} more cast members`}
                     style={styles.seeAllButton}
                   >
-                    <Text style={[styles.seeAllText, { color: colors.primary, ...typography.labelSm }]}>See All</Text>
+                    <Text
+                      style={[styles.seeAllText, { color: colors.primary, ...typography.labelSm }]}
+                    >
+                      See All
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1462,18 +1770,29 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                   <TouchableOpacity
                     key={personKey(person, index)}
                     style={styles.personCard}
-                    onPress={() => handlePersonPressWithFallback(person, filmographyRoleForPerson(person))}
-                    onLongPress={person.role === 'composer' && person.id
-                      ? () => handleActorLongPress(person, 'composer')
-                      : undefined}
+                    onPress={() =>
+                      handlePersonPressWithFallback(person, filmographyRoleForPerson(person))
+                    }
+                    onLongPress={
+                      person.role === 'composer' && person.id
+                        ? () => handleActorLongPress(person, 'composer')
+                        : undefined
+                    }
                     delayLongPress={person.role === 'composer' ? 400 : undefined}
                     accessibilityRole="button"
-                    accessibilityLabel={person.role === 'composer' && person.id
-                      ? `View filmography for ${person.name}. Long press for a quick preview.`
-                      : `View work by ${person.name}`}
+                    accessibilityLabel={
+                      person.role === 'composer' && person.id
+                        ? `View filmography for ${person.name}. Long press for a quick preview.`
+                        : `View work by ${person.name}`
+                    }
                     activeOpacity={0.78}
                   >
-                    <View style={[styles.avatarRing, !person.profileUrl && { backgroundColor: colors.primaryContainer }]}>
+                    <View
+                      style={[
+                        styles.avatarRing,
+                        !person.profileUrl && { backgroundColor: colors.primaryContainer },
+                      ]}
+                    >
                       {person.profileUrl ? (
                         <MediaArtwork
                           uri={person.profileUrl}
@@ -1484,15 +1803,29 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                           compactFallback
                         />
                       ) : (
-                        <Text style={[styles.avatarInitials, { color: colors.primary, ...typography.labelSm }]}>
+                        <Text
+                          style={[
+                            styles.avatarInitials,
+                            { color: colors.primary, ...typography.labelSm },
+                          ]}
+                        >
                           {initialsForName(person.name)}
                         </Text>
                       )}
                     </View>
-                    <Text style={[styles.personName, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+                    <Text
+                      style={[styles.personName, { color: colors.onSurface, ...typography.bodyMd }]}
+                      numberOfLines={2}
+                    >
                       {person.name}
                     </Text>
-                    <Text style={[styles.personRole, { color: colors.onSurfaceVariant, ...typography.labelSm }]} numberOfLines={2}>
+                    <Text
+                      style={[
+                        styles.personRole,
+                        { color: colors.onSurfaceVariant, ...typography.labelSm },
+                      ]}
+                      numberOfLines={2}
+                    >
                       {person.roleLabel}
                     </Text>
                   </TouchableOpacity>
@@ -1509,7 +1842,12 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                     accessibilityLabel={`View filmography for ${person.name}. Long press for a quick preview.`}
                     activeOpacity={0.78}
                   >
-                    <View style={[styles.avatarRing, !person.profileUrl && { backgroundColor: colors.surfaceContainerHigh }]}>
+                    <View
+                      style={[
+                        styles.avatarRing,
+                        !person.profileUrl && { backgroundColor: colors.surfaceContainerHigh },
+                      ]}
+                    >
                       {person.profileUrl ? (
                         <MediaArtwork
                           uri={person.profileUrl}
@@ -1520,15 +1858,29 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                           compactFallback
                         />
                       ) : (
-                        <Text style={[styles.avatarInitials, { color: colors.onSurface, ...typography.labelSm }]}>
+                        <Text
+                          style={[
+                            styles.avatarInitials,
+                            { color: colors.onSurface, ...typography.labelSm },
+                          ]}
+                        >
                           {initialsForName(person.name)}
                         </Text>
                       )}
                     </View>
-                    <Text style={[styles.personName, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+                    <Text
+                      style={[styles.personName, { color: colors.onSurface, ...typography.bodyMd }]}
+                      numberOfLines={2}
+                    >
                       {person.name}
                     </Text>
-                    <Text style={[styles.personRole, { color: colors.onSurfaceVariant, ...typography.labelSm }]} numberOfLines={2}>
+                    <Text
+                      style={[
+                        styles.personRole,
+                        { color: colors.onSurfaceVariant, ...typography.labelSm },
+                      ]}
+                      numberOfLines={2}
+                    >
                       {person.roleLabel}
                     </Text>
                   </TouchableOpacity>
@@ -1537,12 +1889,17 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
             </View>
           )}
 
-
-
           {/* ─── Awards ──────────────────────────────────────────────────── */}
           {(wikiLoading || displayAwards.length > 0) && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Awards & Recognition</Text>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                Awards & Recognition
+              </Text>
 
               {wikiLoading && displayAwards.length === 0 ? (
                 <ScrollView
@@ -1571,13 +1928,27 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                           uri={award.logoUrl}
                           label={award.label}
                           style={styles.awardLogo}
-                          fallbackStyle={[styles.awardLogoFallback, { backgroundColor: colors.surfaceContainerHigh }]}
+                          fallbackStyle={[
+                            styles.awardLogoFallback,
+                            { backgroundColor: colors.surfaceContainerHigh },
+                          ]}
                           iconColor={colors.primary}
                         />
-                        <Text style={[styles.awardCountText, { color: colors.onSurface, ...typography.labelSm }]}>
+                        <Text
+                          style={[
+                            styles.awardCountText,
+                            { color: colors.onSurface, ...typography.labelSm },
+                          ]}
+                        >
                           {formatAwardCounts(award)}
                         </Text>
-                        <Text style={[styles.awardLabelText, { color: colors.onSurfaceVariant, ...typography.labelSm }]} numberOfLines={2}>
+                        <Text
+                          style={[
+                            styles.awardLabelText,
+                            { color: colors.onSurfaceVariant, ...typography.labelSm },
+                          ]}
+                          numberOfLines={2}
+                        >
                           {award.label}
                         </Text>
                       </>
@@ -1611,7 +1982,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
 
           {result.productionCompanies && result.productionCompanies.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Production Companies</Text>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                Production Companies
+              </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1629,17 +2007,23 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                     disabled={!onCompanyPress}
                     activeOpacity={0.78}
                     accessibilityRole="button"
-                    accessibilityLabel={onCompanyPress ? `View titles from ${company.name}` : undefined}
+                    accessibilityLabel={
+                      onCompanyPress ? `View titles from ${company.name}` : undefined
+                    }
                     accessibilityState={{ disabled: !onCompanyPress }}
                   >
                     <View
                       style={[
                         styles.productionLogoHaloBase,
-                        Platform.OS === 'ios' ? styles.productionLogoHaloOuterIos : styles.productionLogoHaloOuterAndroid,
+                        Platform.OS === 'ios'
+                          ? styles.productionLogoHaloOuterIos
+                          : styles.productionLogoHaloOuterAndroid,
                       ]}
                     >
                       {Platform.OS === 'ios' ? (
-                        <View style={[styles.productionLogoHaloBase, styles.productionLogoHaloInnerIos]}>
+                        <View
+                          style={[styles.productionLogoHaloBase, styles.productionLogoHaloInnerIos]}
+                        >
                           <Image
                             source={{ uri: company.logoUrl }}
                             style={styles.productionLogo}
@@ -1665,13 +2049,27 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
           {/* Detailed Country View */}
           {hasAvailabilityData && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>Global Availability</Text>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                Global Availability
+              </Text>
 
               {hasAvailabilityRows ? (
                 <View style={styles.table}>
                   {result.rows.map((row) => (
                     <View key={row.code} style={styles.tableRow}>
-                      <Text style={[styles.countryName, { color: colors.onSurface, ...typography.bodyMd }]}>{row.country}</Text>
+                      <Text
+                        style={[
+                          styles.countryName,
+                          { color: colors.onSurface, ...typography.bodyMd },
+                        ]}
+                      >
+                        {row.country}
+                      </Text>
                       <View style={styles.providerBadges}>
                         {providerSummary.map((provider) =>
                           row.providers[provider.key] ? (
@@ -1679,13 +2077,19 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                               <Image
                                 key={provider.key}
                                 source={{ uri: provider.logoUrl }}
-                                style={[styles.serviceLogo, { borderColor: provider.fallbackColor }]}
+                                style={[
+                                  styles.serviceLogo,
+                                  { borderColor: provider.fallbackColor },
+                                ]}
                                 accessibilityLabel={provider.label}
                               />
                             ) : (
-                              <View key={provider.key} style={[styles.dot, { backgroundColor: provider.fallbackColor }]} />
+                              <View
+                                key={provider.key}
+                                style={[styles.dot, { backgroundColor: provider.fallbackColor }]}
+                              />
                             )
-                          ) : null
+                          ) : null,
                         )}
                       </View>
                     </View>
@@ -1694,8 +2098,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
               ) : (
                 <View style={styles.availabilityEmpty}>
                   <Ionicons name="earth-outline" size={22} color={colors.onSurfaceVariant} />
-                  <Text style={[styles.availabilityEmptyText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-                    Not listed on Netflix, Prime Video, Max, CBC Gem, BBC iPlayer, Channel 4, ITVX, SBS On Demand, or ABC iview in any supported country right now.
+                  <Text
+                    style={[
+                      styles.availabilityEmptyText,
+                      { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                    ]}
+                  >
+                    Not listed on Netflix, Prime Video, Max, CBC Gem, BBC iPlayer, Channel 4, ITVX,
+                    SBS On Demand, or ABC iview in any supported country right now.
                   </Text>
                 </View>
               )}
@@ -1705,7 +2115,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
           {/* More From This Cast & Crew */}
           {result.moreFromCastAndCrew && result.moreFromCastAndCrew.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>More From This Cast & Crew</Text>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                More From This Cast & Crew
+              </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1720,14 +2137,27 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                     accessibilityLabel={`Open details for ${item.title}`}
                   >
                     <View style={[styles.similarPoster, { borderRadius: radii.md }]}>
-                      <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
+                      <MediaArtwork
+                        uri={item.posterUrl}
+                        style={styles.poster}
+                        accessibilityLabel={`${item.title} poster`}
+                        title={item.title}
+                      />
                       {item.omdbRatings?.imdbRating && (
                         <View style={[styles.similarRating, { backgroundColor: '#F5C518' }]}>
-                          <Text style={{ color: '#000000', fontSize: 10, fontWeight: '800' }}>IMDb {ratingForCard(item.omdbRatings.imdbRating)}</Text>
+                          <Text style={{ color: '#000000', fontSize: 10, fontWeight: '800' }}>
+                            IMDb {ratingForCard(item.omdbRatings.imdbRating)}
+                          </Text>
                         </View>
                       )}
                     </View>
-                    <Text style={[styles.similarTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+                    <Text
+                      style={[
+                        styles.similarTitle,
+                        { color: colors.onSurface, ...typography.bodyMd },
+                      ]}
+                      numberOfLines={1}
+                    >
                       {item.title}
                     </Text>
                   </TouchableOpacity>
@@ -1739,7 +2169,14 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
           {/* More Like This */}
           {result.similar && result.similar.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>More Like This</Text>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                More Like This
+              </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1754,12 +2191,25 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
                     accessibilityLabel={`Open details for ${item.title}`}
                   >
                     <View style={[styles.similarPoster, { borderRadius: radii.md }]}>
-                      <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
+                      <MediaArtwork
+                        uri={item.posterUrl}
+                        style={styles.poster}
+                        accessibilityLabel={`${item.title} poster`}
+                        title={item.title}
+                      />
                       <View style={styles.similarRating}>
-                        <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>{ratingForCard(item.rating)}</Text>
+                        <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>
+                          {ratingForCard(item.rating)}
+                        </Text>
                       </View>
                     </View>
-                    <Text style={[styles.similarTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+                    <Text
+                      style={[
+                        styles.similarTitle,
+                        { color: colors.onSurface, ...typography.bodyMd },
+                      ]}
+                      numberOfLines={1}
+                    >
                       {item.title}
                     </Text>
                   </TouchableOpacity>
@@ -1771,9 +2221,15 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
       </Animated.ScrollView>
 
       {/* Floating Header Actions */}
-      <View style={[styles.floatingHeader, { top: (insets.top || 0) + 12 }]} pointerEvents="box-none">
+      <View
+        style={[styles.floatingHeader, { top: (insets.top || 0) + 12 }]}
+        pointerEvents="box-none"
+      >
         <TouchableOpacity
-          style={[styles.floatingButton, { backgroundColor: colors.surfaceContainerHighest + 'E6' }]}
+          style={[
+            styles.floatingButton,
+            { backgroundColor: colors.surfaceContainerHighest + 'E6' },
+          ]}
           onPress={onBack}
           accessibilityRole="button"
           accessibilityLabel="Go back"
@@ -1783,7 +2239,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
 
         <View style={styles.floatingRightActions}>
           <TouchableOpacity
-            style={[styles.floatingButton, { backgroundColor: colors.surfaceContainerHighest + 'E6' }]}
+            style={[
+              styles.floatingButton,
+              { backgroundColor: colors.surfaceContainerHighest + 'E6' },
+            ]}
             onPress={handleOpenShareSheet}
             accessibilityRole="button"
             accessibilityLabel={`Share ${result.title}`}
@@ -1792,7 +2251,10 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.floatingButton, { backgroundColor: colors.surfaceContainerHighest + 'E6' }]}
+            style={[
+              styles.floatingButton,
+              { backgroundColor: colors.surfaceContainerHighest + 'E6' },
+            ]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               if (isInWatchlist) {
@@ -1803,11 +2265,15 @@ export function ResultView({ result, onBack, onToggleWatchlist, onEnrichWatchlis
               onToggleWatchlist(result);
             }}
             accessibilityRole="button"
-            accessibilityLabel={isInWatchlist ? `Remove ${result.title} from watchlist` : `Add ${result.title} to watchlist`}
+            accessibilityLabel={
+              isInWatchlist
+                ? `Remove ${result.title} from watchlist`
+                : `Add ${result.title} to watchlist`
+            }
             accessibilityState={{ selected: isInWatchlist }}
           >
             <Ionicons
-              name={isInWatchlist ? "bookmark" : "bookmark-outline"}
+              name={isInWatchlist ? 'bookmark' : 'bookmark-outline'}
               size={20}
               color={isInWatchlist ? colors.primary : colors.onSurface}
             />

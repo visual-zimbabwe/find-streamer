@@ -7,8 +7,11 @@ const TMDB_BASE = 'https://api.themoviedb.org/3';
 const HARDCODED_BEARER_TOKEN =
   'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZWNkNDE1YWJhY2VmMzYxM2I5NDc1MWQ5OWRhODU2YSIsIm5iZiI6MTc3MTgwMDUzOS45ODU5OTk4LCJzdWIiOiI2OTliODdkYmYwMTE1NmYxNDljNWE1MTgiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.oXCB5rLBXE6TwtgHGup4lEEX-dI0uTXGUVP8PQesics';
 const TMDB_REQUEST_TIMEOUT_MS = 12000;
-const TV_EPISODE_PROVIDER_LOOKUP_ENABLED = process.env.EXPO_PUBLIC_TMDB_TV_EPISODE_LOOKUP === 'true';
-const TV_EPISODE_PROVIDER_MAX_EPISODES = Number(process.env.EXPO_PUBLIC_TMDB_TV_EPISODE_MAX_EPISODES || 60);
+const TV_EPISODE_PROVIDER_LOOKUP_ENABLED =
+  process.env.EXPO_PUBLIC_TMDB_TV_EPISODE_LOOKUP === 'true';
+const TV_EPISODE_PROVIDER_MAX_EPISODES = Number(
+  process.env.EXPO_PUBLIC_TMDB_TV_EPISODE_MAX_EPISODES || 60,
+);
 
 export const SERVICE_LABELS = {
   netflix: 'Netflix',
@@ -42,7 +45,10 @@ const REGION_LOCKED_SERVICES = {
 };
 
 function normalize(text) {
-  return (text || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').trim();
+  return (text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, '')
+    .trim();
 }
 
 function serviceKey(providerName) {
@@ -154,70 +160,96 @@ const _tmdbPromiseCache = new Map();
 async function tmdbGet(pathname, params = {}) {
   // Sort parameters to ensure consistent cache keys
   const sortedParams = {};
-  Object.keys(params).sort().forEach(key => {
-    sortedParams[key] = params[key];
-  });
-  
+  Object.keys(params)
+    .sort()
+    .forEach((key) => {
+      sortedParams[key] = params[key];
+    });
+
   const cacheKey = JSON.stringify({ pathname, params: sortedParams });
-  
+
   if (_tmdbPromiseCache.has(cacheKey)) {
     return _tmdbPromiseCache.get(cacheKey);
   }
 
   const promise = (async () => {
-    return retryWithBackoff(async () => {
-      return tmdbLimiter.run(async () => {
-        const url = new URL(`${TMDB_BASE}${pathname}`);
-        Object.entries(sortedParams).forEach(([key, value]) => url.searchParams.set(key, String(value)));
+    return retryWithBackoff(
+      async () => {
+        return tmdbLimiter.run(async () => {
+          const url = new URL(`${TMDB_BASE}${pathname}`);
+          Object.entries(sortedParams).forEach(([key, value]) =>
+            url.searchParams.set(key, String(value)),
+          );
 
-        const timeout = createTimeoutSignal(TMDB_REQUEST_TIMEOUT_MS);
-        let response;
-        try {
-          response = await fetch(url.toString(), {
-            headers: {
-              accept: 'application/json',
-              Authorization: `Bearer ${HARDCODED_BEARER_TOKEN}`,
-            },
-            signal: timeout.signal,
-          });
-        } catch (error) {
-          console.error('[tmdbGet] fetch error for pathname:', pathname, 'error:', error);
-          if (error?.name === 'AbortError') {
-            throw createAppError('Please check your connection and try again.', 'TIMEOUT', { originalError: error });
-          }
-          throw createAppError('Please check your connection and try again.', 'OFFLINE', { originalError: error });
-        } finally {
-          timeout.clear?.();
-        }
-
-        if (!response.ok) {
-          const status = response.status;
-          if (status === 429) {
-            recordRateQuota429('tmdb', response);
-          }
-          let message = '';
+          const timeout = createTimeoutSignal(TMDB_REQUEST_TIMEOUT_MS);
+          let response;
           try {
-            message = await response.text();
-          } catch {
-            message = '';
+            response = await fetch(url.toString(), {
+              headers: {
+                accept: 'application/json',
+                Authorization: `Bearer ${HARDCODED_BEARER_TOKEN}`,
+              },
+              signal: timeout.signal,
+            });
+          } catch (error) {
+            console.error('[tmdbGet] fetch error for pathname:', pathname, 'error:', error);
+            if (error?.name === 'AbortError') {
+              throw createAppError('Please check your connection and try again.', 'TIMEOUT', {
+                originalError: error,
+              });
+            }
+            throw createAppError('Please check your connection and try again.', 'OFFLINE', {
+              originalError: error,
+            });
+          } finally {
+            timeout.clear?.();
           }
 
-          if (status === 429) {
-            throw createAppError('Our movie database is busy right now. Give it a moment and refresh.', 'RATE_LIMITED', { status });
-          }
-          if (status >= 500) {
-            throw createAppError('Our movie database is taking a quick coffee break. Please try again in a moment.', 'SERVICE_UNAVAILABLE', { status });
-          }
-          throw createAppError('Something went wrong while loading movie data. Please try again.', 'TMDB_ERROR', { status, rawMessage: message });
-        }
+          if (!response.ok) {
+            const status = response.status;
+            if (status === 429) {
+              recordRateQuota429('tmdb', response);
+            }
+            let message = '';
+            try {
+              message = await response.text();
+            } catch {
+              message = '';
+            }
 
-        recordRateQuotaFromResponse('tmdb', response);
-        return response.json();
-      });
-    }, {
-      retries: 2,
-      shouldRetry: (error) => error?.code === 'OFFLINE' || error?.code === 'TIMEOUT' || isRetryableStatus(error?.status),
-    });
+            if (status === 429) {
+              throw createAppError(
+                'Our movie database is busy right now. Give it a moment and refresh.',
+                'RATE_LIMITED',
+                { status },
+              );
+            }
+            if (status >= 500) {
+              throw createAppError(
+                'Our movie database is taking a quick coffee break. Please try again in a moment.',
+                'SERVICE_UNAVAILABLE',
+                { status },
+              );
+            }
+            throw createAppError(
+              'Something went wrong while loading movie data. Please try again.',
+              'TMDB_ERROR',
+              { status, rawMessage: message },
+            );
+          }
+
+          recordRateQuotaFromResponse('tmdb', response);
+          return response.json();
+        });
+      },
+      {
+        retries: 2,
+        shouldRetry: (error) =>
+          error?.code === 'OFFLINE' ||
+          error?.code === 'TIMEOUT' ||
+          isRetryableStatus(error?.status),
+      },
+    );
   })();
 
   _tmdbPromiseCache.set(cacheKey, promise);
@@ -253,7 +285,9 @@ export async function searchTitleCandidates(query) {
     };
   }
 
-  const candidates = allResults.filter((item) => item.media_type === 'movie' || item.media_type === 'tv');
+  const candidates = allResults.filter(
+    (item) => item.media_type === 'movie' || item.media_type === 'tv',
+  );
   if (!candidates.length) {
     throw createAppError(`We couldn't find any matches for "${query}".`, 'NO_RESULTS', { query });
   }
@@ -298,7 +332,9 @@ function mapSearchMediaItem(item) {
     year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
     synopsis: (item.overview || '').trim() || 'No synopsis available.',
     posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-    backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+    backdropUrl: item.backdrop_path
+      ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+      : null,
   };
 }
 
@@ -351,7 +387,9 @@ function mapCollectionPart(item) {
     year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
     synopsis: (item.overview || '').trim() || 'No synopsis available.',
     posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-    backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+    backdropUrl: item.backdrop_path
+      ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+      : null,
     ratingValue: item.vote_average || 0,
     rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
     releaseDate: dateValue || null,
@@ -375,8 +413,12 @@ async function getMovieCollectionInfo(belongsToCollection, tmdbId) {
   const collection = {
     id: belongsToCollection.id,
     name: belongsToCollection.name || null,
-    posterUrl: belongsToCollection.poster_path ? `https://image.tmdb.org/t/p/w500${belongsToCollection.poster_path}` : null,
-    backdropUrl: belongsToCollection.backdrop_path ? `https://image.tmdb.org/t/p/original${belongsToCollection.backdrop_path}` : null,
+    posterUrl: belongsToCollection.poster_path
+      ? `https://image.tmdb.org/t/p/w500${belongsToCollection.poster_path}`
+      : null,
+    backdropUrl: belongsToCollection.backdrop_path
+      ? `https://image.tmdb.org/t/p/original${belongsToCollection.backdrop_path}`
+      : null,
     parts: [],
   };
 
@@ -397,22 +439,27 @@ async function getMovieCollectionInfo(belongsToCollection, tmdbId) {
     return {
       isFranchise: true,
       franchiseKind,
-      franchiseLabel: franchiseKind === 'trilogy'
-        ? 'Trilogy'
-        : franchiseKind === 'saga'
-          ? 'Saga'
-          : 'Series',
+      franchiseLabel:
+        franchiseKind === 'trilogy' ? 'Trilogy' : franchiseKind === 'saga' ? 'Saga' : 'Series',
       collection: {
         id: data.id || collection.id,
         name: collectionName || null,
         overview: data.overview || null,
-        posterUrl: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : collection.posterUrl,
-        backdropUrl: data.backdrop_path ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` : collection.backdropUrl,
+        posterUrl: data.poster_path
+          ? `https://image.tmdb.org/t/p/w500${data.poster_path}`
+          : collection.posterUrl,
+        backdropUrl: data.backdrop_path
+          ? `https://image.tmdb.org/t/p/original${data.backdrop_path}`
+          : collection.backdropUrl,
         parts,
       },
     };
   } catch (error) {
-    console.warn('[getMovieCollectionInfo] failed for collection:', belongsToCollection.id, error?.message || error);
+    console.warn(
+      '[getMovieCollectionInfo] failed for collection:',
+      belongsToCollection.id,
+      error?.message || error,
+    );
     return {
       ...standaloneFranchiseInfo(collection),
       collectionLookupFailed: true,
@@ -462,23 +509,32 @@ async function getTitleMetadata(mediaType, tmdbId) {
 
   const dateValue = data.release_date || data.first_air_date || '';
   const year = dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A';
-  const genres = (data.genres || []).map((genre) => genre.name).filter(Boolean).sort();
-  const rating = typeof data.vote_average === 'number' ? `${data.vote_average.toFixed(1)}/10` : 'N/A';
-  const runtimeMinutes = mediaType === 'tv'
-    ? (data.episode_run_time || []).find((value) => typeof value === 'number' && value > 0) || null
-    : data.runtime || null;
-  const seasons = mediaType === 'tv'
-    ? (data.seasons || [])
-        .filter((season) => season.season_number > 0)
-        .map((season) => ({
-          id: season.id,
-          name: season.name || `Season ${season.season_number}`,
-          seasonNumber: season.season_number,
-          episodeCount: season.episode_count || 0,
-          year: season.air_date ? season.air_date.slice(0, 4) : 'TBA',
-          posterUrl: season.poster_path ? `https://image.tmdb.org/t/p/w300${season.poster_path}` : null,
-        }))
-    : [];
+  const genres = (data.genres || [])
+    .map((genre) => genre.name)
+    .filter(Boolean)
+    .sort();
+  const rating =
+    typeof data.vote_average === 'number' ? `${data.vote_average.toFixed(1)}/10` : 'N/A';
+  const runtimeMinutes =
+    mediaType === 'tv'
+      ? (data.episode_run_time || []).find((value) => typeof value === 'number' && value > 0) ||
+        null
+      : data.runtime || null;
+  const seasons =
+    mediaType === 'tv'
+      ? (data.seasons || [])
+          .filter((season) => season.season_number > 0)
+          .map((season) => ({
+            id: season.id,
+            name: season.name || `Season ${season.season_number}`,
+            seasonNumber: season.season_number,
+            episodeCount: season.episode_count || 0,
+            year: season.air_date ? season.air_date.slice(0, 4) : 'TBA',
+            posterUrl: season.poster_path
+              ? `https://image.tmdb.org/t/p/w300${season.poster_path}`
+              : null,
+          }))
+      : [];
 
   const videos = data.videos?.results || [];
   const youtubeVideos = videos.filter((video) => video.site === 'YouTube' && video.key);
@@ -488,17 +544,23 @@ async function getTitleMetadata(mediaType, tmdbId) {
 
   // Movies: imdb_id is in the main response. TV: must come from external_ids.
   const imdbId = data.imdb_id || externalIds?.imdb_id || null;
-  const belongsToCollection = mediaType === 'movie' && data.belongs_to_collection
-    ? {
-      id: data.belongs_to_collection.id,
-      name: data.belongs_to_collection.name || null,
-      posterUrl: data.belongs_to_collection.poster_path ? `https://image.tmdb.org/t/p/w500${data.belongs_to_collection.poster_path}` : null,
-      backdropUrl: data.belongs_to_collection.backdrop_path ? `https://image.tmdb.org/t/p/original${data.belongs_to_collection.backdrop_path}` : null,
-    }
-    : null;
-  const franchiseInfo = mediaType === 'movie'
-    ? await getMovieCollectionInfo(data.belongs_to_collection, tmdbId)
-    : standaloneFranchiseInfo(null);
+  const belongsToCollection =
+    mediaType === 'movie' && data.belongs_to_collection
+      ? {
+          id: data.belongs_to_collection.id,
+          name: data.belongs_to_collection.name || null,
+          posterUrl: data.belongs_to_collection.poster_path
+            ? `https://image.tmdb.org/t/p/w500${data.belongs_to_collection.poster_path}`
+            : null,
+          backdropUrl: data.belongs_to_collection.backdrop_path
+            ? `https://image.tmdb.org/t/p/original${data.belongs_to_collection.backdrop_path}`
+            : null,
+        }
+      : null;
+  const franchiseInfo =
+    mediaType === 'movie'
+      ? await getMovieCollectionInfo(data.belongs_to_collection, tmdbId)
+      : standaloneFranchiseInfo(null);
 
   return {
     year,
@@ -509,18 +571,29 @@ async function getTitleMetadata(mediaType, tmdbId) {
     belongsToCollection,
     ...franchiseInfo,
     numberOfSeasons: mediaType === 'tv' ? data.number_of_seasons || seasons.length : null,
-    numberOfEpisodes: mediaType === 'tv' ? data.number_of_episodes || seasons.reduce((total, season) => total + season.episodeCount, 0) : null,
-    createdBy: mediaType === 'tv'
-      ? (data.created_by || []).map((person) => person.name).filter(Boolean).join(', ') || 'N/A'
-      : null,
-    createdByPersons: mediaType === 'tv'
-      ? (data.created_by || []).filter((p) => p.id && p.name).map((p) => ({
-        id: p.id,
-        name: p.name,
-        job: 'Creator',
-        profileUrl: personProfileUrl(p.profile_path),
-      }))
-      : [],
+    numberOfEpisodes:
+      mediaType === 'tv'
+        ? data.number_of_episodes ||
+          seasons.reduce((total, season) => total + season.episodeCount, 0)
+        : null,
+    createdBy:
+      mediaType === 'tv'
+        ? (data.created_by || [])
+            .map((person) => person.name)
+            .filter(Boolean)
+            .join(', ') || 'N/A'
+        : null,
+    createdByPersons:
+      mediaType === 'tv'
+        ? (data.created_by || [])
+            .filter((p) => p.id && p.name)
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              job: 'Creator',
+              profileUrl: personProfileUrl(p.profile_path),
+            }))
+        : [],
     seasons,
     trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : 'N/A',
     productionCompanies: (data.production_companies || [])
@@ -532,7 +605,6 @@ async function getTitleMetadata(mediaType, tmdbId) {
       })),
   };
 }
-
 
 function personProfileUrl(profilePath) {
   return profilePath ? `https://image.tmdb.org/t/p/w185${profilePath}` : null;
@@ -548,7 +620,14 @@ function uniquePeople(people = []) {
   });
 }
 
-const WRITER_CREW_JOBS = new Set(['Writer', 'Screenplay', 'Story', 'Teleplay', 'Novel', 'Characters']);
+const WRITER_CREW_JOBS = new Set([
+  'Writer',
+  'Screenplay',
+  'Story',
+  'Teleplay',
+  'Novel',
+  'Characters',
+]);
 const COMPOSER_CREW_JOB = 'Original Music Composer';
 
 async function getCredits(mediaType, tmdbId) {
@@ -557,10 +636,12 @@ async function getCredits(mediaType, tmdbId) {
   const crew = data.crew || [];
   const directors = uniquePeople(crew.filter((person) => person.job === 'Director'));
   const director = directors[0] ?? crew.find((person) => person.department === 'Directing');
-  const writers = uniquePeople(crew.filter((person) => WRITER_CREW_JOBS.has(person.job))).slice(0, 12);
+  const writers = uniquePeople(crew.filter((person) => WRITER_CREW_JOBS.has(person.job))).slice(
+    0,
+    12,
+  );
   const composers = uniquePeople(crew.filter((person) => person.job === COMPOSER_CREW_JOB));
-  const fullCast = (data.cast || [])
-    .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+  const fullCast = (data.cast || []).sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
   const topCast = fullCast.slice(0, 5);
 
   return {
@@ -611,7 +692,6 @@ async function getCredits(mediaType, tmdbId) {
   };
 }
 
-
 async function getSimilar(mediaType, tmdbId) {
   const data = await tmdbGet(`/${mediaType}/${tmdbId}/similar`);
   const results = (data.results || []).map((item) => {
@@ -628,9 +708,7 @@ async function getSimilar(mediaType, tmdbId) {
   });
 
   // Sort by rating desc and take top 5
-  return results
-    .sort((a, b) => b.ratingValue - a.ratingValue)
-    .slice(0, 5);
+  return results.sort((a, b) => b.ratingValue - a.ratingValue).slice(0, 5);
 }
 
 export async function fetchSurpriseRecommendation(seedItems = []) {
@@ -639,7 +717,10 @@ export async function fetchSurpriseRecommendation(seedItems = []) {
     .slice(0, 8);
 
   if (!seeds.length) {
-    throw createAppError('Add a few favorites to Highly Recommend first, then try Surprise Me.', 'NO_SURPRISE_SEEDS');
+    throw createAppError(
+      'Add a few favorites to Highly Recommend first, then try Surprise Me.',
+      'NO_SURPRISE_SEEDS',
+    );
   }
 
   const similarGroups = await mapWithConcurrency(seeds, 3, async (seed) => {
@@ -655,10 +736,13 @@ export async function fetchSurpriseRecommendation(seedItems = []) {
         year: (item.release_date || item.first_air_date || '').slice(0, 4) || 'N/A',
         synopsis: (item.overview || '').trim() || 'No synopsis available.',
         posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-        backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+        backdropUrl: item.backdrop_path
+          ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+          : null,
         ratingValue: item.vote_average || 0,
         voteCount: item.vote_count || 0,
-        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+        rating:
+          typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
       }));
     } catch {
       return [];
@@ -678,11 +762,19 @@ export async function fetchSurpriseRecommendation(seedItems = []) {
 
   const strongMatches = unique
     .filter((item) => item.ratingValue >= 7 && item.voteCount >= 75)
-    .sort((a, b) => (b.ratingValue * Math.log10(b.voteCount + 10)) - (a.ratingValue * Math.log10(a.voteCount + 10)));
+    .sort(
+      (a, b) =>
+        b.ratingValue * Math.log10(b.voteCount + 10) - a.ratingValue * Math.log10(a.voteCount + 10),
+    );
 
-  const pool = (strongMatches.length >= 5 ? strongMatches : unique.sort((a, b) => b.ratingValue - a.ratingValue)).slice(0, 24);
+  const pool = (
+    strongMatches.length >= 5 ? strongMatches : unique.sort((a, b) => b.ratingValue - a.ratingValue)
+  ).slice(0, 24);
   if (!pool.length) {
-    throw createAppError('No surprise picks were found from your Highly Recommend titles yet.', 'NO_RESULTS');
+    throw createAppError(
+      'No surprise picks were found from your Highly Recommend titles yet.',
+      'NO_RESULTS',
+    );
   }
 
   return pool[Math.floor(Math.random() * pool.length)];
@@ -722,7 +814,9 @@ export async function fetchSurpriseByGenre(genreId, mediaType = 'movie') {
     year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
     synopsis: (pick.overview || '').trim() || 'No synopsis available.',
     posterUrl: `https://image.tmdb.org/t/p/w500${pick.poster_path}`,
-    backdropUrl: pick.backdrop_path ? `https://image.tmdb.org/t/p/original${pick.backdrop_path}` : null,
+    backdropUrl: pick.backdrop_path
+      ? `https://image.tmdb.org/t/p/original${pick.backdrop_path}`
+      : null,
     ratingValue: pick.vote_average || 0,
     rating: typeof pick.vote_average === 'number' ? `${pick.vote_average.toFixed(1)}/10` : 'N/A',
   };
@@ -763,10 +857,12 @@ async function getCompleteTvProviderCountries(tmdbId, fallbackAvailability = nul
   const details = await tmdbGet(`/tv/${tmdbId}`, { language: 'en-US' });
   const episodes = (details.seasons || [])
     .filter((season) => season.season_number > 0)
-    .flatMap((season) => Array.from(
-      { length: season.episode_count || 0 },
-      (_unused, index) => ({ seasonNumber: season.season_number, episodeNumber: index + 1 })
-    ));
+    .flatMap((season) =>
+      Array.from({ length: season.episode_count || 0 }, (_unused, index) => ({
+        seasonNumber: season.season_number,
+        episodeNumber: index + 1,
+      })),
+    );
 
   if (!episodes.length) {
     return fallbackAvailability || { ...emptyServiceMap(() => []), confidence: 'show' };
@@ -777,7 +873,9 @@ async function getCompleteTvProviderCountries(tmdbId, fallbackAvailability = nul
   }
 
   const episodeResults = await mapWithConcurrency(episodes, 8, (episode) =>
-    tmdbGet(`/tv/${tmdbId}/season/${episode.seasonNumber}/episode/${episode.episodeNumber}/watch/providers`)
+    tmdbGet(
+      `/tv/${tmdbId}/season/${episode.seasonNumber}/episode/${episode.episodeNumber}/watch/providers`,
+    ),
   );
   const availability = emptyServiceMap(() => null);
   const logos = emptyServiceMap(() => null);
@@ -797,14 +895,19 @@ async function getCompleteTvProviderCountries(tmdbId, fallbackAvailability = nul
       if (availability[key] === null) {
         availability[key] = episodeAvailability[key];
       } else {
-        availability[key] = new Set([...availability[key]].filter((countryCode) => episodeAvailability[key].has(countryCode)));
+        availability[key] = new Set(
+          [...availability[key]].filter((countryCode) => episodeAvailability[key].has(countryCode)),
+        );
       }
     });
   });
 
   return {
     ...Object.fromEntries(
-      Object.entries(availability).map(([key, countryCodes]) => [key, Array.from(countryCodes || []).sort()])
+      Object.entries(availability).map(([key, countryCodes]) => [
+        key,
+        Array.from(countryCodes || []).sort(),
+      ]),
     ),
     logos,
     confidence: 'episode',
@@ -826,17 +929,17 @@ async function getCountryNames() {
 
 function toRows(availability, countryNames) {
   const allCodes = Array.from(
-    new Set(Object.keys(SERVICE_LABELS).flatMap((key) => availability[key] || []))
+    new Set(Object.keys(SERVICE_LABELS).flatMap((key) => availability[key] || [])),
   ).sort();
   const serviceCountries = Object.fromEntries(
-    Object.keys(SERVICE_LABELS).map((key) => [key, new Set(availability[key] || [])])
+    Object.keys(SERVICE_LABELS).map((key) => [key, new Set(availability[key] || [])]),
   );
 
   const rows = allCodes.map((code) => ({
     country: countryNames[code] || code,
     code,
     providers: Object.fromEntries(
-      Object.keys(SERVICE_LABELS).map((key) => [key, serviceCountries[key].has(code)])
+      Object.keys(SERVICE_LABELS).map((key) => [key, serviceCountries[key].has(code)]),
     ),
   }));
 
@@ -913,9 +1016,10 @@ async function getDiscoverImdbId(mediaType, tmdbId) {
   if (_discoverImdbIdCache.has(cacheKey)) return _discoverImdbIdCache.get(cacheKey);
 
   try {
-    const data = mediaType === 'tv'
-      ? await tmdbGet(`/tv/${tmdbId}/external_ids`)
-      : await tmdbGet(`/movie/${tmdbId}`, { language: 'en-US' });
+    const data =
+      mediaType === 'tv'
+        ? await tmdbGet(`/tv/${tmdbId}/external_ids`)
+        : await tmdbGet(`/movie/${tmdbId}`, { language: 'en-US' });
     const imdbId = data.imdb_id || null;
     _discoverImdbIdCache.set(cacheKey, imdbId);
     return imdbId;
@@ -929,7 +1033,7 @@ export async function enrichDiscoverResults(items = []) {
   if (!items.length) return [];
 
   return mapWithConcurrency(items, 4, async (item) => {
-    const imdbId = item.imdbId || await getDiscoverImdbId(item.mediaType, item.tmdbId);
+    const imdbId = item.imdbId || (await getDiscoverImdbId(item.mediaType, item.tmdbId));
     const omdbRatings = await fetchOmdbRatings(imdbId);
 
     return {
@@ -1049,7 +1153,7 @@ export async function discoverTitles(filters = {}) {
 
   if (mediaType === 'movie') {
     if (fromYear) params['primary_release_date.gte'] = `${fromYear}-01-01`;
-    if (toYear)   params['primary_release_date.lte'] = `${toYear}-12-31`;
+    if (toYear) params['primary_release_date.lte'] = `${toYear}-12-31`;
 
     const minRuntimeMinutes = parseInt(minRuntime, 10);
     const maxRuntimeMinutes = parseInt(maxRuntime, 10);
@@ -1061,7 +1165,7 @@ export async function discoverTitles(filters = {}) {
     }
   } else {
     if (fromYear) params['first_air_date.gte'] = `${fromYear}-01-01`;
-    if (toYear)   params['first_air_date.lte'] = `${toYear}-12-31`;
+    if (toYear) params['first_air_date.lte'] = `${toYear}-12-31`;
   }
 
   const data = await tmdbGet(`/discover/${mediaType}`, params);
@@ -1080,7 +1184,9 @@ export async function discoverTitles(filters = {}) {
       year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
       synopsis: (item.overview || '').trim() || 'No synopsis available.',
       posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-      backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+      backdropUrl: item.backdrop_path
+        ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+        : null,
       ratingValue: item.vote_average || 0,
       rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
     };
@@ -1133,7 +1239,9 @@ export async function fetchNowPlayingMovies() {
       year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
       synopsis: (item.overview || '').trim() || 'No synopsis available.',
       posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-      backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+      backdropUrl: item.backdrop_path
+        ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+        : null,
       ratingValue: item.vote_average || 0,
       rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
     };
@@ -1152,7 +1260,8 @@ async function getHomeCollectionRowFromSeed(seed) {
 
     return {
       id: collectionInfo.collection.id,
-      title: collectionInfo.collection.name || detail.belongs_to_collection.name || 'Movie Collection',
+      title:
+        collectionInfo.collection.name || detail.belongs_to_collection.name || 'Movie Collection',
       firstMovie,
       firstMovieRatingValue: firstMovie.ratingValue || 0,
       items: collectionInfo.collection.parts,
@@ -1163,15 +1272,17 @@ async function getHomeCollectionRowFromSeed(seed) {
 }
 
 export async function fetchTopMovieCollectionRows(limit = 20) {
-  const pages = await Promise.all([1, 2, 3, 4, 5].map((page) =>
-    tmdbGet('/discover/movie', {
-      language: 'en-US',
-      sort_by: 'vote_average.desc',
-      'vote_count.gte': 100,
-      include_adult: false,
-      page,
-    })
-  ));
+  const pages = await Promise.all(
+    [1, 2, 3, 4, 5].map((page) =>
+      tmdbGet('/discover/movie', {
+        language: 'en-US',
+        sort_by: 'vote_average.desc',
+        'vote_count.gte': 100,
+        include_adult: false,
+        page,
+      }),
+    ),
+  );
 
   const seenMovieIds = new Set();
   const seeds = pages
@@ -1190,9 +1301,12 @@ export async function fetchTopMovieCollectionRows(limit = 20) {
         year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
         synopsis: (item.overview || '').trim() || 'No synopsis available.',
         posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-        backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+        backdropUrl: item.backdrop_path
+          ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+          : null,
         ratingValue: item.vote_average || 0,
-        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+        rating:
+          typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
       };
     })
     .sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
@@ -1200,7 +1314,7 @@ export async function fetchTopMovieCollectionRows(limit = 20) {
   const collectionRows = await mapWithConcurrency(
     seeds.slice(0, 100),
     3,
-    getHomeCollectionRowFromSeed
+    getHomeCollectionRowFromSeed,
   );
 
   const seenCollectionIds = new Set();
@@ -1231,10 +1345,10 @@ async function getMoreFromCastAndCrew(personIds, currentTmdbId) {
     });
 
     const rawItems = (data.results || [])
-      .filter(item => item.id !== currentTmdbId && item.poster_path)
-      .slice(0, 12); 
+      .filter((item) => item.id !== currentTmdbId && item.poster_path)
+      .slice(0, 12);
 
-    const mapped = rawItems.map(item => ({
+    const mapped = rawItems.map((item) => ({
       mediaType: 'movie',
       tmdbId: item.id,
       title: item.title || item.name || '(Untitled)',
@@ -1268,16 +1382,20 @@ export async function resolveMatch(query, match) {
   const similar = await getSimilar(match.mediaType, match.tmdbId);
   const availability = await getProviderCountries(match.mediaType, match.tmdbId);
 
-  const personIds = Array.from(new Set([
-    ...credits.directorPersons.map((p) => p.id),
-    ...credits.writerPersons.map((p) => p.id),
-    ...credits.composerPersons.map((p) => p.id),
-    ...credits.starringPersons.map((p) => p.id),
-  ].filter(Boolean)));
+  const personIds = Array.from(
+    new Set(
+      [
+        ...credits.directorPersons.map((p) => p.id),
+        ...credits.writerPersons.map((p) => p.id),
+        ...credits.composerPersons.map((p) => p.id),
+        ...credits.starringPersons.map((p) => p.id),
+      ].filter(Boolean),
+    ),
+  );
 
   const [omdbRatings, moreFromCastAndCrew] = await Promise.all([
     fetchOmdbRatings(metadata.imdbId || null),
-    getMoreFromCastAndCrew(personIds, match.tmdbId)
+    getMoreFromCastAndCrew(personIds, match.tmdbId),
   ]);
 
   const rows = toRows(availability, countryNames);
@@ -1296,7 +1414,7 @@ export async function resolveMatch(query, match) {
       Object.entries(serviceLogos).map(([key, path]) => [
         key,
         path ? `https://image.tmdb.org/t/p/original${path}` : null,
-      ])
+      ]),
     ),
     providerAvailabilityConfidence: availability.confidence || 'show',
     omdbRatings,
@@ -1343,16 +1461,21 @@ export async function fetchPersonFilmography(personId, personName, role) {
         year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
         synopsis: (item.overview || '').trim() || 'No synopsis available.',
         posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-        backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+        backdropUrl: item.backdrop_path
+          ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+          : null,
         ratingValue: item.vote_average || 0,
-        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+        rating:
+          typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
         character: item.character || '',
       };
     });
 
     // Get profile image
     const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
-    const profileUrl = personData.profile_path ? `https://image.tmdb.org/t/p/w185${personData.profile_path}` : null;
+    const profileUrl = personData.profile_path
+      ? `https://image.tmdb.org/t/p/w185${personData.profile_path}`
+      : null;
 
     return { personName, role: 'cast', results, profileUrl };
   }
@@ -1383,14 +1506,19 @@ export async function fetchPersonFilmography(personId, personName, role) {
         year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
         synopsis: (item.overview || '').trim() || 'No synopsis available.',
         posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-        backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+        backdropUrl: item.backdrop_path
+          ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+          : null,
         ratingValue: item.vote_average || 0,
-        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+        rating:
+          typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
       };
     });
 
     const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
-    const profileUrl = personData.profile_path ? `https://image.tmdb.org/t/p/w185${personData.profile_path}` : null;
+    const profileUrl = personData.profile_path
+      ? `https://image.tmdb.org/t/p/w185${personData.profile_path}`
+      : null;
 
     return { personName, role: 'writer', results, profileUrl };
   }
@@ -1421,22 +1549,26 @@ export async function fetchPersonFilmography(personId, personName, role) {
         year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
         synopsis: (item.overview || '').trim() || 'No synopsis available.',
         posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-        backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+        backdropUrl: item.backdrop_path
+          ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+          : null,
         ratingValue: item.vote_average || 0,
-        rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+        rating:
+          typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
       };
     });
 
     const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
-    const profileUrl = personData.profile_path ? `https://image.tmdb.org/t/p/w185${personData.profile_path}` : null;
+    const profileUrl = personData.profile_path
+      ? `https://image.tmdb.org/t/p/w185${personData.profile_path}`
+      : null;
 
     return { personName, role: 'composer', results, profileUrl };
   }
 
   // Director / Creator path
-  const endpoint = role === 'movie'
-    ? `/person/${personId}/movie_credits`
-    : `/person/${personId}/tv_credits`;
+  const endpoint =
+    role === 'movie' ? `/person/${personId}/movie_credits` : `/person/${personId}/tv_credits`;
 
   const data = await tmdbGet(endpoint, { language: 'en-US' });
   resolvedMediaType = role;
@@ -1468,7 +1600,9 @@ export async function fetchPersonFilmography(personId, personName, role) {
       year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
       synopsis: (item.overview || '').trim() || 'No synopsis available.',
       posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-      backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+      backdropUrl: item.backdrop_path
+        ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+        : null,
       ratingValue: item.vote_average || 0,
       rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
     };
@@ -1476,7 +1610,9 @@ export async function fetchPersonFilmography(personId, personName, role) {
 
   // Get profile image
   const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
-  const profileUrl = personData.profile_path ? `https://image.tmdb.org/t/p/w185${personData.profile_path}` : null;
+  const profileUrl = personData.profile_path
+    ? `https://image.tmdb.org/t/p/w185${personData.profile_path}`
+    : null;
 
   return { personName, role, results, profileUrl };
 }
@@ -1510,7 +1646,9 @@ export async function fetchProductionCompanyCatalog(companyId, companyName, logo
       year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
       synopsis: (item.overview || '').trim() || 'No synopsis available.',
       posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-      backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
+      backdropUrl: item.backdrop_path
+        ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+        : null,
       ratingValue: vote || 0,
       rating: typeof vote === 'number' ? `${vote.toFixed(1)}/10` : 'N/A',
     };
@@ -1548,17 +1686,13 @@ export async function enrichTraktItems(items = []) {
       return {
         ...item,
         synopsis: (data.overview || '').trim() || 'No synopsis available.',
-        posterUrl: data.poster_path
-          ? `https://image.tmdb.org/t/p/w500${data.poster_path}`
-          : null,
+        posterUrl: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,
         backdropUrl: data.backdrop_path
           ? `https://image.tmdb.org/t/p/original${data.backdrop_path}`
           : null,
         ratingValue: data.vote_average || 0,
         rating:
-          typeof data.vote_average === 'number'
-            ? `${data.vote_average.toFixed(1)}/10`
-            : 'N/A',
+          typeof data.vote_average === 'number' ? `${data.vote_average.toFixed(1)}/10` : 'N/A',
         genres: (data.genres || []).map((g) => g.name).join(', ') || null,
       };
     } catch {

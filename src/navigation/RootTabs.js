@@ -21,10 +21,7 @@ export function RootTabs() {
   );
 
   return (
-    <Tab.Navigator
-      tabBar={() => null}
-      screenOptions={tabScreenOptions}
-    >
+    <Tab.Navigator tabBar={() => null} screenOptions={tabScreenOptions}>
       <Tab.Screen name="home" component={HomeStack} />
       <Tab.Screen name="search" component={SearchStack} />
       <Tab.Screen name="discover" component={DiscoverStack} />

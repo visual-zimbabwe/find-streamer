@@ -31,7 +31,9 @@ test('normalizeImportedWatchlistItems dedupes and filters invalid rows', () => {
 });
 
 test('mergeWatchlistsNoDuplicates skips titles already on device', () => {
-  const existing = [{ tmdbId: 1, title: 'Local', mediaType: 'movie', watchlistCategoryId: 'watched' }];
+  const existing = [
+    { tmdbId: 1, title: 'Local', mediaType: 'movie', watchlistCategoryId: 'watched' },
+  ];
   const incoming = [
     { tmdbId: 1, title: 'File', mediaType: 'movie', watchlistCategoryId: 'watch_next' },
     { tmdbId: 2, title: 'New', mediaType: 'movie', watchlistCategoryId: 'watch_next' },
@@ -44,10 +46,12 @@ test('mergeWatchlistsNoDuplicates skips titles already on device', () => {
 });
 
 test('parseWatchlistImportJson accepts envelope and raw array', () => {
-  const payload = JSON.parse(stringifyWatchlistExport(
-    [{ tmdbId: 9, title: 'Z', mediaType: 'tv' }],
-    [{ id: 'custom_faves', name: 'Faves' }]
-  ));
+  const payload = JSON.parse(
+    stringifyWatchlistExport(
+      [{ tmdbId: 9, title: 'Z', mediaType: 'tv' }],
+      [{ id: 'custom_faves', name: 'Faves' }],
+    ),
+  );
   assert.equal(payload.exportKind, 'find-streamer-watchlist');
   assert.equal(payload.schemaVersion, 2);
   assert.equal(payload.collections[0].id, 'custom_faves');
@@ -56,7 +60,9 @@ test('parseWatchlistImportJson accepts envelope and raw array', () => {
   assert.equal(a.items.length, 1);
   assert.equal(a.collections.length, 1);
 
-  const b = parseWatchlistImportJson(JSON.stringify([{ tmdbId: 8, title: 'Y', mediaType: 'movie' }]));
+  const b = parseWatchlistImportJson(
+    JSON.stringify([{ tmdbId: 8, title: 'Y', mediaType: 'movie' }]),
+  );
   assert.equal(b.ok, true);
   assert.equal(b.items[0].tmdbId, 8);
 });
@@ -64,7 +70,10 @@ test('parseWatchlistImportJson accepts envelope and raw array', () => {
 test('mergeCollectionsNoDuplicates preserves local collections first', () => {
   const merged = mergeCollectionsNoDuplicates(
     [{ id: 'custom_a', name: 'Local' }],
-    [{ id: 'custom_a', name: 'Incoming Duplicate' }, { id: 'custom_b', name: 'Incoming' }]
+    [
+      { id: 'custom_a', name: 'Incoming Duplicate' },
+      { id: 'custom_b', name: 'Incoming' },
+    ],
   );
 
   assert.equal(merged.length, 2);

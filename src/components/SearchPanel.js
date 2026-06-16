@@ -23,7 +23,9 @@ function ProgrammeSectionHeader({ eyebrow, title, colors, typography }) {
   return (
     <View style={styles.sectionHeader}>
       {eyebrow ? (
-        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>{eyebrow}</Text>
+        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+          {eyebrow}
+        </Text>
       ) : null}
       <Text
         style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
@@ -47,14 +49,23 @@ function LiveResultRow({ item, index, total, colors, typography, radii, onPress 
     <TouchableOpacity
       style={[
         styles.liveRow,
-        index < total - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: GOLD_DIM },
+        index < total - 1 && {
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: GOLD_DIM,
+        },
       ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={isPerson ? `View filmography for ${item.title}` : `Select ${item.title}`}
       activeOpacity={0.78}
     >
-      <View style={[styles.liveThumbFrame, isPerson ? styles.liveAvatarFrame : styles.livePosterFrame, { borderRadius: radii.md, backgroundColor: colors.surfaceContainerHigh }]}>
+      <View
+        style={[
+          styles.liveThumbFrame,
+          isPerson ? styles.liveAvatarFrame : styles.livePosterFrame,
+          { borderRadius: radii.md, backgroundColor: colors.surfaceContainerHigh },
+        ]}
+      >
         <MediaArtwork
           uri={imageUrl}
           style={isPerson ? styles.liveAvatar : styles.posterImg}
@@ -75,11 +86,17 @@ function LiveResultRow({ item, index, total, colors, typography, radii, onPress 
               color={GOLD_ACCENT}
             />
           )}
-          <Text style={[styles.liveTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+          <Text
+            style={[styles.liveTitle, { color: colors.onSurface, ...typography.bodyMd }]}
+            numberOfLines={1}
+          >
             {item.title}
           </Text>
         </View>
-        <Text style={[styles.liveMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]} numberOfLines={1}>
+        <Text
+          style={[styles.liveMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+          numberOfLines={1}
+        >
           {metaText}
         </Text>
       </View>
@@ -200,7 +217,10 @@ export function SearchPanel({
             accessibilityRole="button"
             accessibilityLabel={voiceListening ? 'Stop voice search' : 'Start voice search'}
             accessibilityHint="Dictates search text with the device microphone"
-            accessibilityState={{ selected: Boolean(voiceListening), disabled: loading || !onVoicePress }}
+            accessibilityState={{
+              selected: Boolean(voiceListening),
+              disabled: loading || !onVoicePress,
+            }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons
@@ -211,7 +231,10 @@ export function SearchPanel({
             <Text
               style={[
                 styles.voiceLabel,
-                { color: voiceListening ? GOLD_ACCENT : colors.onSurfaceVariant, ...typography.labelSm },
+                {
+                  color: voiceListening ? GOLD_ACCENT : colors.onSurfaceVariant,
+                  ...typography.labelSm,
+                },
               ]}
             >
               {voiceListening ? 'Listening' : 'Voice'}
@@ -227,10 +250,16 @@ export function SearchPanel({
             { backgroundColor: searchSurface, borderColor: GOLD_DIM, borderRadius: radii.lg },
           ]}
         >
-          <Text style={[styles.liveResultsLabel, { color: GOLD_ACCENT, ...typography.labelSm }]}>Matches</Text>
+          <Text style={[styles.liveResultsLabel, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+            Matches
+          </Text>
           {typeLoading && visibleTypeResults.length === 0 ? (
             <View style={styles.liveLoadingRow}>
-              <ActivityIndicator size="small" color={GOLD_ACCENT} accessibilityLabel="Loading matches" />
+              <ActivityIndicator
+                size="small"
+                color={GOLD_ACCENT}
+                accessibilityLabel="Loading matches"
+              />
             </View>
           ) : (
             visibleTypeResults.map((item, index) => (
@@ -274,14 +303,20 @@ export function SearchPanel({
             {recentSearches.map((item) => (
               <TouchableOpacity
                 key={item}
-                style={[styles.recentChip, { borderColor: GOLD_DIM, backgroundColor: searchSurface }]}
+                style={[
+                  styles.recentChip,
+                  { borderColor: GOLD_DIM, backgroundColor: searchSurface },
+                ]}
                 onPress={() => onPickSuggestion(item)}
                 accessibilityRole="button"
                 accessibilityLabel={`Search for ${item}`}
                 activeOpacity={0.82}
               >
                 <Ionicons name="search-outline" size={12} color={GOLD_ACCENT} />
-                <Text style={[styles.recentChipText, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+                <Text
+                  style={[styles.recentChipText, { color: colors.onSurface, ...typography.bodyMd }]}
+                  numberOfLines={1}
+                >
                   {item}
                 </Text>
               </TouchableOpacity>

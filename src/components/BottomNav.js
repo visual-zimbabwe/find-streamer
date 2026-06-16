@@ -1,13 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  Animated,
-  Dimensions,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Animated, Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -21,11 +13,11 @@ const GOLD_RULE = 'rgba(212, 168, 83, 0.55)';
 const SCREEN_W = Dimensions.get('window').width;
 
 const TABS = [
-  { id: 'home',      label: 'Home',      icon: 'home-outline',     iconActive: 'home'     },
-  { id: 'search',    label: 'Search',    icon: 'search-outline',   iconActive: 'search'   },
-  { id: 'discover',  label: 'Discover',  icon: 'options-outline',  iconActive: 'options'  },
+  { id: 'home', label: 'Home', icon: 'home-outline', iconActive: 'home' },
+  { id: 'search', label: 'Search', icon: 'search-outline', iconActive: 'search' },
+  { id: 'discover', label: 'Discover', icon: 'options-outline', iconActive: 'options' },
   { id: 'watchlist', label: 'Watchlist', icon: 'bookmark-outline', iconActive: 'bookmark' },
-  { id: 'settings',  label: 'Settings',  icon: 'settings-outline', iconActive: 'settings'  },
+  { id: 'settings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings' },
 ];
 
 const TAB_COUNT = TABS.length;
@@ -40,7 +32,10 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
   const { visible } = useBottomNavVisibility();
   const isDark = theme.mode === 'dark';
 
-  const activeIndex = Math.max(0, TABS.findIndex((t) => t.id === activeTab));
+  const activeIndex = Math.max(
+    0,
+    TABS.findIndex((t) => t.id === activeTab),
+  );
   const shellH = MARQUEE_ROW_H + insets.bottom;
 
   const translateY = useRef(new Animated.Value(0)).current;
@@ -69,7 +64,7 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
           toValue: i === activeIndex ? 1 : 0,
           duration: i === activeIndex ? 220 : 140,
           useNativeDriver: true,
-        })
+        }),
       ),
     ]).start();
   }, [activeIndex, indicatorX, labelOpacity]);

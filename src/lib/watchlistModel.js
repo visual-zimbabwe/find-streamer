@@ -1,4 +1,8 @@
-import { DEFAULT_WATCHLIST_CATEGORY_ID, WATCHLIST_CATEGORIES, getWatchlistCategory } from './watchlistCategories.js';
+import {
+  DEFAULT_WATCHLIST_CATEGORY_ID,
+  WATCHLIST_CATEGORIES,
+  getWatchlistCategory,
+} from './watchlistCategories.js';
 
 export const WATCHLIST_SCHEMA_VERSION = 2;
 
@@ -36,16 +40,16 @@ export const DEFAULT_COLLECTIONS = [
   },
 ];
 
-export const LEGACY_COLLECTIONS = WATCHLIST_CATEGORIES
-  .filter((category) => !DEFAULT_COLLECTIONS.some((collection) => collection.id === category.id))
-  .map((category) => ({
-    id: category.id,
-    name: category.label,
-    description: category.description,
-    icon: category.icon,
-    immutable: false,
-    source: 'legacy',
-  }));
+export const LEGACY_COLLECTIONS = WATCHLIST_CATEGORIES.filter(
+  (category) => !DEFAULT_COLLECTIONS.some((collection) => collection.id === category.id),
+).map((category) => ({
+  id: category.id,
+  name: category.label,
+  description: category.description,
+  icon: category.icon,
+  immutable: false,
+  source: 'legacy',
+}));
 
 const VALID_STATUS_IDS = new Set(WATCHLIST_STATUSES.map((status) => status.id));
 const VALID_CATEGORY_IDS = new Set(WATCHLIST_CATEGORIES.map((category) => category.id));
@@ -65,9 +69,12 @@ export function isDefaultCollectionId(collectionId) {
 
 export function isDefaultSeededItem(item) {
   if (!item) return false;
-  if (item.source === 'IMDb Top 100 - Movies' || item.source === 'IMDb Top 100 - TV Series') return true;
-  return item.watchlistCategoryId === IMDB_TOP_100_MOVIES_COLLECTION_ID
-    || item.watchlistCategoryId === IMDB_TOP_100_TV_COLLECTION_ID;
+  if (item.source === 'IMDb Top 100 - Movies' || item.source === 'IMDb Top 100 - TV Series')
+    return true;
+  return (
+    item.watchlistCategoryId === IMDB_TOP_100_MOVIES_COLLECTION_ID ||
+    item.watchlistCategoryId === IMDB_TOP_100_TV_COLLECTION_ID
+  );
 }
 
 export function getCatalogCollections() {
@@ -75,10 +82,7 @@ export function getCatalogCollections() {
 }
 
 export function getUserWatchlistCollections(customCollections = []) {
-  return [
-    ...LEGACY_COLLECTIONS,
-    ...normalizeWatchlistCollections(customCollections),
-  ];
+  return [...LEGACY_COLLECTIONS, ...normalizeWatchlistCollections(customCollections)];
 }
 
 /** @deprecated Use getUserWatchlistCollections for watchlist UI and library sheets. */
@@ -87,7 +91,10 @@ export function getAllWatchlistCollections(customCollections = []) {
 }
 
 export function getStatusLabel(statusId) {
-  return WATCHLIST_STATUSES.find((status) => status.id === statusId)?.label || WATCHLIST_STATUSES[0].label;
+  return (
+    WATCHLIST_STATUSES.find((status) => status.id === statusId)?.label ||
+    WATCHLIST_STATUSES[0].label
+  );
 }
 
 function statusFromLegacyCategory(categoryId) {
@@ -135,7 +142,8 @@ export function normalizeWatchlistItem(item) {
     mediaType: item.mediaType,
     title: String(item.title).trim(),
     watchlistCategoryId,
-    watchlistCategoryLabel: item.watchlistCategoryLabel || getWatchlistCategory(watchlistCategoryId).label,
+    watchlistCategoryLabel:
+      item.watchlistCategoryLabel || getWatchlistCategory(watchlistCategoryId).label,
     status,
     collectionIds,
     schemaVersion: WATCHLIST_SCHEMA_VERSION,
@@ -164,9 +172,13 @@ export function normalizeWatchlistCollections(collections) {
   const seen = new Set(BUILT_IN_COLLECTION_IDS);
   for (const collection of collections) {
     if (!collection || typeof collection.name !== 'string' || !collection.name.trim()) continue;
-    const id = typeof collection.id === 'string' && collection.id.trim()
-      ? collection.id.trim()
-      : `custom_${collection.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+    const id =
+      typeof collection.id === 'string' && collection.id.trim()
+        ? collection.id.trim()
+        : `custom_${collection.name
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')}`;
     if (seen.has(id)) continue;
     seen.add(id);
     out.push({

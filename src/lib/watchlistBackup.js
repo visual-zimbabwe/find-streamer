@@ -22,12 +22,14 @@ export function normalizeImportedWatchlistItems(rawItems) {
  * Existing rows keep their order and win on conflicts; new rows are appended.
  */
 export function mergeWatchlistsNoDuplicates(existing, incoming) {
-  const normalizedExisting = normalizeImportedWatchlistItems(Array.isArray(existing) ? existing : []);
-  const normalizedIncoming = normalizeImportedWatchlistItems(Array.isArray(incoming) ? incoming : []);
-
-  const keys = new Set(
-    normalizedExisting.map(watchlistEntryKey).filter(Boolean)
+  const normalizedExisting = normalizeImportedWatchlistItems(
+    Array.isArray(existing) ? existing : [],
   );
+  const normalizedIncoming = normalizeImportedWatchlistItems(
+    Array.isArray(incoming) ? incoming : [],
+  );
+
+  const keys = new Set(normalizedExisting.map(watchlistEntryKey).filter(Boolean));
   const merged = [...normalizedExisting];
 
   for (const item of normalizedIncoming) {

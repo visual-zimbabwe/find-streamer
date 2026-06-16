@@ -63,7 +63,8 @@ function SearchMainScreen() {
     resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
     colors.background,
   ];
-  const surpriseSurface = resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.94)' : 'rgba(247, 247, 242, 0.94)';
+  const surpriseSurface =
+    resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.94)' : 'rgba(247, 247, 242, 0.94)';
 
   return (
     <View style={[searchStyles.root, { backgroundColor: colors.background }]}>
@@ -109,20 +110,26 @@ function SearchMainScreen() {
               <EmptyState
                 variant="empty"
                 title="No matches found"
-                description={filter
-                  ? `We couldn't find any ${filter === 'movie' ? 'movies' : 'TV shows'} for "${query}".`
-                  : `We couldn't find any matches for "${query}".`}
-                primaryAction={filter ? {
-                  label: 'Clear Filters',
-                  icon: 'close-circle-outline',
-                  onPress: () => setFilter(null),
-                  accessibilityLabel: 'Clear result filters',
-                } : {
-                  label: 'Check Spelling',
-                  icon: 'create-outline',
-                  onPress: clearSearchResults,
-                  accessibilityLabel: 'Edit search text',
-                }}
+                description={
+                  filter
+                    ? `We couldn't find any ${filter === 'movie' ? 'movies' : 'TV shows'} for "${query}".`
+                    : `We couldn't find any matches for "${query}".`
+                }
+                primaryAction={
+                  filter
+                    ? {
+                        label: 'Clear Filters',
+                        icon: 'close-circle-outline',
+                        onPress: () => setFilter(null),
+                        accessibilityLabel: 'Clear result filters',
+                      }
+                    : {
+                        label: 'Check Spelling',
+                        icon: 'create-outline',
+                        onPress: clearSearchResults,
+                        accessibilityLabel: 'Edit search text',
+                      }
+                }
                 secondaryAction={{
                   label: 'Discover',
                   onPress: () => handleTabPress('discover'),
@@ -135,9 +142,17 @@ function SearchMainScreen() {
         )}
       </ScrollView>
 
-      <View style={[searchStyles.surpriseDock, { bottom: insets.bottom + 88, paddingHorizontal: scale(22) }]}>
+      <View
+        style={[
+          searchStyles.surpriseDock,
+          { bottom: insets.bottom + 88, paddingHorizontal: scale(22) },
+        ]}
+      >
         <TouchableOpacity
-          style={[searchStyles.surpriseButton, { backgroundColor: surpriseSurface, borderColor: 'rgba(212, 168, 83, 0.48)' }]}
+          style={[
+            searchStyles.surpriseButton,
+            { backgroundColor: surpriseSurface, borderColor: 'rgba(212, 168, 83, 0.48)' },
+          ]}
           onPress={() => setSurprisePickerVisible(true)}
           disabled={surpriseLoading}
           activeOpacity={0.86}
@@ -151,10 +166,11 @@ function SearchMainScreen() {
             end={{ x: 1, y: 0.5 }}
             style={searchStyles.surpriseFabGradient}
           >
-            {surpriseLoading
-              ? <ActivityIndicator color={GOLD_ACCENT} size="small" />
-              : <Ionicons name="sparkles" size={18} color={GOLD_ACCENT} />
-            }
+            {surpriseLoading ? (
+              <ActivityIndicator color={GOLD_ACCENT} size="small" />
+            ) : (
+              <Ionicons name="sparkles" size={18} color={GOLD_ACCENT} />
+            )}
             <View style={searchStyles.surpriseCopy}>
               <Text style={[searchStyles.surpriseEyebrow, { color: GOLD_ACCENT }]}>
                 {surpriseLoading ? 'Shuffling' : 'Programme Roulette'}
@@ -163,7 +179,12 @@ function SearchMainScreen() {
                 {surpriseLoading ? 'Finding your pick…' : 'Surprise Me'}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={GOLD_ACCENT} style={{ opacity: 0.8 }} />
+            <Ionicons
+              name="chevron-forward"
+              size={16}
+              color={GOLD_ACCENT}
+              style={{ opacity: 0.8 }}
+            />
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -191,20 +212,20 @@ function SearchDetailScreen() {
       onEnrichWatchlistItem={handleEnrichWatchlistItem}
       isInWatchlist={savedWatchlistKeys.includes(watchlistEntryKey(selectedResult))}
       onSelectSimilar={(match) => handleSelectMatch(match, navigation)}
-      onPersonPress={(personId, personName, role) => handlePersonPress(personId, personName, role, navigation)}
-      onCompanyPress={(companyId, companyName, logoUrl) => handleCompanyPress(companyId, companyName, logoUrl, navigation)}
+      onPersonPress={(personId, personName, role) =>
+        handlePersonPress(personId, personName, role, navigation)
+      }
+      onCompanyPress={(companyId, companyName, logoUrl) =>
+        handleCompanyPress(companyId, companyName, logoUrl, navigation)
+      }
     />
   );
 }
 
 function SearchFilmographyScreen() {
   const navigation = useNavigation();
-  const {
-    filmographyPerson,
-    filmographyResults,
-    filmographyLoading,
-    handleSelectFilmographyItem,
-  } = useAppState();
+  const { filmographyPerson, filmographyResults, filmographyLoading, handleSelectFilmographyItem } =
+    useAppState();
 
   if (!filmographyPerson) return null;
 

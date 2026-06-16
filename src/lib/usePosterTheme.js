@@ -104,7 +104,7 @@ function pickAccent(colorResult) {
     colorResult.vibrant,
     colorResult.lightVibrant,
     colorResult.dominant,
-    colorResult.primary,       // iOS
+    colorResult.primary, // iOS
     colorResult.muted,
     colorResult.darkVibrant,
   ].filter(Boolean);
@@ -143,12 +143,7 @@ function pickMeshColors(accentHex, colorResult) {
     if (!unique.includes(hex)) unique.push(hex);
   });
 
-  const fallback = [
-    accentHex,
-    lighten(accentHex, 0.18),
-    darken(accentHex, 0.36),
-    '#111827',
-  ];
+  const fallback = [accentHex, lighten(accentHex, 0.18), darken(accentHex, 0.36), '#111827'];
 
   return [...unique, ...fallback].slice(0, 4);
 }
@@ -167,8 +162,8 @@ function buildPalette(accentHex, colorResult) {
     colorResult?.darkVibrant ||
     darken(accentHex, 0.7);
 
-  const bg = darken(baseDark, 0.25);        // very dark
-  const surface = darken(baseDark, 0.1);    // slightly lighter
+  const bg = darken(baseDark, 0.25); // very dark
+  const surface = darken(baseDark, 0.1); // slightly lighter
   const surfaceHigh = lighten(baseDark, 0.05);
 
   // Ensure the accent passes 3:1 against the bg (relaxed, hero is behind imagery)
@@ -250,7 +245,7 @@ export function usePosterTheme(posterUrl) {
           fallback: '#1a1a2e',
           cache: true,
           key: posterUrl,
-          quality: 'low',   // faster on Android
+          quality: 'low', // faster on Android
           pixelSpacing: 5,
         });
 

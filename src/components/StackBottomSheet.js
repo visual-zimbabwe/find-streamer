@@ -24,11 +24,26 @@
  */
 
 import React, {
-  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from 'react';
 import {
-  Animated, Easing, Platform, Pressable, ScrollView,
-  StyleSheet, Text, TouchableOpacity, View, PanResponder, useWindowDimensions,
+  Animated,
+  Easing,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  PanResponder,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -71,27 +86,30 @@ export function BottomSheetProvider({ children }) {
 
   const show = useCallback((content, options = {}) => {
     const id = Math.random().toString(36).slice(2, 9);
-    setSheets(prev => [...prev, {
-      id,
-      content: typeof content === 'function' ? content(id) : content,
-      options: {
-        size: 'medium',
-        title: '',
-        eyebrow: '',
-        subtitle: '',
-        showCloseButton: true,
-        dismissOnBackdrop: true,
-        scrollable: false,
-        ...options,
+    setSheets((prev) => [
+      ...prev,
+      {
+        id,
+        content: typeof content === 'function' ? content(id) : content,
+        options: {
+          size: 'medium',
+          title: '',
+          eyebrow: '',
+          subtitle: '',
+          showCloseButton: true,
+          dismissOnBackdrop: true,
+          scrollable: false,
+          ...options,
+        },
       },
-    }]);
+    ]);
     return id;
   }, []);
 
   const update = useCallback((id, content) => {
-    setSheets(prev => {
+    setSheets((prev) => {
       let found = false;
-      const next = prev.map(sheet => {
+      const next = prev.map((sheet) => {
         if (sheet.id !== id) return sheet;
         found = true;
         return { ...sheet, content };
@@ -101,7 +119,7 @@ export function BottomSheetProvider({ children }) {
   }, []);
 
   const dismiss = useCallback((id) => {
-    setSheets(prev => prev.filter(s => s.id !== id));
+    setSheets((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
   const dismissAll = useCallback(() => {
@@ -127,9 +145,7 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   const sheetSurface = useMemo(
-    () => (resolvedMode === 'dark'
-      ? 'rgba(12, 12, 14, 0.96)'
-      : 'rgba(247, 247, 242, 0.96)'),
+    () => (resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.96)' : 'rgba(247, 247, 242, 0.96)'),
     [resolvedMode],
   );
 
@@ -212,47 +228,58 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
         easing: EASE_OUT,
         useNativeDriver: true,
       }),
-      ...(isTop && totalSheets === 1 && backdropOpacity ? [
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: EXIT_MS,
-          useNativeDriver: true,
-        }),
-      ] : []),
+      ...(isTop && totalSheets === 1 && backdropOpacity
+        ? [
+            Animated.timing(backdropOpacity, {
+              toValue: 0,
+              duration: EXIT_MS,
+              useNativeDriver: true,
+            }),
+          ]
+        : []),
     ]).start(() => {
       onDismiss(sheet.id);
       sheet.options.onClose?.();
     });
   }, [
-    index, totalSheets, sheet, backdropOpacity, onDismiss,
-    opacityAnim, translateY, windowHeight, sheetHeight,
+    index,
+    totalSheets,
+    sheet,
+    backdropOpacity,
+    onDismiss,
+    opacityAnim,
+    translateY,
+    windowHeight,
+    sheetHeight,
   ]);
 
   const gestureStartY = useRef(0);
-  const pan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) =>
-      index === 0 && g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
-    onPanResponderGrant: () => {
-      gestureStartY.current = getTargetY();
-    },
-    onPanResponderMove: (_, g) => {
-      if (index !== 0 || g.dy <= 0) return;
-      translateY.setValue(gestureStartY.current + g.dy);
-    },
-    onPanResponderRelease: (_, g) => {
-      if (index !== 0) return;
-      if (g.dy > 100 || g.vy > 1.2) {
-        dismissWithAnimation();
-      } else {
-        Animated.timing(translateY, {
-          toValue: getTargetY(),
-          duration: 240,
-          easing: EASE_OUT,
-          useNativeDriver: true,
-        }).start();
-      }
-    },
-  })).current;
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        index === 0 && g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
+      onPanResponderGrant: () => {
+        gestureStartY.current = getTargetY();
+      },
+      onPanResponderMove: (_, g) => {
+        if (index !== 0 || g.dy <= 0) return;
+        translateY.setValue(gestureStartY.current + g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (index !== 0) return;
+        if (g.dy > 100 || g.vy > 1.2) {
+          dismissWithAnimation();
+        } else {
+          Animated.timing(translateY, {
+            toValue: getTargetY(),
+            duration: 240,
+            easing: EASE_OUT,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    }),
+  ).current;
 
   const animStyle = {
     opacity: opacityAnim,
@@ -306,7 +333,10 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
             )}
             {!!subtitle && (
               <Text
-                style={[sheetStyles.subtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+                style={[
+                  sheetStyles.subtitle,
+                  { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                ]}
                 numberOfLines={2}
               >
                 {subtitle}
@@ -327,10 +357,17 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
       )}
 
       {showHeader && (
-        <View style={[sheetStyles.headerRule, { backgroundColor: GOLD_DIM, marginHorizontal: H_PAD }]} />
+        <View
+          style={[sheetStyles.headerRule, { backgroundColor: GOLD_DIM, marginHorizontal: H_PAD }]}
+        />
       )}
 
-      <View style={[sheetStyles.contentWrap, { paddingHorizontal: H_PAD, paddingBottom: bottomInset + CONTENT_BOTTOM_GAP }]}>
+      <View
+        style={[
+          sheetStyles.contentWrap,
+          { paddingHorizontal: H_PAD, paddingBottom: bottomInset + CONTENT_BOTTOM_GAP },
+        ]}
+      >
         {isScrollable ? (
           <ScrollView
             style={sheetStyles.scroll}
@@ -343,14 +380,24 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
               { paddingBottom: bottomInset + CONTENT_BOTTOM_GAP },
             ]}
           >
-            {typeof sheet.content === 'string'
-              ? <Text style={[sheetStyles.text, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>{sheet.content}</Text>
-              : sheet.content}
+            {typeof sheet.content === 'string' ? (
+              <Text
+                style={[sheetStyles.text, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+              >
+                {sheet.content}
+              </Text>
+            ) : (
+              sheet.content
+            )}
           </ScrollView>
+        ) : typeof sheet.content === 'string' ? (
+          <Text
+            style={[sheetStyles.text, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+          >
+            {sheet.content}
+          </Text>
         ) : (
-          typeof sheet.content === 'string'
-            ? <Text style={[sheetStyles.text, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>{sheet.content}</Text>
-            : sheet.content
+          sheet.content
         )}
       </View>
     </Animated.View>

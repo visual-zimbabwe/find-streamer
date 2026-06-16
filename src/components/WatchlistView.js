@@ -47,7 +47,9 @@ function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }
   return (
     <View style={styles.sectionHeader}>
       {eyebrow ? (
-        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>{eyebrow}</Text>
+        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+          {eyebrow}
+        </Text>
       ) : null}
       <Text
         style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
@@ -56,7 +58,12 @@ function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }
         {title}
       </Text>
       {subtitle ? (
-        <Text style={[styles.sectionSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+        <Text
+          style={[
+            styles.sectionSubtitle,
+            { color: colors.onSurfaceVariant, ...typography.labelSm },
+          ]}
+        >
           {subtitle}
         </Text>
       ) : null}
@@ -68,7 +75,13 @@ function SectionHairline({ color }) {
   return <View style={[styles.sectionDivider, { backgroundColor: color || GOLD_DIM }]} />;
 }
 
-const NowPlayingGridCard = memo(function NowPlayingGridCard({ item, colors, typography, radii, onSelect }) {
+const NowPlayingGridCard = memo(function NowPlayingGridCard({
+  item,
+  colors,
+  typography,
+  radii,
+  onSelect,
+}) {
   const ratingValue = parseRatingValue(item.rating);
 
   return (
@@ -79,7 +92,12 @@ const NowPlayingGridCard = memo(function NowPlayingGridCard({ item, colors, typo
       accessibilityRole="button"
       accessibilityLabel={`Open details for ${item.title}`}
     >
-      <View style={[styles.gridPosterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl }]}>
+      <View
+        style={[
+          styles.gridPosterWrap,
+          { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
+        ]}
+      >
         <MediaArtwork
           uri={item.posterUrl}
           style={styles.gridPosterImg}
@@ -94,12 +112,17 @@ const NowPlayingGridCard = memo(function NowPlayingGridCard({ item, colors, typo
           </View>
         )}
       </View>
-      <Text style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]} numberOfLines={2}>
+      <Text
+        style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
+        numberOfLines={2}
+      >
         {item.title}
       </Text>
       <View style={styles.cardMeta}>
         <Ionicons name="film-outline" size={11} color={colors.onSurfaceVariant} />
-        <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>Movie · {item.year}</Text>
+        <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>
+          Movie · {item.year}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -152,7 +175,7 @@ function WatchlistGridCard({ item, colors, typography, radii, onSelect, onRemove
         }
       },
       onPanResponderTerminate: resetPosition,
-    })
+    }),
   ).current;
 
   const removeOpacity = translateX.interpolate({
@@ -168,12 +191,20 @@ function WatchlistGridCard({ item, colors, typography, radii, onSelect, onRemove
 
   return (
     <View style={[styles.swipeShell, { width: GRID_COL_W }]}>
-      <Animated.View style={[styles.swipeAction, styles.swipeRemoveAction, { opacity: removeOpacity }]}>
+      <Animated.View
+        style={[styles.swipeAction, styles.swipeRemoveAction, { opacity: removeOpacity }]}
+      >
         <Ionicons name="trash-outline" size={18} color={colors.error} />
-        <Text style={[styles.swipeActionText, { color: colors.error, ...typography.labelSm }]}>Remove</Text>
+        <Text style={[styles.swipeActionText, { color: colors.error, ...typography.labelSm }]}>
+          Remove
+        </Text>
       </Animated.View>
-      <Animated.View style={[styles.swipeAction, styles.swipeWatchedAction, { opacity: watchedOpacity }]}>
-        <Text style={[styles.swipeActionText, { color: GOLD_ACCENT, ...typography.labelSm }]}>Watched</Text>
+      <Animated.View
+        style={[styles.swipeAction, styles.swipeWatchedAction, { opacity: watchedOpacity }]}
+      >
+        <Text style={[styles.swipeActionText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+          Watched
+        </Text>
         <Ionicons name="checkmark-circle-outline" size={18} color={GOLD_ACCENT} />
       </Animated.View>
 
@@ -185,7 +216,12 @@ function WatchlistGridCard({ item, colors, typography, radii, onSelect, onRemove
           accessibilityRole="button"
           accessibilityLabel={`Open details for ${item.title}. Swipe left to mark as watched, or swipe right to remove.`}
         >
-          <View style={[styles.gridPosterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl }]}>
+          <View
+            style={[
+              styles.gridPosterWrap,
+              { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
+            ]}
+          >
             <MediaArtwork
               uri={item.posterUrl}
               style={styles.gridPosterImg}
@@ -200,17 +236,33 @@ function WatchlistGridCard({ item, colors, typography, radii, onSelect, onRemove
               </View>
             )}
             {item.status && item.status !== 'saved' && (
-              <View style={[styles.statusPill, { backgroundColor: 'rgba(0,0,0,0.62)', borderRadius: radii.sm }]}>
+              <View
+                style={[
+                  styles.statusPill,
+                  { backgroundColor: 'rgba(0,0,0,0.62)', borderRadius: radii.sm },
+                ]}
+              >
                 <Ionicons
-                  name={item.status === 'watched' ? 'checkmark-circle-outline' : item.status === 'watching' ? 'play-circle-outline' : 'archive-outline'}
+                  name={
+                    item.status === 'watched'
+                      ? 'checkmark-circle-outline'
+                      : item.status === 'watching'
+                        ? 'play-circle-outline'
+                        : 'archive-outline'
+                  }
                   size={11}
                   color={item.status === 'watched' ? GOLD_ACCENT : '#fff'}
                 />
-                <Text style={[styles.statusPillText, typography.labelSm]}>{getStatusLabel(item.status)}</Text>
+                <Text style={[styles.statusPillText, typography.labelSm]}>
+                  {getStatusLabel(item.status)}
+                </Text>
               </View>
             )}
           </View>
-          <Text style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]} numberOfLines={2}>
+          <Text
+            style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
+            numberOfLines={2}
+          >
             {item.title}
           </Text>
           <View style={styles.cardMeta}>
@@ -253,7 +305,15 @@ function PosterGrid({ items, renderItem }) {
   );
 }
 
-export function WatchlistView({ items, collections = [], onRemove, onMarkWatched, onSelect, onBrowseMovies, onBrowseTV }) {
+export function WatchlistView({
+  items,
+  collections = [],
+  onRemove,
+  onMarkWatched,
+  onSelect,
+  onBrowseMovies,
+  onBrowseTV,
+}) {
   const { theme, resolvedMode } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
@@ -268,24 +328,26 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
   const [nowPlayingLoading, setNowPlayingLoading] = useState(true);
   const [nowPlayingError, setNowPlayingError] = useState(null);
 
-  const glassSurface = resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.96)' : 'rgba(247, 247, 242, 0.96)';
+  const glassSurface =
+    resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.96)' : 'rgba(247, 247, 242, 0.96)';
   const atmosphereColors = [
     resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
     colors.background,
   ];
 
-  const libraryItems = useMemo(
-    () => (items || []).filter(isInUserLibrary),
-    [items]
-  );
+  const libraryItems = useMemo(() => (items || []).filter(isInUserLibrary), [items]);
 
   const pickableItems = useMemo(
     () => libraryItems.filter((item) => item.status !== 'watched'),
-    [libraryItems]
+    [libraryItems],
   );
 
   const chooseRandomPick = () => {
-    const source = pickableItems.length ? pickableItems : libraryItems.length ? libraryItems : items;
+    const source = pickableItems.length
+      ? pickableItems
+      : libraryItems.length
+        ? libraryItems
+        : items;
     if (!source?.length) return;
     const nextPick = source[Math.floor(Math.random() * source.length)];
     setRandomPick(nextPick);
@@ -303,10 +365,19 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
     setNowPlayingLoading(true);
     setNowPlayingError(null);
     fetchNowPlayingMovies()
-      .then((results) => { if (!cancelled) setNowPlaying(results); })
-      .catch((err) => { if (!cancelled) setNowPlayingError(classifyAppError(err).message || 'Could not load Now Playing.'); })
-      .finally(() => { if (!cancelled) setNowPlayingLoading(false); });
-    return () => { cancelled = true; };
+      .then((results) => {
+        if (!cancelled) setNowPlaying(results);
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setNowPlayingError(classifyAppError(err).message || 'Could not load Now Playing.');
+      })
+      .finally(() => {
+        if (!cancelled) setNowPlayingLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (!libraryItems.length) {
@@ -368,7 +439,9 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
     setNowPlayingError(null);
     fetchNowPlayingMovies()
       .then(setNowPlaying)
-      .catch((err) => setNowPlayingError(classifyAppError(err).message || 'Could not load Now Playing.'))
+      .catch((err) =>
+        setNowPlayingError(classifyAppError(err).message || 'Could not load Now Playing.'),
+      )
       .finally(() => setNowPlayingLoading(false));
   };
 
@@ -403,9 +476,18 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
           ]}
         >
           <View style={styles.randomCopy}>
-            <Text style={[styles.randomEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>Random Pick</Text>
-            <Text style={[styles.randomTitle, { color: colors.onSurface, ...typography.titleLg }]}>What should I watch?</Text>
-            <Text style={[styles.randomSubtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+            <Text style={[styles.randomEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+              Random Pick
+            </Text>
+            <Text style={[styles.randomTitle, { color: colors.onSurface, ...typography.titleLg }]}>
+              What should I watch?
+            </Text>
+            <Text
+              style={[
+                styles.randomSubtitle,
+                { color: colors.onSurfaceVariant, ...typography.bodyMd },
+              ]}
+            >
               Shuffle your saved titles when decision fatigue hits.
             </Text>
           </View>
@@ -416,7 +498,9 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
             accessibilityLabel="Pick a random title from your watchlist"
           >
             <Ionicons name="shuffle" size={18} color={GOLD_ACCENT} />
-            <Text style={[styles.randomButtonText, { color: GOLD_ACCENT, ...typography.labelSm }]}>Pick</Text>
+            <Text style={[styles.randomButtonText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+              Pick
+            </Text>
           </TouchableOpacity>
           {randomPick && (
             <Animated.View
@@ -424,7 +508,8 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
                 styles.randomResult,
                 {
                   opacity: pickOpacity,
-                  backgroundColor: resolvedMode === 'dark' ? 'rgba(212,168,83,0.08)' : 'rgba(212,168,83,0.12)',
+                  backgroundColor:
+                    resolvedMode === 'dark' ? 'rgba(212,168,83,0.08)' : 'rgba(212,168,83,0.12)',
                   borderColor: GOLD_DIM,
                   borderRadius: radii.lg,
                 },
@@ -438,16 +523,35 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
                 instant
               />
               <View style={styles.randomResultCopy}>
-                <Text style={[styles.randomResultLabel, { color: GOLD_ACCENT, ...typography.labelSm }]}>Tonight's Pick</Text>
-                <Text style={[styles.randomResultTitle, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
+                <Text
+                  style={[styles.randomResultLabel, { color: GOLD_ACCENT, ...typography.labelSm }]}
+                >
+                  Tonight's Pick
+                </Text>
+                <Text
+                  style={[
+                    styles.randomResultTitle,
+                    { color: colors.onSurface, ...typography.titleLg },
+                  ]}
+                  numberOfLines={2}
+                >
                   {randomPick.title}
                 </Text>
-                <Text style={[styles.randomResultMeta, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={1}>
+                <Text
+                  style={[
+                    styles.randomResultMeta,
+                    { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                  ]}
+                  numberOfLines={1}
+                >
                   {randomPick.year} · {getStatusLabel(randomPick.status)}
                 </Text>
               </View>
               <TouchableOpacity
-                style={[styles.randomOpenButton, { borderColor: GOLD_DIM, borderRadius: radii.full }]}
+                style={[
+                  styles.randomOpenButton,
+                  { borderColor: GOLD_DIM, borderRadius: radii.full },
+                ]}
                 onPress={() => onSelect(randomPick)}
                 accessibilityRole="button"
                 accessibilityLabel={`Open details for ${randomPick.title}`}
@@ -470,14 +574,36 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
               accessibilityLabel={`${isCategoryCollapsed('now_playing') ? 'Expand' : 'Collapse'} Now Playing`}
               accessibilityState={{ expanded: !isCategoryCollapsed('now_playing') }}
             >
-              <View style={[styles.categoryIcon, { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM }]}>
+              <View
+                style={[
+                  styles.categoryIcon,
+                  { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM },
+                ]}
+              >
                 <Ionicons name="film-outline" size={18} color={GOLD_ACCENT} />
               </View>
               <View style={styles.categoryHeadingText}>
-                <Text style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>In Theatres</Text>
-                <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}>Now Playing</Text>
-                <Text style={[styles.categoryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-                  {nowPlayingLoading ? 'Loading…' : nowPlayingError ? 'Unavailable' : `${nowPlaying.length} ${nowPlaying.length === 1 ? 'Title' : 'Titles'}`}
+                <Text
+                  style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}
+                >
+                  In Theatres
+                </Text>
+                <Text
+                  style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}
+                >
+                  Now Playing
+                </Text>
+                <Text
+                  style={[
+                    styles.categoryCount,
+                    { color: colors.onSurfaceVariant, ...typography.labelSm },
+                  ]}
+                >
+                  {nowPlayingLoading
+                    ? 'Loading…'
+                    : nowPlayingError
+                      ? 'Unavailable'
+                      : `${nowPlaying.length} ${nowPlaying.length === 1 ? 'Title' : 'Titles'}`}
                 </Text>
               </View>
               <View style={[styles.categoryToggle, { borderColor: GOLD_DIM }]}>
@@ -492,17 +618,34 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
             {!isCategoryCollapsed('now_playing') && (
               <View style={styles.sectionBody}>
                 {nowPlayingLoading && (
-                  <ActivityIndicator size="small" color={GOLD_ACCENT} style={styles.sectionLoader} accessibilityLabel="Loading Now Playing" />
+                  <ActivityIndicator
+                    size="small"
+                    color={GOLD_ACCENT}
+                    style={styles.sectionLoader}
+                    accessibilityLabel="Loading Now Playing"
+                  />
                 )}
                 {!nowPlayingLoading && nowPlayingError && (
                   <TouchableOpacity
-                    style={[styles.inlineRetry, { backgroundColor: colors.error + '12', borderColor: colors.error + '33', borderRadius: radii.md }]}
+                    style={[
+                      styles.inlineRetry,
+                      {
+                        backgroundColor: colors.error + '12',
+                        borderColor: colors.error + '33',
+                        borderRadius: radii.md,
+                      },
+                    ]}
                     onPress={retryNowPlaying}
                     accessibilityRole="button"
                     accessibilityLabel="Retry loading Now Playing"
                   >
                     <Ionicons name="refresh-outline" size={16} color={colors.error} />
-                    <Text style={[styles.inlineRetryText, { color: colors.error, ...typography.bodyMd }]}>
+                    <Text
+                      style={[
+                        styles.inlineRetryText,
+                        { color: colors.error, ...typography.bodyMd },
+                      ]}
+                    >
                       Could not load this section. Tap to retry.
                     </Text>
                   </TouchableOpacity>
@@ -530,7 +673,9 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
 
             return (
               <View key={category.id}>
-                {categoryIndex > 0 || !isCategoryCollapsed('now_playing') ? <SectionHairline /> : null}
+                {categoryIndex > 0 || !isCategoryCollapsed('now_playing') ? (
+                  <SectionHairline />
+                ) : null}
                 <View style={styles.categorySection}>
                   <TouchableOpacity
                     style={styles.categoryHeading}
@@ -540,13 +685,37 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
                     accessibilityLabel={`${isCollapsed ? 'Expand' : 'Collapse'} ${category.label}`}
                     accessibilityState={{ expanded: !isCollapsed }}
                   >
-                    <View style={[styles.categoryIcon, { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM }]}>
+                    <View
+                      style={[
+                        styles.categoryIcon,
+                        { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM },
+                      ]}
+                    >
                       <Ionicons name={category.icon} size={18} color={GOLD_ACCENT} />
                     </View>
                     <View style={styles.categoryHeadingText}>
-                      <Text style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>Collection</Text>
-                      <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}>{category.label}</Text>
-                      <Text style={[styles.categoryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                      <Text
+                        style={[
+                          styles.categoryEyebrow,
+                          { color: GOLD_ACCENT, ...typography.labelSm },
+                        ]}
+                      >
+                        Collection
+                      </Text>
+                      <Text
+                        style={[
+                          styles.categoryTitle,
+                          { color: colors.onSurface, ...typography.titleMd },
+                        ]}
+                      >
+                        {category.label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.categoryCount,
+                          { color: colors.onSurfaceVariant, ...typography.labelSm },
+                        ]}
+                      >
                         {category.totalCount} {category.totalCount === 1 ? 'Title' : 'Titles'}
                       </Text>
                     </View>
@@ -579,13 +748,25 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
                                 accessibilityState={{ expanded: !groupCollapsed }}
                               >
                                 <Ionicons name={group.icon} size={13} color={GOLD_ACCENT} />
-                                <Text style={[styles.mediaGroupLabel, { color: colors.onSurface, ...typography.labelSm }]}>
+                                <Text
+                                  style={[
+                                    styles.mediaGroupLabel,
+                                    { color: colors.onSurface, ...typography.labelSm },
+                                  ]}
+                                >
                                   {group.label}
                                 </Text>
-                                <Text style={[styles.mediaGroupCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                                <Text
+                                  style={[
+                                    styles.mediaGroupCount,
+                                    { color: colors.onSurfaceVariant, ...typography.labelSm },
+                                  ]}
+                                >
                                   {group.data.length}
                                 </Text>
-                                <View style={[styles.mediaGroupDivider, { backgroundColor: GOLD_DIM }]} />
+                                <View
+                                  style={[styles.mediaGroupDivider, { backgroundColor: GOLD_DIM }]}
+                                />
                                 <Ionicons
                                   name={groupCollapsed ? 'chevron-down' : 'chevron-up'}
                                   size={13}
@@ -621,8 +802,15 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
         </View>
       </ScrollView>
 
-      <View style={[styles.browseDock, { bottom: insets.bottom + 88, paddingHorizontal: GRID_PAD }]}>
-        <View style={[styles.browseDockInner, { backgroundColor: glassSurface, borderColor: GOLD_DIM, borderRadius: radii.xl }]}>
+      <View
+        style={[styles.browseDock, { bottom: insets.bottom + 88, paddingHorizontal: GRID_PAD }]}
+      >
+        <View
+          style={[
+            styles.browseDockInner,
+            { backgroundColor: glassSurface, borderColor: GOLD_DIM, borderRadius: radii.xl },
+          ]}
+        >
           <TouchableOpacity
             style={styles.browseDockAction}
             onPress={() => {
@@ -633,7 +821,11 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
             accessibilityLabel="Browse movies"
           >
             <Ionicons name="film-outline" size={18} color={GOLD_ACCENT} />
-            <Text style={[styles.browseDockLabel, { color: colors.onSurface, ...typography.labelSm }]}>Movies</Text>
+            <Text
+              style={[styles.browseDockLabel, { color: colors.onSurface, ...typography.labelSm }]}
+            >
+              Movies
+            </Text>
           </TouchableOpacity>
           <View style={[styles.browseDockDivider, { backgroundColor: GOLD_DIM }]} />
           <TouchableOpacity
@@ -646,7 +838,11 @@ export function WatchlistView({ items, collections = [], onRemove, onMarkWatched
             accessibilityLabel="Browse TV shows"
           >
             <Ionicons name="tv-outline" size={18} color={GOLD_ACCENT} />
-            <Text style={[styles.browseDockLabel, { color: colors.onSurface, ...typography.labelSm }]}>TV Shows</Text>
+            <Text
+              style={[styles.browseDockLabel, { color: colors.onSurface, ...typography.labelSm }]}
+            >
+              TV Shows
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

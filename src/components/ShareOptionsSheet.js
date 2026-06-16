@@ -1,13 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-  Modal, View, Text, TouchableOpacity,
-  ScrollView, StyleSheet, Image,
-} from 'react-native';
+import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import {
-  SERVICE_COLORS, SERVICE_ICONS,
+  SERVICE_COLORS,
+  SERVICE_ICONS,
   getAvailableCountriesForService,
   buildDefaultSelectedCountries,
   shortName,
@@ -46,10 +44,10 @@ export function ShareOptionsSheetContent({ result, onClose, onShare }) {
   }, [result?.tmdbId]);
 
   const toggleCountry = useCallback((serviceKey, code) => {
-    setSelected(prev => {
+    setSelected((prev) => {
       const cur = prev[serviceKey] || [];
       if (cur.includes(code)) {
-        return { ...prev, [serviceKey]: cur.filter(c => c !== code) };
+        return { ...prev, [serviceKey]: cur.filter((c) => c !== code) };
       }
       if (cur.length < 2) {
         return { ...prev, [serviceKey]: [...cur, code] };
@@ -59,7 +57,7 @@ export function ShareOptionsSheetContent({ result, onClose, onShare }) {
     });
   }, []);
 
-  const availableProviders = (result?.providerSummary || []).filter(p => p.count > 0);
+  const availableProviders = (result?.providerSummary || []).filter((p) => p.count > 0);
 
   return (
     <View style={styles.contentRoot}>
@@ -97,12 +95,20 @@ export function ShareOptionsSheetContent({ result, onClose, onShare }) {
               key={provider.key}
               style={[
                 styles.serviceSection,
-                !isLast && { borderBottomWidth: 1, borderBottomColor: colors.outlineVariant + '26' },
+                !isLast && {
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.outlineVariant + '26',
+                },
               ]}
             >
               {/* Service row */}
               <View style={styles.serviceHeader}>
-                <View style={[styles.serviceIconWrap, { backgroundColor: color + '22', borderRadius: radii.md }]}>
+                <View
+                  style={[
+                    styles.serviceIconWrap,
+                    { backgroundColor: color + '22', borderRadius: radii.md },
+                  ]}
+                >
                   {provider.logoUrl ? (
                     <Image
                       source={{ uri: provider.logoUrl }}
@@ -117,20 +123,27 @@ export function ShareOptionsSheetContent({ result, onClose, onShare }) {
                     />
                   )}
                 </View>
-                <Text style={[styles.serviceName, { color: colors.onSurface, ...typography.bodyLg }]}>
+                <Text
+                  style={[styles.serviceName, { color: colors.onSurface, ...typography.bodyLg }]}
+                >
                   {provider.label}
                 </Text>
-                <Text style={[
-                  styles.selCount,
-                  { color: sel.length === 2 ? color : colors.onSurfaceVariant, ...typography.labelSm },
-                ]}>
+                <Text
+                  style={[
+                    styles.selCount,
+                    {
+                      color: sel.length === 2 ? color : colors.onSurfaceVariant,
+                      ...typography.labelSm,
+                    },
+                  ]}
+                >
                   {sel.length}/2
                 </Text>
               </View>
 
               {/* Country chips */}
               <View style={styles.chipsWrap}>
-                {countries.map(code => {
+                {countries.map((code) => {
                   const isSel = sel.includes(code);
                   return (
                     <TouchableOpacity
@@ -150,7 +163,12 @@ export function ShareOptionsSheetContent({ result, onClose, onShare }) {
                       accessibilityLabel={`${shortName(code)} on ${provider.label}`}
                     >
                       {isSel && <Ionicons name="checkmark" size={11} color={color} />}
-                      <Text style={[styles.chipText, { color: isSel ? color : colors.onSurfaceVariant }]}>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          { color: isSel ? color : colors.onSurfaceVariant },
+                        ]}
+                      >
                         {shortName(code)}
                       </Text>
                     </TouchableOpacity>
@@ -188,27 +206,25 @@ export function ShareOptionsSheet({ visible, result, onClose, onShare }) {
   const { colors, radii } = theme;
   const insets = useSafeAreaInsets();
   return (
-    <Modal
-      transparent
-      animationType="slide"
-      visible={visible}
-      onRequestClose={onClose}
-    >
+    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={[styles.sheet, {
-          backgroundColor: colors.surfaceContainer,
-          borderColor: colors.outlineVariant + '4D',
-          borderRadius: radii.xl,
-          paddingBottom: Math.max(insets.bottom, 12) + 20,
-        }]}>
+        <View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: colors.surfaceContainer,
+              borderColor: colors.outlineVariant + '4D',
+              borderRadius: radii.xl,
+              paddingBottom: Math.max(insets.bottom, 12) + 20,
+            },
+          ]}
+        >
           <ShareOptionsSheetContent result={result} onClose={onClose} onShare={onShare} />
         </View>
       </View>
     </Modal>
   );
 }
-
-
 
 const styles = StyleSheet.create({
   overlay: {
