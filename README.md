@@ -46,67 +46,128 @@ Built on **React Native** and **Expo SDK 55**, Trova features a cinematic design
 
 ```text
 find-streamer/
-├── App.js                         # Main app entry, global state, and root navigation manager
+├── App.js                         # Root composition: assembles domain hooks → providers → navigation
 ├── AGENT.md                       # AI agent instruction guidelines
 ├── PROGRESS.md                    # Detailed log of project task completions
 ├── README.md                      # Comprehensive developer guide (This file)
-├── app.json                       # Expo configuration manifest
-├── eas.json                       # EAS Build profile settings
+├── REFACTOR_PLAN.md               # Phased refactor roadmap
+├── app.json                       # Expo configuration manifest (Android-only)
 ├── package.json                   # Project scripts and node dependencies
-├── tsconfig.json                  # TypeScript compiler settings
+├── tsconfig.json                  # TypeScript settings (JSDoc + // @ts-check, no .ts migration)
+├── eslint.config.js               # ESLint flat config (eslint-config-expo, warnings-only)
+├── .prettierrc                    # Prettier formatting rules
+├── metro.config.js                # Metro bundler configuration
+├── icon.png / icon-light.png      # App + adaptive launcher icons
+├── android/                       # Native Android Gradle project (bare/prebuild workflow)
+├── scripts/                       # Local maintenance scripts (icon sync, collection enrichment)
 ├── src/
 │   ├── components/                # Modular React Native UI components
 │   │   ├── AppHeader.js           # Navigation bar with contextual back buttons
 │   │   ├── BottomNav.js           # Floating premium glassmorphic navigation bar capsule
+│   │   ├── CollectionContentRail.js # Horizontal rail of collection titles
+│   │   ├── CollectionFindSheet.js # Sheet to find/add titles to a collection
+│   │   ├── CollectionsScreen.js   # Collections browser (incl. IMDb Top 100)
 │   │   ├── DiscoverScreen.js      # Advanced discovery panel and search filters
 │   │   ├── EmptyState.js          # Fallback screen for missing data/results
 │   │   ├── ErrorBanner.js         # System error warnings
 │   │   ├── FilmographyScreen.js   # Director/creator/actor filmography grid
+│   │   ├── FranchiseRailsView.js  # Franchise/collection rails
 │   │   ├── HomeScreen.js          # Feed carousels, categories, and quick previews
+│   │   ├── HomeTopNav.js          # Home screen top navigation
+│   │   ├── LaunchGate.js          # Gates first paint until launch intro completes
+│   │   ├── LaunchIntro.js         # Animated launch/splash intro
 │   │   ├── MatchResults.js        # Search result list and action rows
 │   │   ├── MediaArtwork.js        # Color-adaptive backdrop viewer
 │   │   ├── ProgressiveBlur.js     # Gradient-based cinematic blur overlays
 │   │   ├── ResultView.js          # Parallax detail view with provider matrices
 │   │   ├── SearchPanel.js         # Debounced search bar with live auto-suggestions
-│   │   ├── SettingsView.js        # UI theme picker, backup, and API rate panels
+│   │   ├── SettingsView.js        # Theme picker, backup, API rate panels, credits
 │   │   ├── ShareCard.js           # Social media card layout for view-shot canvas
 │   │   ├── ShareOptionsSheet.js   # Custom share sheets
 │   │   ├── SkeletonLoaders.js     # Fluid shimmer state placeholders
+│   │   ├── SoundtrackPickerSheet.js # Soundtrack browser sheet (Wikidata/Spotify)
 │   │   ├── StackBottomSheet.js    # Layered gesture-driven modal sheets
 │   │   ├── StatePanel.js          # Retry panels for network/rate failures
 │   │   ├── TrailerModal.js        # Floating trailer webview
+│   │   ├── WatchlistCollectionsSheet.js # Collection assignment sheet
 │   │   └── WatchlistView.js       # Watchlist manager with subgroup filters
 │   │
-│   ├── context/                   # Global React State Contexts
-│   │   └── BottomNavVisibilityContext.js # Dynamic scroll-tracking hide/show listener
+│   ├── context/                   # React state contexts
+│   │   ├── BottomNavVisibilityContext.js # Dynamic scroll-tracking hide/show listener
+│   │   └── domainContexts.js      # Per-domain providers/hooks (search, watchlist, people, etc.)
 │   │
-│   ├── lib/                       # External API wrappers & utility engines
+│   ├── hooks/                     # Domain controller hooks (state + handlers)
+│   │   ├── useAppNavigation.js    # Tab/route navigation + hardware back handling
+│   │   ├── useDetailController.js # Selected result + recently-viewed state
+│   │   ├── usePeopleController.js # Filmography / person / company routing
+│   │   ├── useRequestError.js     # Error + offline-banner handling
+│   │   ├── useSearchController.js # Live search, type-ahead, recent searches
+│   │   ├── useSurpriseController.js # Surprise-me recommendation flows
+│   │   ├── useToast.js            # Toast notifications
+│   │   └── useWatchlistController.js # Watchlist + collections state and mutations
+│   │
+│   ├── lib/                       # External API wrappers & pure utility engines
 │   │   ├── apiRateQuota.js        # TMDB/OMDb/Trakt API quota tracker
+│   │   ├── collectionFilters.js   # Collection filtering logic
+│   │   ├── collectionMovieRows.js # Collection movie row builders
+│   │   ├── collectionPrefsStorage.js # Collection preference persistence
+│   │   ├── collectionRows.js      # Collection row assembly
 │   │   ├── countryPresets.js      # Global country names preset mapping
 │   │   ├── defaultMovieWatchlist.js # Initial catalog data fallbacks
-│   │   ├── defaultWatchlist.js    # Watchlist mockup data seed
+│   │   ├── defaultWatchlist.js    # Watchlist seed data
 │   │   ├── discoverViewModel.js   # Discover search state machine
 │   │   ├── errors.js              # Centralized error classifier
 │   │   ├── homeFeed.js            # Home screen trending/discover loaders
+│   │   ├── imdbTop100Catalog.js   # IMDb Top 100 static catalog
 │   │   ├── languagePresets.js     # Curated regional language groupings
 │   │   ├── omdb.js                # OMDb ratings API integration
+│   │   ├── providerAvailability.js # Region/service availability resolution
 │   │   ├── qrMatrix.js            # QR code matrix generator
 │   │   ├── shareUtils.js          # View-shot canvas renderer and share wrapper
+│   │   ├── spotify.js             # Spotify soundtrack lookups
 │   │   ├── storage.js             # AsyncStorage key-value wrappers
 │   │   ├── tmdb.js                # Core TMDB client (Search, Availability, Details)
 │   │   ├── trakt.js               # Trakt live discovery client
+│   │   ├── types.js               # JSDoc @typedef data-model definitions
 │   │   ├── usePosterTheme.js      # Dynamic palette builder from poster colors
 │   │   ├── useVoiceSearch.js      # Speech-to-text listener hook
+│   │   ├── watchlistActions.js    # Pure watchlist reducers (collections/status/membership)
 │   │   ├── watchlistBackup.js     # Watchlist JSON serialization manager
-│   │   └── watchlistCategories.js # Watchlist category schema definitions
+│   │   ├── watchlistCategories.js # Watchlist category schema definitions
+│   │   ├── watchlistModel.js      # Watchlist row normalization helpers
+│   │   ├── wikidataAwards.js      # Wikidata awards parsing
+│   │   └── wikidataSoundtracks.js # Wikidata soundtrack parsing
 │   │
-│   └── theme/                     # Styling variables & theme providers
-│       ├── ThemeProvider.js       # Context wrapper managing theme modes (Light/Dark/System)
-│       └── tokens.js              # Theme metrics (colors, typography, radii, spacing)
+│   ├── navigation/                # React Navigation stacks & shell
+│   │   ├── AppShell.js            # Top-level shell wiring providers + tabs
+│   │   ├── DiscoverStack.js       # Discover tab stack
+│   │   ├── HomeStack.js           # Home tab stack
+│   │   ├── navigationRef.js       # Imperative navigation ref
+│   │   ├── navigationTheme.js     # React Navigation theme mapping
+│   │   ├── RootTabs.js            # Bottom-tab navigator
+│   │   ├── SearchStack.js         # Search tab stack
+│   │   ├── SettingsStack.js       # Settings tab stack
+│   │   ├── useStackScreenOptions.js # Shared stack screen options
+│   │   └── WatchlistStack.js      # Watchlist tab stack
+│   │
+│   ├── theme/                     # Styling variables & theme providers
+│   │   ├── ThemeProvider.js       # Context wrapper managing theme modes (Light/Dark/System)
+│   │   └── tokens.js              # Theme metrics (colors, typography, radii, spacing)
+│   │
+│   └── utils/
+│       └── responsive.js          # Fluid scale / verticalScale / scaleFont helpers
 │
-└── tests/                         # Native test suites
-    ├── release-hardening.test.js  # Build hardening verification
-    └── watchlist-backup.test.js   # JSON import/export backup verification
+└── tests/                         # Node built-in test runner suites
+    ├── collection-filters.test.js
+    ├── collection-rows.test.js
+    ├── discover-presets.test.js
+    ├── provider-availability.test.js
+    ├── release-config.test.js
+    ├── watchlist-actions.test.js
+    ├── watchlist-backup.test.js
+    ├── watchlist-storage.test.js
+    ├── wikidata-awards.test.js
+    └── wikidata-soundtracks.test.js
 ```
 
 ---
@@ -140,7 +201,7 @@ Configure these settings inside a `.env` file at the root:
 | `EXPO_PUBLIC_TMDB_TV_EPISODE_LOOKUP` | `boolean` | Set `true` to enable deep episode-level provider scans. |
 | `EXPO_PUBLIC_TMDB_TV_EPISODE_MAX_EPISODES` | `number` | The max episodes scanned per show before falling back to series availability (Default: `60`). |
 
-> **Authentication Note**: TMDB requests rely on a secure bearer token authorization. A fallback token is compiled directly inside `src/lib/tmdb.js` to ensure the project works out of the box.
+> **Authentication Note**: TMDB requests use a read-only bearer token bundled directly in `src/lib/tmdb.js`. This is a deliberate choice for a private, local-only hobby app — there is no backend or proxy, so the app works out of the box on a fresh clone.
 
 ---
 
@@ -158,9 +219,9 @@ Run the local Metro bundler:
 ```bash
 npm run start
 ```
-* Press `a` in the terminal to launch the app on an Android Emulator.
-* Press `i` to launch the app on an iOS Simulator.
-* Scan the console's QR code using the **Expo Go** application on a physical phone to run it on-device.
+* Press `a` in the terminal to launch the app on a connected Android device or emulator (requires a dev build / `expo run:android`).
+
+> Trova is **Android-only** (`app.json` declares `"platforms": ["android"]`). There is no iOS target.
 
 ### Running Test Suites
 Execute the integrated Node unit tests:
@@ -170,33 +231,43 @@ npm run test
 
 ---
 
-## Build & Release Pipelines
+## Build & Release (Local Android Gradle)
 
-Trova uses **Expo Application Services (EAS)** for production builds.
+Trova builds **locally with the native Android Gradle project** in `android/` — no EAS, no cloud builds. The `android/` directory is checked in (bare/prebuild workflow).
 
-### 1. EAS Authentication
-Log into the EAS CLI system (configured for the `juwimana` organization account):
+### 1. (Re)generate native project — only if needed
+If you've changed `app.json` native config (plugins, permissions, icons) or are starting from a clean checkout without `android/`, regenerate it:
 ```bash
-npx eas login
+npx expo prebuild --platform android
 ```
+> If `android/` already exists and is up to date, skip this step.
 
-### 2. Configure Projects
-Sync project profiles and configuration IDs:
+### 2. Build a debug APK (for quick on-device testing)
 ```bash
-npx eas project:init
+cd android
+./gradlew assembleDebug          # macOS/Linux
+.\gradlew.bat assembleDebug      # Windows (PowerShell)
 ```
+Output: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-### 3. Build Platforms
+### 3. Build a release APK
+```bash
+cd android
+./gradlew assembleRelease        # macOS/Linux
+.\gradlew.bat assembleRelease    # Windows (PowerShell)
+```
+Output: `android/app/build/outputs/apk/release/app-release.apk`
 
-* **Build Android Preview (Installable APK)**:
-  ```bash
-  npx eas build --platform android --profile preview
-  ```
-* **Build iOS Preview**:
-  ```bash
-  npx eas build --platform ios --profile preview
-  ```
-* **Build Android Production (Play Store AAB)**:
-  ```bash
-  npx eas build --platform android --profile production
-  ```
+Install a built APK on a connected device with `adb install <path-to-apk>`. Build artifacts under `android/build/`, `android/app/build/`, and packaged `*.apk` / `*.aab` files are git-ignored.
+
+---
+
+## Attribution & Credits
+
+* This product uses the **TMDB API** but is not endorsed or certified by TMDB.
+* Streaming-availability data is sourced via TMDB's watch-provider endpoints, which are powered by **JustWatch**.
+* Critic scores and additional metadata are provided by **OMDb**.
+* Live discovery data is provided by **Trakt**.
+* Awards and soundtrack data are sourced from **Wikidata**.
+
+These credits are also surfaced in-app under **Settings → About / Credits**.
