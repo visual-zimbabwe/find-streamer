@@ -4,7 +4,13 @@ import { useNavigation } from '@react-navigation/native';
 import { DiscoverScreen } from '../components/DiscoverScreen';
 import { ResultView } from '../components/ResultView';
 import { FilmographyScreen } from '../components/FilmographyScreen';
-import { useAppState } from '../context/AppStateContext';
+import {
+  useSearch,
+  useDiscover,
+  useDetail,
+  useWatchlist,
+  usePeople,
+} from '../context/domainContexts';
 import { useStackScreenOptions } from './useStackScreenOptions';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 
@@ -12,8 +18,9 @@ const Stack = createNativeStackNavigator();
 
 function DiscoverMainScreen() {
   const navigation = useNavigation();
-  const { handleSelectDiscoverItem, discoverVm, handleToggleWatchlist, savedWatchlistKeys } =
-    useAppState();
+  const { handleSelectDiscoverItem } = useSearch();
+  const { discoverVm } = useDiscover();
+  const { handleToggleWatchlist, savedWatchlistKeys } = useWatchlist();
 
   return (
     <DiscoverScreen
@@ -27,15 +34,14 @@ function DiscoverMainScreen() {
 
 function DiscoverDetailScreen() {
   const navigation = useNavigation();
+  const { selectedResult } = useDetail();
   const {
-    selectedResult,
     handleToggleWatchlist,
     handleEnrichWatchlistItem,
     savedWatchlistKeys,
-    handleSelectMatch,
-    handlePersonPress,
-    handleCompanyPress,
-  } = useAppState();
+  } = useWatchlist();
+  const { handleSelectMatch } = useSearch();
+  const { handlePersonPress, handleCompanyPress } = usePeople();
 
   return (
     <ResultView
@@ -58,7 +64,7 @@ function DiscoverDetailScreen() {
 function DiscoverFilmographyScreen() {
   const navigation = useNavigation();
   const { filmographyPerson, filmographyResults, filmographyLoading, handleSelectFilmographyItem } =
-    useAppState();
+    usePeople();
 
   if (!filmographyPerson) return null;
 

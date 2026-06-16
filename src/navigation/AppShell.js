@@ -10,7 +10,14 @@ import { BottomNav } from '../components/BottomNav';
 import { StatePanel } from '../components/StatePanel';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { BottomSheetPortal } from '../components/StackBottomSheet';
-import { useAppState } from '../context/AppStateContext';
+import {
+  useDetail,
+  useStatus,
+  useSearch,
+  useNav,
+  useSurprise,
+  useWatchlist,
+} from '../context/domainContexts';
 import { RootTabs } from './RootTabs';
 import { navigationRef, getFocusedRouteName, getCurrentTabId, canStackPop } from './navigationRef';
 import { buildNavigationTheme } from './navigationTheme';
@@ -36,24 +43,19 @@ function AppShellInner({ rootNavState }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
+  const { loading } = useDetail();
+  const { error, errorInfo, offlineBanner, setOfflineBanner } = useStatus();
+  const { handleSearch, query } = useSearch();
+  const { goBack, handleTabPress } = useNav();
   const {
-    loading,
-    error,
-    errorInfo,
-    handleSearch,
-    query,
-    goBack,
-    handleTabPress,
-    offlineBanner,
-    setOfflineBanner,
     surprisePickerVisible,
     setSurprisePickerVisible,
     surpriseLoading,
-    hasHighlyRecommendedSeeds,
     handleSurpriseMe,
     handleSurpriseByGenre,
     QUICK_SURPRISE_GENRES,
-  } = useAppState();
+  } = useSurprise();
+  const { hasHighlyRecommendedSeeds } = useWatchlist();
 
   const activeTab = getCurrentTabId(rootNavState);
   const focusedRoute = getFocusedRouteName(rootNavState);
@@ -295,7 +297,7 @@ function AppShellInner({ rootNavState }) {
 }
 
 export function AppNavigationRoot() {
-  const { onNavigationReady } = useAppState();
+  const { onNavigationReady } = useNav();
   const { resolvedMode } = useTheme();
   const [rootNavState, setRootNavState] = useState(() => {
     return navigationRef.isReady() ? navigationRef.getRootState() : null;
