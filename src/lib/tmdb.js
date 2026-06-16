@@ -2,6 +2,15 @@ import { recordRateQuota429, recordRateQuotaFromResponse } from './apiRateQuota'
 import { fetchOmdbRatings } from './omdb';
 import { NON_ENGLISH_CODES } from './languagePresets';
 import { createAppError, isRetryableStatus, retryWithBackoff } from './errors';
+import {
+  SERVICE_LABELS,
+  availabilityFromResults,
+  directStreamingServices,
+  emptyServiceMap,
+  isServiceAvailableInRegion,
+} from './providerAvailability';
+
+export { SERVICE_LABELS };
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const HARDCODED_BEARER_TOKEN =
@@ -13,93 +22,11 @@ const TV_EPISODE_PROVIDER_MAX_EPISODES = Number(
   process.env.EXPO_PUBLIC_TMDB_TV_EPISODE_MAX_EPISODES || 60,
 );
 
-export const SERVICE_LABELS = {
-  netflix: 'Netflix',
-  amazon_prime_video: 'Prime Video',
-  max: 'Max',
-  cbc_gem: 'CBC Gem',
-  bbc_iplayer: 'BBC iPlayer',
-  channel_4: 'Channel 4',
-  itvx: 'ITVX',
-  sbs_on_demand: 'SBS On Demand',
-  abc_iview: 'ABC iview',
-};
-const DIRECT_SERVICE_NAMES = {
-  netflix: new Set(['netflix', 'netflix standard with ads', 'netflix basic with ads']),
-  amazon_prime_video: new Set(['amazon prime video']),
-  max: new Set(['max', 'hbo max']),
-  cbc_gem: new Set(['cbc gem']),
-  bbc_iplayer: new Set(['bbc iplayer']),
-  channel_4: new Set(['channel 4']),
-  itvx: new Set(['itvx']),
-  sbs_on_demand: new Set(['sbs on demand']),
-  abc_iview: new Set(['abc iview']),
-};
-const REGION_LOCKED_SERVICES = {
-  cbc_gem: new Set(['CA']),
-  bbc_iplayer: new Set(['GB']),
-  channel_4: new Set(['GB']),
-  itvx: new Set(['GB']),
-  sbs_on_demand: new Set(['AU']),
-  abc_iview: new Set(['AU']),
-};
-
 function normalize(text) {
   return (text || '')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, '')
     .trim();
-}
-
-function serviceKey(providerName) {
-  const name = normalize(providerName);
-  for (const [key, directNames] of Object.entries(DIRECT_SERVICE_NAMES)) {
-    if (directNames.has(name)) return key;
-  }
-  return null;
-}
-
-const STREAMING_PROVIDER_BUCKETS = ['flatrate', 'free', 'ads'];
-
-function directStreamingServices(info = {}) {
-  const matched = new Map();
-  STREAMING_PROVIDER_BUCKETS.forEach((bucket) => {
-    (info[bucket] || []).forEach((provider) => {
-      const key = serviceKey(provider.provider_name || '');
-      if (key && !matched.has(key)) {
-        matched.set(key, provider.logo_path || null);
-      }
-    });
-  });
-  return matched;
-}
-
-function emptyServiceMap(valueFactory) {
-  return Object.fromEntries(Object.keys(SERVICE_LABELS).map((key) => [key, valueFactory()]));
-}
-
-function isServiceAvailableInRegion(key, countryCode) {
-  const allowedRegions = REGION_LOCKED_SERVICES[key];
-  return !allowedRegions || allowedRegions.has(countryCode);
-}
-
-function availabilityFromResults(results = {}) {
-  const availability = emptyServiceMap(() => []);
-  const logos = emptyServiceMap(() => null);
-
-  Object.entries(results).forEach(([countryCode, info]) => {
-    directStreamingServices(info).forEach((logoPath, key) => {
-      if (!isServiceAvailableInRegion(key, countryCode)) return;
-      availability[key].push(countryCode);
-      if (!logos[key] && logoPath) logos[key] = logoPath;
-    });
-  });
-
-  Object.keys(availability).forEach((key) => {
-    availability[key] = Array.from(new Set(availability[key])).sort();
-  });
-
-  return { ...availability, logos };
 }
 
 async function mapWithConcurrency(items, limit, task) {
