@@ -4,7 +4,13 @@ import { useNavigation } from '@react-navigation/native';
 import { WatchlistView } from '../components/WatchlistView';
 import { ResultView } from '../components/ResultView';
 import { FilmographyScreen } from '../components/FilmographyScreen';
-import { useAppState } from '../context/AppStateContext';
+import {
+  useWatchlist,
+  useSearch,
+  useNav,
+  useDetail,
+  usePeople,
+} from '../context/domainContexts';
 import { useStackScreenOptions } from './useStackScreenOptions';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 
@@ -12,14 +18,10 @@ const Stack = createNativeStackNavigator();
 
 function WatchlistMainScreen() {
   const navigation = useNavigation();
-  const {
-    watchlist,
-    userWatchlistCollections,
-    handleRemoveWatchlistItem,
-    handleMarkWatched,
-    handleSelectMatch,
-    handleTabPress,
-  } = useAppState();
+  const { watchlist, userWatchlistCollections, handleRemoveWatchlistItem, handleMarkWatched } =
+    useWatchlist();
+  const { handleSelectMatch } = useSearch();
+  const { handleTabPress } = useNav();
 
   return (
     <WatchlistView
@@ -36,15 +38,14 @@ function WatchlistMainScreen() {
 
 function WatchlistDetailScreen() {
   const navigation = useNavigation();
+  const { selectedResult } = useDetail();
   const {
-    selectedResult,
     handleToggleWatchlist,
     handleEnrichWatchlistItem,
     savedWatchlistKeys,
-    handleSelectMatch,
-    handlePersonPress,
-    handleCompanyPress,
-  } = useAppState();
+  } = useWatchlist();
+  const { handleSelectMatch } = useSearch();
+  const { handlePersonPress, handleCompanyPress } = usePeople();
 
   return (
     <ResultView
@@ -67,7 +68,7 @@ function WatchlistDetailScreen() {
 function WatchlistFilmographyScreen() {
   const navigation = useNavigation();
   const { filmographyPerson, filmographyResults, filmographyLoading, handleSelectFilmographyItem } =
-    useAppState();
+    usePeople();
 
   if (!filmographyPerson) return null;
 

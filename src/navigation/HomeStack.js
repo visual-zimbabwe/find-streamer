@@ -5,7 +5,13 @@ import { HomeScreen } from '../components/HomeScreen';
 import { CollectionsScreen } from '../components/CollectionsScreen';
 import { ResultView } from '../components/ResultView';
 import { FilmographyScreen } from '../components/FilmographyScreen';
-import { useAppState } from '../context/AppStateContext';
+import {
+  useSearch,
+  useDetail,
+  useWatchlist,
+  usePeople,
+  useNav,
+} from '../context/domainContexts';
 import { useTheme } from '../theme/ThemeProvider';
 import { useStackScreenOptions } from './useStackScreenOptions';
 import { watchlistEntryKey } from '../lib/watchlistModel';
@@ -13,14 +19,9 @@ const Stack = createNativeStackNavigator();
 
 function HomeScreenRoute() {
   const navigation = useNavigation();
-  const {
-    watchlist,
-    handleSelectDiscoverItem,
-    handleToggleWatchlist,
-    homeMediaFilter,
-    setHomeMediaFilter,
-    openCollections,
-  } = useAppState();
+  const { watchlist, handleToggleWatchlist } = useWatchlist();
+  const { handleSelectDiscoverItem } = useSearch();
+  const { homeMediaFilter, setHomeMediaFilter, openCollections } = useNav();
 
   return (
     <HomeScreen
@@ -36,16 +37,15 @@ function HomeScreenRoute() {
 
 function CollectionsScreenRoute() {
   const navigation = useNavigation();
+  const { handleSelectDiscoverItem } = useSearch();
+  const { handleToggleWatchlist, savedWatchlistKeys } = useWatchlist();
   const {
-    handleSelectDiscoverItem,
-    handleToggleWatchlist,
-    savedWatchlistKeys,
     collectionsSubView,
     setCollectionsSubView,
     collectionsImdbTab,
     setCollectionsImdbTab,
     openHomeFromCollections,
-  } = useAppState();
+  } = useNav();
 
   return (
     <CollectionsScreen
@@ -63,15 +63,14 @@ function CollectionsScreenRoute() {
 
 function DetailScreenRoute() {
   const navigation = useNavigation();
+  const { selectedResult } = useDetail();
   const {
-    selectedResult,
     handleToggleWatchlist,
     handleEnrichWatchlistItem,
     savedWatchlistKeys,
-    handleSelectMatch,
-    handlePersonPress,
-    handleCompanyPress,
-  } = useAppState();
+  } = useWatchlist();
+  const { handleSelectMatch } = useSearch();
+  const { handlePersonPress, handleCompanyPress } = usePeople();
 
   return (
     <ResultView
@@ -94,7 +93,7 @@ function DetailScreenRoute() {
 function FilmographyScreenRoute() {
   const navigation = useNavigation();
   const { filmographyPerson, filmographyResults, filmographyLoading, handleSelectFilmographyItem } =
-    useAppState();
+    usePeople();
 
   if (!filmographyPerson) return null;
 
