@@ -46,7 +46,9 @@ export function MediaArtwork({
       <Image
         source={{ uri }}
         style={style}
-        contentFit={resizeMode === 'stretch' ? 'fill' : resizeMode === 'center' ? 'none' : resizeMode}
+        contentFit={
+          resizeMode === 'stretch' ? 'fill' : resizeMode === 'center' ? 'none' : resizeMode
+        }
         transition={instant ? 0 : 250}
         cachePolicy="memory-disk"
         recyclingKey={uri}
@@ -57,7 +59,10 @@ export function MediaArtwork({
     );
   }
 
-  const fallbackTitle = title || accessibilityLabel?.replace(/\s+(poster|artwork|profile photo)$/i, '') || 'Find Streamer';
+  const fallbackTitle =
+    title ||
+    accessibilityLabel?.replace(/\s+(poster|artwork|profile photo)$/i, '') ||
+    'Find Streamer';
 
   return (
     <View
@@ -69,7 +74,12 @@ export function MediaArtwork({
         colors={[colors.surfaceContainerHighest, colors.surfaceContainerHigh, colors.background]}
         style={StyleSheet.absoluteFill}
       />
-      <View style={[compactFallback ? styles.compactMark : styles.mark, { borderColor: colors.primary + '66', backgroundColor: colors.primary + '18' }]}>
+      <View
+        style={[
+          compactFallback ? styles.compactMark : styles.mark,
+          { borderColor: colors.primary + '66', backgroundColor: colors.primary + '18' },
+        ]}
+      >
         <Ionicons name={icon} size={compactFallback ? 18 : 28} color={colors.primary} />
       </View>
       {!compactFallback && (

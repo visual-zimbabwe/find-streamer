@@ -1,4 +1,8 @@
-import { bumpOmdbSessionRequestCount, recordRateQuota429, recordRateQuotaFromResponse } from './apiRateQuota';
+import {
+  bumpOmdbSessionRequestCount,
+  recordRateQuota429,
+  recordRateQuotaFromResponse,
+} from './apiRateQuota';
 
 const OMDB_API_KEY = 'cd05d48b';
 const OMDB_BASE = 'https://www.omdbapi.com/';
@@ -44,26 +48,23 @@ export async function fetchOmdbRatings(imdbId) {
     const imdbRating =
       data.imdbRating && data.imdbRating !== 'N/A' ? `${data.imdbRating}/10` : null;
 
-    const metascore =
-      data.Metascore && data.Metascore !== 'N/A' ? data.Metascore : null;
+    const metascore = data.Metascore && data.Metascore !== 'N/A' ? data.Metascore : null;
 
     const rottenTomatoes =
       (data.Ratings || []).find((r) => r.Source === 'Rotten Tomatoes')?.Value ?? null;
 
-    const awards =
-      data.Awards && data.Awards !== 'N/A' ? data.Awards : null;
+    const awards = data.Awards && data.Awards !== 'N/A' ? data.Awards : null;
 
     const rated =
-      data.Rated && data.Rated !== 'N/A' && data.Rated !== 'Not Rated' && data.Rated !== 'Unrated' ? data.Rated : null;
+      data.Rated && data.Rated !== 'N/A' && data.Rated !== 'Not Rated' && data.Rated !== 'Unrated'
+        ? data.Rated
+        : null;
 
-    const writer =
-      data.Writer && data.Writer !== 'N/A' ? data.Writer : null;
+    const writer = data.Writer && data.Writer !== 'N/A' ? data.Writer : null;
 
-    const actors =
-      data.Actors && data.Actors !== 'N/A' ? data.Actors : null;
+    const actors = data.Actors && data.Actors !== 'N/A' ? data.Actors : null;
 
-    const plot =
-      data.Plot && data.Plot !== 'N/A' ? data.Plot : null;
+    const plot = data.Plot && data.Plot !== 'N/A' ? data.Plot : null;
 
     const ratings = { imdbRating, rottenTomatoes, metascore, awards, rated, writer, actors, plot };
     _omdbRatingsCache.set(imdbId, ratings);

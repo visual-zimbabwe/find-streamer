@@ -42,7 +42,15 @@ function FilterChip({ label, active, onPress, colors, typography, radii }) {
       accessibilityState={{ selected: active }}
       accessibilityLabel={label}
     >
-      <Text style={[{ color: active ? GOLD_ACCENT : colors.onSurface, ...typography.labelSm, fontWeight: '700' }]}>
+      <Text
+        style={[
+          {
+            color: active ? GOLD_ACCENT : colors.onSurface,
+            ...typography.labelSm,
+            fontWeight: '700',
+          },
+        ]}
+      >
         {label}
       </Text>
     </TouchableOpacity>
@@ -126,10 +134,13 @@ export function CollectionFindSheet({
     onResetFilters?.();
   }, [onResetFilters]);
 
-  const handleJump = useCallback((rowId) => {
-    onJumpTo?.(rowId);
-    handleClose();
-  }, [handleClose, onJumpTo]);
+  const handleJump = useCallback(
+    (rowId) => {
+      onJumpTo?.(rowId);
+      handleClose();
+    },
+    [handleClose, onJumpTo],
+  );
 
   const scrollToCustomDecade = useCallback(() => {
     if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
@@ -153,72 +164,74 @@ export function CollectionFindSheet({
     scrollToCustomDecade();
   }, [scrollToCustomDecade]);
 
-  const updateCustomField = useCallback((field, value) => {
-    const digits = value.replace(/[^\d]/g, '');
-    const parsed = digits.length ? Number.parseInt(digits, 10) : null;
-    let next = {
-      ...customDecadeRange,
-      [field]: Number.isFinite(parsed) ? parsed : null,
-    };
+  const updateCustomField = useCallback(
+    (field, value) => {
+      const digits = value.replace(/[^\d]/g, '');
+      const parsed = digits.length ? Number.parseInt(digits, 10) : null;
+      let next = {
+        ...customDecadeRange,
+        [field]: Number.isFinite(parsed) ? parsed : null,
+      };
 
-    if (
-      next.min != null
-      && next.max != null
-      && next.min > next.max
-    ) {
-      next = { min: next.max, max: next.min };
-      requestAnimationFrame(() => {
-        if (field === 'min') {
-          maxInputRef.current?.focus();
-        } else {
-          minInputRef.current?.focus();
-        }
-      });
-    }
+      if (next.min != null && next.max != null && next.min > next.max) {
+        next = { min: next.max, max: next.min };
+        requestAnimationFrame(() => {
+          if (field === 'min') {
+            maxInputRef.current?.focus();
+          } else {
+            minInputRef.current?.focus();
+          }
+        });
+      }
 
-    onCustomDecadeRangeChange?.(next);
-  }, [customDecadeRange, onCustomDecadeRangeChange]);
+      onCustomDecadeRangeChange?.(next);
+    },
+    [customDecadeRange, onCustomDecadeRangeChange],
+  );
 
-  const renderJumpItem = useCallback(({ item }) => (
-    <TouchableOpacity
-      style={[styles.jumpRow, { borderBottomColor: GOLD_DIM }]}
-      onPress={() => handleJump(item.id)}
-      accessibilityRole="button"
-      accessibilityLabel={`Jump to ${item.title}`}
-    >
-      <Text style={[{ color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
-        {item.title}
-      </Text>
-      <Ionicons name="chevron-forward" size={16} color={GOLD_ACCENT} />
-    </TouchableOpacity>
-  ), [colors, typography, handleJump]);
+  const renderJumpItem = useCallback(
+    ({ item }) => (
+      <TouchableOpacity
+        style={[styles.jumpRow, { borderBottomColor: GOLD_DIM }]}
+        onPress={() => handleJump(item.id)}
+        accessibilityRole="button"
+        accessibilityLabel={`Jump to ${item.title}`}
+      >
+        <Text style={[{ color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
+          {item.title}
+        </Text>
+        <Ionicons name="chevron-forward" size={16} color={GOLD_ACCENT} />
+      </TouchableOpacity>
+    ),
+    [colors, typography, handleJump],
+  );
 
   if (!visible) return null;
 
   return (
-    <Modal
-      visible
-      animationType="slide"
-      transparent
-      onRequestClose={handleClose}
-    >
+    <Modal visible animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={styles.keyboardWrap}>
-          <View style={[
-            styles.sheet,
-            {
-              maxHeight: sheetMaxHeight,
-              backgroundColor: colors.surface,
-              borderTopLeftRadius: radii.xl,
-              borderTopRightRadius: radii.xl,
-              paddingBottom: insets.bottom + 16,
-            },
-          ]}
+          <View
+            style={[
+              styles.sheet,
+              {
+                maxHeight: sheetMaxHeight,
+                backgroundColor: colors.surface,
+                borderTopLeftRadius: radii.xl,
+                borderTopRightRadius: radii.xl,
+                paddingBottom: insets.bottom + 16,
+              },
+            ]}
           >
             <View style={styles.sheetHeader}>
               <View>
-                <Text style={[styles.sheetEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>Find</Text>
-                <Text style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '800' }]}>
+                <Text style={[styles.sheetEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+                  Find
+                </Text>
+                <Text
+                  style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '800' }]}
+                >
                   Collection
                 </Text>
               </View>
@@ -228,7 +241,9 @@ export function CollectionFindSheet({
                 accessibilityRole="button"
                 accessibilityLabel="Close find collection"
               >
-                <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '800' }]}>Done</Text>
+                <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '800' }]}>
+                  Done
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -247,8 +262,22 @@ export function CollectionFindSheet({
               ]}
             >
               <View ref={scrollContentRef} collapsable={false}>
-                <View style={[styles.searchBox, { backgroundColor: colors.surfaceContainerHigh, borderColor: GOLD_DIM, borderRadius: radii.md }]}>
-                  <Ionicons name="search-outline" size={16} color={GOLD_ACCENT} style={styles.searchIcon} />
+                <View
+                  style={[
+                    styles.searchBox,
+                    {
+                      backgroundColor: colors.surfaceContainerHigh,
+                      borderColor: GOLD_DIM,
+                      borderRadius: radii.md,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="search-outline"
+                    size={16}
+                    color={GOLD_ACCENT}
+                    style={styles.searchIcon}
+                  />
                   <TextInput
                     style={[{ flex: 1, color: colors.onSurface, ...typography.bodyMd }]}
                     placeholder="Search franchises…"
@@ -264,16 +293,35 @@ export function CollectionFindSheet({
                       accessibilityRole="button"
                       accessibilityLabel="Clear franchise search"
                     >
-                      <Ionicons name="close-circle-outline" size={16} color={colors.onSurfaceVariant} />
+                      <Ionicons
+                        name="close-circle-outline"
+                        size={16}
+                        color={colors.onSurfaceVariant}
+                      />
                     </TouchableOpacity>
                   )}
                 </View>
 
                 <View style={styles.filterSection}>
                   <View style={styles.filterHeaderRow}>
-                    <Text style={[styles.filterEyebrow, { color: colors.onSurface, ...typography.labelSm }]}>Size</Text>
-                    <TouchableOpacity onPress={handleReset} accessibilityRole="button" accessibilityLabel="Reset filters">
-                      <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '700' }]}>Reset</Text>
+                    <Text
+                      style={[
+                        styles.filterEyebrow,
+                        { color: colors.onSurface, ...typography.labelSm },
+                      ]}
+                    >
+                      Size
+                    </Text>
+                    <TouchableOpacity
+                      onPress={handleReset}
+                      accessibilityRole="button"
+                      accessibilityLabel="Reset filters"
+                    >
+                      <Text
+                        style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '700' }]}
+                      >
+                        Reset
+                      </Text>
                     </TouchableOpacity>
                   </View>
                   <View style={styles.chipRow}>
@@ -292,7 +340,14 @@ export function CollectionFindSheet({
                 </View>
 
                 <View style={styles.filterSection}>
-                  <Text style={[styles.filterEyebrow, { color: colors.onSurface, ...typography.labelSm }]}>Decade</Text>
+                  <Text
+                    style={[
+                      styles.filterEyebrow,
+                      { color: colors.onSurface, ...typography.labelSm },
+                    ]}
+                  >
+                    Decade
+                  </Text>
                   <View style={styles.chipRow}>
                     {DECADE_PRESETS.map((preset) => (
                       <FilterChip
@@ -319,32 +374,57 @@ export function CollectionFindSheet({
                       <View style={styles.customRangeRow}>
                         <TextInput
                           ref={minInputRef}
-                          style={[styles.yearInput, { color: colors.onSurface, borderColor: GOLD_DIM, borderRadius: radii.md }]}
+                          style={[
+                            styles.yearInput,
+                            {
+                              color: colors.onSurface,
+                              borderColor: GOLD_DIM,
+                              borderRadius: radii.md,
+                            },
+                          ]}
                           placeholder="From"
                           placeholderTextColor={colors.onSurfaceVariant}
                           keyboardType="number-pad"
                           maxLength={4}
-                          value={customDecadeRange?.min != null ? String(customDecadeRange.min) : ''}
+                          value={
+                            customDecadeRange?.min != null ? String(customDecadeRange.min) : ''
+                          }
                           onFocus={handleYearFocus}
                           onChangeText={(value) => updateCustomField('min', value)}
                           accessibilityLabel="Custom decade from year"
                         />
-                        <Text style={{ color: colors.onSurfaceVariant, ...typography.bodyMd }}>–</Text>
+                        <Text style={{ color: colors.onSurfaceVariant, ...typography.bodyMd }}>
+                          –
+                        </Text>
                         <TextInput
                           ref={maxInputRef}
-                          style={[styles.yearInput, { color: colors.onSurface, borderColor: GOLD_DIM, borderRadius: radii.md }]}
+                          style={[
+                            styles.yearInput,
+                            {
+                              color: colors.onSurface,
+                              borderColor: GOLD_DIM,
+                              borderRadius: radii.md,
+                            },
+                          ]}
                           placeholder="To"
                           placeholderTextColor={colors.onSurfaceVariant}
                           keyboardType="number-pad"
                           maxLength={4}
-                          value={customDecadeRange?.max != null ? String(customDecadeRange.max) : ''}
+                          value={
+                            customDecadeRange?.max != null ? String(customDecadeRange.max) : ''
+                          }
                           onFocus={handleYearFocus}
                           onChangeText={(value) => updateCustomField('max', value)}
                           accessibilityLabel="Custom decade to year"
                         />
                       </View>
                       {customDecadeError && (
-                        <View style={[styles.validationBanner, { backgroundColor: colors.error + '18', borderRadius: radii.md }]}>
+                        <View
+                          style={[
+                            styles.validationBanner,
+                            { backgroundColor: colors.error + '18', borderRadius: radii.md },
+                          ]}
+                        >
                           <Ionicons name="warning-outline" size={16} color={colors.error} />
                           <Text style={[{ color: colors.error, ...typography.bodyMd, flex: 1 }]}>
                             {customDecadeError}
@@ -356,7 +436,14 @@ export function CollectionFindSheet({
                 </View>
 
                 <View style={styles.filterSection}>
-                  <Text style={[styles.filterEyebrow, { color: colors.onSurface, ...typography.labelSm }]}>Jump to</Text>
+                  <Text
+                    style={[
+                      styles.filterEyebrow,
+                      { color: colors.onSurface, ...typography.labelSm },
+                    ]}
+                  >
+                    Jump to
+                  </Text>
                   <FlatList
                     data={jumpToNames}
                     keyExtractor={(item) => String(item.id)}
@@ -366,11 +453,20 @@ export function CollectionFindSheet({
                     initialNumToRender={12}
                     maxToRenderPerBatch={16}
                     windowSize={5}
-                    ListEmptyComponent={(
-                      <Text style={[{ color: colors.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center', marginTop: 12 }]}>
+                    ListEmptyComponent={
+                      <Text
+                        style={[
+                          {
+                            color: colors.onSurfaceVariant,
+                            ...typography.bodyMd,
+                            textAlign: 'center',
+                            marginTop: 12,
+                          },
+                        ]}
+                      >
                         No collections match your filters.
                       </Text>
-                    )}
+                    }
                   />
                 </View>
               </View>

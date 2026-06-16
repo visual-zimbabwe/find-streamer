@@ -53,11 +53,15 @@ export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismis
   const exit = useSharedValue(0);
 
   useEffect(() => {
-    progress.value = withTiming(1, { duration: SEQUENCE_MS, easing: EASE_CINEMATIC }, (finished) => {
-      if (finished && onSequenceComplete) {
-        runOnJS(onSequenceComplete)();
-      }
-    });
+    progress.value = withTiming(
+      1,
+      { duration: SEQUENCE_MS, easing: EASE_CINEMATIC },
+      (finished) => {
+        if (finished && onSequenceComplete) {
+          runOnJS(onSequenceComplete)();
+        }
+      },
+    );
   }, [onSequenceComplete, progress]);
 
   useEffect(() => {
@@ -77,20 +81,32 @@ export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismis
   }));
 
   const mistStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 0.22], [0, 1], Extrapolation.CLAMP) * (1 - exit.value * 0.35),
-    transform: [{ scale: interpolate(progress.value, [0, 0.35], [0.88, 1.08], Extrapolation.CLAMP) }],
+    opacity:
+      interpolate(progress.value, [0, 0.22], [0, 1], Extrapolation.CLAMP) * (1 - exit.value * 0.35),
+    transform: [
+      { scale: interpolate(progress.value, [0, 0.35], [0.88, 1.08], Extrapolation.CLAMP) },
+    ],
   }));
 
   const sweepLineStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.12, 0.32], [0, 0.85], Extrapolation.CLAMP) * (1 - exit.value),
+    opacity:
+      interpolate(progress.value, [0.12, 0.32], [0, 0.85], Extrapolation.CLAMP) * (1 - exit.value),
     transform: [
-      { translateX: interpolate(progress.value, [0.12, 0.55], [-SWEEP_OFFSET, SWEEP_OFFSET], Extrapolation.CLAMP) },
+      {
+        translateX: interpolate(
+          progress.value,
+          [0.12, 0.55],
+          [-SWEEP_OFFSET, SWEEP_OFFSET],
+          Extrapolation.CLAMP,
+        ),
+      },
       { scaleX: interpolate(progress.value, [0.12, 0.38], [0.15, 1], Extrapolation.CLAMP) },
     ],
   }));
 
   const arcLineStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.2, 0.42], [0, 0.55], Extrapolation.CLAMP) * (1 - exit.value),
+    opacity:
+      interpolate(progress.value, [0.2, 0.42], [0, 0.55], Extrapolation.CLAMP) * (1 - exit.value),
     transform: [
       { rotate: '-8deg' },
       { scaleX: interpolate(progress.value, [0.2, 0.5], [0, 1], Extrapolation.CLAMP) },
@@ -103,30 +119,47 @@ export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismis
     return {
       opacity: inOpacity * outOpacity * (1 - exit.value),
       transform: [
-        { translateY: interpolate(progress.value, [0.24, 0.42], [ICON_RISE, 0], Extrapolation.CLAMP) },
+        {
+          translateY: interpolate(
+            progress.value,
+            [0.24, 0.42],
+            [ICON_RISE, 0],
+            Extrapolation.CLAMP,
+          ),
+        },
         { scale: interpolate(progress.value, [0.24, 0.42], [0.86, 1], Extrapolation.CLAMP) },
       ],
     };
   });
 
   const wordmarkStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.34, 0.58], [0, 1], Extrapolation.CLAMP) * (1 - exit.value * 0.2),
+    opacity:
+      interpolate(progress.value, [0.34, 0.58], [0, 1], Extrapolation.CLAMP) *
+      (1 - exit.value * 0.2),
     transform: [
-      { translateY: interpolate(progress.value, [0.34, 0.62], [WORDMARK_RISE, 0], Extrapolation.CLAMP) },
+      {
+        translateY: interpolate(
+          progress.value,
+          [0.34, 0.62],
+          [WORDMARK_RISE, 0],
+          Extrapolation.CLAMP,
+        ),
+      },
       { scale: interpolate(progress.value, [0.34, 0.68], [0.96, 1], Extrapolation.CLAMP) },
     ],
   }));
 
   const underlineStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.48, 0.66], [0, 1], Extrapolation.CLAMP) * (1 - exit.value),
+    opacity:
+      interpolate(progress.value, [0.48, 0.66], [0, 1], Extrapolation.CLAMP) * (1 - exit.value),
     transform: [{ scaleX: interpolate(progress.value, [0.48, 0.72], [0, 1], Extrapolation.CLAMP) }],
   }));
 
   const breatheStyle = useAnimatedStyle(() => ({
     opacity:
-      interpolate(progress.value, [0.68, 0.92], [0.35, 0.75], Extrapolation.CLAMP)
-      * (0.82 + interpolate(progress.value, [0.72, 1], [0, 0.18], Extrapolation.CLAMP))
-      * (1 - exit.value),
+      interpolate(progress.value, [0.68, 0.92], [0.35, 0.75], Extrapolation.CLAMP) *
+      (0.82 + interpolate(progress.value, [0.72, 1], [0, 0.18], Extrapolation.CLAMP)) *
+      (1 - exit.value),
   }));
 
   const contentLiftStyle = useAnimatedStyle(() => ({
@@ -137,7 +170,12 @@ export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismis
     <Animated.View
       onLayout={onLayout}
       pointerEvents={canDismiss ? 'none' : 'auto'}
-      style={[StyleSheet.absoluteFillObject, styles.root, { backgroundColor: palette.background }, overlayStyle]}
+      style={[
+        StyleSheet.absoluteFillObject,
+        styles.root,
+        { backgroundColor: palette.background },
+        overlayStyle,
+      ]}
     >
       <Animated.View style={[StyleSheet.absoluteFillObject, mistStyle]}>
         <LinearGradient
@@ -171,7 +209,12 @@ export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismis
         </Animated.View>
 
         <Animated.View style={[styles.iconWrap, iconStyle]}>
-          <Image source={palette.icon} style={styles.icon} resizeMode="contain" accessibilityIgnoresInvertColors />
+          <Image
+            source={palette.icon}
+            style={styles.icon}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
         </Animated.View>
 
         <Animated.View style={wordmarkStyle}>

@@ -22,14 +22,21 @@ const DELAY_MS = 30; // ~33 req/s — safe margin
 
 function get(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch (e) { reject(new Error(`JSON parse error for ${url}: ${e.message}`)); }
-      });
-    }).on('error', reject);
+    https
+      .get(url, (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(new Error(`JSON parse error for ${url}: ${e.message}`));
+          }
+        });
+      })
+      .on('error', reject);
   });
 }
 
@@ -83,7 +90,8 @@ async function main() {
 
   // Collect unique movie ids that are missing enrichment data
   const needsEnrichment = movies.filter(
-    (m) => m.poster_path === undefined || m.release_date === undefined || m.vote_average === undefined
+    (m) =>
+      m.poster_path === undefined || m.release_date === undefined || m.vote_average === undefined,
   );
   const uniqueIds = [...new Set(needsEnrichment.map((m) => m.id))];
   console.log(`🔍 ${uniqueIds.length} unique movie ids need enrichment.`);
@@ -102,7 +110,11 @@ async function main() {
 
   for (const movie of movies) {
     // Skip if already has all fields
-    if (movie.poster_path !== undefined && movie.release_date !== undefined && movie.vote_average !== undefined) {
+    if (
+      movie.poster_path !== undefined &&
+      movie.release_date !== undefined &&
+      movie.vote_average !== undefined
+    ) {
       skipped++;
       continue;
     }

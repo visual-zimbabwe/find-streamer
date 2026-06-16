@@ -21,7 +21,9 @@ function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }
   return (
     <View style={styles.sectionHeader}>
       {eyebrow ? (
-        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>{eyebrow}</Text>
+        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+          {eyebrow}
+        </Text>
       ) : null}
       <Text
         style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
@@ -30,7 +32,12 @@ function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }
         {title}
       </Text>
       {subtitle ? (
-        <Text style={[styles.sectionSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+        <Text
+          style={[
+            styles.sectionSubtitle,
+            { color: colors.onSurfaceVariant, ...typography.labelSm },
+          ]}
+        >
           {subtitle}
         </Text>
       ) : null}
@@ -56,7 +63,12 @@ const TopMatchFeature = memo(function TopMatchFeature({
       accessibilityRole="button"
       accessibilityLabel={`Open details for ${item.title}`}
     >
-      <View style={[styles.featureCard, { borderRadius: radii.xl, backgroundColor: colors.surfaceContainerHighest }]}>
+      <View
+        style={[
+          styles.featureCard,
+          { borderRadius: radii.xl, backgroundColor: colors.surfaceContainerHighest },
+        ]}
+      >
         <MediaArtwork
           uri={backdrop}
           style={styles.featureImg}
@@ -64,18 +76,29 @@ const TopMatchFeature = memo(function TopMatchFeature({
           accessibilityLabel={`Backdrop for ${item.title}`}
           title={item.title}
         />
-        <LinearGradient colors={['rgba(0,0,0,0.38)', 'transparent']} style={styles.featureTopScrim} />
-        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.88)']} style={styles.featureBottomScrim} />
+        <LinearGradient
+          colors={['rgba(0,0,0,0.38)', 'transparent']}
+          style={styles.featureTopScrim}
+        />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.88)']}
+          style={styles.featureBottomScrim}
+        />
         {onToggleWatchlist && (
           <TouchableOpacity
-            style={[styles.featureBookmark, { borderColor: saved ? GOLD_ACCENT : 'rgba(255,255,255,0.22)' }]}
+            style={[
+              styles.featureBookmark,
+              { borderColor: saved ? GOLD_ACCENT : 'rgba(255,255,255,0.22)' },
+            ]}
             onPress={(event) => {
               event.stopPropagation?.();
               Haptics.selectionAsync();
               onToggleWatchlist(item);
             }}
             accessibilityRole="button"
-            accessibilityLabel={saved ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`}
+            accessibilityLabel={
+              saved ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`
+            }
             accessibilityState={{ selected: saved }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -139,7 +162,12 @@ const MatchGridCard = memo(function MatchGridCard({
       accessibilityRole="button"
       accessibilityLabel={`Open details for ${item.title}`}
     >
-      <View style={[styles.gridPosterWrap, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl }]}>
+      <View
+        style={[
+          styles.gridPosterWrap,
+          { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
+        ]}
+      >
         <MediaArtwork
           uri={item.posterUrl}
           style={styles.gridPosterImg}
@@ -155,14 +183,19 @@ const MatchGridCard = memo(function MatchGridCard({
         )}
         {onToggleWatchlist && (
           <TouchableOpacity
-            style={[styles.gridBookmark, { borderColor: saved ? GOLD_ACCENT : 'rgba(255,255,255,0.2)' }]}
+            style={[
+              styles.gridBookmark,
+              { borderColor: saved ? GOLD_ACCENT : 'rgba(255,255,255,0.2)' },
+            ]}
             onPress={(event) => {
               event.stopPropagation?.();
               Haptics.selectionAsync();
               onToggleWatchlist(item);
             }}
             accessibilityRole="button"
-            accessibilityLabel={saved ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`}
+            accessibilityLabel={
+              saved ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`
+            }
             accessibilityState={{ selected: saved }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -174,11 +207,18 @@ const MatchGridCard = memo(function MatchGridCard({
           </TouchableOpacity>
         )}
       </View>
-      <Text style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]} numberOfLines={2}>
+      <Text
+        style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
+        numberOfLines={2}
+      >
         {item.title}
       </Text>
       <View style={styles.cardMeta}>
-        <Ionicons name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'} size={11} color={colors.onSurfaceVariant} />
+        <Ionicons
+          name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
+          size={11}
+          color={colors.onSurfaceVariant}
+        />
         <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>
           {item.mediaType === 'tv' ? 'Series' : 'Movie'} · {item.year}
         </Text>
@@ -187,7 +227,13 @@ const MatchGridCard = memo(function MatchGridCard({
   );
 });
 
-export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistIds = [], selectedId }) {
+export function MatchResults({
+  matches,
+  onSelect,
+  onToggleWatchlist,
+  watchlistIds = [],
+  selectedId,
+}) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
 
@@ -227,7 +273,9 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
       {others.length > 0 && (
         <View style={styles.alsoMatchedBlock}>
           <View style={[styles.sectionDivider, { backgroundColor: colors.outlineVariant }]} />
-          <Text style={[styles.alsoMatchedTitle, { color: colors.onSurface, ...typography.labelSm }]}>
+          <Text
+            style={[styles.alsoMatchedTitle, { color: colors.onSurface, ...typography.labelSm }]}
+          >
             Also Matched
           </Text>
           <View style={styles.gridBody}>

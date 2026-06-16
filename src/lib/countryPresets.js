@@ -21,7 +21,8 @@ export const COUNTRY_PRESETS = [
     id: 'africa',
     label: 'Africa 🌍',
     emoji: '🌍',
-    description: 'Algeria, Egypt, Ethiopia, Ghana, Kenya, Morocco, Nigeria, Senegal, South Africa, Tanzania, Tunisia, Uganda, Zimbabwe, and more.',
+    description:
+      'Algeria, Egypt, Ethiopia, Ghana, Kenya, Morocco, Nigeria, Senegal, South Africa, Tanzania, Tunisia, Uganda, Zimbabwe, and more.',
     codes: [
       'DZ', // Algeria
       'AO', // Angola
@@ -83,7 +84,8 @@ export const COUNTRY_PRESETS = [
     id: 'asia',
     label: 'Asia 🌏',
     emoji: '🌏',
-    description: 'China, India, Indonesia, Japan, South Korea, Thailand, Vietnam, Pakistan, Philippines, and more.',
+    description:
+      'China, India, Indonesia, Japan, South Korea, Thailand, Vietnam, Pakistan, Philippines, and more.',
     codes: [
       'AF', // Afghanistan
       'AM', // Armenia
@@ -225,7 +227,8 @@ export const COUNTRY_PRESETS = [
     id: 'latin_america',
     label: 'Latin America 🌎',
     emoji: '🌎',
-    description: 'Mexico, Central America, the Caribbean, Brazil, Argentina, Colombia, Chile, Peru, Venezuela, and more.',
+    description:
+      'Mexico, Central America, the Caribbean, Brazil, Argentina, Colombia, Chile, Peru, Venezuela, and more.',
     codes: [
       'MX', // Mexico
       'BZ', // Belize
@@ -301,7 +304,8 @@ export const COUNTRY_PRESETS = [
     id: 'middle_east',
     label: 'Middle East 🕌',
     emoji: '🕌',
-    description: 'Saudi Arabia, UAE, Turkey, Iran, Iraq, Israel, Jordan, Kuwait, Lebanon, Qatar, and more.',
+    description:
+      'Saudi Arabia, UAE, Turkey, Iran, Iraq, Israel, Jordan, Kuwait, Lebanon, Qatar, and more.',
     codes: [
       'AE', // United Arab Emirates
       'BH', // Bahrain

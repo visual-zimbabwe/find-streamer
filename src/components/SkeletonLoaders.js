@@ -23,7 +23,7 @@ export function SkeletonBlock({ style }) {
           duration: 900,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
     loop.start();
     return () => loop.stop();
@@ -35,15 +35,7 @@ export function SkeletonBlock({ style }) {
     outputRange: [colors.surfaceContainerHigh, colors.surfaceContainerHighest],
   });
 
-  return (
-    <Animated.View
-      style={[
-        styles.block,
-        { backgroundColor },
-        style,
-      ]}
-    />
-  );
+  return <Animated.View style={[styles.block, { backgroundColor }, style]} />;
 }
 
 /**

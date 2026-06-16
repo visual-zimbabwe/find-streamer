@@ -6,9 +6,7 @@
     "scheme": "trova",
     "orientation": "portrait",
     "icon": "./icon.png",
-    "platforms": [
-      "android"
-    ],
+    "platforms": ["android"],
     "userInterfaceStyle": "automatic",
     "splash": {
       "resizeMode": "contain",
@@ -17,9 +15,7 @@
         "backgroundColor": "#0C0C0E"
       }
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "android": {
       "icon": "./icon.png",
       "adaptiveIcon": {
@@ -46,9 +42,7 @@
         {
           "microphonePermission": "Allow Trova to use the microphone for voice search.",
           "speechRecognitionPermission": "Allow Trova to convert speech into search text.",
-          "androidSpeechServicePackages": [
-            "com.google.android.googlequicksearchbox"
-          ]
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
         }
       ],
       "expo-image"

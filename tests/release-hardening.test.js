@@ -146,7 +146,10 @@ test('discover enrichment runs after TMDb results are shown', () => {
 
   assert.match(tmdb, /export async function enrichDiscoverResults/);
   assert.match(tmdb, /\/tv\/\$\{tmdbId\}\/external_ids/);
-  assert.match(viewModel, /setResults\(data\.results\);[\s\S]*enrichVisibleResults\(data\.results, token\)/);
+  assert.match(
+    viewModel,
+    /setResults\(data\.results\);[\s\S]*enrichVisibleResults\(data\.results, token\)/,
+  );
   assert.match(discover, /IMDb \{imdbRating\}/);
   assert.match(discover, /RT \{rottenTomatoes\}/);
   assert.match(discover, /\{contentRating\}/);
@@ -174,7 +177,10 @@ test('search bar exposes voice search controls and native speech config', () => 
 
   assert.match(app, /useVoiceSearch/);
   assert.match(searchPanel, /mic-outline/);
-  assert.match(searchPanel, /accessibilityLabel=\{voiceListening \? 'Stop voice search' : 'Start voice search'\}/);
+  assert.match(
+    searchPanel,
+    /accessibilityLabel=\{voiceListening \? 'Stop voice search' : 'Start voice search'\}/,
+  );
   assert.match(voiceHook, /expo-speech-recognition/);
   assert.match(voiceHook, /requestPermissionsAsync/);
   assert.match(voiceHook, /iosTaskHint:\s*'search'/);
@@ -243,7 +249,10 @@ test('language and country presets map to effective API filters', () => {
   const languagePresets = read('src/lib/languagePresets.js');
   const countryPresets = read('src/lib/countryPresets.js');
 
-  assert.match(viewModel, /if \(f\.activeCountryPreset\) return codesForCountryPreset\(f\.activeCountryPreset\)/);
+  assert.match(
+    viewModel,
+    /if \(f\.activeCountryPreset\) return codesForCountryPreset\(f\.activeCountryPreset\)/,
+  );
   assert.match(languagePresets, /latin_america:\s*'latin_america'/);
   assert.match(languagePresets, /'zu', 'xh'/);
   assert.match(countryPresets, /id:\s*'latin_america'/);
@@ -252,6 +261,8 @@ test('language and country presets map to effective API filters', () => {
 
 test('collections are sorted by the rating of the first movie descending', () => {
   const source = read('src/lib/collectionMovieRows.js');
-  assert.match(source, /\.sort\(\(a,\s*b\)\s*=>\s*b\.firstMovieRatingValue\s*-\s*a\.firstMovieRatingValue\)/);
+  assert.match(
+    source,
+    /\.sort\(\(a,\s*b\)\s*=>\s*b\.firstMovieRatingValue\s*-\s*a\.firstMovieRatingValue\)/,
+  );
 });
-

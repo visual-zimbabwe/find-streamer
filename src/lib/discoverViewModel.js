@@ -1,5 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { fetchGenres, discoverTitles, enrichDiscoverResults, fetchLanguages, fetchDiscoverCountries, enrichTraktItems } from './tmdb';
+import {
+  fetchGenres,
+  discoverTitles,
+  enrichDiscoverResults,
+  fetchLanguages,
+  fetchDiscoverCountries,
+  enrichTraktItems,
+} from './tmdb';
 import { fetchTraktTrending } from './trakt';
 import { resolvePreset, LANGUAGE_TO_COUNTRY_PRESET } from './languagePresets';
 import { codesForCountryPreset, findCountryPreset } from './countryPresets';
@@ -132,9 +139,7 @@ export function useDiscoverViewModel() {
       const alreadyIncluded = prev.genreIds.includes(id);
       return {
         ...prev,
-        genreIds: alreadyIncluded
-          ? prev.genreIds.filter((g) => g !== id)
-          : [...prev.genreIds, id],
+        genreIds: alreadyIncluded ? prev.genreIds.filter((g) => g !== id) : [...prev.genreIds, id],
         // Remove from exclude group if it was there
         excludeGenreIds: prev.excludeGenreIds.filter((g) => g !== id),
       };
@@ -314,7 +319,7 @@ export function useDiscoverViewModel() {
   // Auto-reload trending whenever mediaType changes
   useEffect(() => {
     loadTrending(filters.mediaType);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.mediaType]);
 
   // ── Validation ─────────────────────────────────────────────────────────────
@@ -401,7 +406,10 @@ export function useDiscoverViewModel() {
 
   const search = useCallback(async () => {
     const err = validate(filters);
-    if (err) { setValidationError(err); return; }
+    if (err) {
+      setValidationError(err);
+      return;
+    }
 
     const token = ++searchTokenRef.current;
     setLoading(true);
@@ -503,7 +511,10 @@ export function useDiscoverViewModel() {
 
     search,
     loadMore,
-    clearError: () => { setError(null); setErrorInfo(null); },
+    clearError: () => {
+      setError(null);
+      setErrorInfo(null);
+    },
     clearLoadMoreError: () => setLoadMoreError(null),
   };
 }

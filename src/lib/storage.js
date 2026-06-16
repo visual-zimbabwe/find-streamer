@@ -101,9 +101,11 @@ function stripImdbCollectionIds(collectionIds) {
 }
 
 function shouldRemoveDefaultSeededRow(item) {
-  return isDefaultSeededItem(item)
-    && item.status === 'saved'
-    && isOnlyImdbCollectionMembership(item.collectionIds);
+  return (
+    isDefaultSeededItem(item) &&
+    item.status === 'saved' &&
+    isOnlyImdbCollectionMembership(item.collectionIds)
+  );
 }
 
 async function migrateImdbFromPersistedWatchlist(items, storage) {
@@ -255,12 +257,12 @@ async function writeWatchlistToStorage(items, storage) {
   }
 
   const previousChunkCount = Number.parseInt(await storage.getItem(KEYS.watchlistChunks), 10);
-  const staleChunkKeys = Number.isInteger(previousChunkCount) && previousChunkCount > chunks.length
-    ? Array.from(
-      { length: previousChunkCount - chunks.length },
-      (_, offset) => watchlistChunkKey(chunks.length + offset)
-    )
-    : [];
+  const staleChunkKeys =
+    Number.isInteger(previousChunkCount) && previousChunkCount > chunks.length
+      ? Array.from({ length: previousChunkCount - chunks.length }, (_, offset) =>
+          watchlistChunkKey(chunks.length + offset),
+        )
+      : [];
 
   const entries = chunks.map((chunk, index) => [watchlistChunkKey(index), JSON.stringify(chunk)]);
   entries.push(

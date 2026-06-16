@@ -27,7 +27,7 @@ const YOUTUBE_WEBVIEW_USER_AGENT_ANDROID =
 function extractYouTubeId(url) {
   if (!url) return null;
   const match = url.match(
-    /(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+    /(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/,
   );
   return match ? match[1] : null;
 }
@@ -81,7 +81,7 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
 
   React.useEffect(() => {
     if (visible && !embedUri) {
-      toastiva.error("Trailer unavailable", { description: "We couldn't load this video." });
+      toastiva.error('Trailer unavailable', { description: "We couldn't load this video." });
       handleClose();
     }
   }, [visible, embedUri, handleClose]);
@@ -100,7 +100,9 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
       onRequestClose={handleClose}
       statusBarTranslucent
     >
-      <View style={[styles.overlay, { paddingTop: insets.top || 16, paddingBottom: insets.bottom }]}>
+      <View
+        style={[styles.overlay, { paddingTop: insets.top || 16, paddingBottom: insets.bottom }]}
+      >
         {/* Header bar */}
         <View style={[styles.header, { backgroundColor: colors.surface }]}>
           <View style={styles.headerLeft}>
@@ -113,7 +115,10 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
             </Text>
           </View>
           <TouchableOpacity
-            style={[styles.closeBtn, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.full }]}
+            style={[
+              styles.closeBtn,
+              { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.full },
+            ]}
             onPress={handleClose}
             accessibilityRole="button"
             accessibilityLabel="Close trailer player"
@@ -129,7 +134,12 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
               {webLoading && (
                 <View style={[styles.loaderOverlay, { backgroundColor: colors.surface }]}>
                   <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={[styles.loaderText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+                  <Text
+                    style={[
+                      styles.loaderText,
+                      { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                    ]}
+                  >
                     Loading trailer…
                   </Text>
                 </View>
@@ -140,7 +150,9 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
                   uri: embedUri,
                   headers: { Referer: embedReferer },
                 }}
-                userAgent={Platform.OS === 'android' ? YOUTUBE_WEBVIEW_USER_AGENT_ANDROID : undefined}
+                userAgent={
+                  Platform.OS === 'android' ? YOUTUBE_WEBVIEW_USER_AGENT_ANDROID : undefined
+                }
                 allowsFullscreenVideo
                 allowsInlineMediaPlayback
                 domStorageEnabled
@@ -151,18 +163,28 @@ export function TrailerModal({ visible, trailerUrl, title, onClose }) {
                 onLoadEnd={() => setWebLoading(false)}
                 onError={() => {
                   setWebLoading(false);
-                  toastiva.error("Trailer unavailable", { description: "Failed to load the player." });
+                  toastiva.error('Trailer unavailable', {
+                    description: 'Failed to load the player.',
+                  });
                   handleClose();
                 }}
               />
               <TouchableOpacity
-                style={[styles.youtubeBtn, { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.full }]}
+                style={[
+                  styles.youtubeBtn,
+                  { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.full },
+                ]}
                 onPress={handleOpenYouTube}
                 accessibilityRole="button"
                 accessibilityLabel="Watch trailer on YouTube"
               >
                 <Ionicons name="logo-youtube" size={18} color={colors.primary} />
-                <Text style={[styles.youtubeBtnText, { color: colors.onSurface, ...typography.labelSm }]}>
+                <Text
+                  style={[
+                    styles.youtubeBtnText,
+                    { color: colors.onSurface, ...typography.labelSm },
+                  ]}
+                >
                   YouTube
                 </Text>
               </TouchableOpacity>

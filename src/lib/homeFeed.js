@@ -1,5 +1,10 @@
 import { fetchTraktTrending } from './trakt';
-import { discoverTitles, enrichTraktItems, fetchNowPlayingMovies, fetchTopMovieCollectionRows } from './tmdb';
+import {
+  discoverTitles,
+  enrichTraktItems,
+  fetchNowPlayingMovies,
+  fetchTopMovieCollectionRows,
+} from './tmdb';
 import { isInUserLibrary } from './watchlistModel';
 
 export const HOME_RAIL_LIMIT = 10;
@@ -18,26 +23,98 @@ const SPOTLIGHT_CATEGORY_ORDER = [
 /** Curated genre rails — one Movie + one TV rail per popular TMDb genre, English‑first. */
 export const HOME_TMDB_RAILS = [
   // ── Action ──────────────────────────────────────────────────────────────────
-  { id: 'action_movies',   title: 'Action movies',          mediaType: 'movie', genreIds: [28],    languageCodes: ['en'] },
-  { id: 'action_tv',       title: 'Action & adventure TV',  mediaType: 'tv',    genreIds: [10759], languageCodes: ['en'] },
+  {
+    id: 'action_movies',
+    title: 'Action movies',
+    mediaType: 'movie',
+    genreIds: [28],
+    languageCodes: ['en'],
+  },
+  {
+    id: 'action_tv',
+    title: 'Action & adventure TV',
+    mediaType: 'tv',
+    genreIds: [10759],
+    languageCodes: ['en'],
+  },
   // ── Drama ───────────────────────────────────────────────────────────────────
-  { id: 'drama_movies',    title: 'Drama movies',           mediaType: 'movie', genreIds: [18],    languageCodes: ['en'] },
-  { id: 'drama_tv',        title: 'Drama series',           mediaType: 'tv',    genreIds: [18],    languageCodes: ['en'] },
+  {
+    id: 'drama_movies',
+    title: 'Drama movies',
+    mediaType: 'movie',
+    genreIds: [18],
+    languageCodes: ['en'],
+  },
+  { id: 'drama_tv', title: 'Drama series', mediaType: 'tv', genreIds: [18], languageCodes: ['en'] },
   // ── Comedy ──────────────────────────────────────────────────────────────────
-  { id: 'comedy_movies',   title: 'Comedy movies',          mediaType: 'movie', genreIds: [35],    languageCodes: ['en'] },
-  { id: 'comedy_tv',       title: 'Comedy series',          mediaType: 'tv',    genreIds: [35],    languageCodes: ['en'] },
+  {
+    id: 'comedy_movies',
+    title: 'Comedy movies',
+    mediaType: 'movie',
+    genreIds: [35],
+    languageCodes: ['en'],
+  },
+  {
+    id: 'comedy_tv',
+    title: 'Comedy series',
+    mediaType: 'tv',
+    genreIds: [35],
+    languageCodes: ['en'],
+  },
   // ── Thriller / Crime ────────────────────────────────────────────────────────
-  { id: 'thriller_movies', title: 'Thriller movies',        mediaType: 'movie', genreIds: [53],    languageCodes: ['en'] },
-  { id: 'crime_tv',        title: 'Crime series',           mediaType: 'tv',    genreIds: [80],    languageCodes: ['en'] },
+  {
+    id: 'thriller_movies',
+    title: 'Thriller movies',
+    mediaType: 'movie',
+    genreIds: [53],
+    languageCodes: ['en'],
+  },
+  { id: 'crime_tv', title: 'Crime series', mediaType: 'tv', genreIds: [80], languageCodes: ['en'] },
   // ── Sci‑Fi ──────────────────────────────────────────────────────────────────
-  { id: 'scifi_movies',    title: 'Sci‑Fi movies',          mediaType: 'movie', genreIds: [878],   languageCodes: ['en'] },
-  { id: 'scifi_tv',        title: 'Sci‑Fi & fantasy TV',    mediaType: 'tv',    genreIds: [10765], languageCodes: ['en'] },
+  {
+    id: 'scifi_movies',
+    title: 'Sci‑Fi movies',
+    mediaType: 'movie',
+    genreIds: [878],
+    languageCodes: ['en'],
+  },
+  {
+    id: 'scifi_tv',
+    title: 'Sci‑Fi & fantasy TV',
+    mediaType: 'tv',
+    genreIds: [10765],
+    languageCodes: ['en'],
+  },
   // ── Horror ──────────────────────────────────────────────────────────────────
-  { id: 'horror_movies',   title: 'Horror movies',          mediaType: 'movie', genreIds: [27],    languageCodes: ['en'] },
-  { id: 'horror_tv',       title: 'Horror & thriller TV',   mediaType: 'tv',    genreIds: [9648],  languageCodes: ['en'] },
+  {
+    id: 'horror_movies',
+    title: 'Horror movies',
+    mediaType: 'movie',
+    genreIds: [27],
+    languageCodes: ['en'],
+  },
+  {
+    id: 'horror_tv',
+    title: 'Horror & thriller TV',
+    mediaType: 'tv',
+    genreIds: [9648],
+    languageCodes: ['en'],
+  },
   // ── Crime / Mystery ─────────────────────────────────────────────────────────
-  { id: 'crime_movies',    title: 'Crime movies',           mediaType: 'movie', genreIds: [80],    languageCodes: ['en'] },
-  { id: 'mystery_tv',      title: 'Mystery & thriller TV',  mediaType: 'tv',    genreIds: [10765, 9648], languageCodes: ['en'] },
+  {
+    id: 'crime_movies',
+    title: 'Crime movies',
+    mediaType: 'movie',
+    genreIds: [80],
+    languageCodes: ['en'],
+  },
+  {
+    id: 'mystery_tv',
+    title: 'Mystery & thriller TV',
+    mediaType: 'tv',
+    genreIds: [10765, 9648],
+    languageCodes: ['en'],
+  },
 ];
 
 function dedupeKey(item) {
@@ -71,7 +148,7 @@ export async function buildHomeSpotlight(watchlist = []) {
 
   for (const catId of SPOTLIGHT_CATEGORY_ORDER) {
     const inCat = (watchlist || []).filter(
-      (w) => w.collectionIds?.includes(catId) && isInUserLibrary(w)
+      (w) => w.collectionIds?.includes(catId) && isInUserLibrary(w),
     );
     for (const it of inCat) {
       const k = dedupeKey(it);
@@ -85,7 +162,10 @@ export async function buildHomeSpotlight(watchlist = []) {
         synopsis: it.synopsis,
         posterUrl: it.posterUrl,
         backdropUrl: it.backdropUrl,
-        ratingValue: typeof it.ratingValue === 'number' ? it.ratingValue : parseFloat(String(it.rating || '').split('/')[0]) || 0,
+        ratingValue:
+          typeof it.ratingValue === 'number'
+            ? it.ratingValue
+            : parseFloat(String(it.rating || '').split('/')[0]) || 0,
         rating: it.rating,
       });
       if (pool.length >= HOME_SPOTLIGHT_MAX) return pool;

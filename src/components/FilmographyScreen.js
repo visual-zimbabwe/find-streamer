@@ -19,23 +19,31 @@ function ratingForCard(rating) {
   return s.split('/')[0];
 }
 
-export function FilmographyScreen({ personName, role, results = [], onSelectItem, loading, profileUrl }) {
+export function FilmographyScreen({
+  personName,
+  role,
+  results = [],
+  onSelectItem,
+  loading,
+  profileUrl,
+}) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const bottomNavScroll = useBottomNavScroll();
 
   // role: 'movie' = director, 'tv' = creator, 'cast' = actor, 'writer' = writing credits, 'composer' = music credits, 'company' = production company
-  const roleLabel = role === 'cast'
-    ? 'Starring In'
-    : role === 'writer'
-      ? 'Writing Credits'
-      : role === 'composer'
-        ? 'Music By'
-        : role === 'company'
-          ? 'Titles From'
-          : role === 'movie'
-            ? 'Directed By'
-            : 'Created By';
+  const roleLabel =
+    role === 'cast'
+      ? 'Starring In'
+      : role === 'writer'
+        ? 'Writing Credits'
+        : role === 'composer'
+          ? 'Music By'
+          : role === 'company'
+            ? 'Titles From'
+            : role === 'movie'
+              ? 'Directed By'
+              : 'Created By';
   const countText = `${results.length} title${results.length !== 1 ? 's' : ''}`;
 
   const renderItem = ({ item, index }) => {
@@ -48,8 +56,18 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
         accessibilityRole="button"
         accessibilityLabel={`Open details for ${item.title}`}
       >
-        <View style={[styles.posterCard, { backgroundColor: colors.surfaceContainer, borderRadius: radii.md }]}>
-          <MediaArtwork uri={item.posterUrl} style={styles.poster} accessibilityLabel={`${item.title} poster`} title={item.title} />
+        <View
+          style={[
+            styles.posterCard,
+            { backgroundColor: colors.surfaceContainer, borderRadius: radii.md },
+          ]}
+        >
+          <MediaArtwork
+            uri={item.posterUrl}
+            style={styles.poster}
+            accessibilityLabel={`${item.title} poster`}
+            title={item.title}
+          />
           {/* Rating badge */}
           <View style={styles.ratingBadge}>
             <Text style={styles.ratingText}>{ratingForCard(item.rating)}</Text>
@@ -61,10 +79,15 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
             </View>
           )}
         </View>
-        <Text style={[styles.posterTitle, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+        <Text
+          style={[styles.posterTitle, { color: colors.onSurface, ...typography.bodyMd }]}
+          numberOfLines={2}
+        >
           {item.title}
         </Text>
-        <Text style={[styles.posterYear, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+        <Text
+          style={[styles.posterYear, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+        >
           {item.year}
           {role === 'cast' && item.character ? ` · ${item.character}` : ''}
         </Text>
@@ -75,23 +98,53 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.surfaceContainer, borderBottomColor: colors.outlineVariant + '40' }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: colors.surfaceContainer,
+            borderBottomColor: colors.outlineVariant + '40',
+          },
+        ]}
+      >
         <View style={[styles.personAvatar, { backgroundColor: colors.primary + '22' }]}>
           {profileUrl ? (
-            <MediaArtwork uri={profileUrl} style={styles.avatarImage} accessibilityLabel={`${personName} profile photo`} title={personName} icon="person-outline" compactFallback />
+            <MediaArtwork
+              uri={profileUrl}
+              style={styles.avatarImage}
+              accessibilityLabel={`${personName} profile photo`}
+              title={personName}
+              icon="person-outline"
+              compactFallback
+            />
           ) : (
             <Ionicons
-              name={role === 'cast' ? 'star' : role === 'writer' ? 'create-outline' : role === 'composer' ? 'musical-notes-outline' : role === 'company' ? 'business-outline' : 'person'}
+              name={
+                role === 'cast'
+                  ? 'star'
+                  : role === 'writer'
+                    ? 'create-outline'
+                    : role === 'composer'
+                      ? 'musical-notes-outline'
+                      : role === 'company'
+                        ? 'business-outline'
+                        : 'person'
+              }
               size={26}
               color={colors.primary}
             />
           )}
         </View>
         <View style={styles.headerText}>
-          <Text style={[styles.roleLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+          <Text
+            style={[styles.roleLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+          >
             {roleLabel}
           </Text>
-          <Text style={[styles.personName, { color: colors.onSurface, ...typography.titleLg }]} numberOfLines={2}>
+          <Text
+            style={[styles.personName, { color: colors.onSurface, ...typography.titleLg }]}
+            numberOfLines={2}
+          >
             {personName}
           </Text>
           {!loading && (
@@ -106,14 +159,18 @@ export function FilmographyScreen({ personName, role, results = [], onSelectItem
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+          <Text
+            style={[styles.loadingText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+          >
             Loading…
           </Text>
         </View>
       ) : results.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="film-outline" size={52} color={colors.onSurfaceVariant} />
-          <Text style={[styles.emptyText, { color: colors.onSurfaceVariant, ...typography.bodyLg }]}>
+          <Text
+            style={[styles.emptyText, { color: colors.onSurfaceVariant, ...typography.bodyLg }]}
+          >
             No titles found
           </Text>
         </View>

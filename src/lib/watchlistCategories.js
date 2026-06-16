@@ -46,5 +46,7 @@ export const WATCHLIST_CATEGORIES = [
 ];
 
 export function getWatchlistCategory(categoryId) {
-  return WATCHLIST_CATEGORIES.find((category) => category.id === categoryId) || WATCHLIST_CATEGORIES[0];
+  return (
+    WATCHLIST_CATEGORIES.find((category) => category.id === categoryId) || WATCHLIST_CATEGORIES[0]
+  );
 }

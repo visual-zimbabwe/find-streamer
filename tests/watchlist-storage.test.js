@@ -2,12 +2,15 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
 
-const {
-  loadWatchlist,
-  saveWatchlist,
-} = require(path.join(__dirname, '..', 'src', 'lib', 'storage.js'));
-const { buildDefaultPrepopulatedWatchlist } = require(path.join(__dirname, '..', 'src', 'lib', 'defaultWatchlist.js'));
-const { normalizeWatchlistItems } = require(path.join(__dirname, '..', 'src', 'lib', 'watchlistModel.js'));
+const { loadWatchlist, saveWatchlist } = require(
+  path.join(__dirname, '..', 'src', 'lib', 'storage.js'),
+);
+const { buildDefaultPrepopulatedWatchlist } = require(
+  path.join(__dirname, '..', 'src', 'lib', 'defaultWatchlist.js'),
+);
+const { normalizeWatchlistItems } = require(
+  path.join(__dirname, '..', 'src', 'lib', 'watchlistModel.js'),
+);
 
 function createMemoryStorage(initialEntries = []) {
   const values = new Map(initialEntries);
@@ -75,7 +78,7 @@ test('watchlist persists across a simulated app restart', async () => {
         status: 'saved',
         collectionIds: ['highly_recommend'],
       },
-    ]
+    ],
   );
 });
 
@@ -94,12 +97,14 @@ test('loading a missing watchlist does not write defaults over later saves', asy
 
   assert.deepEqual(defaults, []);
 
-  const custom = [{
-    tmdbId: 11,
-    mediaType: 'movie',
-    title: 'Star Wars',
-    watchlistCategoryId: 'watched',
-  }];
+  const custom = [
+    {
+      tmdbId: 11,
+      mediaType: 'movie',
+      title: 'Star Wars',
+      watchlistCategoryId: 'watched',
+    },
+  ];
 
   await saveWatchlist(custom, storage);
   const reloaded = await loadWatchlist(storage);
@@ -134,15 +139,17 @@ test('imdb migration removes untouched default seeds but keeps engaged rows', as
 
 test('imdb migration keeps saved rows when user joined a library collection', async () => {
   const storage = createMemoryStorage();
-  const saved = [{
-    tmdbId: 278,
-    mediaType: 'movie',
-    title: 'The Shawshank Redemption',
-    status: 'saved',
-    source: 'IMDb Top 100 - Movies',
-    watchlistCategoryId: 'imdb_top_100_movies',
-    collectionIds: ['imdb_top_100_movies', 'watch_next'],
-  }];
+  const saved = [
+    {
+      tmdbId: 278,
+      mediaType: 'movie',
+      title: 'The Shawshank Redemption',
+      status: 'saved',
+      source: 'IMDb Top 100 - Movies',
+      watchlistCategoryId: 'imdb_top_100_movies',
+      collectionIds: ['imdb_top_100_movies', 'watch_next'],
+    },
+  ];
 
   await saveWatchlist(saved, storage);
   const reloaded = await loadWatchlist(storage);
@@ -180,7 +187,11 @@ test('large imported watchlists are chunked and survive restart', async () => {
   assert.equal(reloaded.length, 500);
   assert.equal(reloaded[0].title, 'Imported Title 0');
   assert.equal(reloaded[499].title, 'Imported Title 499');
-  assert.ok(storage.writes.some(([key, value]) => key === 'find-streamer/watchlist/chunks' && value === '20'));
+  assert.ok(
+    storage.writes.some(
+      ([key, value]) => key === 'find-streamer/watchlist/chunks' && value === '20',
+    ),
+  );
   assert.ok(storage.writes.some(([key]) => key === 'find-streamer/watchlist/chunk/0'));
 });
 
@@ -207,7 +218,11 @@ test('user watchlist saves stay compact without seeding imdb defaults', async ()
   const reloaded = await loadWatchlist(storage);
 
   assert.equal(reloaded.length, 2);
-  assert.ok(!storage.writes.some(([, value]) => typeof value === 'string' && value.includes('imdb_top_100_movies')));
+  assert.ok(
+    !storage.writes.some(
+      ([, value]) => typeof value === 'string' && value.includes('imdb_top_100_movies'),
+    ),
+  );
 });
 
 test('concurrent watchlist saves are serialized', async () => {
@@ -229,20 +244,25 @@ test('concurrent watchlist saves are serialized', async () => {
   const reloaded = await loadWatchlist(storage);
   assert.ok(reloaded[0].collectionIds.includes('watch_next'));
   assert.ok(
-    reloaded[0].collectionIds.includes('highly_recommend')
-    || reloaded[0].collectionIds.includes('maybe_later')
+    reloaded[0].collectionIds.includes('highly_recommend') ||
+      reloaded[0].collectionIds.includes('maybe_later'),
   );
 });
 
 test('chunked watchlists load before an unreadable legacy single-key value', async () => {
   const storage = createMemoryStorage([
     ['find-streamer/watchlist/chunks', '1'],
-    ['find-streamer/watchlist/chunk/0', JSON.stringify([{
-      tmdbId: 77,
-      mediaType: 'movie',
-      title: 'Chunked Value',
-      watchlistCategoryId: 'watch_next',
-    }])],
+    [
+      'find-streamer/watchlist/chunk/0',
+      JSON.stringify([
+        {
+          tmdbId: 77,
+          mediaType: 'movie',
+          title: 'Chunked Value',
+          watchlistCategoryId: 'watch_next',
+        },
+      ]),
+    ],
   ]);
   storage.getItem = async (key) => {
     if (key === 'find-streamer/watchlist') {
@@ -264,7 +284,12 @@ test('normalizeWatchlistItems preserves basedOn field', () => {
     title: 'The Lord of the Rings',
     watchlistCategoryId: 'watch_next',
     basedOn: [
-      { id: 'Q123', name: 'The Fellowship of the Ring', authors: ['J. R. R. Tolkien'], types: ['novel'] }
+      {
+        id: 'Q123',
+        name: 'The Fellowship of the Ring',
+        authors: ['J. R. R. Tolkien'],
+        types: ['novel'],
+      },
     ],
     wikidataEnriched: true,
   };
@@ -272,7 +297,12 @@ test('normalizeWatchlistItems preserves basedOn field', () => {
   const normalized = normalizeWatchlistItems([item]);
   assert.equal(normalized.length, 1);
   assert.deepEqual(normalized[0].basedOn, [
-    { id: 'Q123', name: 'The Fellowship of the Ring', authors: ['J. R. R. Tolkien'], types: ['novel'] }
+    {
+      id: 'Q123',
+      name: 'The Fellowship of the Ring',
+      authors: ['J. R. R. Tolkien'],
+      types: ['novel'],
+    },
   ]);
   assert.equal(normalized[0].wikidataEnriched, true);
 });

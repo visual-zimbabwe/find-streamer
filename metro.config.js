@@ -7,9 +7,6 @@ const config = getDefaultConfig(__dirname);
 
 // Exclude android/.gradle from Metro's file watcher to prevent
 // ENOENT crashes when Gradle cleans its cache directories.
-config.resolver.blockList = [
-  ...(config.resolver.blockList || []),
-  /android[\\/]\.gradle[\\/].*/,
-];
+config.resolver.blockList = [...(config.resolver.blockList || []), /android[\\/]\.gradle[\\/].*/];
 
 module.exports = config;

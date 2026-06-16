@@ -35,8 +35,9 @@ export function getEarliestRowYear(row) {
 }
 
 export function customDecadeRangeHasInput(customDecadeRange = null) {
-  return customDecadeRange != null
-    && (customDecadeRange.min != null || customDecadeRange.max != null);
+  return (
+    customDecadeRange != null && (customDecadeRange.min != null || customDecadeRange.max != null)
+  );
 }
 
 export function validateCustomDecadeRange(customDecadeRange = null) {
@@ -119,22 +120,29 @@ export function filterCollectionRows(rows, filters = {}) {
     customDecadeRange = null,
   } = filters;
 
-  return rows.filter((row) => (
-    rowMatchesSearch(row, searchQuery)
-    && rowMatchesSize(row, sizeFilters)
-    && rowMatchesDecade(row, decadeFilters, customDecadeRange)
-  ));
+  return rows.filter(
+    (row) =>
+      rowMatchesSearch(row, searchQuery) &&
+      rowMatchesSize(row, sizeFilters) &&
+      rowMatchesDecade(row, decadeFilters, customDecadeRange),
+  );
 }
 
 export function sortCollectionRows(rows, sortMode = 'rating') {
   const sorted = [...rows];
   if (sortMode === 'az') {
-    return sorted.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+    return sorted.sort((a, b) =>
+      a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
+    );
   }
   return sorted.sort((a, b) => b.firstMovieRatingValue - a.firstMovieRatingValue);
 }
 
-export function getLibraryCollectionIds(rows, savedKeys, entryKeyFn = (item) => `${item.mediaType}:${item.tmdbId}`) {
+export function getLibraryCollectionIds(
+  rows,
+  savedKeys,
+  entryKeyFn = (item) => `${item.mediaType}:${item.tmdbId}`,
+) {
   const ids = new Set();
   for (const row of rows) {
     const inLibrary = row.items.some((item) => {
@@ -148,7 +156,10 @@ export function getLibraryCollectionIds(rows, savedKeys, entryKeyFn = (item) => 
 
 export function getRowsForIds(rows, ids, sortMode = 'rating') {
   const idSet = ids instanceof Set ? ids : new Set(ids);
-  return sortCollectionRows(rows.filter((row) => idSet.has(row.id)), sortMode);
+  return sortCollectionRows(
+    rows.filter((row) => idSet.has(row.id)),
+    sortMode,
+  );
 }
 
 export function countActiveFindBadge({

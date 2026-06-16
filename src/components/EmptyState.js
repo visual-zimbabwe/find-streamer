@@ -60,7 +60,7 @@ export function EmptyState({
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
     const pulseAnimation = Animated.loop(
       Animated.sequence([
@@ -76,7 +76,7 @@ export function EmptyState({
           easing: Easing.in(Easing.quad),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
     floatAnimation.start();
     pulseAnimation.start();
@@ -113,9 +113,20 @@ export function EmptyState({
 
   return (
     <View style={[styles.container, compact && styles.compact]}>
-      <Animated.View style={[styles.illustration, { backgroundColor: accent + '14', borderColor: accent + '33' }, floatStyle]}>
+      <Animated.View
+        style={[
+          styles.illustration,
+          { backgroundColor: accent + '14', borderColor: accent + '33' },
+          floatStyle,
+        ]}
+      >
         <View style={[styles.orbit, { borderColor: accent + '22' }]} />
-        <View style={[styles.screen, { borderColor: accent + '66', backgroundColor: colors.surfaceContainerHigh }]}>
+        <View
+          style={[
+            styles.screen,
+            { borderColor: accent + '66', backgroundColor: colors.surfaceContainerHigh },
+          ]}
+        >
           <View style={styles.sparkRow}>
             <Animated.View style={[styles.spark, { backgroundColor: accent }, pulseStyle]} />
             <View style={[styles.sparkSmall, { backgroundColor: colors.onSurfaceVariant }]} />
@@ -123,15 +134,24 @@ export function EmptyState({
           <Ionicons name={config.icon} size={38} color={accent} />
           <View style={[styles.screenStand, { backgroundColor: accent + '66' }]} />
         </View>
-        <View style={[styles.ticket, { backgroundColor: colors.surfaceContainerHighest, borderColor: accent + '44' }]}>
+        <View
+          style={[
+            styles.ticket,
+            { backgroundColor: colors.surfaceContainerHighest, borderColor: accent + '44' },
+          ]}
+        >
           <View style={[styles.ticketDot, { backgroundColor: accent }]} />
           <View style={[styles.ticketLine, { backgroundColor: colors.onSurfaceVariant + '55' }]} />
         </View>
       </Animated.View>
 
-      <Text style={[styles.title, { color: colors.onSurface, ...typography.titleLg }]}>{title}</Text>
+      <Text style={[styles.title, { color: colors.onSurface, ...typography.titleLg }]}>
+        {title}
+      </Text>
       {description ? (
-        <Text style={[styles.description, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+        <Text
+          style={[styles.description, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+        >
           {description}
         </Text>
       ) : null}
@@ -140,19 +160,30 @@ export function EmptyState({
         <View style={styles.actionRow}>
           {secondaryAction && (
             <TouchableOpacity
-              style={[styles.secondaryButton, { borderColor: colors.outlineVariant + '66', borderRadius: radii.full }]}
+              style={[
+                styles.secondaryButton,
+                { borderColor: colors.outlineVariant + '66', borderRadius: radii.full },
+              ]}
               onPress={secondaryAction.onPress}
               accessibilityRole="button"
               accessibilityLabel={secondaryAction.accessibilityLabel || secondaryAction.label}
             >
-              <Text style={[styles.secondaryButtonText, { color: colors.onSurface, ...typography.labelSm }]}>
+              <Text
+                style={[
+                  styles.secondaryButtonText,
+                  { color: colors.onSurface, ...typography.labelSm },
+                ]}
+              >
                 {secondaryAction.label}
               </Text>
             </TouchableOpacity>
           )}
           {primaryAction && (
             <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: colors.primary, borderRadius: radii.full }]}
+              style={[
+                styles.primaryButton,
+                { backgroundColor: colors.primary, borderRadius: radii.full },
+              ]}
               onPress={primaryAction.onPress}
               accessibilityRole="button"
               accessibilityLabel={primaryAction.accessibilityLabel || primaryAction.label}
@@ -160,7 +191,12 @@ export function EmptyState({
               {primaryAction.icon && (
                 <Ionicons name={primaryAction.icon} size={16} color={colors.onPrimary} />
               )}
-              <Text style={[styles.primaryButtonText, { color: colors.onPrimary, ...typography.labelSm }]}>
+              <Text
+                style={[
+                  styles.primaryButtonText,
+                  { color: colors.onPrimary, ...typography.labelSm },
+                ]}
+              >
                 {primaryAction.label}
               </Text>
             </TouchableOpacity>

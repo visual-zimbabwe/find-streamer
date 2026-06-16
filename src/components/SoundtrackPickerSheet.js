@@ -5,7 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 /**
  * Bottom-sheet content for choosing among multiple soundtrack releases.
  */
-export function SoundtrackPickerSheetContent({ soundtracks, colors, typography, onSelect, onDismiss }) {
+export function SoundtrackPickerSheetContent({
+  soundtracks,
+  colors,
+  typography,
+  onSelect,
+  onDismiss,
+}) {
   return (
     <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
       {soundtracks.map((soundtrack, index) => (
@@ -39,11 +45,16 @@ export function SoundtrackPickerSheetContent({ soundtracks, colors, typography, 
             </View>
           )}
           <View style={styles.meta}>
-            <Text style={[styles.title, { color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={2}>
+            <Text
+              style={[styles.title, { color: colors.onSurface, ...typography.bodyMd }]}
+              numberOfLines={2}
+            >
               {soundtrack.title}
             </Text>
             {soundtrack.year ? (
-              <Text style={[styles.year, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+              <Text
+                style={[styles.year, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+              >
                 {soundtrack.year}
               </Text>
             ) : null}

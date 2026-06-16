@@ -19,29 +19,38 @@ export function ErrorBanner({
 
   if (!message) return null;
 
-  const containerStyle = placement === 'top'
-    ? [styles.container, styles.top, { top: insets.top + 8 }]
-    : [styles.container, styles.bottom, { bottom: insets.bottom + 88 }];
+  const containerStyle =
+    placement === 'top'
+      ? [styles.container, styles.top, { top: insets.top + 8 }]
+      : [styles.container, styles.bottom, { bottom: insets.bottom + 88 }];
 
   const content = (
-    <View style={[
-      styles.banner,
-      {
-        backgroundColor: colors.surfaceContainerHighest,
-        borderColor: colors.outlineVariant + '55',
-        borderRadius: radii.lg,
-      },
-    ]}>
+    <View
+      style={[
+        styles.banner,
+        {
+          backgroundColor: colors.surfaceContainerHighest,
+          borderColor: colors.outlineVariant + '55',
+          borderRadius: radii.lg,
+        },
+      ]}
+    >
       <View style={[styles.iconWrap, { backgroundColor: colors.primary + '22' }]}>
         <Ionicons name={icon} size={18} color={colors.primary} />
       </View>
       <View style={styles.copy}>
         {title ? (
-          <Text style={[styles.title, { color: colors.onSurface, ...typography.labelSm }]} numberOfLines={1}>
+          <Text
+            style={[styles.title, { color: colors.onSurface, ...typography.labelSm }]}
+            numberOfLines={1}
+          >
             {title}
           </Text>
         ) : null}
-        <Text style={[styles.message, { color: colors.onSurfaceVariant, ...typography.bodyMd }]} numberOfLines={2}>
+        <Text
+          style={[styles.message, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+          numberOfLines={2}
+        >
           {message}
         </Text>
       </View>
@@ -74,7 +83,9 @@ export function ErrorBanner({
         >
           {content}
         </TouchableOpacity>
-      ) : content}
+      ) : (
+        content
+      )}
     </View>
   );
 }

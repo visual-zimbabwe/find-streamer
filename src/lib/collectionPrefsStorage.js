@@ -50,8 +50,11 @@ export async function loadCollectionSectionCollapsed() {
 }
 
 export async function saveCollectionSectionCollapsed(state) {
-  await AsyncStorage.setItem(KEYS.sectionCollapsed, JSON.stringify({
-    library: state.library !== false,
-    pinned: state.pinned !== false,
-  }));
+  await AsyncStorage.setItem(
+    KEYS.sectionCollapsed,
+    JSON.stringify({
+      library: state.library !== false,
+      pinned: state.pinned !== false,
+    }),
+  );
 }

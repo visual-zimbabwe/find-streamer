@@ -7,7 +7,9 @@ const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
   const hookScheme = useColorScheme();
-  const [systemScheme, setSystemScheme] = useState(() => Appearance.getColorScheme() ?? hookScheme ?? 'light');
+  const [systemScheme, setSystemScheme] = useState(
+    () => Appearance.getColorScheme() ?? hookScheme ?? 'light',
+  );
   const [preference, setPreference] = useState('system');
   const [ready, setReady] = useState(false);
 
@@ -46,9 +48,8 @@ export function ThemeProvider({ children }) {
     };
   }, [hookScheme]);
 
-  const resolvedMode = preference === 'system'
-    ? (systemScheme === 'dark' ? 'dark' : 'light')
-    : preference;
+  const resolvedMode =
+    preference === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : preference;
 
   const value = useMemo(
     () => ({
@@ -61,7 +62,7 @@ export function ThemeProvider({ children }) {
         await saveThemePreference(nextPreference);
       },
     }),
-    [preference, ready, resolvedMode]
+    [preference, ready, resolvedMode],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

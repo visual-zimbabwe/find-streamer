@@ -7,12 +7,8 @@ import { useStackScreenOptions } from './useStackScreenOptions';
 const Stack = createNativeStackNavigator();
 
 function SettingsMainScreen() {
-  const {
-    watchlist,
-    watchlistCollections,
-    persistWatchlistChange,
-    persistCollectionsChange,
-  } = useAppState();
+  const { watchlist, watchlistCollections, persistWatchlistChange, persistCollectionsChange } =
+    useAppState();
 
   return (
     <SettingsView

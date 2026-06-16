@@ -91,7 +91,7 @@ function encodeData(payload) {
 
 function createMatrix() {
   return Array.from({ length: QR_SIZE }, () =>
-    Array.from({ length: QR_SIZE }, () => ({ dark: false, reserved: false }))
+    Array.from({ length: QR_SIZE }, () => ({ dark: false, reserved: false })),
   );
 }
 
@@ -138,12 +138,36 @@ function addPatterns(matrix) {
 
 function reserveFormat(matrix) {
   const points = [
-    [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8],
-    [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
-    [QR_SIZE - 1, 8], [QR_SIZE - 2, 8], [QR_SIZE - 3, 8], [QR_SIZE - 4, 8],
-    [QR_SIZE - 5, 8], [QR_SIZE - 6, 8], [QR_SIZE - 7, 8],
-    [8, QR_SIZE - 8], [8, QR_SIZE - 7], [8, QR_SIZE - 6], [8, QR_SIZE - 5],
-    [8, QR_SIZE - 4], [8, QR_SIZE - 3], [8, QR_SIZE - 2], [8, QR_SIZE - 1],
+    [8, 0],
+    [8, 1],
+    [8, 2],
+    [8, 3],
+    [8, 4],
+    [8, 5],
+    [8, 7],
+    [8, 8],
+    [7, 8],
+    [5, 8],
+    [4, 8],
+    [3, 8],
+    [2, 8],
+    [1, 8],
+    [0, 8],
+    [QR_SIZE - 1, 8],
+    [QR_SIZE - 2, 8],
+    [QR_SIZE - 3, 8],
+    [QR_SIZE - 4, 8],
+    [QR_SIZE - 5, 8],
+    [QR_SIZE - 6, 8],
+    [QR_SIZE - 7, 8],
+    [8, QR_SIZE - 8],
+    [8, QR_SIZE - 7],
+    [8, QR_SIZE - 6],
+    [8, QR_SIZE - 5],
+    [8, QR_SIZE - 4],
+    [8, QR_SIZE - 3],
+    [8, QR_SIZE - 2],
+    [8, QR_SIZE - 1],
   ];
   points.forEach(([row, col]) => {
     matrix[row][col].reserved = true;
@@ -152,8 +176,40 @@ function reserveFormat(matrix) {
 
 function addFormat(matrix) {
   const bits = FORMAT_L_MASK_0.toString(2).padStart(15, '0').split('').map(Number);
-  const first = [[8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8], [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8]];
-  const second = [[QR_SIZE - 1, 8], [QR_SIZE - 2, 8], [QR_SIZE - 3, 8], [QR_SIZE - 4, 8], [QR_SIZE - 5, 8], [QR_SIZE - 6, 8], [QR_SIZE - 7, 8], [8, QR_SIZE - 8], [8, QR_SIZE - 7], [8, QR_SIZE - 6], [8, QR_SIZE - 5], [8, QR_SIZE - 4], [8, QR_SIZE - 3], [8, QR_SIZE - 2], [8, QR_SIZE - 1]];
+  const first = [
+    [8, 0],
+    [8, 1],
+    [8, 2],
+    [8, 3],
+    [8, 4],
+    [8, 5],
+    [8, 7],
+    [8, 8],
+    [7, 8],
+    [5, 8],
+    [4, 8],
+    [3, 8],
+    [2, 8],
+    [1, 8],
+    [0, 8],
+  ];
+  const second = [
+    [QR_SIZE - 1, 8],
+    [QR_SIZE - 2, 8],
+    [QR_SIZE - 3, 8],
+    [QR_SIZE - 4, 8],
+    [QR_SIZE - 5, 8],
+    [QR_SIZE - 6, 8],
+    [QR_SIZE - 7, 8],
+    [8, QR_SIZE - 8],
+    [8, QR_SIZE - 7],
+    [8, QR_SIZE - 6],
+    [8, QR_SIZE - 5],
+    [8, QR_SIZE - 4],
+    [8, QR_SIZE - 3],
+    [8, QR_SIZE - 2],
+    [8, QR_SIZE - 1],
+  ];
   first.forEach(([row, col], index) => setModule(matrix, row, col, bits[index], true));
   second.forEach(([row, col], index) => setModule(matrix, row, col, bits[index], true));
 }

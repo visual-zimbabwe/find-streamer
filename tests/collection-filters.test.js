@@ -49,10 +49,7 @@ test('earliest row year uses minimum release year', () => {
 test('decade filter matches earliest movie year in franchise', () => {
   assert.equal(rowMatchesDecade(sampleRows[0], ['1970s']), true);
   assert.equal(rowMatchesDecade(sampleRows[0], ['2010s']), false);
-  assert.equal(
-    rowMatchesDecade(sampleRows[0], [], { min: 1975, max: 1985 }),
-    true,
-  );
+  assert.equal(rowMatchesDecade(sampleRows[0], [], { min: 1975, max: 1985 }), true);
 });
 
 test('decade filter ignores later sequel years', () => {
@@ -88,11 +85,14 @@ test('filters combine with AND across dimensions', () => {
 });
 
 test('badge count includes search and active filters', () => {
-  assert.equal(countActiveFindBadge({
-    searchQuery: 'star',
-    sizeFilters: ['short'],
-    decadeFilters: ['1970s', '1980s'],
-  }), 4);
+  assert.equal(
+    countActiveFindBadge({
+      searchQuery: 'star',
+      sizeFilters: ['short'],
+      decadeFilters: ['1970s', '1980s'],
+    }),
+    4,
+  );
 });
 
 test('letter jump uses collection title', () => {

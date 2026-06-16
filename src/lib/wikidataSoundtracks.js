@@ -28,7 +28,9 @@ export function commonsFilenameFromValue(value) {
       } else {
         const uploadMatch = text.match(/\/([^/?#]+\.(?:svg|png|jpe?g|webp|gif))(?:$|[?#])/i);
         if (uploadMatch) {
-          text = decodeURIComponent(uploadMatch[1].replace(/^(\d+px-)?/i, '').replace(/\.png$/i, ''));
+          text = decodeURIComponent(
+            uploadMatch[1].replace(/^(\d+px-)?/i, '').replace(/\.png$/i, ''),
+          );
         }
       }
     }
@@ -58,7 +60,9 @@ export async function resolveCommonsThumbUrls(values, width = 250) {
 
   if (filenames.size === 0) return new Map();
 
-  const titles = Array.from(filenames).map((name) => `File:${name}`).join('|');
+  const titles = Array.from(filenames)
+    .map((name) => `File:${name}`)
+    .join('|');
   const apiUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(titles)}&prop=imageinfo&iiprop=url&iiurlwidth=${width}&format=json`;
 
   try {
@@ -91,10 +95,12 @@ export function lookupCommonsThumb(value, thumbMap) {
   if (!thumbMap || !value) return null;
   const clean = commonsFilenameFromValue(value);
   if (!clean) return null;
-  return thumbMap.get(clean.replace(/ /g, '_'))
-    || thumbMap.get(clean)
-    || thumbMap.get(clean.replace(/_/g, ' '))
-    || null;
+  return (
+    thumbMap.get(clean.replace(/ /g, '_')) ||
+    thumbMap.get(clean) ||
+    thumbMap.get(clean.replace(/_/g, ' ')) ||
+    null
+  );
 }
 
 export function sortSoundtracks(soundtracks) {

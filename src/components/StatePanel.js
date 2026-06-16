@@ -9,7 +9,9 @@ export function StatePanel({ type, title, description, onRetry, actionLabel = 'T
         variant={type}
         title={title}
         description={description}
-        primaryAction={onRetry ? { label: actionLabel, icon: 'refresh-outline', onPress: onRetry } : null}
+        primaryAction={
+          onRetry ? { label: actionLabel, icon: 'refresh-outline', onPress: onRetry } : null
+        }
       />
     </View>
   );
