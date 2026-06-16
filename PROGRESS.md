@@ -1,7 +1,15 @@
 ## Current Phase
-Responsive Design & Fluid Sizing — Adapting UI elements to scale consistently across all device screen sizes.
+Codebase Refactor (per `REFACTOR_PLAN.md`) — Phase 7 (Docs & build cleanup) complete; the phased refactor is finished.
 
 ## Completed Tasks
+- [x] **Refactor — Phase 7 (Docs & build cleanup):**
+  - Deleted `eas.json` — the project builds locally with native Android Gradle (bare/prebuild), not EAS.
+  - **README** rewritten to match reality: stripped all EAS/cloud-build instructions and replaced the Build & Release section with the local Gradle workflow (`npx expo prebuild`, `./gradlew assembleDebug|assembleRelease`, APK output paths under `android/app/build/outputs/apk/`).
+  - **README** — removed iOS/Simulator claims (`app.json` is Android-only: `"platforms": ["android"]`).
+  - **README** — corrected the project-structure tree to match the actual `src/` layout (added `src/hooks/`, `src/navigation/`, `src/utils/`, `src/context/domainContexts.js`, the current component/lib inventory, and the real `tests/` suite list).
+  - **README** — added a TMDB/JustWatch/OMDb/Trakt/Wikidata attribution section and dropped the misleading "fallback token compiled into source" framing (now described as a bundled read-only token for a private local-only app).
+  - Verified `npm test` stays green (88 tests).
+
 - [x] **Responsive Foundation:** Created `src/utils/responsive.js` offering dynamic calculations (`scale`, `verticalScale`, `scaleFont`) based on screen width/height ratios and pixel density.
 - [x] **Theme Modernization:** Updated `theme/tokens.js` to define fluid spacings, radii, and typography using the new responsive utilities instead of rigid numbers.
 - [x] **Component Adaptability:** Refactored fixed dimensions in `ResultView`, `WatchlistView`, and `SkeletonLoaders` to utilize percentage-based layouts or `scale`/`verticalScale`, preventing stretching on large devices and clipping on small phones.
@@ -78,3 +86,4 @@ Responsive Design & Fluid Sizing — Adapting UI elements to scale consistently 
 - **2026-05-17 (session 1):** Resolved Android EAS bundling failure by installing `react-native-worklets` to satisfy the peer dependencies of Reanimated v4.2.1.
 - **2026-05-17 (session 2):** Resolved `ResultView` edge-to-edge poster top gap by setting `contentInsetAdjustmentBehavior="never"` on the ScrollView, specifying rigid parent bounds on the parallax artwork container (`height: HERO_HEIGHT + 120`), and correcting the pull-down overscroll transform formulas to mathematically pin the artwork to the top.
 - **2026-05-17 (session 3):** Audited and fully resolved the Android off-screen `ViewShot` capture glitch and the React Native scroll listener collision. Implemented a four-layered bulletproof layout system: (1) Wrapped `ViewShot` in a spacious `left: 5000` off-screen container to prevent parent-induced flex width compression to 0px; (2) Prefetched network posters on screen mount (`Image.prefetch`) to guarantee instant local cache access during capture; (3) Stretched re-render safety delay to `400ms` for drawing headroom; (4) Restored high-performance native-driver scroll animations by binding `scrollHandler` directly to `onScroll` and routing the bottom-nav visibility callbacks through the `Animated.event`'s `listener` config.
+- **2026-06-16:** Completed refactor **Phase 7 (Docs & build cleanup)**: deleted `eas.json`; rewrote the README around the local Android Gradle build (removed all EAS and iOS content); corrected the project-structure tree to the real `src/` layout (hooks/navigation/utils/domain contexts); added the TMDB/JustWatch/OMDb/Trakt/Wikidata attribution section; dropped the "fallback token compiled into source" framing. `npm test` green (88 tests).
