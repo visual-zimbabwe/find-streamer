@@ -1,8 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { GRID_GAP, GRID_PAD, GOLD_ACCENT } from '../theme/programme';
-import { GRID_COL_W, GRID_POSTER_H } from './GridPosterCard';
+import { GRID_GAP, GRID_PAD, GOLD_ACCENT, GRID_COL_W, GRID_POSTER_H } from '../theme/programme';
 import { scale, verticalScale } from '../utils/responsive';
 const FEATURE_H = verticalScale(420);
 const CHIP_W = scale(248);

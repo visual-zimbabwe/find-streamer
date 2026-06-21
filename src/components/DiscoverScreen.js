@@ -41,10 +41,12 @@ import {
   GRID_PAD,
   GRID_GAP,
   FADE_MS,
+  GRID_COL_W,
+  GRID_POSTER_H,
 } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
-import { GridPosterCard, PosterGrid, GRID_COL_W, GRID_POSTER_H } from './GridPosterCard';
+import { GridPosterCard, PosterGrid } from './GridPosterCard';
 
 // ─── Sort Options (media-type-aware) ──────────────────────────────────────────
 const SORT_OPTIONS_MOVIE = [

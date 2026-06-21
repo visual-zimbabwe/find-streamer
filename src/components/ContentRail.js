@@ -12,7 +12,8 @@ import { ProgrammeHairline } from './ProgrammeHairline';
 import { GOLD_ACCENT, GRID_PAD, GRID_GAP } from '../theme/programme';
 import { scale } from '../utils/responsive';
 
-export { GridPosterCard, PosterGrid, GRID_COL_W, GRID_POSTER_H } from './GridPosterCard';
+export { GridPosterCard, PosterGrid } from './GridPosterCard';
+export { GRID_COL_W, GRID_POSTER_H } from '../theme/programme';
 
 export function ContentRail({
   title,

@@ -1,6 +1,5 @@
 import React, { memo } from 'react';
 import {
-  Dimensions,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,15 +12,10 @@ import {
   GOLD_ACCENT,
   GRID_GAP,
   GRID_PAD,
+  GRID_COL_W,
+  GRID_POSTER_H,
   buildGridRows,
-  gridColWidth,
-  gridPosterHeight,
 } from '../theme/programme';
-import { scale } from '../utils/responsive';
-
-const WINDOW_W = Dimensions.get('window').width;
-export const GRID_COL_W = gridColWidth(WINDOW_W);
-export const GRID_POSTER_H = gridPosterHeight(GRID_COL_W);
 
 function resolveRatingValue(item, ratingValueProp) {
   if (ratingValueProp != null) return ratingValueProp;
@@ -52,6 +46,8 @@ export const GridPosterCard = memo(function GridPosterCard({
   touchableProps = {},
   activeOpacity = 0.85,
 }) {
+  if (!item) return null;
+
   const ratingValue = resolveRatingValue(item, ratingValueProp);
   const mediaType = item?.mediaType;
   const defaultMediaLabel = mediaType === 'tv' ? 'Series' : 'Movie';
@@ -155,6 +151,8 @@ export const GridPosterCard = memo(function GridPosterCard({
 });
 
 export function PosterGrid({ items, keyExtractor, renderItem, style, bodyStyle }) {
+  if (!items?.length) return null;
+
   const rows = buildGridRows(items);
 
   return (

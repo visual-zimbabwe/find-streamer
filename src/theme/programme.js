@@ -20,8 +20,14 @@ export function gridPosterHeight(colWidth = gridColWidth()) {
   return colWidth * GRID_POSTER_ASPECT;
 }
 
+const WINDOW_W = Dimensions.get('window').width;
+/** Shared 2-col poster grid width — single source for rails, grids, and skeletons. */
+export const GRID_COL_W = gridColWidth(WINDOW_W);
+export const GRID_POSTER_H = gridPosterHeight(GRID_COL_W);
+
 /** Split items into rows for a 2-column poster grid. */
 export function buildGridRows(items, columns = 2) {
+  if (!items?.length) return [];
   const rows = [];
   for (let i = 0; i < items.length; i += columns) {
     rows.push(items.slice(i, i + columns));
