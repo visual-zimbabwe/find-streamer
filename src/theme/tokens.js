@@ -71,22 +71,22 @@ export const typography = {
 
 const trovaDark = {
   background: '#000000',
-  surface: '#000000',
-  surfaceContainerLow: '#0d0d0d',
-  surfaceContainer: '#141414',
-  surfaceContainerHigh: '#1c1c1e',
-  surfaceContainerHighest: '#242428',
+  surface: '#0B0B0B',
+  surfaceContainerLow: '#0B0B0B',
+  surfaceContainer: '#121212',
+  surfaceContainerHigh: '#1A1A1A',
+  surfaceContainerHighest: '#222222',
   primary: '#a78bfa',
   primaryDim: '#8b6ff0',
   primaryContainer: '#1a1330',
   onPrimary: '#0d0820',
   onSurface: '#f5f5f7',
-  onSurfaceVariant: '#aeaeb2',
+  onSurfaceVariant: '#8E8E93',
   outlineVariant: '#3a3a3c',
   error: '#ff453a',
   white: '#ffffff',
   black: '#000000',
-  glass: 'rgba(0, 0, 0, 0.85)',
+  glass: 'rgba(12, 12, 14, 0.94)',
 };
 
 const trovaLight = {

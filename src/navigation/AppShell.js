@@ -21,9 +21,7 @@ import {
 import { RootTabs } from './RootTabs';
 import { navigationRef, getFocusedRouteName, getCurrentTabId, canStackPop } from './navigationRef';
 import { buildNavigationTheme } from './navigationTheme';
-
-const GOLD_ACCENT = '#D4A853';
-const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
+import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
 
 const ROUTE_TO_VIEW = {
   Home: 'home',

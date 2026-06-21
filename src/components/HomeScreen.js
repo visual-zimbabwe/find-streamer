@@ -26,14 +26,12 @@ import {
 } from '../lib/homeFeed';
 import { ContentRail } from './ContentRail';
 import { scale, verticalScale } from '../utils/responsive';
+import { GOLD_ACCENT, GRID_PAD, FADE_MS } from '../theme/programme';
 
-const GRID_PAD = scale(22);
 const FEATURE_H = verticalScale(420);
 const CHIP_W = scale(248);
 const CHIP_H = CHIP_W * (9 / 16);
 const HEADER_BODY_H = scale(78);
-const GOLD_ACCENT = '#D4A853';
-const FADE_MS = 360;
 
 const SpotlightChip = memo(function SpotlightChip({
   item,

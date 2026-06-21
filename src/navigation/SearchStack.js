@@ -31,9 +31,9 @@ import { watchlistEntryKey } from '../lib/watchlistModel';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { scale, verticalScale } from '../utils/responsive';
+import { GOLD_ACCENT } from '../theme/programme';
 
 const Stack = createNativeStackNavigator();
-const GOLD_ACCENT = '#D4A853';
 
 function SearchMainScreen() {
   const insets = useSafeAreaInsets();
@@ -67,8 +67,7 @@ function SearchMainScreen() {
     resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
     colors.background,
   ];
-  const surpriseSurface =
-    resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.94)' : 'rgba(247, 247, 242, 0.94)';
+  const surpriseSurface = colors.glass;
 
   return (
     <View style={[searchStyles.root, { backgroundColor: colors.background }]}>

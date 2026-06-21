@@ -20,11 +20,10 @@ import {
   buildJumpToNames,
   validateCustomDecadeRange,
 } from '../lib/collectionFilters';
+import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
 import { scale } from '../utils/responsive';
 
 const SHEET_HEADER_HEIGHT = 52;
-const GOLD_ACCENT = '#D4A853';
-const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
 
 function FilterChip({ label, active, onPress, colors, typography, radii }) {
   return (

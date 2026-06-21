@@ -33,10 +33,7 @@ import {
   subscribeRateQuota,
 } from '../lib/apiRateQuota';
 import { scale, verticalScale } from '../utils/responsive';
-
-const GRID_PAD = scale(22);
-const GOLD_ACCENT = '#D4A853';
-const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 
 function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
   return (
@@ -390,10 +387,7 @@ export function SettingsView({
   const [backupBusy, setBackupBusy] = useState(false);
   const bottomNavScroll = useBottomNavScroll();
 
-  const glassSurface = useMemo(
-    () => (resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.96)' : 'rgba(247, 247, 242, 0.96)'),
-    [resolvedMode],
-  );
+  const glassSurface = colors.glass;
   const atmosphereColors = useMemo(
     () => [
       resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,

@@ -49,9 +49,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { scale } from '../utils/responsive';
-
-const GOLD_ACCENT = '#D4A853';
-const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
+import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
 
 const SIZE_HEIGHT_RATIO = {
   small: 0.38,
@@ -135,7 +133,7 @@ export function BottomSheetProvider({ children }) {
 
 // ─── Individual Sheet ─────────────────────────────────────────────────────────
 function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
-  const { theme, resolvedMode } = useTheme();
+  const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -144,10 +142,7 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
   const translateY = useRef(new Animated.Value(windowHeight)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  const sheetSurface = useMemo(
-    () => (resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.96)' : 'rgba(247, 247, 242, 0.96)'),
-    [resolvedMode],
-  );
+  const sheetSurface = colors.glass;
 
   const size = sheet.options.size || 'medium';
   const heightRatio = SIZE_HEIGHT_RATIO[size] || SIZE_HEIGHT_RATIO.medium;

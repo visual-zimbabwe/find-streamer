@@ -33,10 +33,8 @@ import { watchlistEntryKey } from '../lib/watchlistModel';
 import { moderateScale, scale, verticalScale } from '../utils/responsive';
 import { ContentRail } from './ContentRail';
 import { CollectionFindSheet } from './CollectionFindSheet';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 
-const GRID_PAD = scale(22);
-const GOLD_ACCENT = '#D4A853';
-const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
 const ALPHA_LETTER_FONT_SIZE = moderateScale(14, 0.4);
 
 function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
