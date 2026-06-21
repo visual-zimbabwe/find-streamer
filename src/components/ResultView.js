@@ -1,6 +1,7 @@
 import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import {
   Animated,
+  AccessibilityInfo,
   Easing,
   ScrollView,
   StyleSheet,
@@ -41,8 +42,9 @@ import {
 import { scale, verticalScale, screenHeight } from '../utils/responsive';
 import { useBottomSheet } from './StackBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SkeletonBlock } from './SkeletonLoaders';
+import { SkeletonBlock, DetailSkeleton } from './SkeletonLoaders';
 import { watchlistEntryKey } from '../lib/watchlistModel';
+import { GOLD_ACCENT, GOLD_DIM, FADE_MS } from '../theme/programme';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
@@ -73,6 +75,17 @@ function formatRuntime(minutes, mediaType) {
 }
 
 const HERO_HEIGHT = verticalScale(480);
+
+function ProgrammeSectionLabel({ eyebrow, colors, typography }) {
+  return (
+    <View style={styles.programmeSectionLabel}>
+      <Text style={[styles.programmeEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+        {eyebrow}
+      </Text>
+      <View style={[styles.programmeHairline, { backgroundColor: GOLD_DIM }]} />
+    </View>
+  );
+}
 
 function AwardLogoImage({ uri, label, style, fallbackStyle, iconColor }) {
   const [failed, setFailed] = React.useState(false);
@@ -330,12 +343,12 @@ function ActorFilmographySheetContent({
               height: 52,
               borderRadius: 26,
               marginRight: 12,
-              backgroundColor: colors?.primaryContainer ?? '#2a2a4a',
+              backgroundColor: GOLD_ACCENT + '18',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: colors?.primary ?? '#8888ff', fontWeight: '700' }}>
+            <Text style={{ color: GOLD_ACCENT, fontWeight: '700' }}>
               {initialsForName(person.name)}
             </Text>
           </View>
@@ -362,14 +375,14 @@ function ActorFilmographySheetContent({
             paddingHorizontal: 14,
             paddingVertical: 7,
             borderRadius: 20,
-            backgroundColor: (colors?.primary ?? '#6060e0') + '28',
+            backgroundColor: GOLD_ACCENT + '18',
             borderWidth: 1,
-            borderColor: (colors?.primary ?? '#6060e0') + '55',
+            borderColor: GOLD_DIM,
           }}
           accessibilityRole="button"
           accessibilityLabel={`See full filmography for ${person.name}`}
         >
-          <Text style={{ color: colors?.primary ?? '#6060e0', fontWeight: '800', fontSize: 12 }}>
+          <Text style={{ color: GOLD_ACCENT, fontWeight: '800', fontSize: 12 }}>
             Full →
           </Text>
         </TouchableOpacity>
@@ -437,6 +450,7 @@ function ActorFilmographySheetContent({
 
 export function ResultView({
   result,
+  loading = false,
   onBack,
   onToggleWatchlist,
   onEnrichWatchlistItem,
@@ -513,6 +527,7 @@ export function ResultView({
   const [showAllCast, setShowAllCast] = useState(false);
   const [trailerVisible, setTrailerVisible] = useState(false);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const shareSheetIdRef = useRef(null);
 
   // ── Wikidata enrichment state ────────────────────────────────────────────
@@ -741,6 +756,19 @@ export function ResultView({
   );
 
   useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) setReduceMotion(enabled);
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => {
+      mounted = false;
+      sub?.remove?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (reduceMotion) return undefined;
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(meshShift, {
@@ -759,7 +787,7 @@ export function ResultView({
     );
     animation.start();
     return () => animation.stop();
-  }, [meshShift]);
+  }, [meshShift, reduceMotion]);
 
   useEffect(() => {
     if (result?.posterUrl) {
@@ -899,7 +927,9 @@ export function ResultView({
     };
   }, [result]);
 
-  if (!result) return null;
+  if (loading || !result) {
+    return <DetailSkeleton />;
+  }
 
   const isTv = result.mediaType === 'tv';
   const seasonCount = result.numberOfSeasons || result.seasons?.length || 0;
@@ -926,45 +956,50 @@ export function ResultView({
       ? result.synopsis
       : result.omdbRatings?.plot || result.synopsis || 'No synopsis available.';
   const meshColors = colors.meshColors || [
-    colors.primary,
+    GOLD_ACCENT,
     colors.surfaceContainerHighest,
     colors.surfaceContainer,
     colors.background,
   ];
-  const heroTransform = {
-    transform: [
-      {
-        translateY: scrollY.interpolate({
-          inputRange: [-HERO_HEIGHT, 0, HERO_HEIGHT],
-          outputRange: [HERO_HEIGHT, 0, HERO_HEIGHT * 0.22],
+  const heroArtUri = result.backdropUrl || result.posterUrl;
+  const heroTransform = reduceMotion
+    ? {}
+    : {
+        transform: [
+          {
+            translateY: scrollY.interpolate({
+              inputRange: [-HERO_HEIGHT, 0, HERO_HEIGHT],
+              outputRange: [HERO_HEIGHT, 0, HERO_HEIGHT * 0.22],
+              extrapolate: 'clamp',
+            }),
+          },
+          {
+            scale: scrollY.interpolate({
+              inputRange: [-HERO_HEIGHT, 0, HERO_HEIGHT],
+              outputRange: [2.0, 1, 1.05],
+              extrapolate: 'clamp',
+            }),
+          },
+        ],
+      };
+  const heroContentMotion = reduceMotion
+    ? {}
+    : {
+        opacity: scrollY.interpolate({
+          inputRange: [0, 260, 430],
+          outputRange: [1, 0.65, 0.05],
           extrapolate: 'clamp',
         }),
-      },
-      {
-        scale: scrollY.interpolate({
-          inputRange: [-HERO_HEIGHT, 0, HERO_HEIGHT],
-          outputRange: [2.0, 1, 1.05],
-          extrapolate: 'clamp',
-        }),
-      },
-    ],
-  };
-  const heroContentMotion = {
-    opacity: scrollY.interpolate({
-      inputRange: [0, 260, 430],
-      outputRange: [1, 0.65, 0.05],
-      extrapolate: 'clamp',
-    }),
-    transform: [
-      {
-        translateY: scrollY.interpolate({
-          inputRange: [0, HERO_HEIGHT],
-          outputRange: [0, HERO_HEIGHT * 0.12],
-          extrapolate: 'clamp',
-        }),
-      },
-    ],
-  };
+        transform: [
+          {
+            translateY: scrollY.interpolate({
+              inputRange: [0, HERO_HEIGHT],
+              outputRange: [0, HERO_HEIGHT * 0.12],
+              extrapolate: 'clamp',
+            }),
+          },
+        ],
+      };
   const meshA = {
     backgroundColor: meshColors[0],
     transform: [
@@ -1080,9 +1115,9 @@ export function ResultView({
         <View style={styles.heroSection}>
           <Animated.View style={[styles.parallaxArtwork, heroTransform]}>
             <MediaArtwork
-              uri={result.posterUrl}
+              uri={heroArtUri}
               style={[styles.backdrop, StyleSheet.absoluteFill]}
-              resizeMode="contain"
+              resizeMode={result.backdropUrl ? 'cover' : 'contain'}
               accessibilityLabel={`${result.title} artwork`}
               title={result.title}
             />
@@ -1213,17 +1248,17 @@ export function ResultView({
             {/* Watch Trailer full-width button */}
             {result.trailer && result.trailer !== 'N/A' && (
               <TouchableOpacity
-                style={[styles.trailerButton, { backgroundColor: colors.primary }]}
+                style={[styles.trailerButton, { backgroundColor: GOLD_ACCENT }]}
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  Haptics.selectionAsync();
                   setTrailerVisible(true);
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={`Watch trailer for ${result.title}`}
               >
-                <Ionicons name="play" size={18} color="#ffffff" style={{ marginRight: 6 }} />
+                <Ionicons name="play" size={18} color="#141414" style={{ marginRight: 6 }} />
                 <Text
-                  style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]}
+                  style={[styles.trailerButtonText, { color: '#141414', ...typography.labelLg }]}
                 >
                   Watch Trailer
                 </Text>
@@ -1242,14 +1277,14 @@ export function ResultView({
               </View>
             ) : playableSoundtracks.length === 1 ? (
               <TouchableOpacity
-                style={[styles.trailerButton, { backgroundColor: colors.primary }]}
+                style={[styles.trailerButton, { backgroundColor: GOLD_ACCENT }]}
                 onPress={handleSoundtrackPress}
                 accessibilityRole="button"
                 accessibilityLabel={`Play ${playableSoundtracks[0].title} on Spotify`}
               >
-                <FontAwesome5 name="spotify" size={18} color="#ffffff" style={{ marginRight: 6 }} />
+                <FontAwesome5 name="spotify" size={18} color="#141414" style={{ marginRight: 6 }} />
                 <Text
-                  style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]}
+                  style={[styles.trailerButtonText, { color: '#141414', ...typography.labelLg }]}
                   numberOfLines={1}
                 >
                   {playableSoundtracks[0].title}
@@ -1257,14 +1292,14 @@ export function ResultView({
               </TouchableOpacity>
             ) : playableSoundtracks.length > 1 ? (
               <TouchableOpacity
-                style={[styles.trailerButton, { backgroundColor: colors.primary }]}
+                style={[styles.trailerButton, { backgroundColor: GOLD_ACCENT }]}
                 onPress={handleSoundtrackPress}
                 accessibilityRole="button"
                 accessibilityLabel={`Choose soundtrack for ${result.title}`}
               >
-                <FontAwesome5 name="spotify" size={18} color="#ffffff" style={{ marginRight: 6 }} />
+                <FontAwesome5 name="spotify" size={18} color="#141414" style={{ marginRight: 6 }} />
                 <Text
-                  style={[styles.trailerButtonText, { color: '#ffffff', ...typography.labelLg }]}
+                  style={[styles.trailerButtonText, { color: '#141414', ...typography.labelLg }]}
                 >
                   {`Choose Soundtrack (${playableSoundtracks.length})`}
                 </Text>
@@ -1416,14 +1451,7 @@ export function ResultView({
           </View>
 
           <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionLabel,
-                { color: colors.onSurfaceVariant, ...typography.labelSm },
-              ]}
-            >
-              Synopsis
-            </Text>
+            <ProgrammeSectionLabel eyebrow="Synopsis" colors={colors} typography={typography} />
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1442,14 +1470,7 @@ export function ResultView({
           {/* Based On Section */}
           {wikiLoading ? (
             <View style={styles.section}>
-              <Text
-                style={[
-                  styles.sectionLabel,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-              >
-                Based On
-              </Text>
+              <ProgrammeSectionLabel eyebrow="Based On" colors={colors} typography={typography} />
               <View style={styles.basedOnContainer}>
                 <View
                   style={[
@@ -1466,14 +1487,7 @@ export function ResultView({
             </View>
           ) : wikiError ? (
             <View style={styles.section}>
-              <Text
-                style={[
-                  styles.sectionLabel,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-              >
-                Based On
-              </Text>
+              <ProgrammeSectionLabel eyebrow="Based On" colors={colors} typography={typography} />
               <TouchableOpacity
                 onPress={handleWikiRetry}
                 style={[styles.basedOnRetry, { borderColor: colors.outlineVariant }]}
@@ -1495,14 +1509,7 @@ export function ResultView({
             wikiData.basedOn &&
             wikiData.basedOn.length > 0 && (
               <View style={styles.section}>
-                <Text
-                  style={[
-                    styles.sectionLabel,
-                    { color: colors.onSurfaceVariant, ...typography.labelSm },
-                  ]}
-                >
-                  Based On
-                </Text>
+                <ProgrammeSectionLabel eyebrow="Based On" colors={colors} typography={typography} />
                 <View style={styles.basedOnContainer}>
                   {wikiData.basedOn.map((work, idx) => {
                     const authorText =
@@ -1521,7 +1528,7 @@ export function ResultView({
                           numberOfLines={2}
                         >
                           {typeLabel ? (
-                            <Text style={{ color: colors.primary, fontWeight: '700' }}>
+                            <Text style={{ color: GOLD_ACCENT, fontWeight: '700' }}>
                               {typeLabel}:{' '}
                             </Text>
                           ) : null}
@@ -1565,8 +1572,8 @@ export function ResultView({
           {franchiseParts.length > 1 && (
             <View key={`franchise-${result.tmdbId}`} style={styles.section}>
               <View style={styles.franchiseHeader}>
-                <View style={[styles.franchiseIcon, { backgroundColor: colors.primaryContainer }]}>
-                  <Ionicons name="albums-outline" size={20} color={colors.primary} />
+                <View style={[styles.franchiseIcon, { backgroundColor: GOLD_ACCENT + '18' }]}>
+                  <Ionicons name="albums-outline" size={20} color={GOLD_ACCENT} />
                 </View>
                 <View style={styles.franchiseHeaderText}>
                   <Text
@@ -1626,7 +1633,7 @@ export function ResultView({
                           styles.similarPoster,
                           styles.franchisePoster,
                           { borderRadius: radii.md },
-                          isCurrentMovie && { borderColor: colors.primary, borderWidth: 2 },
+                          isCurrentMovie && { borderColor: GOLD_ACCENT, borderWidth: 2 },
                         ]}
                       >
                         <MediaArtwork
@@ -1636,9 +1643,9 @@ export function ResultView({
                           title={item.title}
                         />
                         <View
-                          style={[styles.franchiseOrderBadge, { backgroundColor: colors.primary }]}
+                          style={[styles.franchiseOrderBadge, { backgroundColor: GOLD_ACCENT }]}
                         >
-                          <Text style={[styles.franchiseOrderText, { color: colors.onPrimary }]}>
+                          <Text style={[styles.franchiseOrderText, { color: '#141414' }]}>
                             {index + 1}
                           </Text>
                         </View>
@@ -1672,7 +1679,7 @@ export function ResultView({
               {result.runtimeMinutes && (
                 <View style={styles.seriesStats}>
                   <View style={styles.seriesStat}>
-                    <Ionicons name="timer-outline" size={22} color={colors.primary} />
+                    <Ionicons name="timer-outline" size={22} color={GOLD_ACCENT} />
                     <Text
                       style={[
                         styles.seriesStatValue,
@@ -1737,14 +1744,7 @@ export function ResultView({
           {hasPeople && (
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
-                <Text
-                  style={[
-                    styles.sectionLabel,
-                    { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 0 },
-                  ]}
-                >
-                  Cast & Crew
-                </Text>
+                <ProgrammeSectionLabel eyebrow="Cast & Crew" colors={colors} typography={typography} />
                 {remainingCastCount > 0 && (
                   <TouchableOpacity
                     onPress={() => setShowAllCast(true)}
@@ -1753,7 +1753,7 @@ export function ResultView({
                     style={styles.seeAllButton}
                   >
                     <Text
-                      style={[styles.seeAllText, { color: colors.primary, ...typography.labelSm }]}
+                      style={[styles.seeAllText, { color: GOLD_ACCENT, ...typography.labelSm }]}
                     >
                       See All
                     </Text>
@@ -1790,7 +1790,7 @@ export function ResultView({
                     <View
                       style={[
                         styles.avatarRing,
-                        !person.profileUrl && { backgroundColor: colors.primaryContainer },
+                        !person.profileUrl && { backgroundColor: GOLD_ACCENT + '18' },
                       ]}
                     >
                       {person.profileUrl ? (
@@ -1806,7 +1806,7 @@ export function ResultView({
                         <Text
                           style={[
                             styles.avatarInitials,
-                            { color: colors.primary, ...typography.labelSm },
+                            { color: GOLD_ACCENT, ...typography.labelSm },
                           ]}
                         >
                           {initialsForName(person.name)}
@@ -1892,14 +1892,11 @@ export function ResultView({
           {/* ─── Awards ──────────────────────────────────────────────────── */}
           {(wikiLoading || displayAwards.length > 0) && (
             <View style={styles.section}>
-              <Text
-                style={[
-                  styles.sectionLabel,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-              >
-                Awards & Recognition
-              </Text>
+              <ProgrammeSectionLabel
+                eyebrow="Awards & Recognition"
+                colors={colors}
+                typography={typography}
+              />
 
               {wikiLoading && displayAwards.length === 0 ? (
                 <ScrollView
@@ -1932,7 +1929,7 @@ export function ResultView({
                             styles.awardLogoFallback,
                             { backgroundColor: colors.surfaceContainerHigh },
                           ]}
-                          iconColor={colors.primary}
+                          iconColor={GOLD_ACCENT}
                         />
                         <Text
                           style={[
@@ -1982,14 +1979,11 @@ export function ResultView({
 
           {result.productionCompanies && result.productionCompanies.length > 0 && (
             <View style={styles.section}>
-              <Text
-                style={[
-                  styles.sectionLabel,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-              >
-                Production Companies
-              </Text>
+              <ProgrammeSectionLabel
+                eyebrow="Production Companies"
+                colors={colors}
+                typography={typography}
+              />
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -2049,19 +2043,25 @@ export function ResultView({
           {/* Detailed Country View */}
           {hasAvailabilityData && (
             <View style={styles.section}>
-              <Text
-                style={[
-                  styles.sectionLabel,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-              >
-                Global Availability
-              </Text>
+              <ProgrammeSectionLabel
+                eyebrow="Where To Watch"
+                colors={colors}
+                typography={typography}
+              />
 
               {hasAvailabilityRows ? (
                 <View style={styles.table}>
-                  {result.rows.map((row) => (
-                    <View key={row.code} style={styles.tableRow}>
+                  {result.rows.map((row, rowIndex) => (
+                    <View
+                      key={row.code}
+                      style={[
+                        styles.tableRow,
+                        rowIndex > 0 && {
+                          borderTopWidth: StyleSheet.hairlineWidth,
+                          borderTopColor: GOLD_DIM,
+                        },
+                      ]}
+                    >
                       <Text
                         style={[
                           styles.countryName,
@@ -2115,14 +2115,11 @@ export function ResultView({
           {/* More From This Cast & Crew */}
           {result.moreFromCastAndCrew && result.moreFromCastAndCrew.length > 0 && (
             <View style={styles.section}>
-              <Text
-                style={[
-                  styles.sectionLabel,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-              >
-                More From This Cast & Crew
-              </Text>
+              <ProgrammeSectionLabel
+                eyebrow="More From Cast & Crew"
+                colors={colors}
+                typography={typography}
+              />
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -2169,14 +2166,7 @@ export function ResultView({
           {/* More Like This */}
           {result.similar && result.similar.length > 0 && (
             <View style={styles.section}>
-              <Text
-                style={[
-                  styles.sectionLabel,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-              >
-                More Like This
-              </Text>
+              <ProgrammeSectionLabel eyebrow="More Like This" colors={colors} typography={typography} />
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -2256,7 +2246,7 @@ export function ResultView({
               { backgroundColor: colors.surfaceContainerHighest + 'E6' },
             ]}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              Haptics.selectionAsync();
               if (isInWatchlist) {
                 toastiva.info('Already saved — tap to manage');
               } else {
@@ -2275,7 +2265,7 @@ export function ResultView({
             <Ionicons
               name={isInWatchlist ? 'bookmark' : 'bookmark-outline'}
               size={20}
-              color={isInWatchlist ? colors.primary : colors.onSurface}
+              color={isInWatchlist ? GOLD_ACCENT : colors.onSurface}
             />
           </TouchableOpacity>
         </View>
@@ -2518,6 +2508,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.5,
     marginBottom: 16,
+  },
+  programmeSectionLabel: {
+    marginBottom: 16,
+  },
+  programmeEyebrow: {
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+  },
+  programmeHairline: {
+    height: StyleSheet.hairlineWidth,
+    opacity: 0.65,
   },
   synopsis: {
     fontWeight: '300',

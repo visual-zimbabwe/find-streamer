@@ -367,6 +367,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
 
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
+  const [advancedExpanded, setAdvancedExpanded] = useState(false);
   const previousMediaTypeRef = useRef(vm.filters.mediaType);
 
   // Sort options depend on mediaType
@@ -400,6 +401,13 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     !!vm.filters.excludeEnglish ||
     vm.filters.activeCountryPreset != null ||
     (vm.filters.originCountries || []).length > 0;
+
+  const advancedCriteriaActive =
+    !!vm.filters.fromYear ||
+    !!vm.filters.toYear ||
+    !!vm.filters.minRuntime ||
+    !!vm.filters.maxRuntime ||
+    vm.filters.sortBy !== 'popularity.desc';
 
   const advancedFilterSummary = [
     vm.filters.activePreset ? findPreset(vm.filters.activePreset)?.label : null,
@@ -771,91 +779,66 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
 
         <FilterDivider />
 
-        <View
-          style={styles.filterBand}
-          onLayout={(e) => {
-            yearRangeYRef.current = e.nativeEvent.layout.y;
-          }}
-        >
-          <SectionLabel label="Release Year" colors={c} typography={typography} />
-          <View style={styles.yearRow}>
-            <View
-              style={[
-                styles.yearInput,
-                {
-                  backgroundColor: filterSurface,
-                  borderRadius: radii.md,
-                  flex: 1,
-                  borderColor: GOLD_DIM,
-                },
-              ]}
-            >
-              <TextInput
-                style={[
-                  {
-                    color: c.onSurface,
-                    ...typography.bodyMd,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                  },
-                ]}
-                placeholder="From (e.g. 2010)"
-                placeholderTextColor={c.onSurfaceVariant}
-                keyboardType="numeric"
-                maxLength={4}
-                value={vm.filters.fromYear}
-                onFocus={scrollToYearRange}
-                onChangeText={(v) => vm.updateFilter('fromYear', v.replace(/[^0-9]/g, ''))}
-              />
+        <View style={styles.filterBand}>
+          <TouchableOpacity
+            style={styles.advancedToggle}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setAdvancedExpanded((open) => !open);
+            }}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel={`${advancedExpanded ? 'Collapse' : 'Expand'} advanced filters`}
+            accessibilityState={{ expanded: advancedExpanded }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sectionLabel, { color: c.onSurface, ...typography.labelSm }]}>
+                Advanced
+              </Text>
+              {advancedCriteriaActive ? (
+                <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, marginTop: 2 }]}>
+                  Year, runtime, or sort customized
+                </Text>
+              ) : (
+                <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>
+                  Release year, runtime, sort order
+                </Text>
+              )}
             </View>
-            <Text
-              style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, marginHorizontal: 8 }]}
-            >
-              —
-            </Text>
-            <View
-              style={[
-                styles.yearInput,
-                {
-                  backgroundColor: filterSurface,
-                  borderRadius: radii.md,
-                  flex: 1,
-                  borderColor: GOLD_DIM,
-                },
-              ]}
-            >
-              <TextInput
-                style={[
-                  {
-                    color: c.onSurface,
-                    ...typography.bodyMd,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                  },
-                ]}
-                placeholder="To (e.g. 2024)"
-                placeholderTextColor={c.onSurfaceVariant}
-                keyboardType="numeric"
-                maxLength={4}
-                value={vm.filters.toYear}
-                onFocus={scrollToYearRange}
-                onChangeText={(v) => vm.updateFilter('toYear', v.replace(/[^0-9]/g, ''))}
-              />
-            </View>
-          </View>
+            {advancedCriteriaActive && (
+              <View
+                style={{
+                  backgroundColor: GOLD_ACCENT,
+                  borderRadius: radii.sm,
+                  paddingHorizontal: 7,
+                  paddingVertical: 3,
+                  marginRight: 8,
+                }}
+              >
+                <Text
+                  style={{ color: '#141414', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}
+                >
+                  Active
+                </Text>
+              </View>
+            )}
+            <Ionicons
+              name={advancedExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+              size={16}
+              color={advancedCriteriaActive ? GOLD_ACCENT : c.onSurfaceVariant}
+            />
+          </TouchableOpacity>
         </View>
 
-        {vm.filters.mediaType === 'movie' && (
+        {advancedExpanded && (
           <>
-            <FilterDivider />
-
             <View
               style={styles.filterBand}
               onLayout={(e) => {
-                runtimeRangeYRef.current = e.nativeEvent.layout.y;
+                yearRangeYRef.current = e.nativeEvent.layout.y;
               }}
             >
-              <SectionLabel label="Runtime" colors={c} typography={typography} />
+              <SectionLabel label="Release Year" colors={c} typography={typography} />
               <View style={styles.yearRow}>
                 <View
                   style={[
@@ -877,14 +860,13 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
                         paddingVertical: 10,
                       },
                     ]}
-                    placeholder="From (e.g. 90)"
+                    placeholder="From (e.g. 2010)"
                     placeholderTextColor={c.onSurfaceVariant}
                     keyboardType="numeric"
-                    maxLength={3}
-                    value={vm.filters.minRuntime}
-                    onFocus={scrollToRuntimeRange}
-                    onChangeText={(v) => vm.updateFilter('minRuntime', v.replace(/[^0-9]/g, ''))}
-                    accessibilityLabel="Minimum runtime in minutes"
+                    maxLength={4}
+                    value={vm.filters.fromYear}
+                    onFocus={scrollToYearRange}
+                    onChangeText={(v) => vm.updateFilter('fromYear', v.replace(/[^0-9]/g, ''))}
                   />
                 </View>
                 <Text
@@ -912,34 +894,117 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
                         paddingVertical: 10,
                       },
                     ]}
-                    placeholder="To (e.g. 180)"
+                    placeholder="To (e.g. 2024)"
                     placeholderTextColor={c.onSurfaceVariant}
                     keyboardType="numeric"
-                    maxLength={3}
-                    value={vm.filters.maxRuntime}
-                    onFocus={scrollToRuntimeRange}
-                    onChangeText={(v) => vm.updateFilter('maxRuntime', v.replace(/[^0-9]/g, ''))}
-                    accessibilityLabel="Maximum runtime in minutes"
+                    maxLength={4}
+                    value={vm.filters.toYear}
+                    onFocus={scrollToYearRange}
+                    onChangeText={(v) => vm.updateFilter('toYear', v.replace(/[^0-9]/g, ''))}
                   />
                 </View>
               </View>
+            </View>
+
+            {vm.filters.mediaType === 'movie' && (
+              <>
+                <FilterDivider />
+
+                <View
+                  style={styles.filterBand}
+                  onLayout={(e) => {
+                    runtimeRangeYRef.current = e.nativeEvent.layout.y;
+                  }}
+                >
+                  <SectionLabel label="Runtime" colors={c} typography={typography} />
+                  <View style={styles.yearRow}>
+                    <View
+                      style={[
+                        styles.yearInput,
+                        {
+                          backgroundColor: filterSurface,
+                          borderRadius: radii.md,
+                          flex: 1,
+                          borderColor: GOLD_DIM,
+                        },
+                      ]}
+                    >
+                      <TextInput
+                        style={[
+                          {
+                            color: c.onSurface,
+                            ...typography.bodyMd,
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                          },
+                        ]}
+                        placeholder="From (e.g. 90)"
+                        placeholderTextColor={c.onSurfaceVariant}
+                        keyboardType="numeric"
+                        maxLength={3}
+                        value={vm.filters.minRuntime}
+                        onFocus={scrollToRuntimeRange}
+                        onChangeText={(v) => vm.updateFilter('minRuntime', v.replace(/[^0-9]/g, ''))}
+                        accessibilityLabel="Minimum runtime in minutes"
+                      />
+                    </View>
+                    <Text
+                      style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, marginHorizontal: 8 }]}
+                    >
+                      —
+                    </Text>
+                    <View
+                      style={[
+                        styles.yearInput,
+                        {
+                          backgroundColor: filterSurface,
+                          borderRadius: radii.md,
+                          flex: 1,
+                          borderColor: GOLD_DIM,
+                        },
+                      ]}
+                    >
+                      <TextInput
+                        style={[
+                          {
+                            color: c.onSurface,
+                            ...typography.bodyMd,
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                          },
+                        ]}
+                        placeholder="To (e.g. 180)"
+                        placeholderTextColor={c.onSurfaceVariant}
+                        keyboardType="numeric"
+                        maxLength={3}
+                        value={vm.filters.maxRuntime}
+                        onFocus={scrollToRuntimeRange}
+                        onChangeText={(v) => vm.updateFilter('maxRuntime', v.replace(/[^0-9]/g, ''))}
+                        accessibilityLabel="Maximum runtime in minutes"
+                      />
+                    </View>
+                  </View>
+                </View>
+              </>
+            )}
+
+            <FilterDivider />
+
+            <View style={styles.filterBand}>
+              <SectionLabel label="Sort" colors={c} typography={typography} />
+              <SortByControl
+                sortOptions={sortOptions}
+                displayedSortBy={displayedSortBy}
+                onChange={(value) => vm.updateFilter('sortBy', value)}
+                colors={c}
+                typography={typography}
+                radii={radii}
+              />
             </View>
           </>
         )}
 
         <FilterDivider />
-
-        <View style={styles.filterBand}>
-          <SectionLabel label="Sort" colors={c} typography={typography} />
-          <SortByControl
-            sortOptions={sortOptions}
-            displayedSortBy={displayedSortBy}
-            onChange={(value) => vm.updateFilter('sortBy', value)}
-            colors={c}
-            typography={typography}
-            radii={radii}
-          />
-        </View>
 
         {vm.validationError && (
           <View
@@ -2837,6 +2902,11 @@ const styles = StyleSheet.create({
 
   filterBand: {
     paddingVertical: scale(14),
+  },
+  advancedToggle: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    minHeight: 48,
   },
   filterDivider: {
     height: StyleSheet.hairlineWidth,
