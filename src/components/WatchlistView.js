@@ -26,11 +26,11 @@ import { scale, verticalScale } from '../utils/responsive';
 import * as Haptics from 'expo-haptics';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP } from '../theme/programme';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, GRID_COL_W, GRID_POSTER_H } from '../theme/programme';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
-import { GridPosterCard, PosterGrid, GRID_COL_W, GRID_POSTER_H } from './GridPosterCard';
+import { GridPosterCard, PosterGrid } from './GridPosterCard';
 import { WatchlistSkeleton } from './SkeletonLoaders';
 
 function parseRatingValue(rating) {

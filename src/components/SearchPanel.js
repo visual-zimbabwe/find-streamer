@@ -13,6 +13,7 @@ import { MediaArtwork } from './MediaArtwork';
 import { ContentRail } from './ContentRail';
 import { fetchHomeNowPlayingRail, fetchHomeTraktTrendingRail } from '../lib/homeFeed';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
+import { scale } from '../utils/responsive';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { LiveMatchesSkeleton, SkeletonBlock } from './SkeletonLoaders';
