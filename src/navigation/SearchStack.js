@@ -31,7 +31,7 @@ import { watchlistEntryKey } from '../lib/watchlistModel';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { scale, verticalScale } from '../utils/responsive';
-import { GOLD_ACCENT } from '../theme/programme';
+import { GOLD_ACCENT, SCROLL_BOTTOM_PAD } from '../theme/programme';
 
 const Stack = createNativeStackNavigator();
 
@@ -79,7 +79,10 @@ function SearchMainScreen() {
 
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[searchStyles.scrollContent, { paddingBottom: insets.bottom + 112 }]}
+        contentContainerStyle={[
+          searchStyles.scrollContent,
+          { paddingTop: insets.top + scale(8), paddingBottom: insets.bottom + SCROLL_BOTTOM_PAD },
+        ]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
         overScrollMode="never"

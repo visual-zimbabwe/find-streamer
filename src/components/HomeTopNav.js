@@ -155,7 +155,7 @@ export function HomeTopNav({
   selectedKey = null,
   onSelect,
   navSet = 'home',
-  variant = 'overlay',
+  variant = 'programme',
   headerScrolled = false,
 }) {
   if (variant === 'programme') {
