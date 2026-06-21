@@ -7,15 +7,12 @@ import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { scale, verticalScale } from '../utils/responsive';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, gridColWidth } from '../theme/programme';
 
 const WINDOW_W = Dimensions.get('window').width;
-const GRID_PAD = scale(22);
-const GRID_GAP = scale(14);
-const GRID_COL_W = (WINDOW_W - GRID_PAD * 2 - GRID_GAP) / 2;
+const GRID_COL_W = gridColWidth(WINDOW_W);
 const GRID_POSTER_H = GRID_COL_W * 1.5;
 const FEATURE_H = verticalScale(280);
-const GOLD_ACCENT = '#D4A853';
-const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
 
 function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
   return (

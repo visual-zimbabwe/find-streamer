@@ -30,15 +30,18 @@ import { COUNTRY_PRESETS, findCountryPreset, filterCountriesByPreset } from '../
 import { sanitizeRatingInput } from '../lib/discoverRating';
 import { useBottomSheet } from './StackBottomSheet';
 import { scale } from '../utils/responsive';
+import {
+  GOLD_ACCENT,
+  GOLD_DIM,
+  GRID_PAD,
+  GRID_GAP,
+  FADE_MS,
+  gridColWidth,
+} from '../theme/programme';
 
 const WINDOW_W = Dimensions.get('window').width;
-const GRID_PAD = scale(22);
-const GRID_GAP = scale(14);
-const GRID_COL_W = (WINDOW_W - GRID_PAD * 2 - GRID_GAP) / 2;
+const GRID_COL_W = gridColWidth(WINDOW_W);
 const GRID_POSTER_H = GRID_COL_W * 1.5;
-const GOLD_ACCENT = '#D4A853';
-const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
-const FADE_MS = 320;
 
 // ─── Sort Options (media-type-aware) ──────────────────────────────────────────
 const SORT_OPTIONS_MOVIE = [
@@ -547,10 +550,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     }, 120);
   };
 
-  const filterSurface = useMemo(
-    () => (resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.96)' : 'rgba(247, 247, 242, 0.96)'),
-    [resolvedMode],
-  );
+  const filterSurface = colors.glass;
 
   const atmosphereColors = useMemo(
     () => [colors.surfaceContainerHigh, colors.background],

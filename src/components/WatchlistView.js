@@ -28,14 +28,11 @@ import { scale, verticalScale } from '../utils/responsive';
 import * as Haptics from 'expo-haptics';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, gridColWidth } from '../theme/programme';
 
 const WINDOW_W = Dimensions.get('window').width;
-const GRID_PAD = scale(22);
-const GRID_GAP = scale(14);
-const GRID_COL_W = (WINDOW_W - GRID_PAD * 2 - GRID_GAP) / 2;
+const GRID_COL_W = gridColWidth(WINDOW_W);
 const GRID_POSTER_H = GRID_COL_W * 1.5;
-const GOLD_ACCENT = '#D4A853';
-const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
 
 function parseRatingValue(rating) {
   if (rating == null || rating === '') return 0;
@@ -328,8 +325,7 @@ export function WatchlistView({
   const [nowPlayingLoading, setNowPlayingLoading] = useState(true);
   const [nowPlayingError, setNowPlayingError] = useState(null);
 
-  const glassSurface =
-    resolvedMode === 'dark' ? 'rgba(12, 12, 14, 0.96)' : 'rgba(247, 247, 242, 0.96)';
+  const glassSurface = colors.glass;
   const atmosphereColors = [
     resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
     colors.background,

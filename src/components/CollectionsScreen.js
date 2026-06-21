@@ -21,10 +21,7 @@ import { scale } from '../utils/responsive';
 import { MediaArtwork } from './MediaArtwork';
 import { FranchiseRailsView } from './FranchiseRailsView';
 import { HomeTopNav } from './HomeTopNav';
-
-const GRID_PAD = scale(22);
-const GOLD_ACCENT = '#D4A853';
-const GOLD_DIM = 'rgba(212, 168, 83, 0.48)';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 
 function ImdbRankedRow({
   item,

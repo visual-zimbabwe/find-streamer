@@ -7,8 +7,8 @@ import { BlurView } from 'expo-blur';
 import { useTheme } from '../theme/ThemeProvider';
 import { useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
 import { scale } from '../utils/responsive';
+import { GOLD_ACCENT } from '../theme/programme';
 
-const GOLD_ACCENT = '#D4A853';
 const GOLD_RULE = 'rgba(212, 168, 83, 0.55)';
 const SCREEN_W = Dimensions.get('window').width;
 
@@ -27,7 +27,7 @@ const MARQUEE_ROW_H = scale(54);
 
 export function BottomNav({ activeTab, onTabPress, fixed = false }) {
   const { theme } = useTheme();
-  const { typography } = theme;
+  const { colors, typography } = theme;
   const insets = useSafeAreaInsets();
   const { visible } = useBottomNavVisibility();
   const isDark = theme.mode === 'dark';
@@ -69,7 +69,7 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
     ]).start();
   }, [activeIndex, indicatorX, labelOpacity]);
 
-  const marqueeGlass = isDark ? 'rgba(12, 12, 14, 0.97)' : 'rgba(247, 247, 242, 0.97)';
+  const marqueeGlass = colors.glass;
   const inactiveColor = isDark ? 'rgba(245, 245, 247, 0.42)' : 'rgba(97, 100, 109, 0.72)';
 
   return (

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeProvider';
 import { scale } from '../utils/responsive';
+import { GOLD_ACCENT } from '../theme/programme';
 
 const NAV_SETS = {
   home: [
@@ -22,8 +23,6 @@ const NAV_SETS = {
     { key: 'tv', label: 'Shows' },
   ],
 };
-
-const GOLD_ACCENT = '#D4A853';
 
 function OverlayNav({ selectedKey, onSelect, navSet }) {
   const insets = useSafeAreaInsets();
@@ -87,7 +86,7 @@ const ProgrammeNav = memo(function ProgrammeNav({
             experimentalBlurMethod="dimezisBlurView"
           />
         ) : (
-          <View style={[StyleSheet.absoluteFillObject, styles.programmeHeaderGlass]} />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.glass }]} />
         )
       ) : (
         <View style={[StyleSheet.absoluteFillObject, styles.programmeHeaderScrim]} />
@@ -137,7 +136,7 @@ const ProgrammeNav = memo(function ProgrammeNav({
                   <View
                     style={[
                       styles.programmeTabUnderline,
-                      { backgroundColor: onLightBackdrop ? GOLD_ACCENT : colors.primary },
+                      { backgroundColor: GOLD_ACCENT },
                     ]}
                   />
                 ) : (
@@ -235,9 +234,6 @@ const styles = StyleSheet.create({
   },
   programmeHeaderScrim: {
     backgroundColor: 'rgba(0,0,0,0.28)',
-  },
-  programmeHeaderGlass: {
-    backgroundColor: 'rgba(12,12,14,0.94)',
   },
   programmeHeaderInner: {
     alignItems: 'center',

@@ -10,14 +10,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MediaArtwork } from './MediaArtwork';
-import { scale } from '../utils/responsive';
+import { GOLD_ACCENT, GRID_PAD, GRID_GAP, gridColWidth } from '../theme/programme';
 
 const WINDOW_W = Dimensions.get('window').width;
-const GRID_PAD = scale(22);
-const GRID_GAP = scale(14);
-const GRID_COL_W = (WINDOW_W - GRID_PAD * 2 - GRID_GAP) / 2;
+const GRID_COL_W = gridColWidth(WINDOW_W);
 const GRID_POSTER_H = GRID_COL_W * 1.5;
-const GOLD_ACCENT = '#D4A853';
 
 const GridPosterCard = memo(function GridPosterCard({ item, colors, typography, radii, onPress }) {
   return (
