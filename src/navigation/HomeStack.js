@@ -21,11 +21,12 @@ function HomeScreenRoute() {
   const navigation = useNavigation();
   const { watchlist, handleToggleWatchlist } = useWatchlist();
   const { handleSelectDiscoverItem } = useSearch();
-  const { homeMediaFilter, setHomeMediaFilter, openCollections } = useNav();
+  const { homeMediaFilter, setHomeMediaFilter, openCollections, homeSpotlightItems } = useNav();
 
   return (
     <HomeScreen
       watchlist={watchlist}
+      spotlight={homeSpotlightItems}
       onSelectItem={(item) => handleSelectDiscoverItem(item, navigation)}
       onToggleWatchlist={handleToggleWatchlist}
       mediaFilter={homeMediaFilter}

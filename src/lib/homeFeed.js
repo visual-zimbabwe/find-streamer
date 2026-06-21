@@ -5,24 +5,29 @@ import {
   fetchNowPlayingMovies,
   fetchTopMovieCollectionRows,
 } from './tmdb';
-import { isInUserLibrary } from './watchlistModel';
+import {
+  HOME_SPOTLIGHT_MAX,
+  appendUniqueSpotlight,
+  buildSyncHomeSpotlight,
+  orderSpotlightCandidates,
+} from './homeSpotlightCore.js';
+
+export {
+  HOME_SPOTLIGHT_MAX,
+  buildBundledSpotlightSeed,
+  mediaFilterToScope,
+  orderSpotlightCandidates,
+  shuffleArray,
+} from './homeSpotlightCore.js';
 
 export const HOME_RAIL_LIMIT = 10;
-export const HOME_SPOTLIGHT_MAX = 6;
 export const HOME_HERO_ROTATION_MS = 8000;
 export const HOME_HERO_RESUME_DELAY_MS = 3200;
 
-const SPOTLIGHT_CATEGORY_ORDER = [
-  'watch_next',
-  'highly_recommend',
-  'rewatch',
-  'maybe_later',
-  'watched',
-];
+export const HOME_SPOTLIGHT_SCOPES = ['all', 'movie', 'tv'];
 
 /** Curated genre rails — one Movie + one TV rail per popular TMDb genre, English‑first. */
 export const HOME_TMDB_RAILS = [
-  // ── Action ──────────────────────────────────────────────────────────────────
   {
     id: 'action_movies',
     title: 'Action movies',
@@ -37,7 +42,6 @@ export const HOME_TMDB_RAILS = [
     genreIds: [10759],
     languageCodes: ['en'],
   },
-  // ── Drama ───────────────────────────────────────────────────────────────────
   {
     id: 'drama_movies',
     title: 'Drama movies',
@@ -46,7 +50,6 @@ export const HOME_TMDB_RAILS = [
     languageCodes: ['en'],
   },
   { id: 'drama_tv', title: 'Drama series', mediaType: 'tv', genreIds: [18], languageCodes: ['en'] },
-  // ── Comedy ──────────────────────────────────────────────────────────────────
   {
     id: 'comedy_movies',
     title: 'Comedy movies',
@@ -61,7 +64,6 @@ export const HOME_TMDB_RAILS = [
     genreIds: [35],
     languageCodes: ['en'],
   },
-  // ── Thriller / Crime ────────────────────────────────────────────────────────
   {
     id: 'thriller_movies',
     title: 'Thriller movies',
@@ -70,7 +72,6 @@ export const HOME_TMDB_RAILS = [
     languageCodes: ['en'],
   },
   { id: 'crime_tv', title: 'Crime series', mediaType: 'tv', genreIds: [80], languageCodes: ['en'] },
-  // ── Sci‑Fi ──────────────────────────────────────────────────────────────────
   {
     id: 'scifi_movies',
     title: 'Sci‑Fi movies',
@@ -85,7 +86,6 @@ export const HOME_TMDB_RAILS = [
     genreIds: [10765],
     languageCodes: ['en'],
   },
-  // ── Horror ──────────────────────────────────────────────────────────────────
   {
     id: 'horror_movies',
     title: 'Horror movies',
@@ -100,7 +100,6 @@ export const HOME_TMDB_RAILS = [
     genreIds: [9648],
     languageCodes: ['en'],
   },
-  // ── Crime / Mystery ─────────────────────────────────────────────────────────
   {
     id: 'crime_movies',
     title: 'Crime movies',
@@ -139,70 +138,59 @@ function takeUniqueTop(items, limit) {
   return out;
 }
 
-/**
- * Build up to HOME_SPOTLIGHT_MAX items: watchlist (priority categories) → Trakt movies → Trakt TV → TMDB top-rated movies.
- */
-export async function buildHomeSpotlight(watchlist = []) {
-  const pool = [];
-  const seen = new Set();
+async function appendFromTraktAndDiscover(pool, seen, scope) {
+  const mediaTypes = scope === 'all' ? ['movie', 'tv'] : [scope];
 
-  for (const catId of SPOTLIGHT_CATEGORY_ORDER) {
-    const inCat = (watchlist || []).filter(
-      (w) => w.collectionIds?.includes(catId) && isInUserLibrary(w),
-    );
-    for (const it of inCat) {
-      const k = dedupeKey(it);
-      if (seen.has(k)) continue;
-      seen.add(k);
-      pool.push({
-        mediaType: it.mediaType || 'movie',
-        tmdbId: it.tmdbId,
-        title: it.title,
-        year: it.year,
-        synopsis: it.synopsis,
-        posterUrl: it.posterUrl,
-        backdropUrl: it.backdropUrl,
-        ratingValue:
-          typeof it.ratingValue === 'number'
-            ? it.ratingValue
-            : parseFloat(String(it.rating || '').split('/')[0]) || 0,
-        rating: it.rating,
+  for (const mediaType of mediaTypes) {
+    if (pool.length >= HOME_SPOTLIGHT_MAX) return pool;
+    try {
+      const raw = await fetchTraktTrending(mediaType, 18);
+      const enriched = await enrichTraktItems(raw);
+      appendUniqueSpotlight(pool, seen, orderSpotlightCandidates(enriched, scope), HOME_SPOTLIGHT_MAX);
+    } catch {
+      // Trakt enrichment is best-effort.
+    }
+  }
+
+  for (const mediaType of mediaTypes) {
+    if (pool.length >= HOME_SPOTLIGHT_MAX) return pool;
+    try {
+      const { results } = await discoverTitles({
+        mediaType,
+        languageCodes: ['en'],
+        sortBy: 'vote_average.desc',
+        page: 1,
       });
-      if (pool.length >= HOME_SPOTLIGHT_MAX) return pool;
+      appendUniqueSpotlight(
+        pool,
+        seen,
+        orderSpotlightCandidates(sortByTmdbRatingDesc(results), scope),
+        HOME_SPOTLIGHT_MAX,
+      );
+    } catch {
+      // TMDB discover is best-effort.
     }
   }
 
-  async function appendFromTrakt(mediaType) {
-    if (pool.length >= HOME_SPOTLIGHT_MAX) return;
-    const raw = await fetchTraktTrending(mediaType, 18);
-    const enriched = await enrichTraktItems(raw);
-    const sorted = sortByTmdbRatingDesc(enriched);
-    for (const it of sorted) {
-      const k = dedupeKey(it);
-      if (seen.has(k)) continue;
-      seen.add(k);
-      pool.push(it);
-      if (pool.length >= HOME_SPOTLIGHT_MAX) return;
-    }
-  }
+  return pool;
+}
 
-  await appendFromTrakt('movie');
-  await appendFromTrakt('tv');
+/**
+ * Build up to HOME_SPOTLIGHT_MAX spotlight items for a scope:
+ * Watch Next → Rewatch → IMDb Top 100 → Trakt → TMDB discover.
+ *
+ * @param {import('./types.js').WatchlistItem[]} watchlist
+ * @param {'all' | 'movie' | 'tv'} [scope]
+ */
+export async function buildHomeSpotlight(watchlist = [], scope = 'all') {
+  const seen = new Set();
+  const pool = buildSyncHomeSpotlight(watchlist, scope);
+  for (const it of pool) {
+    seen.add(dedupeKey(it));
+  }
 
   if (pool.length < HOME_SPOTLIGHT_MAX) {
-    const { results } = await discoverTitles({
-      mediaType: 'movie',
-      sortBy: 'vote_average.desc',
-      page: 1,
-    });
-    const sorted = sortByTmdbRatingDesc(results);
-    for (const it of sorted) {
-      const k = dedupeKey(it);
-      if (seen.has(k)) continue;
-      seen.add(k);
-      pool.push(it);
-      if (pool.length >= HOME_SPOTLIGHT_MAX) return pool;
-    }
+    await appendFromTraktAndDiscover(pool, seen, scope);
   }
 
   return pool.slice(0, HOME_SPOTLIGHT_MAX);

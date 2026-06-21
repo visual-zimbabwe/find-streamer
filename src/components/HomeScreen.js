@@ -1,7 +1,6 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
-  ActivityIndicator,
   Animated,
   BackHandler,
   Dimensions,
@@ -25,8 +24,6 @@ import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import {
   HOME_HERO_RESUME_DELAY_MS,
   HOME_HERO_ROTATION_MS,
-  HOME_SPOTLIGHT_MAX,
-  buildHomeSpotlight,
 } from '../lib/homeFeed';
 import { scale, verticalScale } from '../utils/responsive';
 
@@ -272,6 +269,7 @@ export function ContentRail({
 
 export function HomeScreen({
   watchlist = [],
+  spotlight = [],
   onSelectItem,
   onOpenCollections,
   mediaFilter = null,
@@ -292,8 +290,6 @@ export function HomeScreen({
   });
   const headerOffset = insets.top + HEADER_BODY_H;
 
-  const [spotlight, setSpotlight] = useState([]);
-  const [heroLoading, setHeroLoading] = useState(true);
   const [heroIndex, setHeroIndex] = useState(0);
   const [displayIndex, setDisplayIndex] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -301,7 +297,7 @@ export function HomeScreen({
   const pausedRef = useRef(false);
   const resumeTimerRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const filteredLengthRef = useRef(0);
+  const spotlightLengthRef = useRef(0);
   const skipHeroFadeRef = useRef(true);
 
   useEffect(() => {
@@ -316,43 +312,15 @@ export function HomeScreen({
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setHeroLoading(true);
-      try {
-        const items = await buildHomeSpotlight(watchlist);
-        if (!cancelled) {
-          setSpotlight(items.slice(0, HOME_SPOTLIGHT_MAX));
-          setHeroIndex(0);
-          setDisplayIndex(0);
-          fadeAnim.setValue(1);
-        }
-      } catch {
-        if (!cancelled) setSpotlight([]);
-      } finally {
-        if (!cancelled) setHeroLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [watchlist, fadeAnim]);
-
-  const filteredSpotlight = useMemo(() => {
-    if (!mediaFilter) return spotlight;
-    return spotlight.filter((it) => it.mediaType === mediaFilter);
-  }, [spotlight, mediaFilter]);
-
-  const featuredItem = filteredSpotlight[displayIndex] || null;
+  const featuredItem = spotlight[displayIndex] || spotlight[0] || null;
 
   useEffect(() => {
-    filteredLengthRef.current = filteredSpotlight.length;
+    spotlightLengthRef.current = spotlight.length || 1;
     setHeroIndex(0);
     setDisplayIndex(0);
     fadeAnim.setValue(1);
     skipHeroFadeRef.current = true;
-  }, [filteredSpotlight.length, mediaFilter, fadeAnim]);
+  }, [spotlight, fadeAnim]);
 
   useEffect(() => {
     if (skipHeroFadeRef.current) {
@@ -385,7 +353,7 @@ export function HomeScreen({
     const tick = setInterval(() => {
       if (pausedRef.current) return;
       setHeroIndex((i) => {
-        const len = filteredLengthRef.current || 1;
+        const len = spotlightLengthRef.current || 1;
         return (i + 1) % len;
       });
     }, HOME_HERO_ROTATION_MS);
@@ -489,24 +457,7 @@ export function HomeScreen({
         {...bottomNavScroll}
       >
         <View style={styles.spotlightSection}>
-          {heroLoading ? (
-            <View
-              style={[
-                styles.featureLoading,
-                {
-                  height: FEATURE_H,
-                  backgroundColor: colors.surfaceContainerHighest,
-                  borderRadius: radii.xl,
-                },
-              ]}
-            >
-              <ActivityIndicator
-                size="large"
-                color={colors.primary}
-                accessibilityLabel="Loading spotlight"
-              />
-            </View>
-          ) : filteredSpotlight.length ? (
+          {featuredItem ? (
             <>
               <FeaturedSpotlightCard
                 item={featuredItem}
@@ -517,7 +468,7 @@ export function HomeScreen({
                 onPress={() => onSelectItem?.(featuredItem)}
                 onPressIn={pauseHero}
               />
-              {filteredSpotlight.length > 1 ? (
+              {spotlight.length > 1 ? (
                 <View style={styles.secondarySpotlightBlock}>
                   <View style={styles.secondaryHeaderRow}>
                     <Text
@@ -534,7 +485,7 @@ export function HomeScreen({
                         { color: colors.onSurfaceVariant, ...typography.labelSm },
                       ]}
                     >
-                      {displayIndex + 1} / {filteredSpotlight.length}
+                      {displayIndex + 1} / {spotlight.length}
                     </Text>
                   </View>
                   <ScrollView
@@ -545,7 +496,7 @@ export function HomeScreen({
                     overScrollMode="never"
                     decelerationRate="fast"
                   >
-                    {filteredSpotlight.map((item, index) => (
+                    {spotlight.map((item, index) => (
                       <View
                         key={`${item.mediaType || 'movie'}-${item.tmdbId}-${index}`}
                         style={index > 0 ? styles.chipGap : null}
@@ -564,32 +515,7 @@ export function HomeScreen({
                 </View>
               ) : null}
             </>
-          ) : (
-            <View
-              style={[
-                styles.featureEmpty,
-                {
-                  height: FEATURE_H,
-                  backgroundColor: colors.surfaceContainerHighest,
-                  borderRadius: radii.xl,
-                },
-              ]}
-            >
-              <Ionicons name="planet-outline" size={40} color={colors.onSurfaceVariant} />
-              <Text
-                style={[
-                  {
-                    color: colors.onSurfaceVariant,
-                    ...typography.bodyLg,
-                    marginTop: 12,
-                    textAlign: 'center',
-                  },
-                ]}
-              >
-                Pulling fresh picks… check back in a moment.
-              </Text>
-            </View>
-          )}
+          ) : null}
         </View>
 
         {watchlistRows.map(({ category, items }) => (
@@ -666,15 +592,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.45)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
-  },
-  featureLoading: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureEmpty: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
   },
   heroMetaRow: {
     flexDirection: 'row',

@@ -30,6 +30,7 @@ import { usePeopleController } from './src/hooks/usePeopleController';
 import { useSearchController } from './src/hooks/useSearchController';
 import { useSurpriseController } from './src/hooks/useSurpriseController';
 import { useAppNavigation } from './src/hooks/useAppNavigation';
+import { useHomeSpotlight } from './src/hooks/useHomeSpotlight';
 
 enableScreens(true);
 
@@ -129,6 +130,8 @@ function MobileApp() {
     clearSearchResults: search.clearSearchResults,
     setQuery: search.setQuery,
   });
+
+  const homeSpotlight = useHomeSpotlight(watchlistCtl.watchlist, nav.homeMediaFilter);
 
   const discoverVm = useDiscoverViewModel();
 
@@ -279,6 +282,8 @@ function MobileApp() {
       openCollections: nav.openCollections,
       openHomeFromCollections: nav.openHomeFromCollections,
       onNavigationReady: nav.onNavigationReady,
+      homeSpotlightItems: homeSpotlight.homeSpotlightItems,
+      homeSpotlightCache: homeSpotlight.homeSpotlightCache,
     }),
     [
       nav.homeMediaFilter,
@@ -292,6 +297,8 @@ function MobileApp() {
       nav.openCollections,
       nav.openHomeFromCollections,
       nav.onNavigationReady,
+      homeSpotlight.homeSpotlightItems,
+      homeSpotlight.homeSpotlightCache,
     ],
   );
 
