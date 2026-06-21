@@ -764,10 +764,11 @@ export function ResultView({
   }, [meshShift, reduceMotion]);
 
   useEffect(() => {
-    if (result?.posterUrl) {
-      Image.prefetch(result.posterUrl).catch(() => {});
+    const heroUri = result?.backdropUrl || result?.posterUrl;
+    if (heroUri) {
+      Image.prefetch(heroUri).catch(() => {});
     }
-  }, [result?.posterUrl]);
+  }, [result?.backdropUrl, result?.posterUrl]);
 
   const doCapture = useCallback(async () => {
     if (!shareCardRef.current) return;
@@ -1620,6 +1621,7 @@ export function ResultView({
                           style={styles.poster}
                           accessibilityLabel={`${item.title} poster`}
                           title={item.title}
+                          instant
                         />
                         <View
                           style={[styles.franchiseOrderBadge, { backgroundColor: GOLD_ACCENT }]}
@@ -1693,6 +1695,7 @@ export function ResultView({
                         accessibilityLabel={`${season.name} poster`}
                         title={season.name}
                         icon="tv-outline"
+                        instant
                       />
                       <View style={styles.seasonBody}>
                         <Text
@@ -1780,6 +1783,7 @@ export function ResultView({
                           title={person.name}
                           icon="person-outline"
                           compactFallback
+                          instant
                         />
                       ) : (
                         <Text
@@ -1835,6 +1839,7 @@ export function ResultView({
                           title={person.name}
                           icon="person-outline"
                           compactFallback
+                          instant
                         />
                       ) : (
                         <Text
@@ -2118,6 +2123,7 @@ export function ResultView({
                         style={styles.poster}
                         accessibilityLabel={`${item.title} poster`}
                         title={item.title}
+                        instant
                       />
                       {item.omdbRatings?.imdbRating && (
                         <View style={[styles.similarRating, { backgroundColor: '#F5C518' }]}>
@@ -2165,6 +2171,7 @@ export function ResultView({
                         style={styles.poster}
                         accessibilityLabel={`${item.title} poster`}
                         title={item.title}
+                        instant
                       />
                       <View style={styles.similarRating}>
                         <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Platform,
   StyleSheet,
   Text,
@@ -16,6 +15,7 @@ import { fetchHomeNowPlayingRail, fetchHomeTraktTrendingRail } from '../lib/home
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
+import { LiveMatchesSkeleton, SkeletonBlock } from './SkeletonLoaders';
 
 function LiveResultRow({ item, index, total, colors, typography, radii, onPress }) {
   const isPerson = item.resultType === 'person';
@@ -160,7 +160,9 @@ export function SearchPanel({
             accessibilityLabel="Search for a movie or show"
           />
           {typeLoading && (
-            <ActivityIndicator size="small" color={GOLD_ACCENT} style={styles.typeLoader} />
+            <View style={styles.typeLoaderDot} accessibilityLabel="Searching">
+              <SkeletonBlock style={StyleSheet.absoluteFill} />
+            </View>
           )}
           {hasSearchText && !typeLoading && (
             <TouchableOpacity
@@ -226,13 +228,7 @@ export function SearchPanel({
             Matches
           </Text>
           {typeLoading && visibleTypeResults.length === 0 ? (
-            <View style={styles.liveLoadingRow}>
-              <ActivityIndicator
-                size="small"
-                color={GOLD_ACCENT}
-                accessibilityLabel="Loading matches"
-              />
-            </View>
+            <LiveMatchesSkeleton count={3} />
           ) : (
             visibleTypeResults.map((item, index) => (
               <LiveResultRow
@@ -354,8 +350,12 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     textAlign: 'center',
   },
-  typeLoader: {
+  typeLoaderDot: {
+    borderRadius: 11,
+    height: 22,
     marginLeft: scale(8),
+    overflow: 'hidden',
+    width: 22,
   },
   clearButton: {
     alignItems: 'center',
