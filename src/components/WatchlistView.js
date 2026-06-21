@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useRef, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import {
   Animated,
   PanResponder,
@@ -8,7 +8,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
-  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,78 +26,18 @@ import { scale, verticalScale } from '../utils/responsive';
 import * as Haptics from 'expo-haptics';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, gridColWidth } from '../theme/programme';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP } from '../theme/programme';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
+import { GridPosterCard, PosterGrid, GRID_COL_W, GRID_POSTER_H } from './GridPosterCard';
 import { WatchlistSkeleton } from './SkeletonLoaders';
-
-const WINDOW_W = Dimensions.get('window').width;
-const GRID_COL_W = gridColWidth(WINDOW_W);
-const GRID_POSTER_H = GRID_COL_W * 1.5;
 
 function parseRatingValue(rating) {
   if (rating == null || rating === '') return 0;
   const n = parseFloat(String(rating).split('/')[0]);
   return Number.isFinite(n) ? n : 0;
 }
-
-function SectionHairline({ color, style }) {
-  return <ProgrammeHairline color={color} style={[{ marginVertical: scale(22) }, style]} />;
-}
-
-const NowPlayingGridCard = memo(function NowPlayingGridCard({
-  item,
-  colors,
-  typography,
-  radii,
-  onSelect,
-}) {
-  const ratingValue = parseRatingValue(item.rating);
-
-  return (
-    <TouchableOpacity
-      style={styles.gridCard}
-      onPress={() => onSelect(item)}
-      activeOpacity={0.85}
-      accessibilityRole="button"
-      accessibilityLabel={`Open details for ${item.title}`}
-    >
-      <View
-        style={[
-          styles.gridPosterWrap,
-          { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
-        ]}
-      >
-        <MediaArtwork
-          uri={item.posterUrl}
-          style={styles.gridPosterImg}
-          resizeMode="cover"
-          accessibilityLabel={`${item.title} poster`}
-          title={item.title}
-          instant
-        />
-        {ratingValue > 0 && (
-          <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
-            <Text style={styles.ratingBadgeText}>★ {ratingValue.toFixed(1)}</Text>
-          </View>
-        )}
-      </View>
-      <Text
-        style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
-        numberOfLines={2}
-      >
-        {item.title}
-      </Text>
-      <View style={styles.cardMeta}>
-        <Ionicons name="film-outline" size={11} color={colors.onSurfaceVariant} />
-        <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>
-          Movie · {item.year}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-});
 
 function WatchlistGridCard({
   item,
@@ -112,7 +51,6 @@ function WatchlistGridCard({
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const SWIPE_THRESHOLD = 72;
-  const ratingValue = parseRatingValue(item.rating);
 
   const resetPosition = () => {
     if (reduceMotion) {
@@ -200,100 +138,49 @@ function WatchlistGridCard({
 
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
         <TouchableOpacity
-          style={styles.gridCard}
           activeOpacity={0.85}
           onPress={() => onSelect(item)}
           accessibilityRole="button"
           accessibilityLabel={`Open details for ${item.title}. Swipe left to mark as watched, or swipe right to remove.`}
         >
-          <View
-            style={[
-              styles.gridPosterWrap,
-              { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
-            ]}
-          >
-            <MediaArtwork
-              uri={item.posterUrl}
-              style={styles.gridPosterImg}
-              resizeMode="cover"
-              accessibilityLabel={`${item.title} poster`}
-              title={item.title}
-              instant
-            />
-            {ratingValue > 0 && (
-              <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
-                <Text style={styles.ratingBadgeText}>★ {ratingValue.toFixed(1)}</Text>
-              </View>
-            )}
-            {item.status && item.status !== 'saved' && (
-              <View
-                style={[
-                  styles.statusPill,
-                  { backgroundColor: 'rgba(0,0,0,0.62)', borderRadius: radii.sm },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    item.status === 'watched'
-                      ? 'checkmark-circle-outline'
-                      : item.status === 'watching'
-                        ? 'play-circle-outline'
-                        : 'archive-outline'
-                  }
-                  size={11}
-                  color={item.status === 'watched' ? GOLD_ACCENT : '#fff'}
-                />
-                <Text style={[styles.statusPillText, typography.labelSm]}>
-                  {getStatusLabel(item.status)}
-                </Text>
-              </View>
-            )}
-          </View>
-          <Text
-            style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
-            numberOfLines={2}
-          >
-            {item.title}
-          </Text>
-          <View style={styles.cardMeta}>
-            <Ionicons
-              name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
-              size={11}
-              color={colors.onSurfaceVariant}
-            />
-            <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>
-              {item.mediaType === 'tv' ? 'Series' : 'Movie'} · {item.year}
-            </Text>
-          </View>
+          <GridPosterCard
+            item={item}
+            colors={colors}
+            typography={typography}
+            radii={radii}
+            pressable={false}
+            posterOverlay={
+              item.status && item.status !== 'saved' ? (
+                <View
+                  style={[
+                    styles.statusPill,
+                    { backgroundColor: 'rgba(0,0,0,0.62)', borderRadius: radii.sm },
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      item.status === 'watched'
+                        ? 'checkmark-circle-outline'
+                        : item.status === 'watching'
+                          ? 'play-circle-outline'
+                          : 'archive-outline'
+                    }
+                    size={11}
+                    color={item.status === 'watched' ? GOLD_ACCENT : '#fff'}
+                  />
+                  <Text style={[styles.statusPillText, typography.labelSm]}>
+                    {getStatusLabel(item.status)}
+                  </Text>
+                </View>
+              ) : null
+            }
+          />
         </TouchableOpacity>
       </Animated.View>
     </View>
   );
 }
 
-function buildGridRows(items) {
-  const rows = [];
-  for (let i = 0; i < items.length; i += 2) {
-    rows.push(items.slice(i, i + 2));
-  }
-  return rows;
-}
-
-function PosterGrid({ items, renderItem }) {
-  const rows = buildGridRows(items);
-  return (
-    <View style={styles.gridBody}>
-      {rows.map((row, rowIndex) => (
-        <View key={`row-${rowIndex}`} style={styles.gridRow}>
-          {row.map((item) => (
-            <View key={watchlistEntryKey(item)}>{renderItem(item)}</View>
-          ))}
-          {row.length === 1 ? <View style={styles.gridCardSpacer} /> : null}
-        </View>
-      ))}
-    </View>
-  );
-}
 
 export function WatchlistView({
   items,
@@ -578,7 +465,7 @@ export function WatchlistView({
           )}
         </View>
 
-        <SectionHairline />
+        <ProgrammeHairline style={{ marginVertical: scale(22) }} />
 
         <View style={styles.categoryStack}>
           <View style={styles.categorySection}>
@@ -662,13 +549,16 @@ export function WatchlistView({
                 {!nowPlayingLoading && !nowPlayingError && nowPlaying.length > 0 && (
                   <PosterGrid
                     items={nowPlaying}
+                    keyExtractor={(item) => watchlistEntryKey(item)}
+                    bodyStyle={styles.categoryGrid}
                     renderItem={(item) => (
-                      <NowPlayingGridCard
+                      <GridPosterCard
                         item={item}
                         colors={colors}
                         typography={typography}
                         radii={radii}
-                        onSelect={onSelect}
+                        onPress={() => onSelect(item)}
+                        mediaLabel="Movie"
                       />
                     )}
                   />
@@ -683,7 +573,7 @@ export function WatchlistView({
             return (
               <View key={category.id}>
                 {categoryIndex > 0 || !isCategoryCollapsed('now_playing') ? (
-                  <SectionHairline />
+                  <ProgrammeHairline style={{ marginVertical: scale(22) }} />
                 ) : null}
                 <View style={styles.categorySection}>
                   <TouchableOpacity
@@ -786,6 +676,8 @@ export function WatchlistView({
                               {!groupCollapsed && (
                                 <PosterGrid
                                   items={group.data}
+                                  keyExtractor={(item) => watchlistEntryKey(item)}
+                                  bodyStyle={styles.categoryGrid}
                                   renderItem={(item) => (
                                     <WatchlistGridCard
                                       item={item}
@@ -1029,41 +921,8 @@ const styles = StyleSheet.create({
     flex: 1,
     height: StyleSheet.hairlineWidth,
   },
-  gridBody: {
-    gap: GRID_GAP,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    gap: GRID_GAP,
-  },
-  gridCard: {
-    width: GRID_COL_W,
-  },
-  gridCardSpacer: {
-    width: GRID_COL_W,
-  },
-  gridPosterWrap: {
-    height: GRID_POSTER_H,
-    overflow: 'hidden',
-    position: 'relative',
-    width: GRID_COL_W,
-  },
-  gridPosterImg: {
-    height: '100%',
-    width: '100%',
-  },
-  ratingBadge: {
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    left: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    position: 'absolute',
-    top: 8,
-  },
-  ratingBadgeText: {
-    color: '#FFD700',
-    fontSize: 10,
-    fontWeight: '800',
+  categoryGrid: {
+    paddingHorizontal: 0,
   },
   statusPill: {
     alignItems: 'center',
@@ -1080,21 +939,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
-  },
-  cardTitle: {
-    fontWeight: '700',
-    marginTop: 8,
-    minHeight: 34,
-  },
-  cardMeta: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 2,
-  },
-  cardYear: {
-    fontSize: 11,
-    fontWeight: '600',
   },
   swipeShell: {
     overflow: 'hidden',

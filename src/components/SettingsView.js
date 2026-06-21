@@ -37,33 +37,6 @@ import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
 
-function SectionHairline() {
-  return <ProgrammeHairline />;
-}
-
-function SectionBlockHeader({ eyebrow, title, hint, colors, typography }) {
-  return (
-    <View style={styles.blockHeader}>
-      {eyebrow ? (
-        <Text style={[styles.blockEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-          {eyebrow}
-        </Text>
-      ) : null}
-      <Text
-        style={[styles.blockTitle, { color: colors.onSurface, ...typography.titleMd }]}
-        accessibilityRole="header"
-      >
-        {title}
-      </Text>
-      {hint ? (
-        <Text style={[styles.blockHint, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-          {hint}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 function GlassPanel({ children, glassSurface, radii, style }) {
   return (
     <View
@@ -83,7 +56,7 @@ function GlassPanel({ children, glassSurface, radii, style }) {
 }
 
 function PanelDivider() {
-  return <View style={[styles.panelDivider, { backgroundColor: GOLD_DIM }]} />;
+  return <ProgrammeHairline style={styles.panelDivider} />;
 }
 
 function AppearanceRow({ icon, label, selected, onPress, colors, typography }) {
@@ -546,13 +519,13 @@ export function SettingsView({
           subtitle="Your Programme Specification"
         />
 
-        <SectionHairline />
+        <ProgrammeHairline />
 
-        <SectionBlockHeader
+        <ProgrammeSectionHeader
+          align="left"
           eyebrow="Display"
           title="Appearance"
-          colors={colors}
-          typography={typography}
+          titleVariant="titleMd"
         />
         <GlassPanel glassSurface={glassSurface} radii={radii} style={styles.blockPanel}>
           {appearanceOptions.map((option, index) => (
@@ -570,14 +543,14 @@ export function SettingsView({
           ))}
         </GlassPanel>
 
-        <SectionHairline />
+        <ProgrammeHairline />
 
-        <SectionBlockHeader
+        <ProgrammeSectionHeader
+          align="left"
           eyebrow="Library"
           title="Watchlist Backup"
-          hint="Export a JSON backup to move your list to another device, or import a file you exported earlier. Merge adds only titles you do not already have (same movie or show)."
-          colors={colors}
-          typography={typography}
+          subtitle="Export a JSON backup to move your list to another device, or import a file you exported earlier. Merge adds only titles you do not already have (same movie or show)."
+          titleVariant="titleMd"
         />
         <GlassPanel glassSurface={glassSurface} radii={radii} style={styles.blockPanel}>
           <ActionRow
@@ -601,14 +574,14 @@ export function SettingsView({
           />
         </GlassPanel>
 
-        <SectionHairline />
+        <ProgrammeHairline />
 
-        <SectionBlockHeader
+        <ProgrammeSectionHeader
+          align="left"
           eyebrow="Connectivity"
           title="API Rate Limits"
-          hint="Live figures come from each provider's response headers when they expose them. If you see a 429 message, wait for the suggested time before refreshing."
-          colors={colors}
-          typography={typography}
+          subtitle="Live figures come from each provider's response headers when they expose them. If you see a 429 message, wait for the suggested time before refreshing."
+          titleVariant="titleMd"
         />
         <ApiQuotaPanel
           colors={colors}
@@ -618,14 +591,14 @@ export function SettingsView({
           radii={radii}
         />
 
-        <SectionHairline />
+        <ProgrammeHairline />
 
-        <SectionBlockHeader
+        <ProgrammeSectionHeader
+          align="left"
           eyebrow="About"
           title="Credits"
-          hint="Trova is an independent, non-commercial app built on these data providers."
-          colors={colors}
-          typography={typography}
+          subtitle="Trova is an independent, non-commercial app built on these data providers."
+          titleVariant="titleMd"
         />
         <CreditsPanel
           colors={colors}
@@ -661,24 +634,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: GRID_PAD,
   },
-  blockHeader: {
-    gap: 6,
-    marginBottom: scale(14),
-  },
-  blockEyebrow: {
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-  },
-  blockTitle: {
-    fontWeight: '800',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  blockHint: {
-    lineHeight: 20,
-    marginTop: 2,
-  },
   blockPanel: {
     marginBottom: scale(4),
   },
@@ -696,9 +651,8 @@ const styles = StyleSheet.create({
     }),
   },
   panelDivider: {
-    height: StyleSheet.hairlineWidth,
+    marginBottom: 0,
     marginHorizontal: scale(16),
-    opacity: 0.65,
   },
   appearanceRow: {
     alignItems: 'center',
@@ -709,7 +663,7 @@ const styles = StyleSheet.create({
     paddingVertical: scale(12),
   },
   appearanceRowSelected: {
-    backgroundColor: 'rgba(212, 168, 83, 0.06)',
+    backgroundColor: GOLD_ACCENT + '0F',
   },
   appearanceLeft: {
     alignItems: 'center',

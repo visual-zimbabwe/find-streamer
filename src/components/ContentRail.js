@@ -1,67 +1,18 @@
-import React, { memo } from 'react';
+import React from 'react';
 import {
-  Dimensions,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { MediaArtwork } from './MediaArtwork';
-import { GOLD_ACCENT, GRID_PAD, GRID_GAP, gridColWidth } from '../theme/programme';
+import { GridPosterCard } from './GridPosterCard';
+import { ProgrammeHairline } from './ProgrammeHairline';
+import { GOLD_ACCENT, GRID_PAD, GRID_GAP } from '../theme/programme';
+import { scale } from '../utils/responsive';
 
-const WINDOW_W = Dimensions.get('window').width;
-const GRID_COL_W = gridColWidth(WINDOW_W);
-const GRID_POSTER_H = GRID_COL_W * 1.5;
-
-const GridPosterCard = memo(function GridPosterCard({ item, colors, typography, radii, onPress }) {
-  return (
-    <TouchableOpacity
-      style={styles.gridCard}
-      onPress={onPress}
-      activeOpacity={0.85}
-      accessibilityRole="button"
-      accessibilityLabel={`Open details for ${item.title}`}
-    >
-      <View
-        style={[
-          styles.gridPosterWrap,
-          { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
-        ]}
-      >
-        <MediaArtwork
-          uri={item.posterUrl}
-          style={styles.gridPosterImg}
-          resizeMode="cover"
-          accessibilityLabel={`${item.title} poster`}
-          title={item.title}
-          instant
-        />
-        {item.ratingValue > 0 && (
-          <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
-            <Text style={styles.ratingBadgeText}>★ {item.ratingValue.toFixed(1)}</Text>
-          </View>
-        )}
-      </View>
-      <Text
-        style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
-        numberOfLines={2}
-      >
-        {item.title}
-      </Text>
-      <View style={styles.cardMeta}>
-        <Ionicons
-          name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
-          size={11}
-          color={colors.onSurfaceVariant}
-        />
-        <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>{item.year}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-});
+export { GridPosterCard, PosterGrid, GRID_COL_W, GRID_POSTER_H } from './GridPosterCard';
 
 export function ContentRail({
   title,
@@ -78,7 +29,7 @@ export function ContentRail({
 
   return (
     <View style={[styles.railBlock, variant === 'inline' && styles.railBlockInline]}>
-      <View style={[styles.sectionDivider, { backgroundColor: colors.outlineVariant }]} />
+      <ProgrammeHairline style={styles.railHairline} />
       <View style={styles.railHeaderRow}>
         <View style={styles.railHeaderLeft}>
           {icon ? (
@@ -130,10 +81,8 @@ const styles = StyleSheet.create({
   railBlockInline: {
     marginTop: scale(4),
   },
-  sectionDivider: {
-    height: StyleSheet.hairlineWidth,
+  railHairline: {
     marginBottom: scale(18),
-    opacity: 0.65,
   },
   railHeaderRow: {
     flexDirection: 'row',
@@ -164,26 +113,4 @@ const styles = StyleSheet.create({
   railItemGap: {
     marginLeft: GRID_GAP,
   },
-  gridCard: {
-    width: GRID_COL_W,
-  },
-  gridPosterWrap: {
-    width: GRID_COL_W,
-    height: GRID_POSTER_H,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  gridPosterImg: { width: '100%', height: '100%' },
-  ratingBadge: {
-    position: 'absolute',
-    left: 8,
-    top: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    backgroundColor: 'rgba(0,0,0,0.72)',
-  },
-  ratingBadgeText: { color: '#FFD700', fontSize: 10, fontWeight: '800' },
-  cardTitle: { marginTop: 8, fontWeight: '700', minHeight: 34 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  cardYear: { fontSize: 11, fontWeight: '600' },
 });

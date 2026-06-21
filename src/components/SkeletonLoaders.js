@@ -1,12 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { GRID_GAP, GRID_PAD, gridColWidth } from '../theme/programme';
+import { GRID_GAP, GRID_PAD, GOLD_ACCENT } from '../theme/programme';
+import { GRID_COL_W, GRID_POSTER_H } from './GridPosterCard';
 import { scale, verticalScale } from '../utils/responsive';
-
-const WINDOW_W = Dimensions.get('window').width;
-const GRID_COL_W = gridColWidth(WINDOW_W);
-const GRID_POSTER_H = GRID_COL_W * 1.5;
 const FEATURE_H = verticalScale(420);
 const CHIP_W = scale(248);
 const CHIP_H = CHIP_W * (9 / 16);
@@ -326,7 +323,7 @@ const styles = StyleSheet.create({
   },
   liveRowDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(212, 168, 83, 0.22)',
+    borderBottomColor: GOLD_ACCENT + '38',
   },
   liveThumb: {
     borderRadius: 6,

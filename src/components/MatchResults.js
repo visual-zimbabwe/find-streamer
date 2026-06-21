@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -7,13 +7,11 @@ import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { scale, verticalScale } from '../utils/responsive';
-import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, gridColWidth } from '../theme/programme';
+import { GOLD_ACCENT, GRID_PAD } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
+import { GridPosterCard, PosterGrid } from './GridPosterCard';
 
-const WINDOW_W = Dimensions.get('window').width;
-const GRID_COL_W = gridColWidth(WINDOW_W);
-const GRID_POSTER_H = GRID_COL_W * 1.5;
 const FEATURE_H = verticalScale(280);
 
 const TopMatchFeature = memo(function TopMatchFeature({
@@ -116,88 +114,6 @@ const TopMatchFeature = memo(function TopMatchFeature({
   );
 });
 
-const MatchGridCard = memo(function MatchGridCard({
-  item,
-  colors,
-  typography,
-  radii,
-  saved,
-  onPress,
-  onToggleWatchlist,
-}) {
-  return (
-    <TouchableOpacity
-      style={styles.gridCard}
-      onPress={onPress}
-      activeOpacity={0.85}
-      accessibilityRole="button"
-      accessibilityLabel={`Open details for ${item.title}`}
-    >
-      <View
-        style={[
-          styles.gridPosterWrap,
-          { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
-        ]}
-      >
-        <MediaArtwork
-          uri={item.posterUrl}
-          style={styles.gridPosterImg}
-          resizeMode="cover"
-          accessibilityLabel={`${item.title} poster`}
-          title={item.title}
-          instant
-        />
-        {item.ratingValue > 0 && (
-          <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
-            <Text style={styles.ratingBadgeText}>★ {item.ratingValue.toFixed(1)}</Text>
-          </View>
-        )}
-        {onToggleWatchlist && (
-          <TouchableOpacity
-            style={[
-              styles.gridBookmark,
-              { borderColor: saved ? GOLD_ACCENT : 'rgba(255,255,255,0.2)' },
-            ]}
-            onPress={(event) => {
-              event.stopPropagation?.();
-              Haptics.selectionAsync();
-              onToggleWatchlist(item);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={
-              saved ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`
-            }
-            accessibilityState={{ selected: saved }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons
-              name={saved ? 'bookmark' : 'bookmark-outline'}
-              size={18}
-              color={saved ? GOLD_ACCENT : '#fff'}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-      <Text
-        style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
-        numberOfLines={2}
-      >
-        {item.title}
-      </Text>
-      <View style={styles.cardMeta}>
-        <Ionicons
-          name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
-          size={11}
-          color={colors.onSurfaceVariant}
-        />
-        <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>
-          {item.mediaType === 'tv' ? 'Series' : 'Movie'} · {item.year}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-});
-
 export function MatchResults({
   matches,
   onSelect,
@@ -213,11 +129,6 @@ export function MatchResults({
   const topMatch = matches[0];
   const others = matches.slice(1);
   const savedIds = new Set(watchlistIds);
-
-  const gridRows = [];
-  for (let i = 0; i < others.length; i += 2) {
-    gridRows.push(others.slice(i, i + 2));
-  }
 
   return (
     <View style={styles.container}>
@@ -242,31 +153,28 @@ export function MatchResults({
 
       {others.length > 0 && (
         <View style={styles.alsoMatchedBlock}>
-          <View style={[styles.sectionDivider, { backgroundColor: colors.outlineVariant }]} />
+          <ProgrammeHairline />
           <Text
             style={[styles.alsoMatchedTitle, { color: colors.onSurface, ...typography.labelSm }]}
           >
             Also Matched
           </Text>
-          <View style={styles.gridBody}>
-            {gridRows.map((pair, rowIndex) => (
-              <View key={`row-${rowIndex}`} style={styles.gridRow}>
-                {pair.map((item) => (
-                  <MatchGridCard
-                    key={watchlistEntryKey(item)}
-                    item={item}
-                    colors={colors}
-                    typography={typography}
-                    radii={radii}
-                    saved={savedIds.has(watchlistEntryKey(item))}
-                    onPress={() => onSelect(item)}
-                    onToggleWatchlist={onToggleWatchlist}
-                  />
-                ))}
-                {pair.length === 1 ? <View style={styles.gridCardSpacer} /> : null}
-              </View>
-            ))}
-          </View>
+          <PosterGrid
+            bodyStyle={styles.alsoMatchedGrid}
+            items={others}
+            keyExtractor={watchlistEntryKey}
+            renderItem={(item) => (
+              <GridPosterCard
+                item={item}
+                colors={colors}
+                typography={typography}
+                radii={radii}
+                saved={savedIds.has(watchlistEntryKey(item))}
+                onPress={() => onSelect(item)}
+                onToggleWatchlist={onToggleWatchlist}
+              />
+            )}
+          />
         </View>
       )}
     </View>
@@ -384,69 +292,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.2,
     marginBottom: scale(14),
+    paddingHorizontal: GRID_PAD,
     textTransform: 'uppercase',
   },
-  gridBody: {
-    gap: GRID_GAP,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    gap: GRID_GAP,
-  },
-  gridCard: {
-    width: GRID_COL_W,
-  },
-  gridCardSpacer: {
-    width: GRID_COL_W,
-  },
-  gridPosterWrap: {
-    height: GRID_POSTER_H,
-    overflow: 'hidden',
-    position: 'relative',
-    width: GRID_COL_W,
-  },
-  gridPosterImg: {
-    height: '100%',
-    width: '100%',
-  },
-  gridBookmark: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.42)',
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 40,
-    justifyContent: 'center',
-    position: 'absolute',
-    right: 8,
-    top: 8,
-    width: 40,
-  },
-  ratingBadge: {
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    left: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    position: 'absolute',
-    top: 8,
-  },
-  ratingBadgeText: {
-    color: '#FFD700',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  cardTitle: {
-    fontWeight: '700',
-    marginTop: 8,
-    minHeight: 34,
-  },
-  cardMeta: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 2,
-  },
-  cardYear: {
-    fontSize: 11,
-    fontWeight: '600',
+  alsoMatchedGrid: {
+    paddingHorizontal: 0,
   },
 });
