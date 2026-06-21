@@ -14,7 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { StatePanel } from './StatePanel';
+import { EmptyState } from './EmptyState';
 import { MediaArtwork } from './MediaArtwork';
 import {
   getUserWatchlistCollections,
@@ -378,11 +378,35 @@ export function WatchlistView({
 
   if (!libraryItems.length) {
     return (
-      <StatePanel
-        type="empty"
-        title="Your Watchlist"
-        description="You have no titles saved yet. Explore movies and add them to your collection."
-      />
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
+        <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
+        <View style={styles.emptyWrap}>
+          <EmptyState
+            variant="empty"
+            title="Your Watchlist"
+            description="You have no titles saved yet. Explore movies and add them to your collection."
+            primaryAction={
+              onBrowseMovies
+                ? {
+                    label: 'Browse Movies',
+                    icon: 'film-outline',
+                    onPress: onBrowseMovies,
+                    accessibilityLabel: 'Browse movies',
+                  }
+                : undefined
+            }
+            secondaryAction={
+              onBrowseTV
+                ? {
+                    label: 'Browse TV',
+                    onPress: onBrowseTV,
+                    accessibilityLabel: 'Browse TV shows',
+                  }
+                : undefined
+            }
+          />
+        </View>
+      </View>
     );
   }
 
@@ -849,6 +873,11 @@ export function WatchlistView({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  emptyWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: GRID_PAD,
   },
   atmosphereTop: {
     height: verticalScale(220),
