@@ -1002,6 +1002,7 @@ function isLikelyAnime(rawItem) {
  *   excludeGenreIds: number[],     // official TMDB genres to exclude
  *   excludeSmartTags: string[],    // e.g. ['anime']
  *   minRating: number | null,      // vote_average.gte
+ *   maxRating: number | null,      // vote_average.lte
  *   languageCodes: string[],       // ISO 639-1, e.g. ['en', 'ja']
  *   originCountries: string[],     // ISO 3166-1, TV only, e.g. ['US', 'KR']
  *   fromYear: string | null,       // '2010'
@@ -1022,6 +1023,7 @@ export async function discoverTitles(filters = {}) {
     excludeGenreIds = [],
     excludeSmartTags = [],
     minRating = null,
+    maxRating = null,
     languageCodes = [],
     originCountries = [],
     fromYear = null,
@@ -1061,6 +1063,10 @@ export async function discoverTitles(filters = {}) {
 
   if (minRating != null && minRating > 0) {
     params['vote_average.gte'] = minRating;
+  }
+
+  if (maxRating != null && maxRating > 0) {
+    params['vote_average.lte'] = maxRating;
   }
 
   if (languageCodes.length > 0) {
