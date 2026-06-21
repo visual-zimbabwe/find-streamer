@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import {
   Animated,
-  ActivityIndicator,
   Dimensions,
   Modal,
   PanResponder,
@@ -24,7 +23,13 @@ import { watchlistEntryKey } from '../lib/watchlistModel';
 import { MediaArtwork } from './MediaArtwork';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { EmptyState } from './EmptyState';
-import { ResultsSkeleton } from './SkeletonLoaders';
+import {
+  ResultsSkeleton,
+  GenreChipSkeleton,
+  LoadMoreSkeleton,
+  PickerListSkeleton,
+  SkeletonBlock,
+} from './SkeletonLoaders';
 import { REGION_PRESETS, SPECIAL_PRESETS, findPreset } from '../lib/languagePresets';
 import { COUNTRY_PRESETS, findCountryPreset, filterCountriesByPreset } from '../lib/countryPresets';
 import { sanitizeRatingInput } from '../lib/discoverRating';
@@ -288,7 +293,7 @@ function SearchablePickerModal({
             </View>
 
             {loading ? (
-              <ActivityIndicator color={GOLD_ACCENT} style={{ marginTop: 32 }} />
+              <PickerListSkeleton count={8} />
             ) : (
               <FlatList
                 data={filtered}
@@ -1017,7 +1022,9 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
             accessibilityState={{ disabled: vm.loading }}
           >
             {vm.loading ? (
-              <ActivityIndicator color="#141414" size="small" />
+              <View style={styles.searchBtnLoader}>
+                <SkeletonBlock style={StyleSheet.absoluteFill} />
+              </View>
             ) : (
               <>
                 <Ionicons name="search-outline" size={16} color="#141414" />
@@ -1970,7 +1977,7 @@ function GenreFilterSection({
           </View>
 
           {genresLoading ? (
-            <ActivityIndicator color={GOLD_ACCENT} style={{ marginVertical: 12 }} />
+            <GenreChipSkeleton count={10} />
           ) : (
             <View style={styles.chipWrap}>
               {genres.map((genre) => {
@@ -2073,7 +2080,7 @@ function GenreFilterSection({
           </View>
 
           {genresLoading ? (
-            <ActivityIndicator color={c.error} style={{ marginVertical: 12 }} />
+            <GenreChipSkeleton count={10} />
           ) : (
             <View style={styles.chipWrap}>
               {genres.map((genre) => {
@@ -2399,7 +2406,7 @@ function ResultsSection({
                 },
               ]}
             >
-              <ActivityIndicator color={GOLD_ACCENT} size="small" />
+              <SkeletonBlock style={styles.enrichmentDot} />
               <Text
                 style={[
                   {
@@ -2447,7 +2454,9 @@ function ResultsSection({
         ))}
       </View>
 
-      {loadMoreError ? (
+      {loadingMore && <LoadMoreSkeleton />}
+
+      {!loadingMore && loadMoreError ? (
         <TouchableOpacity
           style={[
             styles.loadMoreBtn,
@@ -2474,6 +2483,7 @@ function ResultsSection({
           </Text>
         </TouchableOpacity>
       ) : (
+        !loadingMore &&
         hasMore && (
           <TouchableOpacity
             style={[
@@ -2485,26 +2495,18 @@ function ResultsSection({
               },
             ]}
             onPress={loadMore}
-            disabled={loadingMore}
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Load more results"
-            accessibilityState={{ disabled: loadingMore }}
           >
-            {loadingMore ? (
-              <ActivityIndicator color={GOLD_ACCENT} size="small" />
-            ) : (
-              <>
-                <Ionicons name="chevron-down-outline" size={16} color={GOLD_ACCENT} />
-                <Text
-                  style={[
-                    { color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '700', marginLeft: 6 },
-                  ]}
-                >
-                  Load More
-                </Text>
-              </>
-            )}
+            <Ionicons name="chevron-down-outline" size={16} color={GOLD_ACCENT} />
+            <Text
+              style={[
+                { color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '700', marginLeft: 6 },
+              ]}
+            >
+              Load More
+            </Text>
           </TouchableOpacity>
         )
       )}
@@ -2948,6 +2950,12 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   searchBtnText: { fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
+  searchBtnLoader: {
+    borderRadius: 8,
+    height: 16,
+    overflow: 'hidden',
+    width: 16,
+  },
 
   stateBox: {
     alignItems: 'center',
@@ -2986,6 +2994,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  enrichmentDot: {
+    borderRadius: 7,
+    height: 14,
+    width: 14,
   },
 
   gridBody: { gap: GRID_GAP },

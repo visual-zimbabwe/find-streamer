@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Platform,
   SectionList,
   StyleSheet,
@@ -35,6 +34,7 @@ import { ContentRail } from './ContentRail';
 import { CollectionFindSheet } from './CollectionFindSheet';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
+import { HomeFeedSkeleton } from './SkeletonLoaders';
 
 const ALPHA_LETTER_FONT_SIZE = moderateScale(14, 0.4);
 
@@ -569,7 +569,7 @@ export function FranchiseRailsView({
     if (loading) {
       return (
         <View style={styles.statePanel}>
-          <ActivityIndicator color={GOLD_ACCENT} accessibilityLabel="Loading collections" />
+          <HomeFeedSkeleton />
           <Text
             style={[styles.stateText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
           >

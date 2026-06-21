@@ -27,6 +27,7 @@ import {
 import { ContentRail } from './ContentRail';
 import { scale, verticalScale } from '../utils/responsive';
 import { GOLD_ACCENT, GRID_PAD, FADE_MS } from '../theme/programme';
+import { HomeFeedSkeleton } from './SkeletonLoaders';
 
 const FEATURE_H = verticalScale(420);
 const CHIP_W = scale(248);
@@ -350,7 +351,9 @@ export function HomeScreen({
         {...bottomNavScroll}
       >
         <View style={styles.spotlightSection}>
-          {featuredItem ? (
+          {!featuredItem ? (
+            <HomeFeedSkeleton />
+          ) : (
             <>
               <FeaturedSpotlightCard
                 item={featuredItem}
@@ -408,7 +411,7 @@ export function HomeScreen({
                 </View>
               ) : null}
             </>
-          ) : null}
+          )}
         </View>
 
         {watchlistRows.map(({ category, items }) => (

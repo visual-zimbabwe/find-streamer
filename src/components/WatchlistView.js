@@ -7,7 +7,6 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Platform,
   Dimensions,
 } from 'react-native';
@@ -31,6 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, gridColWidth } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
+import { WatchlistSkeleton } from './SkeletonLoaders';
 
 const WINDOW_W = Dimensions.get('window').width;
 const GRID_COL_W = gridColWidth(WINDOW_W);
@@ -612,14 +612,7 @@ export function WatchlistView({
 
             {!isCategoryCollapsed('now_playing') && (
               <View style={styles.sectionBody}>
-                {nowPlayingLoading && (
-                  <ActivityIndicator
-                    size="small"
-                    color={GOLD_ACCENT}
-                    style={styles.sectionLoader}
-                    accessibilityLabel="Loading Now Playing"
-                  />
-                )}
+                {nowPlayingLoading && <WatchlistSkeleton count={4} />}
                 {!nowPlayingLoading && nowPlayingError && (
                   <TouchableOpacity
                     style={[
