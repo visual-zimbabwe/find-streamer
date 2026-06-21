@@ -15,7 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import { useBottomNavScroll, useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
+import { useBottomNavScroll, useBottomNavVisibility, applyBottomNavScrollVisibility } from '../context/BottomNavVisibilityContext';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -44,7 +44,7 @@ import { useBottomSheet } from './StackBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SkeletonBlock, DetailSkeleton } from './SkeletonLoaders';
 import { watchlistEntryKey } from '../lib/watchlistModel';
-import { GOLD_ACCENT, GOLD_DIM, FADE_MS } from '../theme/programme';
+import { GOLD_ACCENT, GOLD_DIM, FADE_MS, SCROLL_BOTTOM_PAD } from '../theme/programme';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
@@ -475,39 +475,13 @@ export function ResultView({
       listener: (event) => {
         if (!event || !event.nativeEvent || !event.nativeEvent.contentOffset) return;
         const currentOffset = event.nativeEvent.contentOffset.y;
-        const diff = currentOffset - lastOffset.current;
-
-        const contentSize = event.nativeEvent.contentSize;
-        const layoutMeasurement = event.nativeEvent.layoutMeasurement;
-
-        if (contentSize && layoutMeasurement) {
-          const contentHeight = contentSize.height;
-          const layoutHeight = layoutMeasurement.height;
-          const maxOffset = contentHeight - layoutHeight;
-
-          if (currentOffset <= 50) {
-            setBottomNavVisible(true);
-          } else if (!isNaN(maxOffset) && currentOffset >= maxOffset - 50) {
-            setBottomNavVisible(true);
-          } else if (Math.abs(diff) > 12) {
-            if (diff > 0) {
-              setBottomNavVisible(false);
-            } else {
-              setBottomNavVisible(true);
-            }
-          }
-        } else {
-          if (currentOffset <= 50) {
-            setBottomNavVisible(true);
-          } else if (Math.abs(diff) > 12) {
-            if (diff > 0) {
-              setBottomNavVisible(false);
-            } else {
-              setBottomNavVisible(true);
-            }
-          }
-        }
-        lastOffset.current = currentOffset;
+        lastOffset.current = applyBottomNavScrollVisibility({
+          currentOffset,
+          lastOffset: lastOffset.current,
+          contentSize: event.nativeEvent.contentSize,
+          layoutMeasurement: event.nativeEvent.layoutMeasurement,
+          setVisible: setBottomNavVisible,
+        });
       },
     }),
   ).current;
@@ -1080,7 +1054,7 @@ export function ResultView({
             opacity: stickyOpacity,
             transform: [{ translateY: stickyTranslateY }],
             backgroundColor: colors.background,
-            borderBottomColor: colors.outlineVariant + '33',
+            borderBottomColor: GOLD_DIM,
             height: 64 + (insets.top || 0),
             paddingTop: insets.top || 0,
           },
@@ -1433,7 +1407,12 @@ export function ResultView({
           </Animated.View>
         </View>
 
-        <View style={[styles.detailsContent, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.detailsContent,
+            { backgroundColor: colors.background, paddingBottom: insets.bottom + SCROLL_BOTTOM_PAD },
+          ]}
+        >
           <View pointerEvents="none" style={styles.meshBackdrop}>
             <LinearGradient
               colors={[
@@ -2458,10 +2437,8 @@ const styles = StyleSheet.create({
   detailsContent: {
     paddingHorizontal: 24,
     paddingTop: 32,
-    paddingBottom: 100,
     position: 'relative',
     overflow: 'hidden',
-    // backgroundColor applied inline via colors.background so it shifts with the poster palette
   },
   meshBackdrop: {
     ...StyleSheet.absoluteFillObject,

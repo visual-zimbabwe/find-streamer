@@ -29,6 +29,8 @@ import * as Haptics from 'expo-haptics';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, gridColWidth } from '../theme/programme';
+import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
+import { ProgrammeHairline } from './ProgrammeHairline';
 
 const WINDOW_W = Dimensions.get('window').width;
 const GRID_COL_W = gridColWidth(WINDOW_W);
@@ -40,36 +42,8 @@ function parseRatingValue(rating) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
-  return (
-    <View style={styles.sectionHeader}>
-      {eyebrow ? (
-        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-          {eyebrow}
-        </Text>
-      ) : null}
-      <Text
-        style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
-        accessibilityRole="header"
-      >
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text
-          style={[
-            styles.sectionSubtitle,
-            { color: colors.onSurfaceVariant, ...typography.labelSm },
-          ]}
-        >
-          {subtitle}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-function SectionHairline({ color }) {
-  return <View style={[styles.sectionDivider, { backgroundColor: color || GOLD_DIM }]} />;
+function SectionHairline({ color, style }) {
+  return <ProgrammeHairline color={color} style={[{ marginVertical: scale(22) }, style]} />;
 }
 
 const NowPlayingGridCard = memo(function NowPlayingGridCard({
@@ -471,7 +445,10 @@ export function WatchlistView({
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 112 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + scale(12), paddingBottom: insets.bottom + 112 },
+        ]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
         overScrollMode="never"
@@ -481,8 +458,6 @@ export function WatchlistView({
           eyebrow="Personal Ledger"
           title="My Watchlist"
           subtitle={`${libraryItems.length} ${libraryItems.length === 1 ? 'Title' : 'Titles'} Saved`}
-          colors={colors}
-          typography={typography}
         />
 
         <View
@@ -891,34 +866,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: GRID_PAD,
-    paddingTop: scale(28),
-  },
-  sectionHeader: {
-    alignItems: 'center',
-    marginBottom: scale(22),
-  },
-  sectionEyebrow: {
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  sectionTitle: {
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-  },
-  sectionSubtitle: {
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    marginTop: 6,
-    textTransform: 'uppercase',
-  },
-  sectionDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginVertical: scale(22),
-    opacity: 0.65,
   },
   randomPanel: {
     borderWidth: StyleSheet.hairlineWidth,

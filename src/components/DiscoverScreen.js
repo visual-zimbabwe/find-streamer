@@ -38,6 +38,7 @@ import {
   FADE_MS,
   gridColWidth,
 } from '../theme/programme';
+import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 
 const WINDOW_W = Dimensions.get('window').width;
 const GRID_COL_W = gridColWidth(WINDOW_W);
@@ -68,34 +69,6 @@ function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {
 
   if (labels.length <= 2) return labels.join(', ');
   return `${labels.slice(0, 2).join(', ')} +${labels.length - 2} ${noun}`;
-}
-
-function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
-  return (
-    <View style={styles.sectionHeader}>
-      {eyebrow ? (
-        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-          {eyebrow}
-        </Text>
-      ) : null}
-      <Text
-        style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
-        accessibilityRole="header"
-      >
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text
-          style={[
-            styles.sectionSubtitle,
-            { color: colors.onSurfaceVariant, ...typography.labelSm },
-          ]}
-        >
-          {subtitle}
-        </Text>
-      ) : null}
-    </View>
-  );
 }
 
 function FilterDivider() {
@@ -575,7 +548,10 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
       <ScrollView
         ref={scrollRef}
         style={styles.root}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 112 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + scale(12), paddingBottom: insets.bottom + 112 },
+        ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         removeClippedSubviews={Platform.OS === 'android'}
@@ -585,8 +561,6 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           eyebrow="FILTER"
           title="Refine your programme"
           subtitle="Set criteria, then search the catalogue"
-          colors={c}
-          typography={typography}
         />
 
         <MediaTypeTabs
@@ -2329,12 +2303,7 @@ function ResultsSection({
   if (loading) {
     return (
       <View style={styles.resultsSection}>
-        <ProgrammeSectionHeader
-          eyebrow="RESULTS"
-          title="Searching"
-          colors={c}
-          typography={typography}
-        />
+        <ProgrammeSectionHeader eyebrow="RESULTS" title="Searching" />
         <ResultsSkeleton count={4} />
       </View>
     );
@@ -2417,12 +2386,7 @@ function ResultsSection({
   return (
     <View style={styles.resultsSection}>
       <View style={styles.resultsHeader}>
-        <ProgrammeSectionHeader
-          eyebrow="RESULTS"
-          title="Programme"
-          colors={c}
-          typography={typography}
-        />
+        <ProgrammeSectionHeader eyebrow="RESULTS" title="Programme" />
         <View style={styles.resultsHeaderBadges}>
           {enrichingResults && (
             <View
@@ -2847,28 +2811,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: GRID_PAD,
-    paddingTop: scale(8),
-  },
-
-  sectionHeader: {
-    alignItems: 'center',
-    marginBottom: scale(18),
-  },
-  sectionEyebrow: {
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  sectionTitle: {
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textAlign: 'center',
-  },
-  sectionSubtitle: {
-    marginTop: 6,
-    textAlign: 'center',
-    opacity: 0.82,
   },
 
   mediaTabsRow: {

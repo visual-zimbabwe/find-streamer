@@ -34,36 +34,9 @@ import { moderateScale, scale, verticalScale } from '../utils/responsive';
 import { ContentRail } from './ContentRail';
 import { CollectionFindSheet } from './CollectionFindSheet';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
+import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 
 const ALPHA_LETTER_FONT_SIZE = moderateScale(14, 0.4);
-
-function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
-  return (
-    <View style={styles.pageHeader}>
-      {eyebrow ? (
-        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-          {eyebrow}
-        </Text>
-      ) : null}
-      <Text
-        style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
-        accessibilityRole="header"
-      >
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text
-          style={[
-            styles.sectionSubtitle,
-            { color: colors.onSurfaceVariant, ...typography.labelSm },
-          ]}
-        >
-          {subtitle}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
 
 function SectionHeader({ title, count, expanded, collapsible, onToggle, colors, typography }) {
   const content = (
@@ -650,8 +623,8 @@ export function FranchiseRailsView({
           eyebrow="Franchises"
           title="Collection Index"
           subtitle={`${filteredMainRows.length} collections`}
-          colors={colors}
-          typography={typography}
+          titleUppercase
+          style={styles.pageHeader}
         />
         <FindBar
           badgeCount={badgeCount}
@@ -754,24 +727,7 @@ const styles = StyleSheet.create({
     marginBottom: scale(8),
   },
   pageHeader: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  sectionEyebrow: {
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  sectionTitle: {
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
-  sectionSubtitle: {
-    fontWeight: '600',
-    letterSpacing: 0.4,
-    textAlign: 'center',
+    marginBottom: 0,
   },
   findBar: {
     flexDirection: 'row',
