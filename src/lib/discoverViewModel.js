@@ -11,6 +11,10 @@ import { fetchTraktTrending } from './trakt';
 import { resolvePreset, LANGUAGE_TO_COUNTRY_PRESET } from './languagePresets';
 import { codesForCountryPreset, findCountryPreset } from './countryPresets';
 import { classifyAppError } from './errors';
+import {
+  normalizeAppliedRating,
+  validateRatingRange,
+} from './discoverRating';
 
 const DEFAULT_FILTERS = {
   mediaType: 'movie',
@@ -22,7 +26,8 @@ const DEFAULT_FILTERS = {
   // ── Exclude smart tags (e.g. 'anime') ──────────────────────────────────────
   excludeSmartTags: [],
   // ── Optional filters ───────────────────────────────────────────────────────
-  minRating: 7,
+  minRating: '7',
+  maxRating: '10.0',
   languageCodes: [],
   originCountries: [],
   fromYear: '',
@@ -324,6 +329,10 @@ export function useDiscoverViewModel() {
 
   // ── Validation ─────────────────────────────────────────────────────────────
 
+  function appliedRating(value) {
+    return normalizeAppliedRating(value);
+  }
+
   function appliedRuntime(value) {
     const parsed = parseInt(value, 10);
     if (!value || isNaN(parsed) || parsed === 0) return null;
@@ -363,6 +372,9 @@ export function useDiscoverViewModel() {
       return 'Min runtime cannot be greater than max runtime';
     }
 
+    const ratingErr = validateRatingRange(f.minRating, f.maxRating);
+    if (ratingErr) return ratingErr;
+
     return null;
   }
 
@@ -380,6 +392,8 @@ export function useDiscoverViewModel() {
   function buildDiscoverApiFilters(f) {
     return {
       ...f,
+      minRating: appliedRating(f.minRating),
+      maxRating: appliedRating(f.maxRating),
       originCountries: effectiveOriginCountries(f),
     };
   }

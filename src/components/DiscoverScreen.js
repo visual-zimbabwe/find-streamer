@@ -27,6 +27,7 @@ import { EmptyState } from './EmptyState';
 import { ResultsSkeleton } from './SkeletonLoaders';
 import { REGION_PRESETS, SPECIAL_PRESETS, findPreset } from '../lib/languagePresets';
 import { COUNTRY_PRESETS, findCountryPreset, filterCountriesByPreset } from '../lib/countryPresets';
+import { sanitizeRatingInput } from '../lib/discoverRating';
 import { useBottomSheet } from './StackBottomSheet';
 import { scale } from '../utils/responsive';
 
@@ -622,14 +623,74 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         <FilterDivider />
 
         <View style={styles.filterBand}>
-          <SectionLabel label="Minimum Rating" colors={c} typography={typography} />
-          <RatingSlider
-            value={vm.filters.minRating}
-            onChange={(v) => vm.updateFilter('minRating', v)}
-            colors={c}
-            typography={typography}
-            radii={radii}
-          />
+          <SectionLabel label="Rating" colors={c} typography={typography} />
+          <View style={styles.yearRow}>
+            <View
+              style={[
+                styles.yearInput,
+                {
+                  backgroundColor: filterSurface,
+                  borderRadius: radii.md,
+                  flex: 1,
+                  borderColor: GOLD_DIM,
+                },
+              ]}
+            >
+              <TextInput
+                style={[
+                  {
+                    color: c.onSurface,
+                    ...typography.bodyMd,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  },
+                ]}
+                placeholder="From (e.g. 6.5)"
+                placeholderTextColor={c.onSurfaceVariant}
+                keyboardType="decimal-pad"
+                maxLength={4}
+                value={vm.filters.minRating}
+                onChangeText={(v) =>
+                  vm.updateFilter('minRating', sanitizeRatingInput(v))
+                }
+              />
+            </View>
+            <Text
+              style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, marginHorizontal: 8 }]}
+            >
+              —
+            </Text>
+            <View
+              style={[
+                styles.yearInput,
+                {
+                  backgroundColor: filterSurface,
+                  borderRadius: radii.md,
+                  flex: 1,
+                  borderColor: GOLD_DIM,
+                },
+              ]}
+            >
+              <TextInput
+                style={[
+                  {
+                    color: c.onSurface,
+                    ...typography.bodyMd,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  },
+                ]}
+                placeholder="To (e.g. 7.0)"
+                placeholderTextColor={c.onSurfaceVariant}
+                keyboardType="decimal-pad"
+                maxLength={4}
+                value={vm.filters.maxRating}
+                onChangeText={(v) =>
+                  vm.updateFilter('maxRating', sanitizeRatingInput(v))
+                }
+              />
+            </View>
+          </View>
         </View>
 
         <FilterDivider />
@@ -981,145 +1042,6 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         />
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-}
-
-// ─── Rating Slider ────────────────────────────────────────────────────────────
-
-function RatingSlider({ value, onChange, colors: c, typography, radii }) {
-  const SLIDER_MAX = 10;
-  const STEP = 0.5;
-  const [trackWidth, setTrackWidth] = useState(Dimensions.get('window').width - 80);
-  const thumbAnim = useRef(
-    new Animated.Value((value / SLIDER_MAX) * (Dimensions.get('window').width - 80)),
-  ).current;
-  const tooltipOpacity = useRef(new Animated.Value(0)).current;
-  const gestureStartX = useRef(0);
-  const lastHapticVal = useRef(value);
-  const valueRef = useRef(value);
-  const trackWidthRef = useRef(trackWidth);
-
-  useEffect(() => {
-    valueRef.current = value;
-    trackWidthRef.current = trackWidth;
-    thumbAnim.setValue((value / SLIDER_MAX) * trackWidth);
-  }, [value, trackWidth]);
-
-  const snap = (v) => Math.max(0, Math.min(SLIDER_MAX, Math.round(v / STEP) * STEP));
-
-  const pan = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        const width = trackWidthRef.current;
-        const currentValue = snap(valueRef.current);
-        gestureStartX.current = (currentValue / SLIDER_MAX) * width;
-        thumbAnim.setValue(gestureStartX.current);
-        lastHapticVal.current = currentValue;
-        Animated.timing(tooltipOpacity, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }).start();
-      },
-      onPanResponderMove: (_, g) => {
-        const width = trackWidthRef.current;
-        const newX = Math.max(0, Math.min(gestureStartX.current + g.dx, width));
-        const snapped = snap((newX / width) * SLIDER_MAX);
-        thumbAnim.setValue((snapped / SLIDER_MAX) * width);
-        if (Math.abs(snapped - lastHapticVal.current) >= STEP) {
-          lastHapticVal.current = snapped;
-          onChange(snapped);
-        }
-      },
-      onPanResponderRelease: () => {
-        Animated.timing(tooltipOpacity, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }).start();
-      },
-    }),
-  ).current;
-
-  const fillWidth = thumbAnim.interpolate({
-    inputRange: [0, trackWidth > 0 ? trackWidth : 1],
-    outputRange: [0, trackWidth > 0 ? trackWidth : 1],
-    extrapolate: 'clamp',
-  });
-  const thumbTranslate = thumbAnim.interpolate({
-    inputRange: [0, trackWidth > 0 ? trackWidth : 1],
-    outputRange: [-12, (trackWidth > 0 ? trackWidth : 1) - 12],
-    extrapolate: 'clamp',
-  });
-  const starColor =
-    value >= 8 ? '#FFD700' : value >= 6 ? '#FFA500' : value >= 4 ? '#87CEEB' : c.onSurfaceVariant;
-
-  return (
-    <View style={{ marginBottom: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 }}>
-        <Ionicons name={value >= 1 ? 'star' : 'star-outline'} size={20} color={starColor} />
-        <Text style={[{ color: c.onSurface, ...typography.titleMd, fontWeight: '800' }]}>
-          {value === 0 ? 'Any Rating' : `${value.toFixed(1)}+ Stars`}
-        </Text>
-        {value > 0 && (
-          <TouchableOpacity
-            onPress={() => onChange(0)}
-            accessibilityRole="button"
-            accessibilityLabel="Clear rating filter"
-          >
-            <Ionicons name="close-circle" size={18} color={c.onSurfaceVariant} />
-          </TouchableOpacity>
-        )}
-      </View>
-      <View
-        style={[
-          sliderStyles.track,
-          { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full },
-        ]}
-        onLayout={(e) => {
-          trackWidthRef.current = e.nativeEvent.layout.width;
-          setTrackWidth(e.nativeEvent.layout.width);
-        }}
-        {...pan.panHandlers}
-      >
-        <Animated.View
-          style={[
-            sliderStyles.fill,
-            { width: fillWidth, backgroundColor: GOLD_ACCENT, borderRadius: radii.full },
-          ]}
-        />
-        <Animated.View
-          style={[
-            sliderStyles.thumb,
-            {
-              transform: [{ translateX: thumbTranslate }],
-              backgroundColor: c.surface,
-              borderColor: GOLD_ACCENT,
-            },
-          ]}
-        >
-          <Animated.View
-            style={[
-              sliderStyles.tooltip,
-              { backgroundColor: GOLD_ACCENT, borderRadius: radii.sm, opacity: tooltipOpacity },
-            ]}
-          >
-            <Text style={{ color: '#141414', fontSize: 11, fontWeight: '900' }}>
-              {value.toFixed(1)}
-            </Text>
-          </Animated.View>
-        </Animated.View>
-      </View>
-      <View style={sliderStyles.scaleRow}>
-        {[0, 2, 4, 6, 8, 10].map((n) => (
-          <Text key={n} style={{ color: c.onSurfaceVariant, fontSize: 10, fontWeight: '600' }}>
-            {n}
-          </Text>
-        ))}
-      </View>
-    </View>
   );
 }
 
@@ -2739,50 +2661,6 @@ function SectionLabel({ label, colors, typography }) {
     </Text>
   );
 }
-
-// ─── Slider Styles ────────────────────────────────────────────────────────────
-
-const sliderStyles = StyleSheet.create({
-  track: {
-    height: 8,
-    width: '100%',
-    justifyContent: 'center',
-    overflow: 'visible',
-    marginBottom: 8,
-  },
-  fill: {
-    position: 'absolute',
-    left: 0,
-    height: 8,
-  },
-  thumb: {
-    position: 'absolute',
-    top: -8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2.5,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-    alignItems: 'center',
-  },
-  tooltip: {
-    position: 'absolute',
-    bottom: 30,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    minWidth: 36,
-    alignItems: 'center',
-  },
-  scaleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-    paddingHorizontal: 2,
-  },
-});
 
 // ─── Genre Scroll Styles ──────────────────────────────────────────────────────
 
