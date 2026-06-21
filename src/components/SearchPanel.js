@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
-import { ContentRail } from './HomeScreen';
+import { ContentRail } from './ContentRail';
 import { fetchHomeNowPlayingRail, fetchHomeTraktTrendingRail } from '../lib/homeFeed';
 import { scale } from '../utils/responsive';
 

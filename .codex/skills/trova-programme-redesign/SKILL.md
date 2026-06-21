@@ -23,10 +23,11 @@ Redesign Trova screens the same way Home was rebuilt: **revolutionary layout**, 
 
 | File | Role |
 |------|------|
-| `src/components/HomeScreen.js` | Programme home: featured spotlight, 2-col grids, scroll perf; exports `ContentRail` |
+| `src/components/ContentRail.js` | Shared horizontal poster rails (Home collections, Search history, franchise catalogue) |
+| `src/components/HomeScreen.js` | Programme home: featured spotlight, horizontal collection rails, scroll perf |
 | `src/components/HomeTopNav.js` | `variant="programme"`: centered Trova, gold underline tabs |
 | `src/components/BottomNav.js` | Programme Marquee: full-width dock, sliding gold indicator |
-| `src/components/SearchPanel.js` | **Shipped Search:** editorial search theatre, live Matches rows, `ContentRail` history grids |
+| `src/components/SearchPanel.js` | **Shipped Search:** editorial search theatre, live Matches rows, `ContentRail` history rails |
 | `src/components/MatchResults.js` | **Shipped Top Matches:** featured hero + “Also Matched” 2-col grid |
 | `src/navigation/SearchStack.js` | **Shipped Search shell:** atmosphere gradient, bottom-nav scroll, Programme Roulette dock |
 | `src/navigation/AppShell.js` | Surprise Roulette modal — gold Programme sheet (shared with Search) |
@@ -55,7 +56,7 @@ Use these as the reference implementation when redesigning Discover, Watchlist, 
 │  │ poster │ Title · year    › │    │
 │  └─────────────────────────────┘    │
 │  ─── hairline ───                   │
-│  RECENTLY VIEWED (ContentRail 2-col)│
+│  RECENTLY VIEWED (ContentRail)      │
 │  TRENDING ON TRAKT (ContentRail)    │
 │  NOW PLAYING (ContentRail)          │
 │  ┌ Programme Roulette │ Surprise Me │  ← full-width dock (not rainbow FAB)
@@ -66,7 +67,7 @@ Use these as the reference implementation when redesigning Discover, Watchlist, 
 
 **Preserved:** voice search, live people/media typeahead, recent searches chips, recent viewed, Trakt/now-playing feeds, surprise genre picker modal, all navigation handlers.
 
-**Key patterns:** `ProgrammeSectionHeader`, `LiveResultRow`, theme-aware glass `searchSurface`, gold `GOLD_ACCENT` / `GOLD_DIM`, import `ContentRail` from `HomeScreen` (no nested `FlatList` in `ScrollView`).
+**Key patterns:** `ProgrammeSectionHeader`, `LiveResultRow`, theme-aware glass `searchSurface`, gold `GOLD_ACCENT` / `GOLD_DIM`, import `ContentRail` from `ContentRail.js` (horizontal `ScrollView` rails — no nested `FlatList` in page `ScrollView`).
 
 ### Top Matches (`MatchResults.js`)
 
@@ -115,7 +116,7 @@ Gold eyebrow “Surprise Roulette”, uppercase genre chips, gold hairline divid
 | Gold dim | `rgba(212, 168, 83, 0.42–0.55)` | Hairlines, rules, dividers |
 | Rating gold | `#FFD580` / `#FFD700` | TMDB badges (existing) |
 | Horizontal inset | `scale(22)` | Page padding; matches home grids |
-| Grid gap | `scale(14)` | 2-column watchlist-style grids |
+| Grid gap | `scale(14)` | Horizontal rail item spacing |
 | Wordmark | Georgia / serif italic | "Trova" only — do not overuse |
 | Section titles | Uppercase, `letterSpacing` 0.8–1.4, `fontWeight` 800 | Collection/rail headers |
 | Tab labels | Uppercase, `scale(9–11)`, tracked | Filters, nav, chips |
@@ -160,7 +161,7 @@ Before coding, answer internally:
 | **Featured card** | Single hero item ~45–50% viewport; crossfade rotation (Home) or static hero (Search Top Match) |
 | **Live editorial rows** | Search typeahead Matches — poster thumb + title/meta + gold chevron |
 | **Landscape chips** | Secondary spotlight row (horizontal `ScrollView`, not `FlatList`) |
-| **2-column poster grid** | Watchlist-style collections; sort unchanged |
+| **Horizontal poster rail** | `ContentRail` — swipe left/right within a section; same card width as legacy 2-col grid |
 | **Hairline section dividers** | Between collection blocks |
 | **Eyebrow + title** | `SPOTLIGHT`, collection name with icon |
 
@@ -200,12 +201,12 @@ Before coding, answer internally:
 
 | Screen | Revolution direction |
 |--------|---------------------|
-| **Search** | ✅ **Shipped** — editorial search theatre, centred glass query, live Matches rows, `ContentRail` 2-col history, Programme Roulette dock; see [Completed rollouts](#completed-programme-rollouts-shipped) |
+| **Search** | ✅ **Shipped** — editorial search theatre, centred glass query, live Matches rows, `ContentRail` horizontal history, Programme Roulette dock; see [Completed rollouts](#completed-programme-rollouts-shipped) |
 | **Top Matches** | ✅ **Shipped** — `MatchResults.js`: featured top-match hero + “Also Matched” 2-col grid; no spring cards; gold bookmarks |
 | **Discover** | Filter console — uppercase filter chips, results as editorial cards not generic list rows; keep all filter logic |
 | **Watchlist** | Personal ledger — 2-col grid or landscape cinema stills; collection headers with icons; swipe actions retained but visually quieter |
 | **Settings** | Specification sheet — grouped sections with hairlines; no playful toggles |
-| **Collections** | Franchise index — align `HomeTopNav` overlay → programme where possible; rails → grids or landscape editorial rows |
+| **Collections** | Franchise index — align `HomeTopNav` overlay → programme where possible; catalogue rails use `ContentRail` |
 | **Detail (ResultView)** | Cinema dossier — parallax hero kept but typographically aligned; provider matrix as refined table |
 | **Filmography** | Cast grid — 2-col or 3-col with same poster grammar |
 

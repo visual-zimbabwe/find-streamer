@@ -8,8 +8,8 @@ Read `.codex/skills/trova-programme-redesign/SKILL.md` and the canonical referen
 
 | Priority | File | Why |
 |----------|------|-----|
-| Home | `HomeScreen.js`, `HomeTopNav.js`, `BottomNav.js` | Programme north star — spotlight, grids, nav |
-| **Shipped Search** | `SearchPanel.js`, `SearchStack.js` | Editorial search theatre, live Matches, ContentRail grids |
+| Home | `HomeScreen.js`, `ContentRail.js`, `HomeTopNav.js`, `BottomNav.js` | Programme north star — spotlight, horizontal rails, nav |
+| **Shipped Search** | `SearchPanel.js`, `SearchStack.js` | Editorial search theatre, live Matches, ContentRail rails |
 | **Shipped Top Matches** | `MatchResults.js` | Featured hero + Also Matched 2-col grid |
 | Shared | `AppShell.js` | Surprise Roulette Programme modal |
 
@@ -22,8 +22,8 @@ Read `.codex/skills/trova-programme-redesign/SKILL.md` and the canonical referen
 **Match shipped Search / Top Matches patterns where applicable:**
 
 - Gold `#D4A853` accent, uppercase tracked eyebrows, hairline dividers
-- `scale(22)` horizontal inset, `scale(14)` grid gap
-- 2-col poster grids (Home / `ContentRail` grammar) — no horizontal poster carousels
+- `scale(22)` horizontal inset, `scale(14)` rail gap
+- Horizontal poster rails via `ContentRail` (same card width as legacy 2-col grid)
 - Theme-aware glass surfaces — no full-screen blur under scroll
 - `Haptics.selectionAsync()` for toggles; no spring bounce cards
 - Explicit thumbnail dimensions in flex rows (never unsized `100%` artwork)

@@ -31,7 +31,7 @@ import {
 } from '../lib/collectionPrefsStorage';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { moderateScale, scale, verticalScale } from '../utils/responsive';
-import { CollectionContentRail } from './CollectionContentRail';
+import { ContentRail } from './ContentRail';
 import { CollectionFindSheet } from './CollectionFindSheet';
 
 const GRID_PAD = scale(22);
@@ -141,8 +141,10 @@ function CollectionRail({
   );
 
   return (
-    <CollectionContentRail
+    <ContentRail
       title={row.title}
+      icon="albums-outline"
+      variant="inline"
       data={row.items}
       colors={colors}
       typography={typography}
