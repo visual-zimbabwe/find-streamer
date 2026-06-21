@@ -8,39 +8,13 @@ import { MediaArtwork } from './MediaArtwork';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { scale, verticalScale } from '../utils/responsive';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, gridColWidth } from '../theme/programme';
+import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
+import { ProgrammeHairline } from './ProgrammeHairline';
 
 const WINDOW_W = Dimensions.get('window').width;
 const GRID_COL_W = gridColWidth(WINDOW_W);
 const GRID_POSTER_H = GRID_COL_W * 1.5;
 const FEATURE_H = verticalScale(280);
-
-function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
-  return (
-    <View style={styles.sectionHeader}>
-      {eyebrow ? (
-        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-          {eyebrow}
-        </Text>
-      ) : null}
-      <Text
-        style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
-        accessibilityRole="header"
-      >
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text
-          style={[
-            styles.sectionSubtitle,
-            { color: colors.onSurfaceVariant, ...typography.labelSm },
-          ]}
-        >
-          {subtitle}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
 
 const TopMatchFeature = memo(function TopMatchFeature({
   item,
@@ -247,14 +221,13 @@ export function MatchResults({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.sectionDivider, { backgroundColor: colors.outlineVariant }]} />
+      <ProgrammeHairline />
 
       <ProgrammeSectionHeader
         eyebrow="Results"
         title="Top Matches"
         subtitle={`${matches.length} ${matches.length === 1 ? 'TITLE' : 'TITLES'} FOUND`}
-        colors={colors}
-        typography={typography}
+        titleUppercase
       />
 
       <TopMatchFeature
@@ -304,33 +277,6 @@ const styles = StyleSheet.create({
   container: {
     marginTop: scale(8),
     paddingHorizontal: GRID_PAD,
-  },
-  sectionDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginBottom: scale(18),
-    opacity: 0.65,
-  },
-  sectionHeader: {
-    alignItems: 'center',
-    marginBottom: scale(18),
-  },
-  sectionEyebrow: {
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  sectionTitle: {
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-  },
-  sectionSubtitle: {
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    marginTop: 6,
-    textTransform: 'uppercase',
   },
   featureCard: {
     height: FEATURE_H,

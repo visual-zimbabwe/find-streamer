@@ -14,24 +14,8 @@ import { MediaArtwork } from './MediaArtwork';
 import { ContentRail } from './ContentRail';
 import { fetchHomeNowPlayingRail, fetchHomeTraktTrendingRail } from '../lib/homeFeed';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
-
-function ProgrammeSectionHeader({ eyebrow, title, colors, typography }) {
-  return (
-    <View style={styles.sectionHeader}>
-      {eyebrow ? (
-        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-          {eyebrow}
-        </Text>
-      ) : null}
-      <Text
-        style={[styles.sectionTitle, { color: colors.onSurface, ...typography.titleMd }]}
-        accessibilityRole="header"
-      >
-        {title}
-      </Text>
-    </View>
-  );
-}
+import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
+import { ProgrammeHairline } from './ProgrammeHairline';
 
 function LiveResultRow({ item, index, total, colors, typography, radii, onPress }) {
   const isPerson = item.resultType === 'person';
@@ -150,12 +134,7 @@ export function SearchPanel({
 
   return (
     <View style={styles.container}>
-      <ProgrammeSectionHeader
-        eyebrow="Catalogue"
-        title="Find a Title"
-        colors={colors}
-        typography={typography}
-      />
+      <ProgrammeSectionHeader eyebrow="Catalogue" title="Find a Title" titleVariant="titleMd" />
 
       <View
         style={[
@@ -285,13 +264,8 @@ export function SearchPanel({
 
       {!hideHistory && !hasRecentViewed && recentSearches && recentSearches.length > 0 && (
         <View style={styles.historyBlock}>
-          <View style={[styles.sectionDivider, { backgroundColor: colors.outlineVariant }]} />
-          <ProgrammeSectionHeader
-            eyebrow="History"
-            title="Recent Searches"
-            colors={colors}
-            typography={typography}
-          />
+          <ProgrammeHairline />
+          <ProgrammeSectionHeader eyebrow="History" title="Recent Searches" titleVariant="titleMd" />
           <View style={styles.recentChips}>
             {recentSearches.map((item) => (
               <TouchableOpacity
@@ -349,21 +323,6 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: GRID_PAD,
     paddingTop: scale(8),
-  },
-  sectionHeader: {
-    alignItems: 'center',
-    marginBottom: scale(18),
-  },
-  sectionEyebrow: {
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  sectionTitle: {
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textAlign: 'center',
   },
   searchTheatre: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -506,11 +465,6 @@ const styles = StyleSheet.create({
   },
   historyBlock: {
     marginTop: scale(28),
-  },
-  sectionDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginBottom: scale(18),
-    opacity: 0.65,
   },
   recentChips: {
     flexDirection: 'row',

@@ -1,5 +1,10 @@
 import React, { createContext, useContext, useState, useRef } from 'react';
 
+/** Scroll thresholds for bottom nav auto-hide (Phase 3). */
+export const BOTTOM_NAV_NEAR_TOP = 40;
+export const BOTTOM_NAV_NEAR_BOTTOM = 50;
+export const BOTTOM_NAV_MIN_DELTA = 8;
+
 const BottomNavVisibilityContext = createContext({
   visible: true,
   setVisible: () => {},
@@ -17,6 +22,41 @@ export function BottomNavVisibilityProvider({ children }) {
 
 export function useBottomNavVisibility() {
   return useContext(BottomNavVisibilityContext);
+}
+
+/**
+ * Updates bottom nav visibility from a scroll event.
+ * Nav hides after ~40px scroll down; reappears on scroll up or near edges.
+ * Returns the new last offset for the caller to store.
+ */
+export function applyBottomNavScrollVisibility({
+  currentOffset,
+  lastOffset,
+  contentSize,
+  layoutMeasurement,
+  setVisible,
+}) {
+  const diff = currentOffset - lastOffset;
+
+  if (contentSize && layoutMeasurement) {
+    const contentHeight = contentSize.height;
+    const layoutHeight = layoutMeasurement.height;
+    const maxOffset = contentHeight - layoutHeight;
+
+    if (currentOffset <= BOTTOM_NAV_NEAR_TOP) {
+      setVisible(true);
+    } else if (!isNaN(maxOffset) && currentOffset >= maxOffset - BOTTOM_NAV_NEAR_BOTTOM) {
+      setVisible(true);
+    } else if (currentOffset > BOTTOM_NAV_NEAR_TOP && Math.abs(diff) > BOTTOM_NAV_MIN_DELTA) {
+      setVisible(diff < 0);
+    }
+  } else if (currentOffset <= BOTTOM_NAV_NEAR_TOP) {
+    setVisible(true);
+  } else if (currentOffset > BOTTOM_NAV_NEAR_TOP && Math.abs(diff) > BOTTOM_NAV_MIN_DELTA) {
+    setVisible(diff < 0);
+  }
+
+  return currentOffset;
 }
 
 /**
@@ -53,46 +93,13 @@ export function useBottomNavScroll(customOnScroll) {
     }
 
     const currentOffset = contentOffset.y;
-    const diff = currentOffset - lastOffset.current;
-
-    const contentSize = event.nativeEvent.contentSize;
-    const layoutMeasurement = event.nativeEvent.layoutMeasurement;
-
-    if (contentSize && layoutMeasurement) {
-      const contentHeight = contentSize.height;
-      const layoutHeight = layoutMeasurement.height;
-      const maxOffset = contentHeight - layoutHeight;
-
-      if (currentOffset <= 50) {
-        // Near top of screen, always show
-        setVisible(true);
-      } else if (!isNaN(maxOffset) && currentOffset >= maxOffset - 50) {
-        // Near bottom of screen, always show so they can navigate
-        setVisible(true);
-      } else if (Math.abs(diff) > 12) {
-        // Significant scroll event
-        if (diff > 0) {
-          // Scrolling down -> Hide
-          setVisible(false);
-        } else {
-          // Scrolling up -> Show
-          setVisible(true);
-        }
-      }
-    } else {
-      // Fallback if layout measurements are not available yet
-      if (currentOffset <= 50) {
-        setVisible(true);
-      } else if (Math.abs(diff) > 12) {
-        if (diff > 0) {
-          setVisible(false);
-        } else {
-          setVisible(true);
-        }
-      }
-    }
-
-    lastOffset.current = currentOffset;
+    lastOffset.current = applyBottomNavScrollVisibility({
+      currentOffset,
+      lastOffset: lastOffset.current,
+      contentSize: event.nativeEvent.contentSize,
+      layoutMeasurement: event.nativeEvent.layoutMeasurement,
+      setVisible,
+    });
 
     if (customOnScroll) {
       try {

@@ -34,34 +34,11 @@ import {
 } from '../lib/apiRateQuota';
 import { scale, verticalScale } from '../utils/responsive';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
-
-function ProgrammeSectionHeader({ eyebrow, title, subtitle, colors, typography }) {
-  return (
-    <View style={styles.sectionHeader}>
-      {eyebrow ? (
-        <Text style={[styles.sectionEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-          {eyebrow}
-        </Text>
-      ) : null}
-      <Text
-        style={[styles.pageTitle, { color: colors.onSurface, ...typography.titleMd }]}
-        accessibilityRole="header"
-      >
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text
-          style={[styles.pageSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
-        >
-          {subtitle}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
+import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
+import { ProgrammeHairline } from './ProgrammeHairline';
 
 function SectionHairline() {
-  return <View style={[styles.sectionDivider, { backgroundColor: GOLD_DIM }]} />;
+  return <ProgrammeHairline />;
 }
 
 function SectionBlockHeader({ eyebrow, title, hint, colors, typography }) {
@@ -554,7 +531,10 @@ export function SettingsView({
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 112 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + scale(12), paddingBottom: insets.bottom + 112 },
+        ]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
         overScrollMode="never"
@@ -564,8 +544,6 @@ export function SettingsView({
           eyebrow="Preferences"
           title="Settings"
           subtitle="Your Programme Specification"
-          colors={colors}
-          typography={typography}
         />
 
         <SectionHairline />
@@ -682,34 +660,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: GRID_PAD,
-    paddingTop: scale(28),
-  },
-  sectionHeader: {
-    alignItems: 'center',
-    marginBottom: scale(8),
-  },
-  sectionEyebrow: {
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  pageTitle: {
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-  },
-  pageSubtitle: {
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    marginTop: 6,
-    textTransform: 'uppercase',
-  },
-  sectionDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginVertical: scale(22),
-    opacity: 0.65,
   },
   blockHeader: {
     gap: 6,

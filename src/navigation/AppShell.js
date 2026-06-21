@@ -35,7 +35,8 @@ const ROUTE_TO_VIEW = {
 };
 
 const IMMERSIVE_ROUTES = new Set(['Home', 'Collections', 'Detail', 'Filmography']);
-const WORDMARK_TAB_ROUTES = new Set(['Search', 'Discover', 'Watchlist', 'Settings']);
+/** Tool tabs use ProgrammeSectionHeader — no AppHeader wordmark on top. */
+const TOOL_TAB_ROUTES = new Set(['Search', 'Discover', 'Watchlist', 'Settings']);
 
 function AppShellInner({ rootNavState }) {
   const { theme } = useTheme();
@@ -60,8 +61,10 @@ function AppShellInner({ rootNavState }) {
   const stackCanPop = canStackPop(rootNavState);
 
   const activeView = ROUTE_TO_VIEW[focusedRoute] || 'home';
-  const showAppHeader = !IMMERSIVE_ROUTES.has(focusedRoute);
-  const useCenteredWordmarkHeader = WORDMARK_TAB_ROUTES.has(focusedRoute);
+  const showAppHeader =
+    !IMMERSIVE_ROUTES.has(focusedRoute) &&
+    !TOOL_TAB_ROUTES.has(focusedRoute) &&
+    stackCanPop;
   const showBack = stackCanPop;
   // In-tab flows (search submit, filmography → title) use local loaders; never unmount tabs.
   const showLoading =
@@ -79,11 +82,7 @@ function AppShellInner({ rootNavState }) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {showAppHeader && (
         <View style={{ paddingTop: insets.top }}>
-          <AppHeader
-            showBack={showBack}
-            onBack={goBack}
-            centeredTitleOnly={useCenteredWordmarkHeader}
-          />
+          <AppHeader showBack={showBack} onBack={goBack} centeredTitleOnly />
         </View>
       )}
 
