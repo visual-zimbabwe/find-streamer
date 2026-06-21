@@ -7,7 +7,7 @@ import { BlurView } from 'expo-blur';
 import { useTheme } from '../theme/ThemeProvider';
 import { useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
 import { scale } from '../utils/responsive';
-import { GOLD_ACCENT } from '../theme/programme';
+import { GOLD_ACCENT, FADE_MS } from '../theme/programme';
 
 const GOLD_RULE = 'rgba(212, 168, 83, 0.55)';
 const SCREEN_W = Dimensions.get('window').width;
@@ -43,12 +43,10 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
   const labelOpacity = useRef(TABS.map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
-    Animated.spring(translateY, {
+    Animated.timing(translateY, {
       toValue: fixed || visible ? 0 : shellH + 8,
+      duration: FADE_MS,
       useNativeDriver: true,
-      damping: 28,
-      stiffness: 260,
-      mass: 0.9,
     }).start();
   }, [fixed, visible, translateY, shellH]);
 

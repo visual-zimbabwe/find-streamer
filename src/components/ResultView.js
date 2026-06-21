@@ -1,7 +1,6 @@
 import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import {
   Animated,
-  AccessibilityInfo,
   Easing,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { Image as ExpoImage } from 'expo-image';
 import { useBottomNavScroll, useBottomNavVisibility, applyBottomNavScrollVisibility } from '../context/BottomNavVisibilityContext';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
@@ -501,7 +501,7 @@ export function ResultView({
   const [showAllCast, setShowAllCast] = useState(false);
   const [trailerVisible, setTrailerVisible] = useState(false);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const reduceMotion = useReduceMotion();
   const shareSheetIdRef = useRef(null);
 
   // ── Wikidata enrichment state ────────────────────────────────────────────
@@ -524,13 +524,17 @@ export function ResultView({
   // Fade in when palette arrives so the color shift feels smooth
   const paletteOpacity = useRef(new Animated.Value(1)).current;
   useEffect(() => {
+    if (reduceMotion) {
+      paletteOpacity.setValue(1);
+      return;
+    }
     paletteOpacity.setValue(0.3);
     Animated.timing(paletteOpacity, {
       toValue: 1,
-      duration: 600,
+      duration: FADE_MS,
       useNativeDriver: true,
     }).start();
-  }, [palette, paletteOpacity]);
+  }, [palette, paletteOpacity, reduceMotion]);
 
   useEffect(() => {
     setShowAllCast(false);
@@ -608,13 +612,13 @@ export function ResultView({
 
   const handleBasedOnPress = useCallback((work) => {
     if (!work?.id) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.selectionAsync();
     Linking.openURL(`https://www.wikidata.org/wiki/${work.id}`);
   }, []);
 
   const handleAwardPress = useCallback((award) => {
     if (!award?.wikidataId) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.selectionAsync();
     Linking.openURL(`https://www.wikidata.org/wiki/${award.wikidataId}`);
   }, []);
 
@@ -631,7 +635,7 @@ export function ResultView({
   }, [wikiData.awards, wikiLoading, result?.omdbRatings?.awards]);
 
   const handleWikiRetry = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.selectionAsync();
     setWikiError(false);
     setWikiRetryToken((token) => token + 1);
   }, []);
@@ -644,7 +648,7 @@ export function ResultView({
   const handleSoundtrackPress = useCallback(() => {
     if (!playableSoundtracks.length) return;
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Haptics.selectionAsync();
 
     if (playableSoundtracks.length === 1) {
       openSpotifyAlbum(playableSoundtracks[0].spotifyAlbumId);
@@ -681,7 +685,7 @@ export function ResultView({
 
       // Fallback: search for the person by name to get their TMDB ID
       try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Haptics.selectionAsync();
         const found = await searchPersonByName(person.name);
         if (found && found.id) {
           onPersonPress(found.id, person.name, role);
@@ -705,7 +709,7 @@ export function ResultView({
   const handleActorLongPress = useCallback(
     (person, role) => {
       if (!person.id) return; // need an ID to fetch filmography
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.selectionAsync();
       let sheetId;
       const content = (
         <ActorFilmographySheetContent
@@ -728,18 +732,6 @@ export function ResultView({
     },
     [colors, typography, radii, onPersonPress, showSheet, dismissSheet],
   );
-
-  useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (mounted) setReduceMotion(enabled);
-    });
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => {
-      mounted = false;
-      sub?.remove?.();
-    };
-  }, []);
 
   useEffect(() => {
     if (reduceMotion) return undefined;
@@ -1086,6 +1078,7 @@ export function ResultView({
         contentInsetAdjustmentBehavior="never"
         onScroll={scrollHandler}
         scrollEventThrottle={16}
+        removeClippedSubviews={Platform.OS === 'android'}
       >
         <View style={styles.heroSection}>
           <Animated.View style={[styles.parallaxArtwork, heroTransform]}>
@@ -1134,7 +1127,7 @@ export function ResultView({
                 {hasRating && (
                   <TouchableOpacity
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Haptics.selectionAsync();
                       Linking.openURL(
                         `https://www.themoviedb.org/${result.mediaType === 'tv' ? 'tv' : 'movie'}/${result.tmdbId}`,
                       );
@@ -1155,7 +1148,7 @@ export function ResultView({
                 {result.omdbRatings?.imdbRating && result.imdbId && (
                   <TouchableOpacity
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Haptics.selectionAsync();
                       Linking.openURL(`https://www.imdb.com/title/${result.imdbId}/`);
                     }}
                     style={styles.heroRatingItem}
@@ -1174,7 +1167,7 @@ export function ResultView({
                 {result.omdbRatings?.rottenTomatoes && (
                   <TouchableOpacity
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Haptics.selectionAsync();
                       Linking.openURL(
                         `https://www.rottentomatoes.com/search?search=${encodeURIComponent(result.title || '')}`,
                       );
@@ -1195,7 +1188,7 @@ export function ResultView({
                 {result.omdbRatings?.metascore && (
                   <TouchableOpacity
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Haptics.selectionAsync();
                       Linking.openURL(
                         `https://www.metacritic.com/search/all/${encodeURIComponent(result.title || '')}/results`,
                       );
@@ -1434,7 +1427,7 @@ export function ResultView({
             <ProgrammeSectionLabel eyebrow="Synopsis" colors={colors} typography={typography} />
             <TouchableOpacity
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                Haptics.selectionAsync();
                 setIsSynopsisExpanded(!isSynopsisExpanded);
               }}
               activeOpacity={0.8}
@@ -1979,7 +1972,7 @@ export function ResultView({
                     style={styles.productionTile}
                     onPress={() => {
                       if (!onCompanyPress) return;
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Haptics.selectionAsync();
                       onCompanyPress(company.id, company.name, company.logoUrl);
                     }}
                     disabled={!onCompanyPress}

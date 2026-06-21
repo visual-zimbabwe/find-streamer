@@ -2,26 +2,12 @@ import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
-import MorphingText from '../lib/expo-morphing-text/components/morphing-text';
 
-const TAGLINES = [
-  'What are you watching tonight?',
-  'Find your next favorite...',
-  'Discover new worlds...',
-  'Your streaming companion...',
-];
+const TAGLINE = 'What are you watching tonight?';
 
 export function AppHeader({ onBack, showBack, transparent, centeredTitleOnly }) {
   const { theme, resolvedMode } = useTheme();
-  const { colors, spacing, typography, radii } = theme;
-  const [taglineIndex, React_setTaglineIndex] = React.useState(0);
-
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      React_setTaglineIndex((prev) => (prev + 1) % TAGLINES.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
+  const { colors, typography } = theme;
 
   return (
     <View
@@ -58,13 +44,7 @@ export function AppHeader({ onBack, showBack, transparent, centeredTitleOnly }) 
             <Text style={[styles.logo, { color: colors.primary, ...typography.headlineMd }]}>
               Trova
             </Text>
-            <MorphingText
-              text={TAGLINES[taglineIndex]}
-              fontSize={12}
-              color={colors.onSurfaceVariant}
-              animationDuration={300}
-              fontStyle={{ fontWeight: '500' }}
-            />
+            <Text style={[styles.tagline, { color: colors.onSurfaceVariant }]}>{TAGLINE}</Text>
           </View>
         )}
       </View>
@@ -108,6 +88,10 @@ const styles = StyleSheet.create({
   logo: {
     fontWeight: '900',
     letterSpacing: -1.5,
+  },
+  tagline: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   centeredWordmark: {
     fontFamily: Platform.select({ android: 'serif', ios: 'Georgia', default: 'serif' }),

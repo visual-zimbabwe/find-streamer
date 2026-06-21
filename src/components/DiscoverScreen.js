@@ -22,6 +22,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { MediaArtwork } from './MediaArtwork';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { EmptyState } from './EmptyState';
 import {
   ResultsSkeleton,
@@ -189,6 +190,7 @@ function SearchablePickerModal({
 
   const handleSelect = useCallback(
     (item) => {
+      Haptics.selectionAsync();
       if (item.code == null) {
         onClear();
         setQuery('');
@@ -337,6 +339,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const insets = useSafeAreaInsets();
   const { show: showSheet, update: updateSheet, dismiss: dismissSheet } = useBottomSheet();
   const bottomNavScroll = useBottomNavScroll();
+  const reduceMotion = useReduceMotion();
   const moreFiltersSheetIdRef = useRef(null);
   const genreSheetIdRef = useRef(null);
   const scrollRef = useRef(null);
@@ -1047,6 +1050,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           onSelectItem={onSelectItem}
           onToggleWatchlist={onToggleWatchlist}
           watchlistIds={watchlistIds}
+          reduceMotion={reduceMotion}
         />
 
         {/* ── Language Picker Modal (kept as Modal for keyboard support) ── */}
@@ -1898,7 +1902,12 @@ function GenreFilterSection({
                 { borderRadius: radii.md },
                 isActive && { backgroundColor: tab.activeColor },
               ]}
-              onPress={() => setActiveTab(tab.key)}
+              onPress={() => {
+                if (activeTab !== tab.key) {
+                  Haptics.selectionAsync();
+                }
+                setActiveTab(tab.key);
+              }}
               activeOpacity={0.8}
               accessibilityRole="tab"
               accessibilityLabel={`${tab.label} genres tab`}
@@ -1948,7 +1957,12 @@ function GenreFilterSection({
                       styles.logicOption,
                       active && { backgroundColor: GOLD_ACCENT, borderRadius: radii.full },
                     ]}
-                    onPress={() => onUpdateGenreLogic(mode)}
+                    onPress={() => {
+                      if (genreLogic !== mode) {
+                        Haptics.selectionAsync();
+                      }
+                      onUpdateGenreLogic(mode);
+                    }}
                     accessibilityRole="button"
                     accessibilityLabel={`Use ${mode} genre matching`}
                     accessibilityState={{ selected: active }}
@@ -2006,7 +2020,10 @@ function GenreFilterSection({
                       { borderRadius: radii.full, backgroundColor: chipBg },
                       chipBorder,
                     ]}
-                    onPress={() => onToggleInclude(genre.id)}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      onToggleInclude(genre.id);
+                    }}
                     activeOpacity={0.8}
                     accessibilityRole="button"
                     accessibilityLabel={`Include ${genre.name} genre`}
@@ -2108,7 +2125,10 @@ function GenreFilterSection({
                       { borderRadius: radii.full, backgroundColor: chipBg },
                       chipBorder,
                     ]}
-                    onPress={() => onToggleExclude(genre.id)}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      onToggleExclude(genre.id);
+                    }}
                     activeOpacity={0.8}
                     accessibilityRole="button"
                     accessibilityLabel={`Exclude ${genre.name} genre`}
@@ -2174,7 +2194,10 @@ function GenreFilterSection({
                       borderColor: isActive ? c.error : c.outlineVariant + '40',
                     },
                   ]}
-                  onPress={() => onToggleSmartTag(tag.key)}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    onToggleSmartTag(tag.key);
+                  }}
                   activeOpacity={0.8}
                   accessibilityRole="button"
                   accessibilityLabel={`Exclude ${tag.label}`}
@@ -2290,6 +2313,7 @@ function ResultsSection({
   onSelectItem,
   onToggleWatchlist,
   watchlistIds = [],
+  reduceMotion = false,
 }) {
   const {
     loading,
@@ -2447,6 +2471,7 @@ function ResultsSection({
                 onPress={() => onSelectItem(item)}
                 onQuickSave={() => onToggleWatchlist?.(item)}
                 isSaved={watchlistIds.includes(watchlistEntryKey(item))}
+                reduceMotion={reduceMotion}
               />
             ))}
             {row.length === 1 && <View style={styles.gridCardSpacer} />}
@@ -2533,6 +2558,7 @@ function DiscoverCard({
   onQuickSave,
   isSaved,
   watchers,
+  reduceMotion = false,
 }) {
   const omdb = item.omdbRatings || {};
   const imdbRating = omdb.imdbRating ? omdb.imdbRating.replace('/10', '') : null;
@@ -2543,6 +2569,18 @@ function DiscoverCard({
   const translateX = useRef(new Animated.Value(0)).current;
   const hintOpacity = useRef(new Animated.Value(0)).current;
   const isTriggered = useRef(false);
+
+  const resetSwipe = () => {
+    if (reduceMotion) {
+      translateX.setValue(0);
+      hintOpacity.setValue(0);
+      return;
+    }
+    Animated.parallel([
+      Animated.timing(translateX, { toValue: 0, duration: FADE_MS, useNativeDriver: true }),
+      Animated.timing(hintOpacity, { toValue: 0, duration: FADE_MS, useNativeDriver: true }),
+    ]).start();
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -2563,10 +2601,7 @@ function DiscoverCard({
       },
       onPanResponderRelease: (_, g) => {
         const triggered = g.dx >= SWIPE_THRESHOLD;
-        Animated.parallel([
-          Animated.timing(translateX, { toValue: 0, duration: FADE_MS, useNativeDriver: true }),
-          Animated.timing(hintOpacity, { toValue: 0, duration: FADE_MS, useNativeDriver: true }),
-        ]).start();
+        resetSwipe();
 
         if (triggered) {
           Haptics.selectionAsync();

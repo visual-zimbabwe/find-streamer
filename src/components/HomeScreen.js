@@ -1,6 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
   Animated,
   BackHandler,
   Platform,
@@ -28,6 +27,7 @@ import { ContentRail } from './ContentRail';
 import { scale, verticalScale } from '../utils/responsive';
 import { GOLD_ACCENT, GRID_PAD, FADE_MS } from '../theme/programme';
 import { HomeFeedSkeleton } from './SkeletonLoaders';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 const FEATURE_H = verticalScale(420);
 const CHIP_W = scale(248);
@@ -186,25 +186,13 @@ export function HomeScreen({
 
   const [heroIndex, setHeroIndex] = useState(0);
   const [displayIndex, setDisplayIndex] = useState(0);
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const reduceMotion = useReduceMotion();
 
   const pausedRef = useRef(false);
   const resumeTimerRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const spotlightLengthRef = useRef(0);
   const skipHeroFadeRef = useRef(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (!cancelled) setReduceMotion(enabled);
-    });
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => {
-      cancelled = true;
-      sub?.remove?.();
-    };
-  }, []);
 
   const featuredItem = spotlight[displayIndex] || spotlight[0] || null;
 
