@@ -3,7 +3,6 @@ import {
   AccessibilityInfo,
   Animated,
   BackHandler,
-  Dimensions,
   Platform,
   ScrollView,
   StyleSheet,
@@ -25,66 +24,16 @@ import {
   HOME_HERO_RESUME_DELAY_MS,
   HOME_HERO_ROTATION_MS,
 } from '../lib/homeFeed';
+import { ContentRail } from './ContentRail';
 import { scale, verticalScale } from '../utils/responsive';
 
-const WINDOW_W = Dimensions.get('window').width;
 const GRID_PAD = scale(22);
-const GRID_GAP = scale(14);
-const GRID_COL_W = (WINDOW_W - GRID_PAD * 2 - GRID_GAP) / 2;
-const GRID_POSTER_H = GRID_COL_W * 1.5;
 const FEATURE_H = verticalScale(420);
 const CHIP_W = scale(248);
 const CHIP_H = CHIP_W * (9 / 16);
 const HEADER_BODY_H = scale(78);
 const GOLD_ACCENT = '#D4A853';
 const FADE_MS = 360;
-
-const GridPosterCard = memo(function GridPosterCard({ item, colors, typography, radii, onPress }) {
-  return (
-    <TouchableOpacity
-      style={styles.gridCard}
-      onPress={onPress}
-      activeOpacity={0.85}
-      accessibilityRole="button"
-      accessibilityLabel={`Open details for ${item.title}`}
-    >
-      <View
-        style={[
-          styles.gridPosterWrap,
-          { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
-        ]}
-      >
-        <MediaArtwork
-          uri={item.posterUrl}
-          style={styles.gridPosterImg}
-          resizeMode="cover"
-          accessibilityLabel={`${item.title} poster`}
-          title={item.title}
-          instant
-        />
-        {item.ratingValue > 0 && (
-          <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
-            <Text style={styles.ratingBadgeText}>★ {item.ratingValue.toFixed(1)}</Text>
-          </View>
-        )}
-      </View>
-      <Text
-        style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
-        numberOfLines={2}
-      >
-        {item.title}
-      </Text>
-      <View style={styles.cardMeta}>
-        <Ionicons
-          name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
-          size={11}
-          color={colors.onSurfaceVariant}
-        />
-        <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>{item.year}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-});
 
 const SpotlightChip = memo(function SpotlightChip({
   item,
@@ -211,61 +160,7 @@ const FeaturedSpotlightCard = memo(function FeaturedSpotlightCard({
   );
 });
 
-export function ContentRail({
-  title,
-  icon = null,
-  data,
-  colors,
-  typography,
-  radii,
-  onSelectItem,
-  headerRight = null,
-}) {
-  if (!data?.length) return null;
-
-  const rows = [];
-  for (let i = 0; i < data.length; i += 2) {
-    rows.push(data.slice(i, i + 2));
-  }
-
-  return (
-    <View style={styles.railBlock}>
-      <View style={[styles.sectionDivider, { backgroundColor: colors.outlineVariant }]} />
-      <View style={styles.railHeaderRow}>
-        <View style={styles.railHeaderLeft}>
-          {icon ? (
-            <Ionicons name={icon} size={16} color={GOLD_ACCENT} style={styles.railIcon} />
-          ) : null}
-          <Text
-            style={[styles.railTitle, { color: colors.onSurface, ...typography.titleMd }]}
-            accessibilityRole="header"
-            numberOfLines={2}
-          >
-            {title}
-          </Text>
-        </View>
-        {headerRight}
-      </View>
-      <View style={styles.gridBody}>
-        {rows.map((pair, rowIndex) => (
-          <View key={`row-${rowIndex}`} style={styles.gridRow}>
-            {pair.map((item) => (
-              <GridPosterCard
-                key={`${item.mediaType || 'movie'}-${item.tmdbId}`}
-                item={item}
-                colors={colors}
-                typography={typography}
-                radii={radii}
-                onPress={() => onSelectItem(item)}
-              />
-            ))}
-            {pair.length === 1 ? <View style={styles.gridCardSpacer} /> : null}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
+export { ContentRail } from './ContentRail';
 
 export function HomeScreen({
   watchlist = [],
@@ -674,68 +569,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  railBlock: {
-    marginTop: scale(28),
-    paddingHorizontal: GRID_PAD,
-  },
-  sectionDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginBottom: scale(18),
-    opacity: 0.65,
-  },
-  railHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: scale(14),
-    gap: 8,
-  },
-  railHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 8,
-  },
-  railIcon: {
-    marginTop: 1,
-  },
-  railTitle: {
-    flex: 1,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    fontSize: scale(13),
-  },
-  gridBody: {
-    gap: GRID_GAP,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    gap: GRID_GAP,
-  },
-  gridCard: {
-    width: GRID_COL_W,
-  },
-  gridCardSpacer: {
-    width: GRID_COL_W,
-  },
-  gridPosterWrap: {
-    width: GRID_COL_W,
-    height: GRID_POSTER_H,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  gridPosterImg: { width: '100%', height: '100%' },
-  ratingBadge: {
-    position: 'absolute',
-    left: 8,
-    top: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    backgroundColor: 'rgba(0,0,0,0.72)',
-  },
-  ratingBadgeText: { color: '#FFD700', fontSize: 10, fontWeight: '800' },
-  cardTitle: { marginTop: 8, fontWeight: '700', minHeight: 34 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  cardYear: { fontSize: 11, fontWeight: '600' },
 });

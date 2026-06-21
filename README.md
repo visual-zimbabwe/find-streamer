@@ -64,7 +64,7 @@ find-streamer/
 │   ├── components/                # Modular React Native UI components
 │   │   ├── AppHeader.js           # Navigation bar with contextual back buttons
 │   │   ├── BottomNav.js           # Floating premium glassmorphic navigation bar capsule
-│   │   ├── CollectionContentRail.js # Horizontal rail of collection titles
+│   │   ├── ContentRail.js           # Horizontal poster rails (Home, Search, Collections)
 │   │   ├── CollectionFindSheet.js # Sheet to find/add titles to a collection
 │   │   ├── CollectionsScreen.js   # Collections browser (incl. IMDb Top 100)
 │   │   ├── DiscoverScreen.js      # Advanced discovery panel and search filters
