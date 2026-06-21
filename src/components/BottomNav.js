@@ -7,9 +7,7 @@ import { BlurView } from 'expo-blur';
 import { useTheme } from '../theme/ThemeProvider';
 import { useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
 import { scale } from '../utils/responsive';
-import { GOLD_ACCENT, FADE_MS } from '../theme/programme';
-
-const GOLD_RULE = 'rgba(212, 168, 83, 0.55)';
+import { GOLD_ACCENT, GOLD_RULE, FADE_MS } from '../theme/programme';
 const SCREEN_W = Dimensions.get('window').width;
 
 const TABS = [

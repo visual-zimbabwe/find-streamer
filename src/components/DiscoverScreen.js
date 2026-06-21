@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import {
   Animated,
-  Dimensions,
   Modal,
   PanResponder,
   ScrollView,
@@ -42,13 +41,10 @@ import {
   GRID_PAD,
   GRID_GAP,
   FADE_MS,
-  gridColWidth,
 } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
-
-const WINDOW_W = Dimensions.get('window').width;
-const GRID_COL_W = gridColWidth(WINDOW_W);
-const GRID_POSTER_H = GRID_COL_W * 1.5;
+import { ProgrammeHairline } from './ProgrammeHairline';
+import { GridPosterCard, PosterGrid, GRID_COL_W, GRID_POSTER_H } from './GridPosterCard';
 
 // ─── Sort Options (media-type-aware) ──────────────────────────────────────────
 const SORT_OPTIONS_MOVIE = [
@@ -78,7 +74,7 @@ function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {
 }
 
 function FilterDivider() {
-  return <View style={[styles.filterDivider, { backgroundColor: GOLD_DIM }]} />;
+  return <ProgrammeHairline style={styles.filterHairline} />;
 }
 
 function MediaTypeTabs({ mediaType, onChange, colors, typography }) {
@@ -1039,7 +1035,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.resultsRule, { backgroundColor: GOLD_DIM }]} />
+        <ProgrammeHairline style={styles.resultsHairline} />
 
         {/* ── Results Section ── */}
         <ResultsSection
@@ -2409,11 +2405,6 @@ function ResultsSection({
     );
   }
 
-  const gridRows = [];
-  for (let i = 0; i < results.length; i += 2) {
-    gridRows.push(results.slice(i, i + 2));
-  }
-
   return (
     <View style={styles.resultsSection}>
       <View style={styles.resultsHeader}>
@@ -2458,26 +2449,23 @@ function ResultsSection({
         </View>
       </View>
 
-      <View style={styles.gridBody}>
-        {gridRows.map((row, rowIndex) => (
-          <View key={`row-${rowIndex}`} style={styles.gridRow}>
-            {row.map((item) => (
-              <DiscoverCard
-                key={`${item.tmdbId}-${item.mediaType}`}
-                item={item}
-                colors={c}
-                typography={typography}
-                radii={radii}
-                onPress={() => onSelectItem(item)}
-                onQuickSave={() => onToggleWatchlist?.(item)}
-                isSaved={watchlistIds.includes(watchlistEntryKey(item))}
-                reduceMotion={reduceMotion}
-              />
-            ))}
-            {row.length === 1 && <View style={styles.gridCardSpacer} />}
-          </View>
-        ))}
-      </View>
+      <PosterGrid
+        bodyStyle={styles.resultsGrid}
+        items={results}
+        keyExtractor={(item) => `${item.tmdbId}-${item.mediaType}`}
+        renderItem={(item) => (
+          <DiscoverCard
+            item={item}
+            colors={c}
+            typography={typography}
+            radii={radii}
+            onPress={() => onSelectItem(item)}
+            onQuickSave={() => onToggleWatchlist?.(item)}
+            isSaved={watchlistIds.includes(watchlistEntryKey(item))}
+            reduceMotion={reduceMotion}
+          />
+        )}
+      />
 
       {loadingMore && <LoadMoreSkeleton />}
 
@@ -2634,72 +2622,22 @@ function DiscoverCard({
           accessibilityLabel={`Open details for ${item.title}`}
           {...panResponder.panHandlers}
         >
-          <View
-            style={[
-              styles.gridPosterWrap,
-              { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.xl },
-            ]}
-          >
-            <MediaArtwork
-              uri={item.posterUrl}
-              style={styles.gridPosterImg}
-              resizeMode="cover"
-              accessibilityLabel={`${item.title} poster`}
-              title={item.title}
-              instant
-            />
-            {item.ratingValue > 0 && (
-              <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
-                <Text style={styles.ratingBadgeText}>★ {item.ratingValue.toFixed(1)}</Text>
-              </View>
-            )}
-            {onQuickSave && (
-              <TouchableOpacity
-                style={[
-                  styles.gridBookmark,
-                  { borderColor: isSaved ? GOLD_ACCENT : 'rgba(255,255,255,0.2)' },
-                ]}
-                onPress={(event) => {
-                  event.stopPropagation?.();
-                  Haptics.selectionAsync();
-                  onQuickSave();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  isSaved ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`
-                }
-                accessibilityState={{ selected: isSaved }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons
-                  name={isSaved ? 'bookmark' : 'bookmark-outline'}
-                  size={18}
-                  color={isSaved ? GOLD_ACCENT : '#fff'}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-          <Text
-            style={[styles.cardTitle, { color: c.onSurface, ...typography.labelSm }]}
-            numberOfLines={2}
-          >
-            {item.title}
-          </Text>
-          <View style={styles.cardMeta}>
-            <Ionicons
-              name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
-              size={11}
-              color={c.onSurfaceVariant}
-            />
-            <Text style={[styles.cardYear, { color: c.onSurfaceVariant }]}>
-              {item.mediaType === 'tv' ? 'Series' : 'Movie'} · {item.year}
-            </Text>
-            {watchers > 0 && (
-              <Text style={[styles.watchersMeta, { color: GOLD_ACCENT }]}>
-                · {watchers >= 1000 ? `${(watchers / 1000).toFixed(1)}k` : watchers} watching
-              </Text>
-            )}
-          </View>
+          <GridPosterCard
+            item={item}
+            colors={c}
+            typography={typography}
+            radii={radii}
+            pressable={false}
+            saved={isSaved}
+            onToggleWatchlist={onQuickSave ? () => onQuickSave() : undefined}
+            metaExtra={
+              watchers > 0 ? (
+                <Text style={[styles.watchersMeta, { color: GOLD_ACCENT }]}>
+                  · {watchers >= 1000 ? `${(watchers / 1000).toFixed(1)}k` : watchers} watching
+                </Text>
+              ) : null
+            }
+          />
           {hasOmdbMetadata && (
             <Text
               style={[styles.omdbMetaLine, { color: c.onSurfaceVariant, ...typography.labelSm }]}
@@ -2887,15 +2825,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     minHeight: 48,
   },
-  filterDivider: {
-    height: StyleSheet.hairlineWidth,
-    opacity: 0.65,
+  filterHairline: {
+    marginBottom: 0,
   },
-  resultsRule: {
-    height: StyleSheet.hairlineWidth,
-    marginTop: scale(8),
+  resultsHairline: {
     marginBottom: scale(24),
-    opacity: 0.65,
+    marginTop: scale(8),
   },
 
   sectionRow: {
@@ -3036,29 +2971,7 @@ const styles = StyleSheet.create({
     width: 14,
   },
 
-  gridBody: { gap: GRID_GAP },
-  gridRow: { flexDirection: 'row', gap: GRID_GAP },
   gridCard: { width: GRID_COL_W, position: 'relative' },
-  gridCardSpacer: { width: GRID_COL_W },
-  gridPosterWrap: {
-    width: GRID_COL_W,
-    height: GRID_POSTER_H,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  gridPosterImg: { width: '100%', height: '100%' },
-  gridBookmark: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    backgroundColor: 'rgba(0,0,0,0.42)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   swipeHint: {
     position: 'absolute',
     top: 0,
@@ -3069,18 +2982,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 0,
   },
-  ratingBadge: {
-    position: 'absolute',
-    left: 8,
-    top: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+  resultsGrid: {
+    paddingHorizontal: 0,
   },
-  ratingBadgeText: { color: '#FFD700', fontSize: 10, fontWeight: '800' },
-  cardTitle: { marginTop: 8, fontWeight: '700', minHeight: 34 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, flexWrap: 'wrap' },
-  cardYear: { fontSize: 11, fontWeight: '600' },
   watchersMeta: { fontSize: 10, fontWeight: '700' },
   omdbMetaLine: { marginTop: 4, fontWeight: '600', letterSpacing: 0.2 },
 

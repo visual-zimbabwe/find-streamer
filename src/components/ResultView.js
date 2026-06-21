@@ -45,6 +45,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SkeletonBlock, DetailSkeleton } from './SkeletonLoaders';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { GOLD_ACCENT, GOLD_DIM, FADE_MS, SCROLL_BOTTOM_PAD } from '../theme/programme';
+import { ProgrammeEyebrowLabel } from './ProgrammeSectionHeader';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
@@ -75,17 +76,6 @@ function formatRuntime(minutes, mediaType) {
 }
 
 const HERO_HEIGHT = verticalScale(480);
-
-function ProgrammeSectionLabel({ eyebrow, colors, typography }) {
-  return (
-    <View style={styles.programmeSectionLabel}>
-      <Text style={[styles.programmeEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-        {eyebrow}
-      </Text>
-      <View style={[styles.programmeHairline, { backgroundColor: GOLD_DIM }]} />
-    </View>
-  );
-}
 
 function AwardLogoImage({ uri, label, style, fallbackStyle, iconColor }) {
   const [failed, setFailed] = React.useState(false);
@@ -1424,7 +1414,7 @@ export function ResultView({
           </View>
 
           <View style={styles.section}>
-            <ProgrammeSectionLabel eyebrow="Synopsis" colors={colors} typography={typography} />
+            <ProgrammeEyebrowLabel eyebrow="Synopsis" />
             <TouchableOpacity
               onPress={() => {
                 Haptics.selectionAsync();
@@ -1443,7 +1433,7 @@ export function ResultView({
           {/* Based On Section */}
           {wikiLoading ? (
             <View style={styles.section}>
-              <ProgrammeSectionLabel eyebrow="Based On" colors={colors} typography={typography} />
+              <ProgrammeEyebrowLabel eyebrow="Based On" />
               <View style={styles.basedOnContainer}>
                 <View
                   style={[
@@ -1460,7 +1450,7 @@ export function ResultView({
             </View>
           ) : wikiError ? (
             <View style={styles.section}>
-              <ProgrammeSectionLabel eyebrow="Based On" colors={colors} typography={typography} />
+              <ProgrammeEyebrowLabel eyebrow="Based On" />
               <TouchableOpacity
                 onPress={handleWikiRetry}
                 style={[styles.basedOnRetry, { borderColor: colors.outlineVariant }]}
@@ -1482,7 +1472,7 @@ export function ResultView({
             wikiData.basedOn &&
             wikiData.basedOn.length > 0 && (
               <View style={styles.section}>
-                <ProgrammeSectionLabel eyebrow="Based On" colors={colors} typography={typography} />
+                <ProgrammeEyebrowLabel eyebrow="Based On" />
                 <View style={styles.basedOnContainer}>
                   {wikiData.basedOn.map((work, idx) => {
                     const authorText =
@@ -1719,7 +1709,7 @@ export function ResultView({
           {hasPeople && (
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
-                <ProgrammeSectionLabel eyebrow="Cast & Crew" colors={colors} typography={typography} />
+                <ProgrammeEyebrowLabel eyebrow="Cast & Crew" />
                 {remainingCastCount > 0 && (
                   <TouchableOpacity
                     onPress={() => setShowAllCast(true)}
@@ -1869,11 +1859,7 @@ export function ResultView({
           {/* ─── Awards ──────────────────────────────────────────────────── */}
           {(wikiLoading || displayAwards.length > 0) && (
             <View style={styles.section}>
-              <ProgrammeSectionLabel
-                eyebrow="Awards & Recognition"
-                colors={colors}
-                typography={typography}
-              />
+              <ProgrammeEyebrowLabel eyebrow="Awards & Recognition" />
 
               {wikiLoading && displayAwards.length === 0 ? (
                 <ScrollView
@@ -1956,11 +1942,7 @@ export function ResultView({
 
           {result.productionCompanies && result.productionCompanies.length > 0 && (
             <View style={styles.section}>
-              <ProgrammeSectionLabel
-                eyebrow="Production Companies"
-                colors={colors}
-                typography={typography}
-              />
+              <ProgrammeEyebrowLabel eyebrow="Production Companies" />
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -2020,11 +2002,7 @@ export function ResultView({
           {/* Detailed Country View */}
           {hasAvailabilityData && (
             <View style={styles.section}>
-              <ProgrammeSectionLabel
-                eyebrow="Where To Watch"
-                colors={colors}
-                typography={typography}
-              />
+              <ProgrammeEyebrowLabel eyebrow="Where To Watch" />
 
               {hasAvailabilityRows ? (
                 <View style={styles.table}>
@@ -2092,11 +2070,7 @@ export function ResultView({
           {/* More From This Cast & Crew */}
           {result.moreFromCastAndCrew && result.moreFromCastAndCrew.length > 0 && (
             <View style={styles.section}>
-              <ProgrammeSectionLabel
-                eyebrow="More From Cast & Crew"
-                colors={colors}
-                typography={typography}
-              />
+              <ProgrammeEyebrowLabel eyebrow="More From Cast & Crew" />
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -2144,7 +2118,7 @@ export function ResultView({
           {/* More Like This */}
           {result.similar && result.similar.length > 0 && (
             <View style={styles.section}>
-              <ProgrammeSectionLabel eyebrow="More Like This" colors={colors} typography={typography} />
+              <ProgrammeEyebrowLabel eyebrow="More Like This" />
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -2485,19 +2459,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.5,
     marginBottom: 16,
-  },
-  programmeSectionLabel: {
-    marginBottom: 16,
-  },
-  programmeEyebrow: {
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    marginBottom: 10,
-    textTransform: 'uppercase',
-  },
-  programmeHairline: {
-    height: StyleSheet.hairlineWidth,
-    opacity: 0.65,
   },
   synopsis: {
     fontWeight: '300',

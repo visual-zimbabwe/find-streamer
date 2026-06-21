@@ -31,7 +31,7 @@ import { watchlistEntryKey } from '../lib/watchlistModel';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { scale, verticalScale } from '../utils/responsive';
-import { GOLD_ACCENT, SCROLL_BOTTOM_PAD } from '../theme/programme';
+import { GOLD_ACCENT, GOLD_DIM, SCROLL_BOTTOM_PAD } from '../theme/programme';
 
 const Stack = createNativeStackNavigator();
 
@@ -157,7 +157,7 @@ function SearchMainScreen() {
         <TouchableOpacity
           style={[
             searchStyles.surpriseButton,
-            { backgroundColor: surpriseSurface, borderColor: 'rgba(212, 168, 83, 0.48)' },
+            { backgroundColor: surpriseSurface, borderColor: GOLD_DIM },
           ]}
           onPress={() => setSurprisePickerVisible(true)}
           disabled={surpriseLoading}
