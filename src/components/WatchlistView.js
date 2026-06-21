@@ -28,6 +28,7 @@ import * as Haptics from 'expo-haptics';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, gridColWidth } from '../theme/programme';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { WatchlistSkeleton } from './SkeletonLoaders';
@@ -99,12 +100,25 @@ const NowPlayingGridCard = memo(function NowPlayingGridCard({
   );
 });
 
-function WatchlistGridCard({ item, colors, typography, radii, onSelect, onRemove, onMarkWatched }) {
+function WatchlistGridCard({
+  item,
+  colors,
+  typography,
+  radii,
+  onSelect,
+  onRemove,
+  onMarkWatched,
+  reduceMotion = false,
+}) {
   const translateX = useRef(new Animated.Value(0)).current;
   const SWIPE_THRESHOLD = 72;
   const ratingValue = parseRatingValue(item.rating);
 
   const resetPosition = () => {
+    if (reduceMotion) {
+      translateX.setValue(0);
+      return;
+    }
     Animated.timing(translateX, {
       toValue: 0,
       duration: 220,
@@ -114,18 +128,23 @@ function WatchlistGridCard({ item, colors, typography, radii, onSelect, onRemove
 
   const completeSwipe = (direction) => {
     Haptics.selectionAsync();
-    Animated.timing(translateX, {
-      toValue: direction === 'left' ? -GRID_COL_W : GRID_COL_W,
-      duration: 180,
-      useNativeDriver: true,
-    }).start(() => {
+    const finish = () => {
       translateX.setValue(0);
       if (direction === 'left') {
         onMarkWatched(item);
       } else {
         onRemove(item);
       }
-    });
+    };
+    if (reduceMotion) {
+      finish();
+      return;
+    }
+    Animated.timing(translateX, {
+      toValue: direction === 'left' ? -GRID_COL_W : GRID_COL_W,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(finish);
   };
 
   const panResponder = useRef(
@@ -289,6 +308,7 @@ export function WatchlistView({
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
   const bottomNavScroll = useBottomNavScroll();
+  const reduceMotion = useReduceMotion();
 
   const [randomPick, setRandomPick] = useState(null);
   const pickOpacity = useRef(new Animated.Value(0)).current;
@@ -321,8 +341,9 @@ export function WatchlistView({
     if (!source?.length) return;
     const nextPick = source[Math.floor(Math.random() * source.length)];
     setRandomPick(nextPick);
-    pickOpacity.setValue(0);
+    pickOpacity.setValue(reduceMotion ? 1 : 0);
     Haptics.selectionAsync();
+    if (reduceMotion) return;
     Animated.timing(pickOpacity, {
       toValue: 1,
       duration: 320,
@@ -774,6 +795,7 @@ export function WatchlistView({
                                       onSelect={onSelect}
                                       onRemove={onRemove}
                                       onMarkWatched={onMarkWatched}
+                                      reduceMotion={reduceMotion}
                                     />
                                   )}
                                 />
