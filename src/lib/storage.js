@@ -20,7 +20,19 @@ const KEYS = {
   watchlistCollections: 'find-streamer/watchlist/collections',
   defaultWatchlistSeeded: 'find-streamer/default-watchlist-seeded',
   watchlistImdbMigrated: 'find-streamer/watchlist-imdb-migrated',
+  homeSpotlightCache: 'find-streamer/home-spotlight-cache',
 };
+
+const EMPTY_HOME_SPOTLIGHT_CACHE = { all: [], movie: [], tv: [] };
+
+function normalizeHomeSpotlightCache(raw) {
+  if (!raw || typeof raw !== 'object') return { ...EMPTY_HOME_SPOTLIGHT_CACHE };
+  return {
+    all: Array.isArray(raw.all) ? raw.all : [],
+    movie: Array.isArray(raw.movie) ? raw.movie : [],
+    tv: Array.isArray(raw.tv) ? raw.tv : [],
+  };
+}
 
 const WATCHLIST_CHUNK_SIZE = 25;
 const WATCHLIST_SYNOPSIS_STORAGE_MAX = 480;
@@ -285,4 +297,18 @@ export async function saveWatchlist(items, storage = AsyncStorage) {
   const task = watchlistSaveChain.then(() => writeWatchlistToStorage(items, storage));
   watchlistSaveChain = task.catch(() => {});
   return task;
+}
+
+export async function loadHomeSpotlightCache(storage = AsyncStorage) {
+  try {
+    const raw = await storage.getItem(KEYS.homeSpotlightCache);
+    if (!raw) return { ...EMPTY_HOME_SPOTLIGHT_CACHE };
+    return normalizeHomeSpotlightCache(JSON.parse(raw));
+  } catch {
+    return { ...EMPTY_HOME_SPOTLIGHT_CACHE };
+  }
+}
+
+export async function saveHomeSpotlightCache(cache, storage = AsyncStorage) {
+  await storage.setItem(KEYS.homeSpotlightCache, JSON.stringify(normalizeHomeSpotlightCache(cache)));
 }
