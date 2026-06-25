@@ -15,6 +15,12 @@ import {
   normalizeAppliedRating,
   validateRatingRange,
 } from './discoverRating';
+import {
+  AIR_DATE_SORT,
+  effectiveDiscoverSortBy,
+  filterDiscoverResultsByAiring,
+  sortByAirDateAsc,
+} from './tvAiringFilter';
 
 const DEFAULT_FILTERS = {
   mediaType: 'movie',
@@ -46,6 +52,8 @@ const DEFAULT_FILTERS = {
   // Stores the active continent id ('africa', 'asia', 'europe', …).
   // Filters the country picker to only show countries in that continent.
   activeCountryPreset: null,
+  // TV only: keep only shows whose next episode airs today through Sunday.
+  airingThisWeek: false,
 };
 
 export function useDiscoverViewModel() {
@@ -395,7 +403,34 @@ export function useDiscoverViewModel() {
       minRating: appliedRating(f.minRating),
       maxRating: appliedRating(f.maxRating),
       originCountries: effectiveOriginCountries(f),
+      sortBy: effectiveDiscoverSortBy(f.sortBy),
     };
+  }
+
+  async function applyAiringFilter(items, f) {
+    if (!f.airingThisWeek || f.mediaType !== 'tv') return items;
+
+    let filtered = await filterDiscoverResultsByAiring(items);
+    if (f.sortBy === AIR_DATE_SORT) {
+      filtered = sortByAirDateAsc(filtered);
+    }
+    return filtered;
+  }
+
+  function mergeAiringResults(previous, incoming, f) {
+    const seen = new Set(previous.map((item) => resultKey(item)));
+    const dedupedIncoming = incoming.filter((item) => {
+      const key = resultKey(item);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    let merged = [...previous, ...dedupedIncoming];
+    if (f.airingThisWeek && f.mediaType === 'tv' && f.sortBy === AIR_DATE_SORT) {
+      merged = sortByAirDateAsc(merged);
+    }
+    return merged;
   }
 
   const enrichVisibleResults = useCallback((items, token) => {
@@ -439,11 +474,17 @@ export function useDiscoverViewModel() {
     try {
       const data = await discoverTitles({ ...buildDiscoverApiFilters(filters), page: 1 });
       if (token !== searchTokenRef.current) return; // stale
-      setResults(data.results);
-      setTotalResults(data.totalResults);
+      const filteredResults = await applyAiringFilter(data.results, filters);
+      if (token !== searchTokenRef.current) return;
+      setResults(filteredResults);
+      setTotalResults(
+        filters.airingThisWeek && filters.mediaType === 'tv'
+          ? filteredResults.length
+          : data.totalResults,
+      );
       setTotalPages(data.totalPages);
       setCurrentPage(1);
-      enrichVisibleResults(data.results, token);
+      enrichVisibleResults(filteredResults, token);
     } catch (e) {
       if (token !== searchTokenRef.current) return;
       const classified = classifyAppError(e);
@@ -456,23 +497,35 @@ export function useDiscoverViewModel() {
 
   // ── Load More (Pagination) ─────────────────────────────────────────────────
 
+  const loadMoreInFlightRef = useRef(false);
+
   const loadMore = useCallback(async () => {
-    if (loadingMore || currentPage >= totalPages) return;
+    if (loadingMore || loadMoreInFlightRef.current || currentPage >= totalPages) return;
 
     const nextPage = currentPage + 1;
+    loadMoreInFlightRef.current = true;
     setLoadingMore(true);
     setLoadMoreError(null);
     try {
       const data = await discoverTitles({ ...buildDiscoverApiFilters(filters), page: nextPage });
-      setResults((prev) => [...prev, ...data.results]);
+      const filteredPage = await applyAiringFilter(data.results, filters);
+      let mergedResults = [];
+      setResults((prev) => {
+        mergedResults = mergeAiringResults(prev, filteredPage, filters);
+        return mergedResults;
+      });
+      if (filters.airingThisWeek && filters.mediaType === 'tv') {
+        setTotalResults(mergedResults.length);
+      }
       setCurrentPage(nextPage);
-      enrichVisibleResults(data.results, searchTokenRef.current);
+      enrichVisibleResults(filteredPage, searchTokenRef.current);
     } catch (e) {
       setLoadMoreError(classifyAppError(e).message || "Couldn't load more. Tap to retry.");
     } finally {
+      loadMoreInFlightRef.current = false;
       setLoadingMore(false);
     }
-  }, [filters, currentPage, totalPages, loadingMore]);
+  }, [filters, currentPage, totalPages, loadingMore, enrichVisibleResults]);
 
   const hasMore = currentPage > 0 && currentPage < totalPages;
   const hasSearched = currentPage > 0;

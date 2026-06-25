@@ -1138,6 +1138,18 @@ export async function discoverTitles(filters = {}) {
   };
 }
 
+/** Next scheduled episode for a TV series (`next_episode_to_air`), if present. */
+export async function getTvShowNextEpisode(tmdbId) {
+  const data = await tmdbGet(`/tv/${tmdbId}`, { language: 'en-US' });
+  const airDate = data.next_episode_to_air?.air_date;
+  if (!airDate) return null;
+  return {
+    airDate: airDate.slice(0, 10),
+    seasonNumber: data.next_episode_to_air.season_number,
+    episodeNumber: data.next_episode_to_air.episode_number,
+  };
+}
+
 // ─── Now Playing ─────────────────────────────────────────────────────────────
 
 /**
