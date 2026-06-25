@@ -7,6 +7,7 @@ export const SERVICE_LABELS = {
   netflix: 'Netflix',
   amazon_prime_video: 'Prime Video',
   max: 'Max',
+  paramount_plus: 'Paramount+',
   cbc_gem: 'CBC Gem',
   bbc_iplayer: 'BBC iPlayer',
   channel_4: 'Channel 4',
@@ -19,6 +20,7 @@ const DIRECT_SERVICE_NAMES = {
   netflix: new Set(['netflix', 'netflix standard with ads', 'netflix basic with ads']),
   amazon_prime_video: new Set(['amazon prime video']),
   max: new Set(['max', 'hbo max']),
+  paramount_plus: new Set(['paramount plus essential']),
   cbc_gem: new Set(['cbc gem']),
   bbc_iplayer: new Set(['bbc iplayer']),
   channel_4: new Set(['channel 4']),
@@ -30,6 +32,7 @@ const DIRECT_SERVICE_NAMES = {
 // Services that only legitimately exist in a single market. TMDB occasionally
 // reports them in other regions; we hard-gate those to avoid misleading the user.
 const REGION_LOCKED_SERVICES = {
+  paramount_plus: new Set(['US']),
   cbc_gem: new Set(['CA']),
   bbc_iplayer: new Set(['GB']),
   channel_4: new Set(['GB']),

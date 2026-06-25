@@ -2059,8 +2059,9 @@ export function ResultView({
                       { color: colors.onSurfaceVariant, ...typography.bodyMd },
                     ]}
                   >
-                    Not listed on Netflix, Prime Video, Max, CBC Gem, BBC iPlayer, Channel 4, ITVX,
-                    SBS On Demand, or ABC iview in any supported country right now.
+                    Not listed on Netflix, Prime Video, Max, Paramount+, CBC Gem, BBC iPlayer,
+                    Channel 4, ITVX, SBS On Demand, or ABC iview in any supported country right
+                    now.
                   </Text>
                 </View>
               )}

@@ -878,6 +878,7 @@ const SERVICE_FALLBACK_COLORS = {
   netflix: '#E50914',
   amazon_prime_video: '#00A8E1',
   max: '#002BE7',
+  paramount_plus: '#0064FF',
   cbc_gem: '#E31B23',
   bbc_iplayer: '#FF4C98',
   channel_4: '#00AEEF',
