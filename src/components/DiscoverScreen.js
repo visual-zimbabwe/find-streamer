@@ -64,6 +64,8 @@ const SORT_OPTIONS_TV = [
   { value: 'first_air_date.asc', label: 'Oldest First' },
 ];
 
+const AIR_DATE_SORT_OPTION = { value: 'air_date.asc', label: 'Air Date' };
+
 function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {
   if (!selectedCodes.length) return emptyLabel;
 
@@ -77,6 +79,48 @@ function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {
 
 function FilterDivider() {
   return <ProgrammeHairline style={styles.filterHairline} />;
+}
+
+function AiringThisWeekChip({ active, onToggle, colors, typography, radii }) {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.chip,
+        { borderRadius: radii.md },
+        active
+          ? { backgroundColor: GOLD_ACCENT }
+          : {
+              backgroundColor: colors.glass,
+              borderWidth: 1,
+              borderColor: GOLD_DIM,
+            },
+      ]}
+      onPress={() => {
+        Haptics.selectionAsync();
+        onToggle();
+      }}
+      activeOpacity={0.8}
+      accessibilityRole="switch"
+      accessibilityLabel="Airing this week"
+      accessibilityHint="Shows only TV titles with an episode airing between today and Sunday"
+      accessibilityState={{ selected: active }}
+    >
+      <Ionicons
+        name="calendar-outline"
+        size={14}
+        color={active ? '#141414' : colors.onSurfaceVariant}
+        style={{ marginRight: 6 }}
+      />
+      <Text
+        style={[
+          styles.chipTextUpper,
+          { color: active ? '#141414' : colors.onSurfaceVariant, ...typography.labelSm },
+        ]}
+      >
+        Airing this week
+      </Text>
+    </TouchableOpacity>
+  );
 }
 
 function MediaTypeTabs({ mediaType, onChange, colors, typography }) {
@@ -349,8 +393,14 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
   const previousMediaTypeRef = useRef(vm.filters.mediaType);
 
-  // Sort options depend on mediaType
-  const sortOptions = vm.filters.mediaType === 'movie' ? SORT_OPTIONS_MOVIE : SORT_OPTIONS_TV;
+  // Sort options depend on mediaType and airing filter
+  const sortOptions = useMemo(() => {
+    const base = vm.filters.mediaType === 'movie' ? SORT_OPTIONS_MOVIE : SORT_OPTIONS_TV;
+    if (vm.filters.mediaType === 'tv' && vm.filters.airingThisWeek) {
+      return [...base, AIR_DATE_SORT_OPTION];
+    }
+    return base;
+  }, [vm.filters.mediaType, vm.filters.airingThisWeek]);
 
   // Ensure current sortBy is valid for the current media type
   const validSortValues = sortOptions.map((o) => o.value);
@@ -577,6 +627,24 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         />
 
         <FilterDivider />
+
+        {vm.filters.mediaType === 'tv' && (
+          <>
+            <View style={styles.filterBand}>
+              <SectionLabel label="Schedule" colors={c} typography={typography} />
+              <View style={styles.hChipRow}>
+                <AiringThisWeekChip
+                  active={vm.filters.airingThisWeek}
+                  onToggle={() => vm.updateFilter('airingThisWeek', !vm.filters.airingThisWeek)}
+                  colors={c}
+                  typography={typography}
+                  radii={radii}
+                />
+              </View>
+            </View>
+            <FilterDivider />
+          </>
+        )}
 
         <View style={styles.filterBand}>
           <View style={styles.sectionRow}>
@@ -2384,12 +2452,19 @@ function ResultsSection({
   }
 
   if (results.length === 0) {
+    const airingFilterActive =
+      vm.filters.airingThisWeek && vm.filters.mediaType === 'tv';
+
     return (
       <View style={styles.stateBox}>
         <EmptyState
           variant="empty"
-          title="No matches found"
-          description="We couldn't find anything with those filters. Clear a few choices and search again."
+          title={airingFilterActive ? 'Nothing airing today–Sunday with these filters' : 'No matches found'}
+          description={
+            airingFilterActive
+              ? 'Try clearing a few filters or load more results to scan additional pages.'
+              : "We couldn't find anything with those filters. Clear a few choices and search again."
+          }
           primaryAction={{
             label: 'Clear Filters',
             icon: 'close-circle-outline',
@@ -2406,6 +2481,9 @@ function ResultsSection({
       </View>
     );
   }
+
+  const airingFilterActive = vm.filters.airingThisWeek && vm.filters.mediaType === 'tv';
+  const resultCount = airingFilterActive ? results.length : totalResults;
 
   return (
     <View style={styles.resultsSection}>
@@ -2445,7 +2523,7 @@ function ResultsSection({
             ]}
           >
             <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '700' }]}>
-              {totalResults.toLocaleString()} found
+              {resultCount.toLocaleString()} found
             </Text>
           </View>
         </View>
@@ -2465,6 +2543,7 @@ function ResultsSection({
             onQuickSave={() => onToggleWatchlist?.(item)}
             isSaved={watchlistIds.includes(watchlistEntryKey(item))}
             reduceMotion={reduceMotion}
+            showAirDay={airingFilterActive}
           />
         )}
       />
@@ -2549,6 +2628,7 @@ function DiscoverCard({
   isSaved,
   watchers,
   reduceMotion = false,
+  showAirDay = false,
 }) {
   const omdb = item.omdbRatings || {};
   const imdbRating = omdb.imdbRating ? omdb.imdbRating.replace('/10', '') : null;
@@ -2632,6 +2712,7 @@ function DiscoverCard({
             pressable={false}
             saved={isSaved}
             onToggleWatchlist={onQuickSave ? () => onQuickSave() : undefined}
+            metaText={showAirDay && item.airDay ? item.airDay : undefined}
             metaExtra={
               watchers > 0 ? (
                 <Text style={[styles.watchersMeta, { color: GOLD_ACCENT }]}>
