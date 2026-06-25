@@ -53,6 +53,24 @@ test('BBC iPlayer, Channel 4, and ITVX are surfaced only for the UK', () => {
   assert.deepEqual(availability.itvx, ['GB']);
 });
 
+test('Paramount Plus Essential is surfaced only for the US', () => {
+  const results = providersByCountry({
+    US: { flatrate: ['Paramount Plus Essential'] },
+    CA: { flatrate: ['Paramount Plus Essential'] },
+    GB: { flatrate: ['Paramount Plus Essential'] },
+  });
+
+  const availability = availabilityFromResults(results);
+  assert.deepEqual(availability.paramount_plus, ['US']);
+});
+
+test('Paramount Plus Premium and channel bundles are not mapped to paramount_plus', () => {
+  assert.equal(serviceKey('Paramount Plus Essential'), 'paramount_plus');
+  assert.equal(serviceKey('Paramount Plus Premium'), null);
+  assert.equal(serviceKey('Paramount+ Amazon Channel'), null);
+  assert.equal(serviceKey('Paramount+ Roku Premium Channel'), null);
+});
+
 test('SBS On Demand and ABC iview are surfaced only for Australia', () => {
   const results = providersByCountry({
     AU: { free: ['SBS On Demand', 'ABC iview'] },
