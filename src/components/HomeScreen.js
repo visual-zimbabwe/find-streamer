@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ProgressiveBlur } from './ProgressiveBlur';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
@@ -137,20 +136,10 @@ const FeaturedSpotlightCard = memo(function FeaturedSpotlightCard({
               {item.ratingValue > 0 && (
                 <View style={styles.heroRatingPill}>
                   <Text style={[styles.heroRatingText, typography.labelSm]}>
-                    TMDB {item.ratingValue.toFixed(1)}
+                    {item.ratingValue.toFixed(1)}
                   </Text>
                 </View>
               )}
-              <View style={styles.heroTypePill}>
-                <Ionicons
-                  name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
-                  size={14}
-                  color="#fff"
-                />
-                <Text style={[styles.heroTypeText, typography.labelSm]}>
-                  {item.mediaType === 'tv' ? 'Series' : 'Movie'}
-                </Text>
-              </View>
             </View>
           </View>
         </View>
@@ -411,6 +400,7 @@ export function HomeScreen({
             colors={colors}
             typography={typography}
             radii={radii}
+            showMediaType={false}
             onSelectItem={onSelectItem}
           />
         ))}
@@ -492,16 +482,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   heroRatingText: { color: '#FFD580', fontWeight: '800' },
-  heroTypePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  heroTypeText: { color: '#fff', fontWeight: '700' },
 
   secondarySpotlightBlock: {
     marginTop: scale(22),

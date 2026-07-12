@@ -42,6 +42,7 @@ export const GridPosterCard = memo(function GridPosterCard({
   metaExtra = null,
   mediaLabel,
   showMediaIcon = true,
+  showMediaType = true,
   pressable = true,
   touchableProps = {},
   activeOpacity = 0.85,
@@ -113,7 +114,7 @@ export const GridPosterCard = memo(function GridPosterCard({
         </Text>
       ) : (
         <View style={styles.cardMeta}>
-          {showMediaIcon ? (
+          {showMediaType && showMediaIcon ? (
             <Ionicons
               name={mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
               size={11}
@@ -121,8 +122,7 @@ export const GridPosterCard = memo(function GridPosterCard({
             />
           ) : null}
           <Text style={[styles.cardYear, { color: colors.onSurfaceVariant }]}>
-            {label}
-            {item.year ? ` · ${item.year}` : ''}
+            {showMediaType ? `${label}${item.year ? ` · ${item.year}` : ''}` : (item.year ? `${item.year}` : '')}
           </Text>
           {metaExtra}
         </View>

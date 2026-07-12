@@ -25,6 +25,7 @@ export function ContentRail({
   onSelectItem,
   headerRight = null,
   variant = 'section',
+  showMediaType = true,
 }) {
   if (!data?.length) return null;
 
@@ -65,6 +66,7 @@ export function ContentRail({
               colors={colors}
               typography={typography}
               radii={radii}
+              showMediaType={showMediaType}
               onPress={() => onSelectItem(item)}
             />
           </View>
