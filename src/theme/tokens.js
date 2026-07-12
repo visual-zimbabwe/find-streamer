@@ -1,4 +1,5 @@
 import { scale, scaleFont } from '../utils/responsive';
+import { GOLD_ACCENT } from './programme';
 
 /**
  * Font family names as registered by expo-font (see `FONT_MAP` in App.js).
@@ -88,6 +89,25 @@ export const typography = {
   },
 };
 
+/**
+ * Accent identity — one gold system.
+ *
+ * Trova's single accent is the gold defined in theme/programme.js
+ * (GOLD_ACCENT), used by all marquee chrome (BottomNav, rails, eyebrows). The
+ * `primary*` slots below are repointed to that same gold so no purple/blue
+ * leaks into user-facing surfaces — buttons, active/selected states, the
+ * empty-poster fallback, and React Navigation's link/notification color, which
+ * derives from `primary` in navigationTheme.js.
+ *
+ * The `primary` slot is kept in the theme shape (not removed) because
+ * usePosterTheme.js overrides it per-poster with a dynamic accent extracted
+ * from the artwork; the values here are only the fallback when no poster
+ * palette is active. `onPrimary` is a dark warm ink so text/icons stay legible
+ * on gold in both modes (light mode previously used white — poor contrast).
+ */
+const GOLD_DIM_SOLID = '#b58e46'; // darker gold for dim/pressed accent states
+const GOLD_ON = '#1a1204'; // near-black warm ink for content sitting on gold
+
 const trovaDark = {
   background: '#000000',
   surface: '#0B0B0B',
@@ -95,10 +115,10 @@ const trovaDark = {
   surfaceContainer: '#121212',
   surfaceContainerHigh: '#1A1A1A',
   surfaceContainerHighest: '#222222',
-  primary: '#a78bfa',
-  primaryDim: '#8b6ff0',
-  primaryContainer: '#1a1330',
-  onPrimary: '#0d0820',
+  primary: GOLD_ACCENT,
+  primaryDim: GOLD_DIM_SOLID,
+  primaryContainer: '#231b0e',
+  onPrimary: GOLD_ON,
   onSurface: '#f5f5f7',
   onSurfaceVariant: '#8E8E93',
   outlineVariant: '#3a3a3c',
@@ -115,10 +135,10 @@ const trovaLight = {
   surfaceContainer: '#ecece4',
   surfaceContainerHigh: '#e1e2d8',
   surfaceContainerHighest: '#d6d8cb',
-  primary: '#4457d3',
-  primaryDim: '#3346bc',
-  primaryContainer: '#dfe3ff',
-  onPrimary: '#ffffff',
+  primary: GOLD_ACCENT,
+  primaryDim: GOLD_DIM_SOLID,
+  primaryContainer: '#f3e7cc',
+  onPrimary: GOLD_ON,
   onSurface: '#181b21',
   onSurfaceVariant: '#61646d',
   outlineVariant: '#b7baaa',
