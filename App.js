@@ -17,6 +17,9 @@ import {
   StatusProvider,
 } from './src/context/domainContexts';
 import { AppNavigationRoot } from './src/navigation/AppShell';
+import { useFonts } from 'expo-font';
+import { Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
+import { Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
 import { useVoiceSearch } from './src/lib/useVoiceSearch';
 import { ToastivaProvider } from 'toastiva';
@@ -70,8 +73,21 @@ const QUICK_SURPRISE_GENRES = [
   { id: 9648, mediaType: 'tv', label: '🔍 Mystery (TV)' },
 ];
 
+// The keys here become the registered font-family names and MUST match the
+// `fonts` map in src/theme/tokens.js. Only the weights imported above are
+// bundled by Metro, keeping the asset footprint minimal.
+const FONT_MAP = {
+  Manrope_700Bold,
+  Manrope_800ExtraBold,
+  Inter_400Regular,
+  Inter_600SemiBold,
+};
+
 function MobileApp() {
   const { resolvedMode, ready: themeReady } = useTheme();
+  const [fontsLoaded, fontError] = useFonts(FONT_MAP);
+  // Don't wedge first paint if a face fails to load — fall back to System.
+  const fontsReady = fontsLoaded || Boolean(fontError);
 
   const { showToast } = useToast();
   const requestError = useRequestError({ showToast });
@@ -307,7 +323,7 @@ function MobileApp() {
     [error, errorInfo, offlineBanner, setOfflineBanner],
   );
 
-  const shellReady = themeReady && nav.navigationReady;
+  const shellReady = themeReady && nav.navigationReady && fontsReady;
 
   return (
     <LaunchGate shellReady={shellReady} themeReady={themeReady}>
