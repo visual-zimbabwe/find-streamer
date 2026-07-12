@@ -1,5 +1,18 @@
 import { scale, scaleFont } from '../utils/responsive';
 
+/**
+ * Font family names as registered by expo-font (see `FONT_MAP` in App.js).
+ * Each name maps to a single weighted font file — on Android the `fontWeight`
+ * style is ignored once a weighted family is set, so it is kept alongside only
+ * as a graceful fallback if a face ever fails to load.
+ */
+export const fonts = {
+  display: 'Manrope_800ExtraBold', // Editorial display / hero
+  heading: 'Manrope_700Bold', // Headlines, titles, section headers
+  body: 'Inter_400Regular', // Body copy, metadata
+  label: 'Inter_600SemiBold', // Eyebrows, labels, chips
+};
+
 export const spacing = {
   1: scale(4),
   2: scale(8),
@@ -28,44 +41,50 @@ export const typography = {
     lineHeight: scaleFont(64),
     fontWeight: '800',
     letterSpacing: -1.12,
-    fontFamily: 'System', // Placeholder for Manrope
+    fontFamily: fonts.display,
   },
   headlineLg: {
     fontSize: scaleFont(32),
     lineHeight: scaleFont(40),
     fontWeight: '700',
-    fontFamily: 'System', // Placeholder for Manrope
+    fontFamily: fonts.heading,
   },
   headlineMd: {
     fontSize: scaleFont(28),
     lineHeight: scaleFont(36),
     fontWeight: '700',
-    fontFamily: 'System', // Placeholder for Manrope
+    fontFamily: fonts.heading,
   },
   titleLg: {
     fontSize: scaleFont(22),
     lineHeight: scaleFont(28),
     fontWeight: '700',
-    fontFamily: 'System', // Placeholder for Manrope
+    fontFamily: fonts.heading,
+  },
+  titleMd: {
+    fontSize: scaleFont(18),
+    lineHeight: scaleFont(24),
+    fontWeight: '700',
+    fontFamily: fonts.heading,
   },
   bodyLg: {
     fontSize: scaleFont(18),
     lineHeight: scaleFont(28),
     fontWeight: '400',
-    fontFamily: 'System', // Placeholder for Inter
+    fontFamily: fonts.body,
   },
   bodyMd: {
     fontSize: scaleFont(14),
     lineHeight: scaleFont(20),
     fontWeight: '400',
-    fontFamily: 'System', // Placeholder for Inter
+    fontFamily: fonts.body,
   },
   labelSm: {
     fontSize: scaleFont(11),
     lineHeight: scaleFont(16),
     fontWeight: '600',
     letterSpacing: 0.5,
-    fontFamily: 'System', // Placeholder for Inter
+    fontFamily: fonts.label,
   },
 };
 
