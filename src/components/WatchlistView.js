@@ -26,12 +26,12 @@ import { scale, verticalScale } from '../utils/responsive';
 import * as Haptics from 'expo-haptics';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, GRID_COL_W, GRID_POSTER_H } from '../theme/programme';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, GRID_COL_W, GRID_POSTER_H, buildGridRows } from '../theme/programme';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { resolveRatingValue } from '../lib/ratings';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
-import { GridPosterCard, PosterGrid } from './GridPosterCard';
+import { GridPosterCard } from './GridPosterCard';
 import { WatchlistSkeleton } from './SkeletonLoaders';
 
 function WatchlistGridCard({
@@ -347,131 +347,258 @@ export function WatchlistView({
       .finally(() => setNowPlayingLoading(false));
   };
 
-  const categoryKeyExtractor = (category) => category.id;
+  // Flatten collections + Now Playing into a single virtualized list. Each
+  // expanded group contributes typed poster rows (2-up) so only on-screen rows
+  // mount, instead of eagerly instantiating every card inside a plain View.
+  const listData = [];
 
-  const renderCategory = ({ item: category, index: categoryIndex }) => {
-    const isCollapsed = isCategoryCollapsed(category.id);
+  listData.push({ type: 'nowPlayingHeader', key: 'now-playing-header' });
+  if (!isCategoryCollapsed('now_playing')) {
+    if (nowPlayingLoading) {
+      listData.push({ type: 'nowPlayingSkeleton', key: 'now-playing-skeleton', mt: scale(12) });
+    } else if (nowPlayingError) {
+      listData.push({ type: 'nowPlayingError', key: 'now-playing-error', mt: scale(12) });
+    } else if (nowPlaying.length > 0) {
+      buildGridRows(nowPlaying).forEach((rowItems, rowIndex) => {
+        listData.push({
+          type: 'posterRow',
+          variant: 'nowPlaying',
+          items: rowItems,
+          key: `now-playing-row-${watchlistEntryKey(rowItems[0])}`,
+          mt: rowIndex === 0 ? scale(12) : GRID_GAP,
+        });
+      });
+    }
+  }
 
-    return (
-      <View>
-        {categoryIndex > 0 || !isCategoryCollapsed('now_playing') ? (
-          <ProgrammeHairline style={{ marginVertical: scale(22) }} />
-        ) : null}
-        <View style={styles.categorySection}>
-          <TouchableOpacity
-            style={styles.categoryHeading}
-            activeOpacity={0.75}
-            onPress={() => toggleCategory(category.id)}
-            accessibilityRole="button"
-            accessibilityLabel={`${isCollapsed ? 'Expand' : 'Collapse'} ${category.label}`}
-            accessibilityState={{ expanded: !isCollapsed }}
-          >
-            <View
-              style={[
-                styles.categoryIcon,
-                { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM },
-              ]}
-            >
-              <Ionicons name={category.icon} size={18} color={GOLD_ACCENT} />
-            </View>
-            <View style={styles.categoryHeadingText}>
-              <Text style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-                Collection
-              </Text>
-              <Text
-                style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}
-              >
-                {category.label}
-              </Text>
-              <Text
-                style={[
-                  styles.categoryCount,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-              >
-                {category.totalCount} {category.totalCount === 1 ? 'Title' : 'Titles'}
-              </Text>
-            </View>
-            <View style={[styles.categoryToggle, { borderColor: GOLD_DIM }]}>
-              <Ionicons
-                name={isCollapsed ? 'chevron-down' : 'chevron-up'}
-                size={16}
-                color={colors.onSurfaceVariant}
-              />
-            </View>
-          </TouchableOpacity>
+  groupedItems.forEach((category, categoryIndex) => {
+    if (categoryIndex > 0 || !isCategoryCollapsed('now_playing')) {
+      listData.push({ type: 'hairline', key: `hairline-${category.id}` });
+    }
+    listData.push({ type: 'categoryHeader', category, key: `category-${category.id}` });
+    if (!isCategoryCollapsed(category.id)) {
+      const groups = [
+        { label: 'Movies', icon: 'film-outline', data: category.movies },
+        { label: 'TV Shows', icon: 'tv-outline', data: category.tvShows },
+      ].filter((g) => g.data.length > 0);
+      groups.forEach((group, groupIndex) => {
+        listData.push({
+          type: 'groupHeader',
+          categoryId: category.id,
+          group,
+          key: `group-${category.id}-${group.label}`,
+          mt: groupIndex === 0 ? scale(16) : scale(24),
+        });
+        if (!isGroupCollapsed(category.id, group.label)) {
+          buildGridRows(group.data).forEach((rowItems, rowIndex) => {
+            listData.push({
+              type: 'posterRow',
+              variant: 'watchlist',
+              items: rowItems,
+              key: `poster-${category.id}-${group.label}-${watchlistEntryKey(rowItems[0])}-${rowIndex}`,
+              mt: GRID_GAP,
+            });
+          });
+        }
+      });
+    }
+  });
 
-          {!isCollapsed && (
-            <View style={styles.groupStack}>
-              {[
-                { label: 'Movies', icon: 'film-outline', data: category.movies },
-                { label: 'TV Shows', icon: 'tv-outline', data: category.tvShows },
-              ]
-                .filter((g) => g.data.length > 0)
-                .map((group) => {
-                  const groupCollapsed = isGroupCollapsed(category.id, group.label);
-                  return (
-                    <View key={group.label} style={styles.mediaGroup}>
-                      <TouchableOpacity
-                        style={styles.mediaGroupHeader}
-                        activeOpacity={0.75}
-                        onPress={() => toggleGroup(category.id, group.label)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${groupCollapsed ? 'Expand' : 'Collapse'} ${group.label}`}
-                        accessibilityState={{ expanded: !groupCollapsed }}
-                      >
-                        <Ionicons name={group.icon} size={13} color={GOLD_ACCENT} />
-                        <Text
-                          style={[
-                            styles.mediaGroupLabel,
-                            { color: colors.onSurface, ...typography.labelSm },
-                          ]}
-                        >
-                          {group.label}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.mediaGroupCount,
-                            { color: colors.onSurfaceVariant, ...typography.labelSm },
-                          ]}
-                        >
-                          {group.data.length}
-                        </Text>
-                        <View style={[styles.mediaGroupDivider, { backgroundColor: GOLD_DIM }]} />
-                        <Ionicons
-                          name={groupCollapsed ? 'chevron-down' : 'chevron-up'}
-                          size={13}
-                          color={colors.onSurfaceVariant}
-                        />
-                      </TouchableOpacity>
+  const rowKeyExtractor = (row) => row.key;
 
-                      {!groupCollapsed && (
-                        <PosterGrid
-                          items={group.data}
-                          keyExtractor={(item) => watchlistEntryKey(item)}
-                          bodyStyle={styles.categoryGrid}
-                          renderItem={(item) => (
-                            <WatchlistGridCard
-                              item={item}
-                              colors={colors}
-                              typography={typography}
-                              radii={radii}
-                              onSelect={onSelect}
-                              onRemove={onRemove}
-                              onMarkWatched={onMarkWatched}
-                              reduceMotion={reduceMotion}
-                            />
-                          )}
-                        />
-                      )}
-                    </View>
-                  );
-                })}
-            </View>
-          )}
+  const renderNowPlayingHeader = () => (
+    <View style={styles.categorySection}>
+      <TouchableOpacity
+        style={styles.categoryHeading}
+        activeOpacity={0.75}
+        onPress={() => toggleCategory('now_playing')}
+        accessibilityRole="button"
+        accessibilityLabel={`${isCategoryCollapsed('now_playing') ? 'Expand' : 'Collapse'} Now Playing`}
+        accessibilityState={{ expanded: !isCategoryCollapsed('now_playing') }}
+      >
+        <View
+          style={[styles.categoryIcon, { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM }]}
+        >
+          <Ionicons name="film-outline" size={18} color={GOLD_ACCENT} />
         </View>
+        <View style={styles.categoryHeadingText}>
+          <Text style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+            In Theatres
+          </Text>
+          <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}>
+            Now Playing
+          </Text>
+          <Text
+            style={[styles.categoryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+          >
+            {nowPlayingLoading
+              ? 'Loading…'
+              : nowPlayingError
+                ? 'Unavailable'
+                : `${nowPlaying.length} ${nowPlaying.length === 1 ? 'Title' : 'Titles'}`}
+          </Text>
+        </View>
+        <View style={[styles.categoryToggle, { borderColor: GOLD_DIM }]}>
+          <Ionicons
+            name={isCategoryCollapsed('now_playing') ? 'chevron-down' : 'chevron-up'}
+            size={16}
+            color={colors.onSurfaceVariant}
+          />
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderNowPlayingError = (row) => (
+    <TouchableOpacity
+      style={[
+        styles.inlineRetry,
+        {
+          marginTop: row.mt,
+          backgroundColor: colors.error + '12',
+          borderColor: colors.error + '33',
+          borderRadius: radii.md,
+        },
+      ]}
+      onPress={retryNowPlaying}
+      accessibilityRole="button"
+      accessibilityLabel="Retry loading Now Playing"
+    >
+      <Ionicons name="refresh-outline" size={16} color={colors.error} />
+      <Text style={[styles.inlineRetryText, { color: colors.error, ...typography.bodyMd }]}>
+        Could not load this section. Tap to retry.
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const renderCategoryHeader = (row) => {
+    const category = row.category;
+    const isCollapsed = isCategoryCollapsed(category.id);
+    return (
+      <View style={styles.categorySection}>
+        <TouchableOpacity
+          style={styles.categoryHeading}
+          activeOpacity={0.75}
+          onPress={() => toggleCategory(category.id)}
+          accessibilityRole="button"
+          accessibilityLabel={`${isCollapsed ? 'Expand' : 'Collapse'} ${category.label}`}
+          accessibilityState={{ expanded: !isCollapsed }}
+        >
+          <View
+            style={[styles.categoryIcon, { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM }]}
+          >
+            <Ionicons name={category.icon} size={18} color={GOLD_ACCENT} />
+          </View>
+          <View style={styles.categoryHeadingText}>
+            <Text style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+              Collection
+            </Text>
+            <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}>
+              {category.label}
+            </Text>
+            <Text
+              style={[styles.categoryCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+            >
+              {category.totalCount} {category.totalCount === 1 ? 'Title' : 'Titles'}
+            </Text>
+          </View>
+          <View style={[styles.categoryToggle, { borderColor: GOLD_DIM }]}>
+            <Ionicons
+              name={isCollapsed ? 'chevron-down' : 'chevron-up'}
+              size={16}
+              color={colors.onSurfaceVariant}
+            />
+          </View>
+        </TouchableOpacity>
       </View>
     );
+  };
+
+  const renderGroupHeader = (row) => {
+    const { categoryId, group } = row;
+    const groupCollapsed = isGroupCollapsed(categoryId, group.label);
+    return (
+      <TouchableOpacity
+        style={[styles.mediaGroupHeader, { marginTop: row.mt }]}
+        activeOpacity={0.75}
+        onPress={() => toggleGroup(categoryId, group.label)}
+        accessibilityRole="button"
+        accessibilityLabel={`${groupCollapsed ? 'Expand' : 'Collapse'} ${group.label}`}
+        accessibilityState={{ expanded: !groupCollapsed }}
+      >
+        <Ionicons name={group.icon} size={13} color={GOLD_ACCENT} />
+        <Text style={[styles.mediaGroupLabel, { color: colors.onSurface, ...typography.labelSm }]}>
+          {group.label}
+        </Text>
+        <Text
+          style={[styles.mediaGroupCount, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+        >
+          {group.data.length}
+        </Text>
+        <View style={[styles.mediaGroupDivider, { backgroundColor: GOLD_DIM }]} />
+        <Ionicons
+          name={groupCollapsed ? 'chevron-down' : 'chevron-up'}
+          size={13}
+          color={colors.onSurfaceVariant}
+        />
+      </TouchableOpacity>
+    );
+  };
+
+  const renderPosterRow = (row) => (
+    <View style={[styles.posterRow, { marginTop: row.mt }]}>
+      {row.items.map((item) =>
+        row.variant === 'watchlist' ? (
+          <WatchlistGridCard
+            key={watchlistEntryKey(item)}
+            item={item}
+            colors={colors}
+            typography={typography}
+            radii={radii}
+            onSelect={onSelect}
+            onRemove={onRemove}
+            onMarkWatched={onMarkWatched}
+            reduceMotion={reduceMotion}
+          />
+        ) : (
+          <GridPosterCard
+            key={watchlistEntryKey(item)}
+            item={item}
+            colors={colors}
+            typography={typography}
+            radii={radii}
+            onPress={() => onSelect(item)}
+            mediaLabel="Movie"
+          />
+        ),
+      )}
+      {row.items.length === 1 ? <View style={styles.gridCardSpacer} /> : null}
+    </View>
+  );
+
+  const renderRow = ({ item: row }) => {
+    switch (row.type) {
+      case 'nowPlayingHeader':
+        return renderNowPlayingHeader();
+      case 'nowPlayingSkeleton':
+        return (
+          <View style={{ marginTop: row.mt }}>
+            <WatchlistSkeleton count={4} />
+          </View>
+        );
+      case 'nowPlayingError':
+        return renderNowPlayingError(row);
+      case 'hairline':
+        return <ProgrammeHairline style={{ marginVertical: scale(22) }} />;
+      case 'categoryHeader':
+        return renderCategoryHeader(row);
+      case 'groupHeader':
+        return renderGroupHeader(row);
+      case 'posterRow':
+        return renderPosterRow(row);
+      default:
+        return null;
+    }
   };
 
   const listHeader = (
@@ -569,96 +696,6 @@ export function WatchlistView({
       </View>
 
       <ProgrammeHairline style={{ marginVertical: scale(22) }} />
-
-      <View style={styles.categorySection}>
-        <TouchableOpacity
-          style={styles.categoryHeading}
-          activeOpacity={0.75}
-          onPress={() => toggleCategory('now_playing')}
-          accessibilityRole="button"
-          accessibilityLabel={`${isCategoryCollapsed('now_playing') ? 'Expand' : 'Collapse'} Now Playing`}
-          accessibilityState={{ expanded: !isCategoryCollapsed('now_playing') }}
-        >
-          <View
-            style={[
-              styles.categoryIcon,
-              { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM },
-            ]}
-          >
-            <Ionicons name="film-outline" size={18} color={GOLD_ACCENT} />
-          </View>
-          <View style={styles.categoryHeadingText}>
-            <Text style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-              In Theatres
-            </Text>
-            <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}>
-              Now Playing
-            </Text>
-            <Text
-              style={[
-                styles.categoryCount,
-                { color: colors.onSurfaceVariant, ...typography.labelSm },
-              ]}
-            >
-              {nowPlayingLoading
-                ? 'Loading…'
-                : nowPlayingError
-                  ? 'Unavailable'
-                  : `${nowPlaying.length} ${nowPlaying.length === 1 ? 'Title' : 'Titles'}`}
-            </Text>
-          </View>
-          <View style={[styles.categoryToggle, { borderColor: GOLD_DIM }]}>
-            <Ionicons
-              name={isCategoryCollapsed('now_playing') ? 'chevron-down' : 'chevron-up'}
-              size={16}
-              color={colors.onSurfaceVariant}
-            />
-          </View>
-        </TouchableOpacity>
-
-        {!isCategoryCollapsed('now_playing') && (
-          <View style={styles.sectionBody}>
-            {nowPlayingLoading && <WatchlistSkeleton count={4} />}
-            {!nowPlayingLoading && nowPlayingError && (
-              <TouchableOpacity
-                style={[
-                  styles.inlineRetry,
-                  {
-                    backgroundColor: colors.error + '12',
-                    borderColor: colors.error + '33',
-                    borderRadius: radii.md,
-                  },
-                ]}
-                onPress={retryNowPlaying}
-                accessibilityRole="button"
-                accessibilityLabel="Retry loading Now Playing"
-              >
-                <Ionicons name="refresh-outline" size={16} color={colors.error} />
-                <Text style={[styles.inlineRetryText, { color: colors.error, ...typography.bodyMd }]}>
-                  Could not load this section. Tap to retry.
-                </Text>
-              </TouchableOpacity>
-            )}
-            {!nowPlayingLoading && !nowPlayingError && nowPlaying.length > 0 && (
-              <PosterGrid
-                items={nowPlaying}
-                keyExtractor={(item) => watchlistEntryKey(item)}
-                bodyStyle={styles.categoryGrid}
-                renderItem={(item) => (
-                  <GridPosterCard
-                    item={item}
-                    colors={colors}
-                    typography={typography}
-                    radii={radii}
-                    onPress={() => onSelect(item)}
-                    mediaLabel="Movie"
-                  />
-                )}
-              />
-            )}
-          </View>
-        )}
-      </View>
     </>
   );
 
@@ -668,9 +705,9 @@ export function WatchlistView({
 
       <FlatList
         style={styles.container}
-        data={groupedItems}
-        renderItem={renderCategory}
-        keyExtractor={categoryKeyExtractor}
+        data={listData}
+        renderItem={renderRow}
+        keyExtractor={rowKeyExtractor}
         extraData={listExtraData}
         ListHeaderComponent={listHeader}
         contentContainerStyle={[
@@ -680,6 +717,9 @@ export function WatchlistView({
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
         overScrollMode="never"
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={7}
         {...bottomNavScroll}
       />
 
@@ -899,6 +939,13 @@ const styles = StyleSheet.create({
   },
   categoryGrid: {
     paddingHorizontal: 0,
+  },
+  posterRow: {
+    flexDirection: 'row',
+    gap: GRID_GAP,
+  },
+  gridCardSpacer: {
+    width: GRID_COL_W,
   },
   statusPill: {
     alignItems: 'center',
