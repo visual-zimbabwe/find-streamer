@@ -65,6 +65,30 @@ test('SBS On Demand and ABC iview are surfaced only for Australia', () => {
   assert.deepEqual(availability.abc_iview, ['AU']);
 });
 
+test('Paramount+ is surfaced only for the US', () => {
+  const results = providersByCountry({
+    US: { flatrate: ['Paramount Plus Essential'] },
+    GB: { flatrate: ['Paramount Plus Essential'] },
+    CA: { flatrate: ['Paramount Plus Essential'] },
+  });
+
+  const availability = availabilityFromResults(results);
+  assert.deepEqual(availability.paramount_plus, ['US']);
+});
+
+test('Paramount+ matches the Essential tier and legacy names, not Premium/Showtime', () => {
+  // Current TMDB provider name for the base US plan the user subscribes to.
+  assert.equal(serviceKey('Paramount Plus Essential'), 'paramount_plus');
+  // Legacy generic names still seen on some older titles.
+  assert.equal(serviceKey('Paramount Plus'), 'paramount_plus');
+  assert.equal(serviceKey('Paramount+'), 'paramount_plus');
+  // Premium is the former "with Showtime" top tier the user does NOT have.
+  assert.equal(serviceKey('Paramount Plus Premium'), null);
+  assert.equal(serviceKey('Paramount+ with Showtime'), null);
+  // Reseller channels are billed elsewhere and are excluded.
+  assert.equal(serviceKey('Paramount+ Amazon Channel'), null);
+});
+
 test('region-unlocked services surface in every region they appear in', () => {
   const results = providersByCountry({
     US: { flatrate: ['Netflix'] },
