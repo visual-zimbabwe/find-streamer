@@ -11,6 +11,7 @@ import {
   buildSyncHomeSpotlight,
   orderSpotlightCandidates,
 } from './homeSpotlightCore.js';
+import { resolveRatingValue } from './ratings.js';
 
 export {
   HOME_SPOTLIGHT_MAX,
@@ -121,7 +122,7 @@ function dedupeKey(item) {
 }
 
 function sortByTmdbRatingDesc(items) {
-  return [...items].sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
+  return [...items].sort((a, b) => resolveRatingValue(b) - resolveRatingValue(a));
 }
 
 function takeUniqueTop(items, limit) {

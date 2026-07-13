@@ -16,15 +16,7 @@ import {
   GRID_POSTER_H,
   buildGridRows,
 } from '../theme/programme';
-
-function resolveRatingValue(item, ratingValueProp) {
-  if (ratingValueProp != null) return ratingValueProp;
-  if (item?.ratingValue > 0) return item.ratingValue;
-  const raw = item?.rating;
-  if (raw == null || raw === '' || raw === 'N/A') return 0;
-  const n = parseFloat(String(raw).split('/')[0]);
-  return Number.isFinite(n) ? n : 0;
-}
+import { resolveRatingValue } from '../lib/ratings';
 
 export const GridPosterCard = memo(function GridPosterCard({
   item,
@@ -49,7 +41,7 @@ export const GridPosterCard = memo(function GridPosterCard({
 }) {
   if (!item) return null;
 
-  const ratingValue = resolveRatingValue(item, ratingValueProp);
+  const ratingValue = ratingValueProp != null ? ratingValueProp : resolveRatingValue(item);
   const mediaType = item?.mediaType;
   const defaultMediaLabel = mediaType === 'tv' ? 'Series' : 'Movie';
   const label = mediaLabel ?? defaultMediaLabel;
