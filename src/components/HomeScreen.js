@@ -2,6 +2,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from '
 import {
   Animated,
   BackHandler,
+  FlatList,
   Platform,
   ScrollView,
   StyleSheet,
@@ -24,6 +25,7 @@ import {
 } from '../lib/homeFeed';
 import { ContentRail } from './ContentRail';
 import { scale, verticalScale } from '../utils/responsive';
+import { resolveRatingValue } from '../lib/ratings';
 import { GOLD_ACCENT, GRID_PAD, FADE_MS } from '../theme/programme';
 import { HomeFeedSkeleton } from './SkeletonLoaders';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -269,7 +271,7 @@ export function HomeScreen({
           if (mediaFilter && w.mediaType !== mediaFilter) return false;
           return w.collectionIds?.includes(collection.id);
         });
-        const sorted = [...items].sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
+        const sorted = [...items].sort((a, b) => resolveRatingValue(b) - resolveRatingValue(a));
         return {
           category: {
             id: collection.id,
@@ -297,6 +299,87 @@ export function HomeScreen({
     [colors.surfaceContainerHigh, colors.background],
   );
 
+  const renderRail = useCallback(
+    ({ item: { category, items } }) => (
+      <ContentRail
+        title={category.label}
+        icon={category.icon}
+        data={items}
+        colors={colors}
+        typography={typography}
+        radii={radii}
+        showMediaType={false}
+        onSelectItem={onSelectItem}
+      />
+    ),
+    [colors, typography, radii, onSelectItem],
+  );
+
+  const railKeyExtractor = useCallback(({ category }) => category.id, []);
+
+  const listHeader = (
+    <View style={styles.spotlightSection}>
+      {!featuredItem ? (
+        <HomeFeedSkeleton />
+      ) : (
+        <>
+          <FeaturedSpotlightCard
+            item={featuredItem}
+            colors={colors}
+            typography={typography}
+            radii={radii}
+            fadeAnim={fadeAnim}
+            onPress={() => onSelectItem?.(featuredItem)}
+            onPressIn={pauseHero}
+          />
+          {spotlight.length > 1 ? (
+            <View style={styles.secondarySpotlightBlock}>
+              <View style={styles.secondaryHeaderRow}>
+                <Text
+                  style={[styles.secondaryTitle, { color: colors.onSurface, ...typography.labelSm }]}
+                >
+                  Also in Spotlight
+                </Text>
+                <Text
+                  style={[
+                    styles.secondaryCount,
+                    { color: colors.onSurfaceVariant, ...typography.labelSm },
+                  ]}
+                >
+                  {displayIndex + 1} / {spotlight.length}
+                </Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipList}
+                nestedScrollEnabled
+                overScrollMode="never"
+                decelerationRate="fast"
+              >
+                {spotlight.map((item, index) => (
+                  <View
+                    key={`${item.mediaType || 'movie'}-${item.tmdbId}-${index}`}
+                    style={index > 0 ? styles.chipGap : null}
+                  >
+                    <SpotlightChip
+                      item={item}
+                      colors={colors}
+                      typography={typography}
+                      radii={radii}
+                      selected={index === displayIndex}
+                      onPress={() => selectSpotlightIndex(index)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+        </>
+      )}
+    </View>
+  );
+
   return (
     <View style={[styles.rootWrap, { backgroundColor: colors.background }]}>
       <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
@@ -314,8 +397,13 @@ export function HomeScreen({
         }}
       />
 
-      <ScrollView
+      <FlatList
         style={styles.scroll}
+        data={watchlistRows}
+        renderItem={renderRail}
+        keyExtractor={railKeyExtractor}
+        extraData={theme}
+        ListHeaderComponent={listHeader}
         contentContainerStyle={[
           styles.scrollInner,
           { paddingTop: headerOffset, paddingBottom: insets.bottom + 112 },
@@ -326,85 +414,7 @@ export function HomeScreen({
         overScrollMode="never"
         decelerationRate="normal"
         {...bottomNavScroll}
-      >
-        <View style={styles.spotlightSection}>
-          {!featuredItem ? (
-            <HomeFeedSkeleton />
-          ) : (
-            <>
-              <FeaturedSpotlightCard
-                item={featuredItem}
-                colors={colors}
-                typography={typography}
-                radii={radii}
-                fadeAnim={fadeAnim}
-                onPress={() => onSelectItem?.(featuredItem)}
-                onPressIn={pauseHero}
-              />
-              {spotlight.length > 1 ? (
-                <View style={styles.secondarySpotlightBlock}>
-                  <View style={styles.secondaryHeaderRow}>
-                    <Text
-                      style={[
-                        styles.secondaryTitle,
-                        { color: colors.onSurface, ...typography.labelSm },
-                      ]}
-                    >
-                      Also in Spotlight
-                    </Text>
-                    <Text
-                      style={[
-                        styles.secondaryCount,
-                        { color: colors.onSurfaceVariant, ...typography.labelSm },
-                      ]}
-                    >
-                      {displayIndex + 1} / {spotlight.length}
-                    </Text>
-                  </View>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.chipList}
-                    nestedScrollEnabled
-                    overScrollMode="never"
-                    decelerationRate="fast"
-                  >
-                    {spotlight.map((item, index) => (
-                      <View
-                        key={`${item.mediaType || 'movie'}-${item.tmdbId}-${index}`}
-                        style={index > 0 ? styles.chipGap : null}
-                      >
-                        <SpotlightChip
-                          item={item}
-                          colors={colors}
-                          typography={typography}
-                          radii={radii}
-                          selected={index === displayIndex}
-                          onPress={() => selectSpotlightIndex(index)}
-                        />
-                      </View>
-                    ))}
-                  </ScrollView>
-                </View>
-              ) : null}
-            </>
-          )}
-        </View>
-
-        {watchlistRows.map(({ category, items }) => (
-          <ContentRail
-            key={category.id}
-            title={category.label}
-            icon={category.icon}
-            data={items}
-            colors={colors}
-            typography={typography}
-            radii={radii}
-            showMediaType={false}
-            onSelectItem={onSelectItem}
-          />
-        ))}
-      </ScrollView>
+      />
     </View>
   );
 }

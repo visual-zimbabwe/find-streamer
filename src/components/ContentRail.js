@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
+  FlatList,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -27,6 +27,27 @@ export function ContentRail({
   variant = 'section',
   showMediaType = true,
 }) {
+  const renderItem = useCallback(
+    ({ item, index }) => (
+      <View style={index > 0 ? styles.railItemGap : null}>
+        <GridPosterCard
+          item={item}
+          colors={colors}
+          typography={typography}
+          radii={radii}
+          showMediaType={showMediaType}
+          onPress={() => onSelectItem(item)}
+        />
+      </View>
+    ),
+    [colors, typography, radii, showMediaType, onSelectItem],
+  );
+
+  const keyExtractor = useCallback(
+    (item) => `${item.mediaType || 'movie'}-${item.tmdbId}`,
+    [],
+  );
+
   if (!data?.length) return null;
 
   return (
@@ -47,7 +68,10 @@ export function ContentRail({
         </View>
         {headerRight}
       </View>
-      <ScrollView
+      <FlatList
+        data={data}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.railList}
@@ -55,23 +79,10 @@ export function ContentRail({
         overScrollMode="never"
         decelerationRate="fast"
         removeClippedSubviews={Platform.OS === 'android'}
-      >
-        {data.map((item, index) => (
-          <View
-            key={`${item.mediaType || 'movie'}-${item.tmdbId}`}
-            style={index > 0 ? styles.railItemGap : null}
-          >
-            <GridPosterCard
-              item={item}
-              colors={colors}
-              typography={typography}
-              radii={radii}
-              showMediaType={showMediaType}
-              onPress={() => onSelectItem(item)}
-            />
-          </View>
-        ))}
-      </ScrollView>
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+      />
     </View>
   );
 }

@@ -5,7 +5,7 @@ import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   Platform,
 } from 'react-native';
@@ -28,16 +28,11 @@ import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, GRID_COL_W, GRID_POSTER_H } from '../theme/programme';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { resolveRatingValue } from '../lib/ratings';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { GridPosterCard, PosterGrid } from './GridPosterCard';
 import { WatchlistSkeleton } from './SkeletonLoaders';
-
-function parseRatingValue(rating) {
-  if (rating == null || rating === '') return 0;
-  const n = parseFloat(String(rating).split('/')[0]);
-  return Number.isFinite(n) ? n : 0;
-}
 
 function WatchlistGridCard({
   item,
@@ -219,6 +214,11 @@ export function WatchlistView({
     [libraryItems],
   );
 
+  const listExtraData = useMemo(
+    () => ({ theme, collapsedCategoryIds, collapsedGroupKeys }),
+    [theme, collapsedCategoryIds, collapsedGroupKeys],
+  );
+
   const chooseRandomPick = () => {
     const source = pickableItems.length
       ? pickableItems
@@ -293,7 +293,7 @@ export function WatchlistView({
   }
 
   const sortByRatingDesc = (arr) =>
-    [...arr].sort((a, b) => parseRatingValue(b.rating) - parseRatingValue(a.rating));
+    [...arr].sort((a, b) => resolveRatingValue(b) - resolveRatingValue(a));
 
   const availableCollections = collections.length ? collections : getUserWatchlistCollections();
   const groupedItems = availableCollections
@@ -347,12 +347,332 @@ export function WatchlistView({
       .finally(() => setNowPlayingLoading(false));
   };
 
+  const categoryKeyExtractor = (category) => category.id;
+
+  const renderCategory = ({ item: category, index: categoryIndex }) => {
+    const isCollapsed = isCategoryCollapsed(category.id);
+
+    return (
+      <View>
+        {categoryIndex > 0 || !isCategoryCollapsed('now_playing') ? (
+          <ProgrammeHairline style={{ marginVertical: scale(22) }} />
+        ) : null}
+        <View style={styles.categorySection}>
+          <TouchableOpacity
+            style={styles.categoryHeading}
+            activeOpacity={0.75}
+            onPress={() => toggleCategory(category.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`${isCollapsed ? 'Expand' : 'Collapse'} ${category.label}`}
+            accessibilityState={{ expanded: !isCollapsed }}
+          >
+            <View
+              style={[
+                styles.categoryIcon,
+                { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM },
+              ]}
+            >
+              <Ionicons name={category.icon} size={18} color={GOLD_ACCENT} />
+            </View>
+            <View style={styles.categoryHeadingText}>
+              <Text style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+                Collection
+              </Text>
+              <Text
+                style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}
+              >
+                {category.label}
+              </Text>
+              <Text
+                style={[
+                  styles.categoryCount,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                {category.totalCount} {category.totalCount === 1 ? 'Title' : 'Titles'}
+              </Text>
+            </View>
+            <View style={[styles.categoryToggle, { borderColor: GOLD_DIM }]}>
+              <Ionicons
+                name={isCollapsed ? 'chevron-down' : 'chevron-up'}
+                size={16}
+                color={colors.onSurfaceVariant}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {!isCollapsed && (
+            <View style={styles.groupStack}>
+              {[
+                { label: 'Movies', icon: 'film-outline', data: category.movies },
+                { label: 'TV Shows', icon: 'tv-outline', data: category.tvShows },
+              ]
+                .filter((g) => g.data.length > 0)
+                .map((group) => {
+                  const groupCollapsed = isGroupCollapsed(category.id, group.label);
+                  return (
+                    <View key={group.label} style={styles.mediaGroup}>
+                      <TouchableOpacity
+                        style={styles.mediaGroupHeader}
+                        activeOpacity={0.75}
+                        onPress={() => toggleGroup(category.id, group.label)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${groupCollapsed ? 'Expand' : 'Collapse'} ${group.label}`}
+                        accessibilityState={{ expanded: !groupCollapsed }}
+                      >
+                        <Ionicons name={group.icon} size={13} color={GOLD_ACCENT} />
+                        <Text
+                          style={[
+                            styles.mediaGroupLabel,
+                            { color: colors.onSurface, ...typography.labelSm },
+                          ]}
+                        >
+                          {group.label}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.mediaGroupCount,
+                            { color: colors.onSurfaceVariant, ...typography.labelSm },
+                          ]}
+                        >
+                          {group.data.length}
+                        </Text>
+                        <View style={[styles.mediaGroupDivider, { backgroundColor: GOLD_DIM }]} />
+                        <Ionicons
+                          name={groupCollapsed ? 'chevron-down' : 'chevron-up'}
+                          size={13}
+                          color={colors.onSurfaceVariant}
+                        />
+                      </TouchableOpacity>
+
+                      {!groupCollapsed && (
+                        <PosterGrid
+                          items={group.data}
+                          keyExtractor={(item) => watchlistEntryKey(item)}
+                          bodyStyle={styles.categoryGrid}
+                          renderItem={(item) => (
+                            <WatchlistGridCard
+                              item={item}
+                              colors={colors}
+                              typography={typography}
+                              radii={radii}
+                              onSelect={onSelect}
+                              onRemove={onRemove}
+                              onMarkWatched={onMarkWatched}
+                              reduceMotion={reduceMotion}
+                            />
+                          )}
+                        />
+                      )}
+                    </View>
+                  );
+                })}
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const listHeader = (
+    <>
+      <ProgrammeSectionHeader
+        eyebrow="Personal Ledger"
+        title="My Watchlist"
+        subtitle={`${libraryItems.length} ${libraryItems.length === 1 ? 'Title' : 'Titles'} Saved`}
+      />
+
+      <View
+        style={[
+          styles.randomPanel,
+          {
+            backgroundColor: glassSurface,
+            borderColor: GOLD_DIM,
+            borderRadius: radii.xl,
+          },
+        ]}
+      >
+        <View style={styles.randomCopy}>
+          <Text style={[styles.randomEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+            Random Pick
+          </Text>
+          <Text style={[styles.randomTitle, { color: colors.onSurface, ...typography.titleLg }]}>
+            What should I watch?
+          </Text>
+          <Text
+            style={[styles.randomSubtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+          >
+            Shuffle your saved titles when decision fatigue hits.
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.randomButton, { borderColor: GOLD_ACCENT, borderRadius: radii.full }]}
+          onPress={chooseRandomPick}
+          accessibilityRole="button"
+          accessibilityLabel="Pick a random title from your watchlist"
+        >
+          <Ionicons name="shuffle" size={18} color={GOLD_ACCENT} />
+          <Text style={[styles.randomButtonText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+            Pick
+          </Text>
+        </TouchableOpacity>
+        {randomPick && (
+          <Animated.View
+            style={[
+              styles.randomResult,
+              {
+                opacity: pickOpacity,
+                backgroundColor:
+                  resolvedMode === 'dark' ? 'rgba(212,168,83,0.08)' : 'rgba(212,168,83,0.12)',
+                borderColor: GOLD_DIM,
+                borderRadius: radii.lg,
+              },
+            ]}
+          >
+            <MediaArtwork
+              uri={randomPick.posterUrl}
+              style={[styles.randomPoster, { borderRadius: radii.md }]}
+              accessibilityLabel={`${randomPick.title} poster`}
+              title={randomPick.title}
+              instant
+            />
+            <View style={styles.randomResultCopy}>
+              <Text style={[styles.randomResultLabel, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+                Tonight's Pick
+              </Text>
+              <Text
+                style={[styles.randomResultTitle, { color: colors.onSurface, ...typography.titleLg }]}
+                numberOfLines={2}
+              >
+                {randomPick.title}
+              </Text>
+              <Text
+                style={[
+                  styles.randomResultMeta,
+                  { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                ]}
+                numberOfLines={1}
+              >
+                {randomPick.year} · {getStatusLabel(randomPick.status)}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.randomOpenButton, { borderColor: GOLD_DIM, borderRadius: radii.full }]}
+              onPress={() => onSelect(randomPick)}
+              accessibilityRole="button"
+              accessibilityLabel={`Open details for ${randomPick.title}`}
+            >
+              <Ionicons name="chevron-forward" size={18} color={GOLD_ACCENT} />
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+      </View>
+
+      <ProgrammeHairline style={{ marginVertical: scale(22) }} />
+
+      <View style={styles.categorySection}>
+        <TouchableOpacity
+          style={styles.categoryHeading}
+          activeOpacity={0.75}
+          onPress={() => toggleCategory('now_playing')}
+          accessibilityRole="button"
+          accessibilityLabel={`${isCategoryCollapsed('now_playing') ? 'Expand' : 'Collapse'} Now Playing`}
+          accessibilityState={{ expanded: !isCategoryCollapsed('now_playing') }}
+        >
+          <View
+            style={[
+              styles.categoryIcon,
+              { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM },
+            ]}
+          >
+            <Ionicons name="film-outline" size={18} color={GOLD_ACCENT} />
+          </View>
+          <View style={styles.categoryHeadingText}>
+            <Text style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+              In Theatres
+            </Text>
+            <Text style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}>
+              Now Playing
+            </Text>
+            <Text
+              style={[
+                styles.categoryCount,
+                { color: colors.onSurfaceVariant, ...typography.labelSm },
+              ]}
+            >
+              {nowPlayingLoading
+                ? 'Loading…'
+                : nowPlayingError
+                  ? 'Unavailable'
+                  : `${nowPlaying.length} ${nowPlaying.length === 1 ? 'Title' : 'Titles'}`}
+            </Text>
+          </View>
+          <View style={[styles.categoryToggle, { borderColor: GOLD_DIM }]}>
+            <Ionicons
+              name={isCategoryCollapsed('now_playing') ? 'chevron-down' : 'chevron-up'}
+              size={16}
+              color={colors.onSurfaceVariant}
+            />
+          </View>
+        </TouchableOpacity>
+
+        {!isCategoryCollapsed('now_playing') && (
+          <View style={styles.sectionBody}>
+            {nowPlayingLoading && <WatchlistSkeleton count={4} />}
+            {!nowPlayingLoading && nowPlayingError && (
+              <TouchableOpacity
+                style={[
+                  styles.inlineRetry,
+                  {
+                    backgroundColor: colors.error + '12',
+                    borderColor: colors.error + '33',
+                    borderRadius: radii.md,
+                  },
+                ]}
+                onPress={retryNowPlaying}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading Now Playing"
+              >
+                <Ionicons name="refresh-outline" size={16} color={colors.error} />
+                <Text style={[styles.inlineRetryText, { color: colors.error, ...typography.bodyMd }]}>
+                  Could not load this section. Tap to retry.
+                </Text>
+              </TouchableOpacity>
+            )}
+            {!nowPlayingLoading && !nowPlayingError && nowPlaying.length > 0 && (
+              <PosterGrid
+                items={nowPlaying}
+                keyExtractor={(item) => watchlistEntryKey(item)}
+                bodyStyle={styles.categoryGrid}
+                renderItem={(item) => (
+                  <GridPosterCard
+                    item={item}
+                    colors={colors}
+                    typography={typography}
+                    radii={radii}
+                    onPress={() => onSelect(item)}
+                    mediaLabel="Movie"
+                  />
+                )}
+              />
+            )}
+          </View>
+        )}
+      </View>
+    </>
+  );
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
 
-      <ScrollView
+      <FlatList
         style={styles.container}
+        data={groupedItems}
+        renderItem={renderCategory}
+        keyExtractor={categoryKeyExtractor}
+        extraData={listExtraData}
+        ListHeaderComponent={listHeader}
         contentContainerStyle={[
           styles.content,
           { paddingTop: insets.top + scale(12), paddingBottom: insets.bottom + 112 },
@@ -361,348 +681,7 @@ export function WatchlistView({
         removeClippedSubviews={Platform.OS === 'android'}
         overScrollMode="never"
         {...bottomNavScroll}
-      >
-        <ProgrammeSectionHeader
-          eyebrow="Personal Ledger"
-          title="My Watchlist"
-          subtitle={`${libraryItems.length} ${libraryItems.length === 1 ? 'Title' : 'Titles'} Saved`}
-        />
-
-        <View
-          style={[
-            styles.randomPanel,
-            {
-              backgroundColor: glassSurface,
-              borderColor: GOLD_DIM,
-              borderRadius: radii.xl,
-            },
-          ]}
-        >
-          <View style={styles.randomCopy}>
-            <Text style={[styles.randomEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-              Random Pick
-            </Text>
-            <Text style={[styles.randomTitle, { color: colors.onSurface, ...typography.titleLg }]}>
-              What should I watch?
-            </Text>
-            <Text
-              style={[
-                styles.randomSubtitle,
-                { color: colors.onSurfaceVariant, ...typography.bodyMd },
-              ]}
-            >
-              Shuffle your saved titles when decision fatigue hits.
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[styles.randomButton, { borderColor: GOLD_ACCENT, borderRadius: radii.full }]}
-            onPress={chooseRandomPick}
-            accessibilityRole="button"
-            accessibilityLabel="Pick a random title from your watchlist"
-          >
-            <Ionicons name="shuffle" size={18} color={GOLD_ACCENT} />
-            <Text style={[styles.randomButtonText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-              Pick
-            </Text>
-          </TouchableOpacity>
-          {randomPick && (
-            <Animated.View
-              style={[
-                styles.randomResult,
-                {
-                  opacity: pickOpacity,
-                  backgroundColor:
-                    resolvedMode === 'dark' ? 'rgba(212,168,83,0.08)' : 'rgba(212,168,83,0.12)',
-                  borderColor: GOLD_DIM,
-                  borderRadius: radii.lg,
-                },
-              ]}
-            >
-              <MediaArtwork
-                uri={randomPick.posterUrl}
-                style={[styles.randomPoster, { borderRadius: radii.md }]}
-                accessibilityLabel={`${randomPick.title} poster`}
-                title={randomPick.title}
-                instant
-              />
-              <View style={styles.randomResultCopy}>
-                <Text
-                  style={[styles.randomResultLabel, { color: GOLD_ACCENT, ...typography.labelSm }]}
-                >
-                  Tonight's Pick
-                </Text>
-                <Text
-                  style={[
-                    styles.randomResultTitle,
-                    { color: colors.onSurface, ...typography.titleLg },
-                  ]}
-                  numberOfLines={2}
-                >
-                  {randomPick.title}
-                </Text>
-                <Text
-                  style={[
-                    styles.randomResultMeta,
-                    { color: colors.onSurfaceVariant, ...typography.bodyMd },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {randomPick.year} · {getStatusLabel(randomPick.status)}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[
-                  styles.randomOpenButton,
-                  { borderColor: GOLD_DIM, borderRadius: radii.full },
-                ]}
-                onPress={() => onSelect(randomPick)}
-                accessibilityRole="button"
-                accessibilityLabel={`Open details for ${randomPick.title}`}
-              >
-                <Ionicons name="chevron-forward" size={18} color={GOLD_ACCENT} />
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-        </View>
-
-        <ProgrammeHairline style={{ marginVertical: scale(22) }} />
-
-        <View style={styles.categoryStack}>
-          <View style={styles.categorySection}>
-            <TouchableOpacity
-              style={styles.categoryHeading}
-              activeOpacity={0.75}
-              onPress={() => toggleCategory('now_playing')}
-              accessibilityRole="button"
-              accessibilityLabel={`${isCategoryCollapsed('now_playing') ? 'Expand' : 'Collapse'} Now Playing`}
-              accessibilityState={{ expanded: !isCategoryCollapsed('now_playing') }}
-            >
-              <View
-                style={[
-                  styles.categoryIcon,
-                  { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM },
-                ]}
-              >
-                <Ionicons name="film-outline" size={18} color={GOLD_ACCENT} />
-              </View>
-              <View style={styles.categoryHeadingText}>
-                <Text
-                  style={[styles.categoryEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}
-                >
-                  In Theatres
-                </Text>
-                <Text
-                  style={[styles.categoryTitle, { color: colors.onSurface, ...typography.titleMd }]}
-                >
-                  Now Playing
-                </Text>
-                <Text
-                  style={[
-                    styles.categoryCount,
-                    { color: colors.onSurfaceVariant, ...typography.labelSm },
-                  ]}
-                >
-                  {nowPlayingLoading
-                    ? 'Loading…'
-                    : nowPlayingError
-                      ? 'Unavailable'
-                      : `${nowPlaying.length} ${nowPlaying.length === 1 ? 'Title' : 'Titles'}`}
-                </Text>
-              </View>
-              <View style={[styles.categoryToggle, { borderColor: GOLD_DIM }]}>
-                <Ionicons
-                  name={isCategoryCollapsed('now_playing') ? 'chevron-down' : 'chevron-up'}
-                  size={16}
-                  color={colors.onSurfaceVariant}
-                />
-              </View>
-            </TouchableOpacity>
-
-            {!isCategoryCollapsed('now_playing') && (
-              <View style={styles.sectionBody}>
-                {nowPlayingLoading && <WatchlistSkeleton count={4} />}
-                {!nowPlayingLoading && nowPlayingError && (
-                  <TouchableOpacity
-                    style={[
-                      styles.inlineRetry,
-                      {
-                        backgroundColor: colors.error + '12',
-                        borderColor: colors.error + '33',
-                        borderRadius: radii.md,
-                      },
-                    ]}
-                    onPress={retryNowPlaying}
-                    accessibilityRole="button"
-                    accessibilityLabel="Retry loading Now Playing"
-                  >
-                    <Ionicons name="refresh-outline" size={16} color={colors.error} />
-                    <Text
-                      style={[
-                        styles.inlineRetryText,
-                        { color: colors.error, ...typography.bodyMd },
-                      ]}
-                    >
-                      Could not load this section. Tap to retry.
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {!nowPlayingLoading && !nowPlayingError && nowPlaying.length > 0 && (
-                  <PosterGrid
-                    items={nowPlaying}
-                    keyExtractor={(item) => watchlistEntryKey(item)}
-                    bodyStyle={styles.categoryGrid}
-                    renderItem={(item) => (
-                      <GridPosterCard
-                        item={item}
-                        colors={colors}
-                        typography={typography}
-                        radii={radii}
-                        onPress={() => onSelect(item)}
-                        mediaLabel="Movie"
-                      />
-                    )}
-                  />
-                )}
-              </View>
-            )}
-          </View>
-
-          {groupedItems.map((category, categoryIndex) => {
-            const isCollapsed = isCategoryCollapsed(category.id);
-
-            return (
-              <View key={category.id}>
-                {categoryIndex > 0 || !isCategoryCollapsed('now_playing') ? (
-                  <ProgrammeHairline style={{ marginVertical: scale(22) }} />
-                ) : null}
-                <View style={styles.categorySection}>
-                  <TouchableOpacity
-                    style={styles.categoryHeading}
-                    activeOpacity={0.75}
-                    onPress={() => toggleCategory(category.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${isCollapsed ? 'Expand' : 'Collapse'} ${category.label}`}
-                    accessibilityState={{ expanded: !isCollapsed }}
-                  >
-                    <View
-                      style={[
-                        styles.categoryIcon,
-                        { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM },
-                      ]}
-                    >
-                      <Ionicons name={category.icon} size={18} color={GOLD_ACCENT} />
-                    </View>
-                    <View style={styles.categoryHeadingText}>
-                      <Text
-                        style={[
-                          styles.categoryEyebrow,
-                          { color: GOLD_ACCENT, ...typography.labelSm },
-                        ]}
-                      >
-                        Collection
-                      </Text>
-                      <Text
-                        style={[
-                          styles.categoryTitle,
-                          { color: colors.onSurface, ...typography.titleMd },
-                        ]}
-                      >
-                        {category.label}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.categoryCount,
-                          { color: colors.onSurfaceVariant, ...typography.labelSm },
-                        ]}
-                      >
-                        {category.totalCount} {category.totalCount === 1 ? 'Title' : 'Titles'}
-                      </Text>
-                    </View>
-                    <View style={[styles.categoryToggle, { borderColor: GOLD_DIM }]}>
-                      <Ionicons
-                        name={isCollapsed ? 'chevron-down' : 'chevron-up'}
-                        size={16}
-                        color={colors.onSurfaceVariant}
-                      />
-                    </View>
-                  </TouchableOpacity>
-
-                  {!isCollapsed && (
-                    <View style={styles.groupStack}>
-                      {[
-                        { label: 'Movies', icon: 'film-outline', data: category.movies },
-                        { label: 'TV Shows', icon: 'tv-outline', data: category.tvShows },
-                      ]
-                        .filter((g) => g.data.length > 0)
-                        .map((group) => {
-                          const groupCollapsed = isGroupCollapsed(category.id, group.label);
-                          return (
-                            <View key={group.label} style={styles.mediaGroup}>
-                              <TouchableOpacity
-                                style={styles.mediaGroupHeader}
-                                activeOpacity={0.75}
-                                onPress={() => toggleGroup(category.id, group.label)}
-                                accessibilityRole="button"
-                                accessibilityLabel={`${groupCollapsed ? 'Expand' : 'Collapse'} ${group.label}`}
-                                accessibilityState={{ expanded: !groupCollapsed }}
-                              >
-                                <Ionicons name={group.icon} size={13} color={GOLD_ACCENT} />
-                                <Text
-                                  style={[
-                                    styles.mediaGroupLabel,
-                                    { color: colors.onSurface, ...typography.labelSm },
-                                  ]}
-                                >
-                                  {group.label}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.mediaGroupCount,
-                                    { color: colors.onSurfaceVariant, ...typography.labelSm },
-                                  ]}
-                                >
-                                  {group.data.length}
-                                </Text>
-                                <View
-                                  style={[styles.mediaGroupDivider, { backgroundColor: GOLD_DIM }]}
-                                />
-                                <Ionicons
-                                  name={groupCollapsed ? 'chevron-down' : 'chevron-up'}
-                                  size={13}
-                                  color={colors.onSurfaceVariant}
-                                />
-                              </TouchableOpacity>
-
-                              {!groupCollapsed && (
-                                <PosterGrid
-                                  items={group.data}
-                                  keyExtractor={(item) => watchlistEntryKey(item)}
-                                  bodyStyle={styles.categoryGrid}
-                                  renderItem={(item) => (
-                                    <WatchlistGridCard
-                                      item={item}
-                                      colors={colors}
-                                      typography={typography}
-                                      radii={radii}
-                                      onSelect={onSelect}
-                                      onRemove={onRemove}
-                                      onMarkWatched={onMarkWatched}
-                                      reduceMotion={reduceMotion}
-                                    />
-                                  )}
-                                />
-                              )}
-                            </View>
-                          );
-                        })}
-                    </View>
-                  )}
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </ScrollView>
+      />
 
       <View
         style={[styles.browseDock, { bottom: insets.bottom + 88, paddingHorizontal: GRID_PAD }]}
@@ -842,9 +821,6 @@ const styles = StyleSheet.create({
     height: verticalScale(48),
     justifyContent: 'center',
     width: scale(48),
-  },
-  categoryStack: {
-    gap: scale(8),
   },
   categorySection: {
     gap: scale(16),
