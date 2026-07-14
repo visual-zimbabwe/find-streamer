@@ -33,7 +33,7 @@ Everything else is medium/low polish, listed and planned below.
 | N2 | 🟠 Med | UX | "Where to Watch" is a flat A–Z country list — buries the user's region |
 | N3 | 🟠 Med | Visual | Translucent overlays bleed underlying content (headers, cards, nav, browse dock) |
 | D1 | 🟠 Med | Loading | Collection Index shows "0 collections" while 8569 load (misleading, no skeleton) |
-| P2 | 🟢 Low | Perf | `resolveRatingValue` latent risk: percentage rating strings sort to top |
+| P2 | ✅ Done | Perf | `resolveRatingValue` latent risk: percentage rating strings sort to top — *confirmed all sort/badge paths are /10; added defensive `%`→/10 rescale + unit test; verified on device* |
 | P3 | 🟢 Low | Perf | `ContentRail` missing `getItemLayout` for fixed-width posters |
 | D2 | 🟢 Low | Loading | Search result posters load blank (no skeleton) |
 | D3 | 🟢 Low | Data | Sparse-title detail: stuck "BASED ON" skeleton + empty metadata chips |
@@ -231,11 +231,21 @@ Recommended: (1) now, (2) as the durable follow-up.
 
 ---
 
-## P2 — 🟢 `resolveRatingValue` percentage-string risk
+## P2 — ✅ `resolveRatingValue` percentage-string risk
+
+> **STATUS: ✅ Implemented & verified (2026-07-13).**
 
 `src/lib/ratings.js:20` parses `parseFloat(String(raw).split('/')[0])`. If a `rating` string is ever a percentage (e.g. Rotten Tomatoes "90%") rather than an `/10` value, it returns `90` and sorts that item above every `/10`-rated title. The detail screen does surface RT "90%" and Metacritic "81" on different scales.
 
-**Fix:** confirm the `rating` field fed to poster badges/sort is always `/10`. If mixed scales are possible, normalize (e.g. detect `%` and divide by 10, or carry an explicit scale). Add a unit test with a `"90%"` input. **Effort:** S. **Risk:** L.
+**Scale audit (done):** every `rating` string that reaches `resolveRatingValue` is built on the `/10` scale as `${vote_average.toFixed(1)}/10` from TMDB — sources: `src/lib/tmdb.js` (all list/detail mappers), `src/lib/collectionRows.js:19`, and the persisted `src/lib/storage.js:217` / default lists. All four consumers use it identically: the poster badge (`GridPosterCard.js:44`) and the three rating-sort paths (`HomeScreen.js:274`, `homeFeed.js:125`, `WatchlistView.js:296`). The RT "90%" / Metacritic "81" values live in **separate** fields (`rottenTomatoes`, `metascore` from `src/lib/omdb.js`) and are rendered only as scale-labeled badges on the detail screen (confirmed on device: "TMDb 8.7 / IMDb 9.0" shown as distinct pills) — they never populate `rating`/`ratingValue`. So the bug is **latent, not live**: no percentage string currently reaches the sort.
+
+**Fix (applied):** kept the parse minimal and added a defensive guard — if the string contains `%`, rescale `/100 → /10` (`n / 10`) so a stray percentage can't sort above every `/10` title. `"90%"` now resolves to `9.0` (still below a genuine `9.5/10`) instead of `90`. `ratingValue`-first preference and the `N/A`/empty/unparseable → `0` behavior are unchanged.
+
+**Verification:**
+- **Unit test** (`tests/ratings.test.js`, `node --test`): covers `"90%"` (→ 9), `"8.8/10"` (→ 8.8), bare `"8.8"` (→ 8.8), the `ratingValue`-wins case, percentage-stays-below-/10 ordering, and `N/A`/empty/null → 0. All pass; full suite green (109/109).
+- **On-device** (debug build + Metro, Samsung Galaxy A54): Home rails render rating-sorted with badges (Watch Next led ★9.8 → ★8.8; Highly Recommend ★8.7/★8.7). Watchlist → Watch Next → Movie sub-group rendered descending — **The Godfather ★8.7 before GoodFellas ★8.5**, matching the plan's expected ordering. 2-up grid + badges intact; no regression.
+
+**Effort:** S. **Risk:** L.
 
 ---
 
