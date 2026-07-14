@@ -743,6 +743,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 2,
     opacity: 0.5,
+    paddingEnd: 3,
     textTransform: 'uppercase',
   },
 });

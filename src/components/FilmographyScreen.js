@@ -212,11 +212,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.4,
     marginBottom: 6,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   personName: {
     fontWeight: '800',
     letterSpacing: 0.3,
+    paddingEnd: 2,
     textAlign: 'center',
     textTransform: 'uppercase',
   },
@@ -224,6 +226,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1,
     marginTop: 6,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   headerHairline: {

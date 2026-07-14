@@ -272,6 +272,7 @@ const styles = StyleSheet.create({
   programmeTabText: {
     fontWeight: '600',
     letterSpacing: 0.6,
+    paddingEnd: 2,
     textTransform: 'uppercase',
     fontSize: scale(11),
   },

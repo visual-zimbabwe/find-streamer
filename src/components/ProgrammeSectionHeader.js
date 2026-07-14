@@ -85,6 +85,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1.2,
     marginBottom: 6,
+    // paddingEnd compensates RN-Android's trailing letter-spacing advance, which
+    // is omitted from the Text's measured width and would clip the final glyph.
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   eyebrowLeft: {
@@ -99,6 +102,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   titleUppercase: {
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   subtitle: {
@@ -117,6 +121,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.4,
     marginBottom: scale(10),
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   eyebrowLabelHairline: {

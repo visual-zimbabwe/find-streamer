@@ -805,6 +805,7 @@ const styles = StyleSheet.create({
   randomEyebrow: {
     fontWeight: '800',
     letterSpacing: 1.4,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   randomTitle: {
@@ -825,6 +826,7 @@ const styles = StyleSheet.create({
   randomButtonText: {
     fontWeight: '800',
     letterSpacing: 1.1,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   randomResult: {
@@ -846,6 +848,7 @@ const styles = StyleSheet.create({
   randomResultLabel: {
     fontWeight: '800',
     letterSpacing: 1.1,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   randomResultTitle: {
@@ -885,17 +888,20 @@ const styles = StyleSheet.create({
   categoryEyebrow: {
     fontWeight: '700',
     letterSpacing: 1.4,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   categoryTitle: {
     fontWeight: '800',
     letterSpacing: 0.3,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   categoryCount: {
     fontWeight: '700',
     letterSpacing: 1,
     marginTop: 2,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   categoryToggle: {
@@ -928,6 +934,7 @@ const styles = StyleSheet.create({
   mediaGroupLabel: {
     fontWeight: '800',
     letterSpacing: 1.2,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   mediaGroupCount: {
@@ -961,6 +968,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: '700',
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   swipeShell: {
@@ -986,6 +994,7 @@ const styles = StyleSheet.create({
   swipeActionText: {
     fontWeight: '800',
     letterSpacing: 0.8,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   inlineRetry: {
@@ -1025,6 +1034,7 @@ const styles = StyleSheet.create({
   browseDockLabel: {
     fontWeight: '800',
     letterSpacing: 1,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
 });

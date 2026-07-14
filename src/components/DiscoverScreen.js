@@ -2887,6 +2887,7 @@ const styles = StyleSheet.create({
   mediaTabLabel: {
     fontWeight: '600',
     letterSpacing: 1,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   mediaTabLabelActive: {
@@ -2926,6 +2927,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.2,
     marginBottom: scale(12),
+    paddingEnd: 2,
     textTransform: 'uppercase',
     fontSize: scale(11),
   },
@@ -2946,6 +2948,7 @@ const styles = StyleSheet.create({
   chipTextUpper: {
     fontWeight: '800',
     letterSpacing: 0.6,
+    paddingEnd: 2,
     textTransform: 'uppercase',
     fontSize: scale(10),
   },
@@ -3002,7 +3005,7 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 48,
   },
-  searchBtnText: { fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
+  searchBtnText: { fontWeight: '800', letterSpacing: 0.8, paddingEnd: 2, textTransform: 'uppercase' },
   searchBtnLoader: {
     borderRadius: 8,
     height: 16,
@@ -3020,6 +3023,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 2,
     marginBottom: 8,
+    paddingEnd: 3,
     textTransform: 'uppercase',
   },
   stateIconCircle: {
@@ -3085,6 +3089,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 24,
     letterSpacing: 1,
+    paddingEnd: 2,
     textTransform: 'uppercase',
     fontSize: scale(10),
     fontWeight: '700',

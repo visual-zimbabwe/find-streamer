@@ -28,7 +28,7 @@ Everything else is medium/low polish, listed and planned below.
 |----|-----|------|-----------|
 | P1 | ✅ Done | Perf/branch | Poster grid inside Watchlist is not virtualized → expand hitch (48 ms frames, 4 missed vsync @ 40 items) — *flattened to single virtualized FlatList; pending device verify* |
 | T1 | 🔴 High | Text | Cold-launch FOUT truncation — labels lose trailing words until a re-layout |
-| T2 | 🟠 Med | Text | Persistent letter-spacing clipping on small uppercase eyebrows |
+| T2 | ✅ Done | Text | Persistent letter-spacing clipping on small uppercase eyebrows — *added trailing `paddingEnd` to 39 uppercase letter-spaced label styles across 16 files; verified on device (DISPLAY/LIBRARY/CONNECTIVITY, Filters, Search now render full trailing glyphs)* |
 | N1 | 🟠 Med | Nav | Bottom-nav underline + active label stuck under Home, don't track selected tab |
 | N2 | 🟠 Med | UX | "Where to Watch" is a flat A–Z country list — buries the user's region |
 | N3 | 🟠 Med | Visual | Translucent overlays bleed underlying content (headers, cards, nav, browse dock) |
@@ -160,6 +160,54 @@ return (
 ---
 
 ## T2 — 🟠 Persistent letter-spacing clipping on eyebrows
+
+> **STATUS: ✅ Implemented & verified on device (2026-07-13, Samsung Galaxy A54, debug build via Metro).**
+> Applied fix option (1): added `paddingEnd` (a couple px, RTL-safe logical padding) to every
+> content-sized uppercase + letter-spaced `<Text>` style so the trailing glyph has room.
+>
+> **Audit (before touching anything — mirrors how P2 confirmed scale first):** wrote a scanner
+> over `src/` to find every style object combining `textTransform:'uppercase'` with a
+> `letterSpacing`, then classified each as content-sized (clip-prone) vs. already-padded /
+> flex-stretched. Findings: **39 clip-prone label styles** across **16 files** got padding —
+> `ProgrammeSectionHeader` (`eyebrow` 1.2, `eyebrowLabel` 1.4, `titleUppercase`; these back the
+> Settings **DISPLAY/LIBRARY/CONNECTIVITY** eyebrows), `DiscoverScreen` (6: `searchBtnText`,
+> `stateEyebrow`, `sectionLabel`, `mediaTabLabel`, `chipTextUpper`, `endText`), `WatchlistView`
+> (10: category/random/mediaGroup eyebrows + labels, `statusPillText`, `swipeActionText`,
+> `browseDockLabel`), `SettingsView.version`, `CollectionFindSheet` (2), `CollectionsScreen` (2),
+> `FilmographyScreen` (3), `HomeScreen` (2), `AppShell` (3, incl. 2 inline styles the StyleSheet
+> scanner missed), plus `BottomNav`, `ContentRail`→(*skipped*), `FranchiseRailsView`, `HomeTopNav`,
+> `MatchResults`, `SearchPanel`, `StackBottomSheet`, `SearchStack`. Padding value scales with
+> letterSpacing: **2 px** for ls ≤ 1.4, **3 px** for ls ≥ 2.
+> **Deliberately excluded** (documented, not missed): `ContentRail.railTitle` — `flex:1`, so it is
+> width-stretched, not content-sized, and never clips; `MatchResults.alsoMatchedTitle` and
+> `SearchPanel.liveResultsLabel` — already carry `paddingHorizontal` on the Text itself. The
+> shared `tokens.labelSm` token (ls 0.5) was **left untouched** — it is spread into ~140 call
+> sites, most of them *not* uppercase, so padding it centrally would shift unrelated layouts;
+> the padding belongs on the uppercase style objects, which locally override letterSpacing anyway.
+>
+> **Mechanism confirmed on device:** clipping is at the **Text view's own bounds** (the centered
+> `ProgrammeSectionHeader` eyebrow clips even though its parent has free space to the right), so
+> container padding never helped — only padding on the Text style does. Android's TextView drops
+> the *entire* final glyph when the measured width is even ~1 px short (the trailing letter-spacing
+> advance is omitted from measurement), which is why a mere 2 px pad recovers a whole character.
+>
+> **Before/after (BEFORE = same build with the T2 diff stashed; AFTER = diff applied, forced via
+> the RN dev-menu *Reload* — note: `am force-stop` + relaunch reuses the cached JS bundle and does
+> **not** pick up Metro changes, which invalidated a first pass until caught):**
+> - **Settings** — BEFORE: `PREFERENCE(S)`, `DISPLA(Y)`, `LIBRAR(Y)`, `CONNECTIVIT(Y)` (full
+>   trailing glyph dropped). AFTER: **PREFERENCES / DISPLAY / LIBRARY / CONNECTIVITY** all render
+>   complete (pixel-cropped + 4× zoom to confirm the `Y`).
+> - **Filters (Discover)** — `FILTER`, `MOVIES/SHOWS`, `GENRES`, chip labels (`ALL GENRES`,
+>   `ACTION`, `ADVENTURE`), `RATING/REGION/ADVANCED`, and the gold **SEARCH** button text all full.
+> - **Search** — `CATALOGUE`, `VOICE`, `RECENTLY VIEWED`, `PROGRAMME ROULETTE` all full.
+> - No layout shift observed: Settings eyebrows are left-aligned (`paddingEnd` doesn't move the
+>   left origin); centered labels shift ≤ 1 px, imperceptible.
+> - `npm test` (`node --test tests/*.test.js`): **109/109 pass**. Lint: **0 errors** on all 16
+>   touched files (only pre-existing warnings — the swipe-card ref / setState-in-effect noted in P1).
+>
+> **Follow-up (not done, per plan):** option (2) — a centralized `<Eyebrow>`/`<Label>` component
+> that bakes in the padding — remains the durable guard against future regressions; it was a larger
+> change than option (1) so it was intentionally deferred.
 
 **Symptom:** small gold uppercase section labels clip their last 1–2 characters and **never** recover, even after re-layout: "DISPLA(Y)", "LIBRAR(Y)", "CONNECTIVI(TY)". (Confirmed still clipped after a theme switch — distinct from T1.)
 

@@ -300,6 +300,7 @@ const searchStyles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.4,
     marginBottom: 2,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   surpriseFabLabel: {

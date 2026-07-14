@@ -506,6 +506,7 @@ const styles = StyleSheet.create({
   sheetEyebrow: {
     fontWeight: '800',
     letterSpacing: 1.2,
+    paddingEnd: 2,
     textTransform: 'uppercase',
     marginBottom: 2,
   },
@@ -534,6 +535,7 @@ const styles = StyleSheet.create({
   filterEyebrow: {
     fontWeight: '800',
     letterSpacing: 0.8,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   chipRow: {

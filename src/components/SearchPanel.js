@@ -391,6 +391,7 @@ const styles = StyleSheet.create({
   voiceLabel: {
     fontWeight: '700',
     letterSpacing: 1.1,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   liveResults: {

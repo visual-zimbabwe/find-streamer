@@ -226,6 +226,7 @@ function AppShellInner({ rootNavState }) {
                       marginHorizontal: 12,
                       fontWeight: '700',
                       letterSpacing: 1.1,
+                      paddingEnd: 2,
                       textTransform: 'uppercase',
                     },
                   ]}
@@ -262,6 +263,7 @@ function AppShellInner({ rootNavState }) {
                             fontWeight: '800',
                             textAlign: 'center',
                             letterSpacing: 0.6,
+                            paddingEnd: 2,
                             textTransform: 'uppercase',
                             fontSize: 12,
                             ...typography.bodyMd,
@@ -383,6 +385,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.4,
     marginBottom: 4,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   categoryTitle: {
