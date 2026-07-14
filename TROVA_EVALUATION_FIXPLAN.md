@@ -63,12 +63,32 @@ Everything else is medium/low polish, listed and planned below.
 >
 > **The virtualization is real and working:** the expand cost no longer scales with group size
 > (40 items and 173 items both cost ~109 ms, where the old eager grid scaled with N — 48 ms at 40).
-> Only the visible rows mount. **But the plan's target (`<16 ms`, 0 missed vsync) is not met:** a
-> *constant* ~109 ms / 2-missed-vsync hitch remains on expand, with GPU at only 3 ms — so it is
-> JS/CPU-bound, not rendering. The likely culprit is the `useMemo` that rebuilds the flattened row
-> array over the **whole** watchlist on every collapse-state change (constant in group size, linear
-> in total watchlist size). Worth a follow-up: memoise per-collection, or build the flattened array
-> incrementally, so expanding one group doesn't re-flatten all 794 items.
+> Only the visible rows mount. **But the plan's target (`<16 ms`, 0 missed vsync) is not met.**
+>
+> **What the residual hitch is — and is *not*.** The obvious suspect was the list rebuild: nothing
+> was memoised, so every collapse toggle re-scanned the whole 794-title library per collection,
+> re-sorted it, and re-packed the 2-up rows. That was fixed (`groupedItems` / `listData` / the row
+> packing are now memoised, keyed on the library rather than on collapse state) — and **it barely
+> moved the number (109 → 105 ms). The re-flatten was not the bottleneck.** Filtering 794 items is
+> a few ms, not a hundred.
+>
+> The measurements localise the real cost: expanding a category that reveals only *sub-headers*
+> (Watch Next, 204 titles → two group headers, no posters) costs **18 ms / 0 missed vsync**, while
+> expanding anything that reveals **poster rows** costs ~105 ms regardless of whether the group
+> holds 40 or 173 titles. So the hitch is the **synchronous mount of the newly-visible poster cards**
+> (artwork + a `PanResponder` + `Animated.Value` each), not list rebuilding and not group size.
+>
+> Mitigated by mounting them in smaller batches (`maxToRenderPerBatch` 6 → 2,
+> `updateCellsBatchingPeriod` 50, `windowSize` 7 → 5), which spreads the work across frames:
+>
+> | | Before | After |
+> |---|---|---|
+> | Expand Now Playing (40) | 109 ms, **2** missed vsync | **77 ms, 1** missed vsync |
+> | Scroll expanded grid | 3.04% jank, 99th 19 ms, 1 missed | **1.60% jank, 99th 15 ms, 0 missed** |
+>
+> Still short of `<16 ms`. Closing the rest means making card mount itself cheaper — lighter
+> `MediaArtwork`, or hoisting the per-card `PanResponder`/`Animated.Value` out of `WatchlistGridCard`
+> (one gesture responder for the row instead of one per card). Left as a follow-up.
 >
 > Original (debug-build) write-up follows, for the implementation detail:
 >
