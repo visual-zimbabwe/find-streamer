@@ -498,6 +498,7 @@ const sheetStyles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.2,
     marginBottom: 4,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   title: {

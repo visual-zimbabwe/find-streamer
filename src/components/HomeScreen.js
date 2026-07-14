@@ -467,6 +467,7 @@ const styles = StyleSheet.create({
     color: GOLD_ACCENT,
     fontWeight: '700',
     letterSpacing: 2.2,
+    paddingEnd: 3,
     textTransform: 'uppercase',
     marginBottom: 8,
   },
@@ -505,6 +506,7 @@ const styles = StyleSheet.create({
   secondaryTitle: {
     fontWeight: '700',
     letterSpacing: 1.4,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   secondaryCount: {

@@ -236,6 +236,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 2.2,
     marginBottom: 8,
+    paddingEnd: 3,
     textTransform: 'uppercase',
   },
   featureTitle: {

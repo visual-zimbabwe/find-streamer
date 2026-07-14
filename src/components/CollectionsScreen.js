@@ -318,11 +318,13 @@ const styles = StyleSheet.create({
   imdbEyebrow: {
     fontWeight: '800',
     letterSpacing: 1.2,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   imdbPageTitle: {
     fontWeight: '800',
     letterSpacing: 0.4,
+    paddingEnd: 2,
     textTransform: 'uppercase',
     textAlign: 'center',
   },

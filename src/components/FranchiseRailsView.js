@@ -820,6 +820,7 @@ const styles = StyleSheet.create({
   sectionHeaderEyebrow: {
     fontWeight: '800',
     letterSpacing: 0.8,
+    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   pinButton: {
