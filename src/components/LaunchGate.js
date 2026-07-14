@@ -5,7 +5,22 @@ import { LaunchIntro } from './LaunchIntro';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-export function LaunchGate({ shellReady, themeReady, children }) {
+/**
+ * `contentReady` gates the *mount* of the shell; `shellReady` gates only when
+ * the intro may be dismissed.
+ *
+ * The shell used to mount unconditionally, so it performed its first layout
+ * behind the intro overlay while the custom fonts were still loading. Text was
+ * measured with fallback metrics and kept those (too-narrow) bounds when the
+ * real faces swapped in, clipping trailing words until something forced a
+ * re-layout (T1).
+ *
+ * Deliberately NOT gated on the full `shellReady`: that includes
+ * `nav.navigationReady`, which is set by the NavigationContainer's `onReady` —
+ * and the container is one of these children. Gating on it would deadlock
+ * (children never mount -> onReady never fires -> children never mount).
+ */
+export function LaunchGate({ shellReady, contentReady, themeReady, children }) {
   const [introVisible, setIntroVisible] = useState(true);
   const [sequenceComplete, setSequenceComplete] = useState(false);
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
@@ -40,7 +55,7 @@ export function LaunchGate({ shellReady, themeReady, children }) {
 
   return (
     <View style={{ flex: 1 }}>
-      {children}
+      {contentReady ? children : null}
       {showIntro ? (
         <LaunchIntro
           canDismiss={canDismiss}

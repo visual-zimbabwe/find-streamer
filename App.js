@@ -324,9 +324,13 @@ function MobileApp() {
   );
 
   const shellReady = themeReady && nav.navigationReady && fontsReady;
+  // Mount the shell only once fonts+theme resolve, so its first layout measures
+  // text with the real font metrics (T1). navigationReady is excluded on
+  // purpose — see LaunchGate.
+  const contentReady = themeReady && fontsReady;
 
   return (
-    <LaunchGate shellReady={shellReady} themeReady={themeReady}>
+    <LaunchGate shellReady={shellReady} contentReady={contentReady} themeReady={themeReady}>
       <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} translucent />
       <StatusProvider value={statusValue}>
         <NavProvider value={navValue}>
