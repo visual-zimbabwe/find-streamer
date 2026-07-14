@@ -14,6 +14,7 @@ import { ContentRail } from './ContentRail';
 import { fetchHomeNowPlayingRail, fetchHomeTraktTrendingRail } from '../lib/homeFeed';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { scale } from '../utils/responsive';
+import { hugLabel } from '../utils/labelText';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { LiveMatchesSkeleton, SkeletonBlock } from './SkeletonLoaders';
@@ -212,7 +213,7 @@ export function SearchPanel({
                 },
               ]}
             >
-              {voiceListening ? 'Listening' : 'Voice'}
+              {hugLabel(voiceListening ? 'Listening' : 'Voice')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -391,7 +392,6 @@ const styles = StyleSheet.create({
   voiceLabel: {
     fontWeight: '700',
     letterSpacing: 1.1,
-    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   liveResults: {

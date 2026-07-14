@@ -26,9 +26,9 @@ Everything else is medium/low polish, listed and planned below.
 
 | ID | Sev | Area | One-liner |
 |----|-----|------|-----------|
-| P1 | ✅ Done | Perf/branch | Poster grid inside Watchlist is not virtualized → expand hitch (48 ms frames, 4 missed vsync @ 40 items) — *flattened to single virtualized FlatList; pending device verify* |
-| T1 | 🔴 High | Text | Cold-launch FOUT truncation — labels lose trailing words until a re-layout |
-| T2 | ✅ Done | Text | Persistent letter-spacing clipping on small uppercase eyebrows — *added trailing `paddingEnd` to 39 uppercase letter-spaced label styles across 16 files; verified on device (DISPLAY/LIBRARY/CONNECTIVITY, Filters, Search now render full trailing glyphs)* |
+| P1 | 🟠 Partial | Perf/branch | Poster grid virtualized (expand cost no longer scales with group size) — but a **constant ~109 ms / 2-missed-vsync expand hitch remains in release**; the `<16 ms` / 0-missed target is *not* met. Earlier "verified" was a debug build. |
+| T1 | ✅ Done | Text | Cold-launch FOUT truncation — *fixed by gating the shell mount on fonts (`contentReady`); release-verified on device* |
+| T2 | ✅ Done | Text | Persistent custom-font clipping on labels — *root cause was NOT letter-spacing; fixed by giving clip-prone labels a definite width; release-verified on device* |
 | N1 | 🟠 Med | Nav | Bottom-nav underline + active label stuck under Home, don't track selected tab |
 | N2 | 🟠 Med | UX | "Where to Watch" is a flat A–Z country list — buries the user's region |
 | N3 | 🟠 Med | Visual | Translucent overlays bleed underlying content (headers, cards, nav, browse dock) |
@@ -49,6 +49,49 @@ Everything else is medium/low polish, listed and planned below.
 
 ## P1 — 🔴 Virtualize the watchlist poster grid (the real branch gap)
 
+> **STATUS (2026-07-14): 🟠 PARTIAL — re-measured on a RELEASE build. The `✅ verified` claim below
+> was made on a *debug* build and overstates it.**
+>
+> Release measurements on the A54, against a **794-title** watchlist (Watch Next 204, Movies 173,
+> Now Playing 40 — far heavier than the ~15-title set the original pass used):
+>
+> | Action | 90th / 95th / 99th | Missed vsync | Read |
+> |---|---|---|---|
+> | Expand Now Playing (**40**) | 38 / 109 / 109 ms | **2** | mount stall remains |
+> | Expand Movies (**173**) | — / — / 109 ms | **2** | *same* cost as 40 |
+> | Scroll the mounted grid (460 frames) | 9 / 12 / 19 ms | 1 | smooth |
+>
+> **The virtualization is real and working:** the expand cost no longer scales with group size
+> (40 items and 173 items both cost ~109 ms, where the old eager grid scaled with N — 48 ms at 40).
+> Only the visible rows mount. **But the plan's target (`<16 ms`, 0 missed vsync) is not met.**
+>
+> **What the residual hitch is — and is *not*.** The obvious suspect was the list rebuild: nothing
+> was memoised, so every collapse toggle re-scanned the whole 794-title library per collection,
+> re-sorted it, and re-packed the 2-up rows. That was fixed (`groupedItems` / `listData` / the row
+> packing are now memoised, keyed on the library rather than on collapse state) — and **it barely
+> moved the number (109 → 105 ms). The re-flatten was not the bottleneck.** Filtering 794 items is
+> a few ms, not a hundred.
+>
+> The measurements localise the real cost: expanding a category that reveals only *sub-headers*
+> (Watch Next, 204 titles → two group headers, no posters) costs **18 ms / 0 missed vsync**, while
+> expanding anything that reveals **poster rows** costs ~105 ms regardless of whether the group
+> holds 40 or 173 titles. So the hitch is the **synchronous mount of the newly-visible poster cards**
+> (artwork + a `PanResponder` + `Animated.Value` each), not list rebuilding and not group size.
+>
+> Mitigated by mounting them in smaller batches (`maxToRenderPerBatch` 6 → 2,
+> `updateCellsBatchingPeriod` 50, `windowSize` 7 → 5), which spreads the work across frames:
+>
+> | | Before | After |
+> |---|---|---|
+> | Expand Now Playing (40) | 109 ms, **2** missed vsync | **77 ms, 1** missed vsync |
+> | Scroll expanded grid | 3.04% jank, 99th 19 ms, 1 missed | **1.60% jank, 99th 15 ms, 0 missed** |
+>
+> Still short of `<16 ms`. Closing the rest means making card mount itself cheaper — lighter
+> `MediaArtwork`, or hoisting the per-card `PanResponder`/`Animated.Value` out of `WatchlistGridCard`
+> (one gesture responder for the row instead of one per card). Left as a follow-up.
+>
+> Original (debug-build) write-up follows, for the implementation detail:
+>
 > **STATUS: ✅ Implemented & verified on device (2026-07-13, Samsung Galaxy A54).**
 > Flattened `WatchlistView` to a single virtualized `FlatList` per the recommended fix.
 > `data` is now a pre-built typed-row array (`nowPlayingHeader` / `nowPlayingSkeleton` /
@@ -122,7 +165,25 @@ Replace the "outer FlatList of collections, inner eager grids" with **one** `Fla
 
 ---
 
-## T1 — 🔴 Cold-launch font-load truncation (FOUT)
+## T1 — ✅ Cold-launch font-load truncation (FOUT)
+
+> **STATUS: ✅ Fixed & verified in a RELEASE build on device (2026-07-14, Samsung Galaxy A54).**
+>
+> Applied the planned fix, with one correction. `LaunchGate` now gates the children mount on a new
+> `contentReady` prop (`themeReady && fontsReady`) instead of rendering `{children}` unconditionally,
+> so the shell's first layout happens with the real font metrics.
+>
+> **It must NOT be gated on `shellReady`, as the snippet below suggested.** `shellReady` includes
+> `nav.navigationReady`, which is set by the `NavigationContainer`'s `onReady` — and that container
+> is one of these children. Gating on it deadlocks: children never mount → `onReady` never fires →
+> children never mount. `shellReady` still governs intro dismissal, unchanged.
+>
+> **Release verification (cold launch, no re-layout):** Settings renders "Export watchlist" /
+> "Import watchlist" (was "Export" / "Import") and "Light Mode" / "Dark Mode" (was "Light" / "Dark")
+> correctly on **first paint**. Identical after a forced re-layout, i.e. no FOUT window remains.
+>
+> **Note:** the symptom table below is partly wrong. `VOIC`, `SEARC`, `Rese` and `CATALOGU` were
+> *not* FOUT — they persist through a theme switch and were T2-class measurement clips. See T2.
 
 **Symptom:** on a fresh launch, many labels lose trailing words/characters, then **fix themselves after any re-layout** (theme switch, re-navigation, hero rotation). Observed:
 
@@ -159,72 +220,70 @@ return (
 
 ---
 
-## T2 — 🟠 Persistent letter-spacing clipping on eyebrows
+## T2 — ✅ Persistent custom-font clipping on labels
 
-> **STATUS: ✅ Implemented & verified on device (2026-07-13, Samsung Galaxy A54, debug build via Metro).**
-> Applied fix option (1): added `paddingEnd` (a couple px, RTL-safe logical padding) to every
-> content-sized uppercase + letter-spaced `<Text>` style so the trailing glyph has room.
+> **STATUS: ✅ Fixed & verified in a RELEASE build on device (2026-07-14, Samsung Galaxy A54).**
 >
-> **Audit (before touching anything — mirrors how P2 confirmed scale first):** wrote a scanner
-> over `src/` to find every style object combining `textTransform:'uppercase'` with a
-> `letterSpacing`, then classified each as content-sized (clip-prone) vs. already-padded /
-> flex-stretched. Findings: **39 clip-prone label styles** across **16 files** got padding —
-> `ProgrammeSectionHeader` (`eyebrow` 1.2, `eyebrowLabel` 1.4, `titleUppercase`; these back the
-> Settings **DISPLAY/LIBRARY/CONNECTIVITY** eyebrows), `DiscoverScreen` (6: `searchBtnText`,
-> `stateEyebrow`, `sectionLabel`, `mediaTabLabel`, `chipTextUpper`, `endText`), `WatchlistView`
-> (10: category/random/mediaGroup eyebrows + labels, `statusPillText`, `swipeActionText`,
-> `browseDockLabel`), `SettingsView.version`, `CollectionFindSheet` (2), `CollectionsScreen` (2),
-> `FilmographyScreen` (3), `HomeScreen` (2), `AppShell` (3, incl. 2 inline styles the StyleSheet
-> scanner missed), plus `BottomNav`, `ContentRail`→(*skipped*), `FranchiseRailsView`, `HomeTopNav`,
-> `MatchResults`, `SearchPanel`, `StackBottomSheet`, `SearchStack`. Padding value scales with
-> letterSpacing: **2 px** for ls ≤ 1.4, **3 px** for ls ≥ 2.
-> **Deliberately excluded** (documented, not missed): `ContentRail.railTitle` — `flex:1`, so it is
-> width-stretched, not content-sized, and never clips; `MatchResults.alsoMatchedTitle` and
-> `SearchPanel.liveResultsLabel` — already carry `paddingHorizontal` on the Text itself. The
-> shared `tokens.labelSm` token (ls 0.5) was **left untouched** — it is spread into ~140 call
-> sites, most of them *not* uppercase, so padding it centrally would shift unrelated layouts;
-> the padding belongs on the uppercase style objects, which locally override letterSpacing anyway.
+> **The previous entry here was wrong and has been rewritten.** It claimed T2 was fixed by adding
+> `paddingEnd` to 39 uppercase letter-spaced styles, "verified on device". That verification was a
+> **debug build over Metro**, which does not reproduce this bug. In a real release build the
+> padding fix is **completely inert** — the eyebrows still render `PREFERENCE`, `DISPLA`, `LIBRAR`,
+> `CONNECTIVIT`. Do not re-try padding.
 >
-> **Mechanism confirmed on device:** clipping is at the **Text view's own bounds** (the centered
-> `ProgrammeSectionHeader` eyebrow clips even though its parent has free space to the right), so
-> container padding never helped — only padding on the Text style does. Android's TextView drops
-> the *entire* final glyph when the measured width is even ~1 px short (the trailing letter-spacing
-> advance is omitted from measurement), which is why a mere 2 px pad recovers a whole character.
+> **The name "letter-spacing clipping" was also wrong.** Letter-spacing is not the cause.
 >
-> **Before/after (BEFORE = same build with the T2 diff stashed; AFTER = diff applied, forced via
-> the RN dev-menu *Reload* — note: `am force-stop` + relaunch reuses the cached JS bundle and does
-> **not** pick up Metro changes, which invalidated a first pass until caught):**
-> - **Settings** — BEFORE: `PREFERENCE(S)`, `DISPLA(Y)`, `LIBRAR(Y)`, `CONNECTIVIT(Y)` (full
->   trailing glyph dropped). AFTER: **PREFERENCES / DISPLAY / LIBRARY / CONNECTIVITY** all render
->   complete (pixel-cropped + 4× zoom to confirm the `Y`).
-> - **Filters (Discover)** — `FILTER`, `MOVIES/SHOWS`, `GENRES`, chip labels (`ALL GENRES`,
->   `ACTION`, `ADVENTURE`), `RATING/REGION/ADVANCED`, and the gold **SEARCH** button text all full.
-> - **Search** — `CATALOGUE`, `VOICE`, `RECENTLY VIEWED`, `PROGRAMME ROULETTE` all full.
-> - No layout shift observed: Settings eyebrows are left-aligned (`paddingEnd` doesn't move the
->   left origin); centered labels shift ≤ 1 px, imperceptible.
-> - `npm test` (`node --test tests/*.test.js`): **109/109 pass**. Lint: **0 errors** on all 16
->   touched files (only pre-existing warnings — the swipe-card ref / setState-in-effect noted in P1).
+> **Root cause (established by a variant-sweep in release builds on device):** RN-Android measures
+> a `<Text>`'s *intrinsic* width slightly narrower than it paints with the custom fonts added in
+> PR #60 (Inter/Manrope). The shortfall **grows with glyph count** (~0.5 px per glyph), so the last
+> glyph is dropped. Android clips text to its **Layout width**, and Yoga takes that width from the
+> short measurement — so trailing padding is added *outside* the Layout and can never help.
 >
-> **Follow-up (not done, per plan):** option (2) — a centralized `<Eyebrow>`/`<Label>` component
-> that bakes in the padding — remains the durable guard against future regressions; it was a larger
-> change than option (1) so it was intentionally deferred.
+> Ruled out, each on its own release build on device:
+> - **padding** — `paddingEnd: 2`, `paddingRight: 8`, even `paddingEnd: 12` all still clip.
+> - **letterSpacing** — still clips at `letterSpacing: 0`. Not the culprit, despite the old name.
+> - **fontWeight / synthetic bold** — identical clipping at 400 / 600 / `normal` / unset; Android
+>   ignores `fontWeight` once a weighted family is set, so there is no fake-bold widening.
+> - **a trailing space** — Android trims trailing whitespace.
+> - **a single trailing `&nbsp;`** — fixes 7-char labels but *not* an 11-char one (the shortfall
+>   scales with length), so it is not reliable on its own.
+>
+> **Fix (applied): give clip-prone labels a definite width instead of their intrinsic measurement.**
+> - `ProgrammeSectionHeader` — `eyebrow` / `title` / `subtitle` get `alignSelf: 'stretch'` +
+>   `textAlign`. This is the big win: it fixes **every section header app-wide** (Settings, Search,
+>   Filters, Watchlist, Collections…), not just the four Settings eyebrows.
+> - `DiscoverScreen` Search / Reset buttons — label gets `flex: 1` + `textAlign: 'center'`. The row
+>   already centres icon+label as a group, and the maths puts the label's centre at the same x, so
+>   this is not a visual change.
+> - `SearchPanel` voice pill — it *must* hug its content, so no width can be imposed; it uses the
+>   new `hugLabel()` helper (`src/utils/labelText.js`), which pads with non-breaking spaces.
+>
+> **Release-build verification (Galaxy A54, release APK, no Metro):**
+> - Settings: **PREFERENCES / DISPLAY / LIBRARY / CONNECTIVITY** all render the final glyph
+>   (before: `PREFERENCE` / `DISPLA` / `LIBRAR` / `CONNECTIVIT`). The subtitle also recovered —
+>   it read "Your Programme", now "Your Programme Specification".
+> - Search: **VOICE** (was `VOIC`), `CATALOGUE`, `RECENTLY VIEWED`, `PROGRAMME ROULETTE`.
+> - Filters: **SEARCH** (was `SEARC`), **Reset** (was `Rese`).
+> - Still correct after a theme switch (full re-layout).
+> - Lint: 0 errors. `npm test`: 109/109 pass.
+>
+> **Symptom re-attribution:** the plan previously listed `VOIC`, `SEARC`, `Rese`, `CATALOGU` under
+> **T1** as cold-launch FOUT that recovers on re-layout. That is wrong: on device they **persist
+> through a theme switch**, so they were T2-class (bad measurement), not FOUT. They are fixed here.
+>
+> **Follow-up (not done):** ~34 of the original `paddingEnd: 2|3` entries remain across 14 files
+> (`WatchlistView` 10, `DiscoverScreen` 5, `AppShell` 3, `FilmographyScreen` 3, …). They are
+> **inert, not harmful** — deliberately left rather than mass-reverted, because touching 14 surfaces
+> without re-verifying each one in release is what produced the bad "verified" claim above. They
+> should be removed as those labels are migrated to the definite-width pattern. The old audit's
+> inventory of 39 uppercase letter-spaced styles is still the useful roadmap for that sweep — note
+> that only *some* of them actually clip (chips like `ALL GENRES` / `ACTION`, and the browse-dock
+> `MOVIES` / `TV SHOWS`, happen to render fine), so migrate on evidence, screen by screen.
 
-**Symptom:** small gold uppercase section labels clip their last 1–2 characters and **never** recover, even after re-layout: "DISPLA(Y)", "LIBRAR(Y)", "CONNECTIVI(TY)". (Confirmed still clipped after a theme switch — distinct from T1.)
+**Symptom:** small uppercase labels clip their last character and **never** recover, even after a
+re-layout: "DISPLA(Y)", "LIBRAR(Y)", "CONNECTIVIT(Y)", "VOIC(E)", "SEARC(H)", "Rese(t)".
 
-**Root cause:** these labels combine `letterSpacing` + `textTransform:'uppercase'` on a content-sized `<Text>` with no trailing horizontal padding. On Android, RN adds the trailing letter-spacing to each glyph's advance but omits it from the view's measured width, so the final glyph is clipped. The custom font's wider metrics make it worse. Sources:
-- `src/theme/tokens.js:83` — `labelSm` sets `letterSpacing: 0.5`.
-- `src/components/ProgrammeSectionHeader.js:84` (`eyebrow`, `letterSpacing: 1.2`), `:116` (`eyebrowLabel`, `1.4`).
-- `src/components/DiscoverScreen.js:3005` (`searchBtnText`), and many styles at `2888–3089` (`letterSpacing` 0.6–2 + uppercase).
-- `src/components/SettingsView.js` section eyebrows (same pattern).
-
-**Fix (pick one, apply consistently):**
-1. **Trailing padding** — add `paddingRight`/`paddingEnd` ≈ the `letterSpacing` value (round up 1–2 px) to every uppercase letter-spaced label style. Simple, surgical.
-2. **Centralized component** — introduce `<Eyebrow>` / `<Label>` that bakes in the padding + `includeFontPadding:false` handling, and migrate the ~dozen call sites. Prevents regressions.
-3. **Pre-space the string** instead of `letterSpacing` for the worst offenders (e.g. render `D I S P L A Y`) — avoids RN's trailing-advance bug entirely, at the cost of readability in code.
-
-Recommended: (1) now, (2) as the durable follow-up.
-
-**Effort:** S–M. **Risk:** L. **Verify:** Settings, Search, Filters eyebrows render full trailing characters.
+**Verify:** Settings, Search, Filters labels render their full trailing character in a **release**
+build on device. A debug/Metro build does not reproduce the bug and will falsely look fixed.
 
 ---
 
@@ -281,7 +340,10 @@ Recommended: (1) now, (2) as the durable follow-up.
 
 ## P2 — ✅ `resolveRatingValue` percentage-string risk
 
-> **STATUS: ✅ Implemented & verified (2026-07-13).**
+> **STATUS: ✅ Implemented & verified (2026-07-13); re-confirmed in a RELEASE build on device
+> (2026-07-14).** The `%`→/10 guard is present in the shipped bundle, and the expanded Now Playing
+> grid renders rating-sorted descending (★8.7 → 8.4 → 8.3 → 8.0) with no percentage-scale value
+> sorting above the /10 titles. This is the one item whose earlier "verified" claim held up.
 
 `src/lib/ratings.js:20` parses `parseFloat(String(raw).split('/')[0])`. If a `rating` string is ever a percentage (e.g. Rotten Tomatoes "90%") rather than an `/10` value, it returns `90` and sorts that item above every `/10`-rated title. The detail screen does surface RT "90%" and Metacritic "81" on different scales.
 

@@ -17,6 +17,7 @@ export function ProgrammeSectionHeader({
   const { theme } = useTheme();
   const { colors, typography } = theme;
   const isLeft = align === 'left';
+  const textAlign = isLeft ? 'left' : 'center';
 
   return (
     <View style={[styles.root, isLeft && styles.rootLeft, style]}>
@@ -24,8 +25,9 @@ export function ProgrammeSectionHeader({
         <Text
           style={[
             styles.eyebrow,
+            styles.fullBleed,
             isLeft && styles.eyebrowLeft,
-            { color: GOLD_ACCENT, ...typography.labelSm },
+            { color: GOLD_ACCENT, textAlign, ...typography.labelSm },
           ]}
         >
           {eyebrow}
@@ -34,9 +36,10 @@ export function ProgrammeSectionHeader({
       <Text
         style={[
           styles.title,
+          styles.fullBleed,
           isLeft && styles.titleLeft,
           titleUppercase && styles.titleUppercase,
-          { color: colors.onSurface, ...typography[titleVariant] },
+          { color: colors.onSurface, textAlign, ...typography[titleVariant] },
         ]}
         accessibilityRole="header"
       >
@@ -46,8 +49,9 @@ export function ProgrammeSectionHeader({
         <Text
           style={[
             styles.subtitle,
+            styles.fullBleed,
             isLeft && styles.subtitleLeft,
-            { color: colors.onSurfaceVariant, ...typography.labelSm },
+            { color: colors.onSurfaceVariant, textAlign, ...typography.labelSm },
           ]}
         >
           {subtitle}
@@ -64,7 +68,13 @@ export function ProgrammeEyebrowLabel({ eyebrow, style, hairlineStyle }) {
 
   return (
     <View style={[styles.eyebrowLabelRoot, style]}>
-      <Text style={[styles.eyebrowLabel, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+      <Text
+        style={[
+          styles.eyebrowLabel,
+          styles.fullBleed,
+          { color: GOLD_ACCENT, ...typography.labelSm },
+        ]}
+      >
         {eyebrow}
       </Text>
       <ProgrammeHairline style={[styles.eyebrowLabelHairline, hairlineStyle]} />
@@ -73,6 +83,20 @@ export function ProgrammeEyebrowLabel({ eyebrow, style, hairlineStyle }) {
 }
 
 const styles = StyleSheet.create({
+  /**
+   * Android + custom fonts (Inter/Manrope, PR #60) under-measure a <Text>'s
+   * intrinsic width by a few px, so a content-sized label has its final glyph
+   * clipped ("DISPLAY" -> "DISPLA"). The clip happens at the Text's own content
+   * box, and RN sizes that box to exactly the (short) measured width — padding
+   * is added *outside* it, which is why paddingEnd/paddingRight never helped.
+   *
+   * Stretching the label to its parent's width takes the broken measurement out
+   * of the layout entirely; textAlign then positions the glyphs. Verified in a
+   * release build on device.
+   */
+  fullBleed: {
+    alignSelf: 'stretch',
+  },
   root: {
     alignItems: 'center',
     marginBottom: scale(18),
@@ -85,9 +109,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1.2,
     marginBottom: 6,
-    // paddingEnd compensates RN-Android's trailing letter-spacing advance, which
-    // is omitted from the Text's measured width and would clip the final glyph.
-    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   eyebrowLeft: {
@@ -96,20 +117,17 @@ const styles = StyleSheet.create({
   title: {
     fontWeight: '800',
     letterSpacing: 0.4,
-    textAlign: 'center',
   },
   titleLeft: {
     textAlign: 'left',
   },
   titleUppercase: {
-    paddingEnd: 2,
     textTransform: 'uppercase',
   },
   subtitle: {
     fontWeight: '600',
     letterSpacing: 0.4,
     marginTop: 6,
-    textAlign: 'center',
   },
   subtitleLeft: {
     textAlign: 'left',
@@ -121,7 +139,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.4,
     marginBottom: scale(10),
-    paddingEnd: 2,
+    textAlign: 'left',
     textTransform: 'uppercase',
   },
   eyebrowLabelHairline: {

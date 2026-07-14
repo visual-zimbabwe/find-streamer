@@ -1076,7 +1076,17 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
             accessibilityLabel="Reset discover filters"
           >
             <Ionicons name="refresh-outline" size={16} color={c.onSurfaceVariant} />
-            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginLeft: 6 }]}>
+            <Text
+              style={[
+                {
+                  color: c.onSurfaceVariant,
+                  ...typography.labelSm,
+                  flex: 1,
+                  marginLeft: 6,
+                  textAlign: 'center',
+                },
+              ]}
+            >
               Reset
             </Text>
           </TouchableOpacity>
@@ -3005,7 +3015,17 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 48,
   },
-  searchBtnText: { fontWeight: '800', letterSpacing: 0.8, paddingEnd: 2, textTransform: 'uppercase' },
+  // flex:1 + textAlign gives the label a definite width instead of its (short)
+  // intrinsic measurement — see the fullBleed note in ProgrammeSectionHeader.
+  // The button centres icon+label as a group, and the label's centre lands at
+  // the same x either way, so this is not a visual change.
+  searchBtnText: {
+    flex: 1,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
   searchBtnLoader: {
     borderRadius: 8,
     height: 16,
