@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   PanResponder,
   StyleSheet,
@@ -13,14 +14,32 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { EmptyState } from './EmptyState';
-import { MediaArtwork } from './MediaArtwork';
 import {
   getUserWatchlistCollections,
   getStatusLabel,
   isInUserLibrary,
   watchlistEntryKey,
 } from '../lib/watchlistModel';
-import { fetchNowPlayingMovies } from '../lib/tmdb';
+import { fetchNowPlayingMovies, fetchTitleProviderCountries } from '../lib/tmdb';
+import {
+  DEFAULT_WHERE_TO_WATCH_COUNTRY,
+  ensureAvailabilityForItems,
+  getFreshAvailability,
+  getServiceLabel,
+  loadAvailabilityCache,
+  loadWhereToWatchPrefs,
+  matchingServiceKeys,
+  persistAvailabilityCache,
+  saveWhereToWatchPrefs,
+  titleMatchesWhereToWatch,
+  whereToWatchScopeItems,
+} from '../lib/whereToWatch';
+import { useBottomSheet } from './StackBottomSheet';
+import {
+  WhereToWatchCollectionsSheet,
+  WhereToWatchCountrySheet,
+  WhereToWatchServiceSheet,
+} from './WhereToWatchSheets';
 import { classifyAppError } from '../lib/errors';
 import { scale, verticalScale } from '../utils/responsive';
 import * as Haptics from 'expo-haptics';
@@ -43,6 +62,7 @@ function WatchlistGridCard({
   onRemove,
   onMarkWatched,
   reduceMotion = false,
+  matchedServiceKeys = null,
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const SWIPE_THRESHOLD = 72;
@@ -145,7 +165,20 @@ function WatchlistGridCard({
             radii={radii}
             pressable={false}
             posterOverlay={
-              item.status && item.status !== 'saved' ? (
+              matchedServiceKeys?.length ? (
+                <View
+                  style={[
+                    styles.statusPill,
+                    { backgroundColor: 'rgba(0,0,0,0.62)', borderRadius: radii.sm },
+                  ]}
+                >
+                  <Ionicons name="play-circle-outline" size={11} color={GOLD_ACCENT} />
+                  <Text style={[styles.statusPillText, typography.labelSm]}>
+                    {getServiceLabel(matchedServiceKeys[0])}
+                    {matchedServiceKeys.length > 1 ? ` +${matchedServiceKeys.length - 1}` : ''}
+                  </Text>
+                </View>
+              ) : item.status && item.status !== 'saved' ? (
                 <View
                   style={[
                     styles.statusPill,
@@ -177,6 +210,26 @@ function WatchlistGridCard({
 }
 
 
+function WherePill({ icon, label, onPress, colors, typography, accessibilityLabel }) {
+  return (
+    <TouchableOpacity
+      style={[styles.wherePill, { borderColor: GOLD_DIM }]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      <Ionicons name={icon} size={14} color={GOLD_ACCENT} />
+      <Text
+        style={[styles.wherePillText, { color: colors.onSurface, ...typography.labelSm }]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+      <Ionicons name="chevron-down" size={12} color={colors.onSurfaceVariant} />
+    </TouchableOpacity>
+  );
+}
+
 const sortByRatingDesc = (arr) =>
   [...arr].sort((a, b) => resolveRatingValue(b) - resolveRatingValue(a));
 
@@ -194,11 +247,26 @@ export function WatchlistView({
   const insets = useSafeAreaInsets();
   const bottomNavScroll = useBottomNavScroll();
   const reduceMotion = useReduceMotion();
+  const bottomSheet = useBottomSheet();
 
-  const [randomPick, setRandomPick] = useState(null);
-  const pickOpacity = useRef(new Animated.Value(0)).current;
   const [collapsedCategoryIds, setCollapsedCategoryIds] = useState({});
   const [collapsedGroupKeys, setCollapsedGroupKeys] = useState({});
+
+  // Where-to-Watch filter. The persistent availability cache is only touched
+  // inside the check effect (it is mutated by a concurrent fetch loop);
+  // renders read `whereAvailability`, an immutable entryKey → services
+  // snapshot the effect publishes.
+  const [whereActive, setWhereActive] = useState(false);
+  const [whereCountry, setWhereCountry] = useState(DEFAULT_WHERE_TO_WATCH_COUNTRY);
+  const [whereServiceKey, setWhereServiceKey] = useState(null);
+  const [whereCollectionIds, setWhereCollectionIds] = useState(null); // null = all collections
+  const [whereChecking, setWhereChecking] = useState(false);
+  const [whereProgress, setWhereProgress] = useState(null);
+  const [whereFailedCount, setWhereFailedCount] = useState(0);
+  const [whereRetryNonce, setWhereRetryNonce] = useState(0);
+  const [whereAvailability, setWhereAvailability] = useState(null);
+  const availabilityCacheRef = useRef(null);
+  const whereRunIdRef = useRef(0);
 
   const [nowPlaying, setNowPlaying] = useState([]);
   const [nowPlayingLoading, setNowPlayingLoading] = useState(true);
@@ -212,19 +280,54 @@ export function WatchlistView({
 
   const libraryItems = useMemo(() => (items || []).filter(isInUserLibrary), [items]);
 
-  const pickableItems = useMemo(
-    () => libraryItems.filter((item) => item.status !== 'watched'),
-    [libraryItems],
-  );
-
-  const listExtraData = useMemo(
-    () => ({ theme, collapsedCategoryIds, collapsedGroupKeys }),
-    [theme, collapsedCategoryIds, collapsedGroupKeys],
-  );
-
   const availableCollections = useMemo(
     () => (collections.length ? collections : getUserWatchlistCollections()),
     [collections],
+  );
+
+  /**
+   * Which library entries pass the active where-to-watch filter, plus (in
+   * any-service mode) which services matched, for the poster badge. Null when
+   * the filter is off. `whereAvailability` already reflects the collection
+   * scope — the check effect snapshots exactly the in-scope titles.
+   */
+  const whereMatches = useMemo(() => {
+    if (!whereActive || !whereCountry?.code) return null;
+    const matchedKeys = new Set();
+    const matchedServices = new Map();
+    if (whereAvailability) {
+      const filter = { countryCode: whereCountry.code, serviceKey: whereServiceKey };
+      whereAvailability.forEach((services, entryKey) => {
+        if (titleMatchesWhereToWatch(services, filter)) {
+          matchedKeys.add(entryKey);
+          if (!whereServiceKey) {
+            matchedServices.set(entryKey, matchingServiceKeys(services, whereCountry.code));
+          }
+        }
+      });
+    }
+    return { keys: matchedKeys, services: matchedServices };
+  }, [whereActive, whereCountry, whereServiceKey, whereAvailability]);
+
+  const whereScopeCount = useMemo(
+    () => (whereActive ? whereToWatchScopeItems(libraryItems, whereCollectionIds).length : 0),
+    [whereActive, libraryItems, whereCollectionIds],
+  );
+
+  const visibleLibraryItems = useMemo(() => {
+    if (!whereMatches) return libraryItems;
+    return libraryItems.filter((item) => whereMatches.keys.has(watchlistEntryKey(item)));
+  }, [libraryItems, whereMatches]);
+
+  const scopedCollections = useMemo(() => {
+    if (!whereActive || !whereCollectionIds?.length) return availableCollections;
+    const selected = new Set(whereCollectionIds);
+    return availableCollections.filter((collection) => selected.has(collection.id));
+  }, [availableCollections, whereActive, whereCollectionIds]);
+
+  const listExtraData = useMemo(
+    () => ({ theme, collapsedCategoryIds, collapsedGroupKeys, whereMatches }),
+    [theme, collapsedCategoryIds, collapsedGroupKeys, whereMatches],
   );
 
   /**
@@ -237,9 +340,11 @@ export function WatchlistView({
    */
   const groupedItems = useMemo(
     () =>
-      availableCollections
+      scopedCollections
         .map((collection) => {
-          const all = libraryItems.filter((item) => item.collectionIds?.includes(collection.id));
+          const all = visibleLibraryItems.filter((item) =>
+            item.collectionIds?.includes(collection.id),
+          );
           const movies = sortByRatingDesc(all.filter((item) => item.mediaType === 'movie'));
           const tvShows = sortByRatingDesc(all.filter((item) => item.mediaType !== 'movie'));
           return {
@@ -256,7 +361,7 @@ export function WatchlistView({
           };
         })
         .filter((category) => category.totalCount > 0),
-    [availableCollections, libraryItems],
+    [scopedCollections, visibleLibraryItems],
   );
 
   const nowPlayingRows = useMemo(() => buildGridRows(nowPlaying), [nowPlaying]);
@@ -268,31 +373,42 @@ export function WatchlistView({
    */
   const listData = useMemo(() => {
     const rows = [];
-    const categoryCollapsed = (id) => collapsedCategoryIds[id] ?? true;
+    // While the where-to-watch filter is on, everything left is a match — show
+    // it expanded instead of making the user unfold each section.
+    const defaultCollapsed = !whereActive;
+    const categoryCollapsed = (id) => collapsedCategoryIds[id] ?? defaultCollapsed;
     const groupCollapsed = (categoryId, groupLabel) =>
-      collapsedGroupKeys[`${categoryId}::${groupLabel}`] ?? true;
+      collapsedGroupKeys[`${categoryId}::${groupLabel}`] ?? defaultCollapsed;
 
-    rows.push({ type: 'nowPlayingHeader', key: 'now-playing-header' });
-    if (!categoryCollapsed('now_playing')) {
-      if (nowPlayingLoading) {
-        rows.push({ type: 'nowPlayingSkeleton', key: 'now-playing-skeleton', mt: scale(12) });
-      } else if (nowPlayingError) {
-        rows.push({ type: 'nowPlayingError', key: 'now-playing-error', mt: scale(12) });
-      } else if (nowPlaying.length > 0) {
-        nowPlayingRows.forEach((rowItems, rowIndex) => {
-          rows.push({
-            type: 'posterRow',
-            variant: 'nowPlaying',
-            items: rowItems,
-            key: `now-playing-row-${watchlistEntryKey(rowItems[0])}`,
-            mt: rowIndex === 0 ? scale(12) : GRID_GAP,
+    // Now Playing is theatre content; it has no streaming availability and is
+    // hidden while the filter is active.
+    if (!whereActive) {
+      rows.push({ type: 'nowPlayingHeader', key: 'now-playing-header' });
+      if (!categoryCollapsed('now_playing')) {
+        if (nowPlayingLoading) {
+          rows.push({ type: 'nowPlayingSkeleton', key: 'now-playing-skeleton', mt: scale(12) });
+        } else if (nowPlayingError) {
+          rows.push({ type: 'nowPlayingError', key: 'now-playing-error', mt: scale(12) });
+        } else if (nowPlaying.length > 0) {
+          nowPlayingRows.forEach((rowItems, rowIndex) => {
+            rows.push({
+              type: 'posterRow',
+              variant: 'nowPlaying',
+              items: rowItems,
+              key: `now-playing-row-${watchlistEntryKey(rowItems[0])}`,
+              mt: rowIndex === 0 ? scale(12) : GRID_GAP,
+            });
           });
-        });
+        }
       }
     }
 
+    if (whereActive && !whereChecking && whereAvailability && groupedItems.length === 0) {
+      rows.push({ type: 'whereEmpty', key: 'where-empty' });
+    }
+
     groupedItems.forEach((category, categoryIndex) => {
-      if (categoryIndex > 0 || !categoryCollapsed('now_playing')) {
+      if (categoryIndex > 0 || (!whereActive && !categoryCollapsed('now_playing'))) {
         rows.push({ type: 'hairline', key: `hairline-${category.id}` });
       }
       rows.push({ type: 'categoryHeader', category, key: `category-${category.id}` });
@@ -328,25 +444,179 @@ export function WatchlistView({
     nowPlayingError,
     collapsedCategoryIds,
     collapsedGroupKeys,
+    whereActive,
+    whereChecking,
+    whereAvailability,
   ]);
 
-  const chooseRandomPick = () => {
-    const source = pickableItems.length
-      ? pickableItems
-      : libraryItems.length
-        ? libraryItems
-        : items;
-    if (!source?.length) return;
-    const nextPick = source[Math.floor(Math.random() * source.length)];
-    setRandomPick(nextPick);
-    pickOpacity.setValue(reduceMotion ? 1 : 0);
+  // Restore the last-used where-to-watch country/service.
+  useEffect(() => {
+    let alive = true;
+    loadWhereToWatchPrefs().then((prefs) => {
+      if (!alive) return;
+      setWhereCountry({ code: prefs.countryCode, label: prefs.countryLabel });
+      setWhereServiceKey(prefs.serviceKey);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /**
+   * While the filter is active, make sure every in-scope title has fresh
+   * availability data. Cache hits are free; misses fetch from TMDB. Country and
+   * service are deliberately NOT dependencies — availability covers every
+   * country/service at once, so changing them only re-runs the match memo.
+   */
+  useEffect(() => {
+    if (!whereActive) return undefined;
+    let alive = true;
+    whereRunIdRef.current += 1;
+    const runId = whereRunIdRef.current;
+
+    (async () => {
+      if (!availabilityCacheRef.current) {
+        availabilityCacheRef.current = await loadAvailabilityCache();
+        if (!alive || runId !== whereRunIdRef.current) return;
+      }
+      const cache = availabilityCacheRef.current;
+      const scope = whereToWatchScopeItems(items || [], whereCollectionIds);
+
+      const publishSnapshot = () => {
+        const snapshot = new Map();
+        scope.forEach((item) => {
+          const entryKey = watchlistEntryKey(item);
+          const services = getFreshAvailability(cache, entryKey);
+          if (services) snapshot.set(entryKey, services);
+        });
+        setWhereAvailability(snapshot);
+      };
+
+      setWhereChecking(true);
+      setWhereFailedCount(0);
+      setWhereProgress({ checked: 0, total: scope.length });
+      publishSnapshot(); // cached titles match instantly
+
+      // Rebuilding the grouped grid costs ~100 ms on a large library, so the
+      // list refreshes at most ~once a second mid-run; the cheap progress text
+      // updates more often.
+      let lastProgressAt = 0;
+      let lastRebuildAt = Date.now();
+      const result = await ensureAvailabilityForItems(scope, {
+        cache,
+        fetchAvailability: fetchTitleProviderCountries,
+        shouldContinue: () => alive && runId === whereRunIdRef.current,
+        onProgress: (progress) => {
+          if (!alive || runId !== whereRunIdRef.current) return;
+          const nowTs = Date.now();
+          if (nowTs - lastProgressAt > 120 || progress.checked === progress.total) {
+            lastProgressAt = nowTs;
+            setWhereProgress(progress);
+          }
+          if (nowTs - lastRebuildAt > 1000) {
+            lastRebuildAt = nowTs;
+            publishSnapshot();
+          }
+        },
+      });
+
+      if (!alive || runId !== whereRunIdRef.current) return;
+      setWhereChecking(false);
+      setWhereFailedCount(result.failed);
+      publishSnapshot();
+      persistAvailabilityCache(cache);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [whereActive, items, whereCollectionIds, whereRetryNonce]);
+
+  const toggleWhereActive = () => {
     Haptics.selectionAsync();
-    if (reduceMotion) return;
-    Animated.timing(pickOpacity, {
-      toValue: 1,
-      duration: 320,
-      useNativeDriver: true,
-    }).start();
+    // Collapse state carries different defaults in filter mode; reset it so
+    // each mode starts from its intended layout.
+    setCollapsedCategoryIds({});
+    setCollapsedGroupKeys({});
+    setWhereActive((current) => !current);
+  };
+
+  const persistWherePrefs = (country, serviceKey) => {
+    saveWhereToWatchPrefs({
+      countryCode: country.code,
+      countryLabel: country.label,
+      serviceKey,
+    });
+  };
+
+  const openWhereCountrySheet = () => {
+    Haptics.selectionAsync();
+    bottomSheet.show(
+      (sheetId) => (
+        <WhereToWatchCountrySheet
+          selectedCode={whereCountry.code}
+          onSelect={(region) => {
+            const country = { code: region.code, label: region.label };
+            setWhereCountry(country);
+            persistWherePrefs(country, whereServiceKey);
+            bottomSheet.dismiss(sheetId);
+          }}
+        />
+      ),
+      {
+        eyebrow: 'Where to Watch',
+        title: 'Country',
+        subtitle: 'Show titles you can stream in…',
+        size: 'large',
+        scrollable: true,
+      },
+    );
+  };
+
+  const openWhereServiceSheet = () => {
+    Haptics.selectionAsync();
+    bottomSheet.show(
+      (sheetId) => (
+        <WhereToWatchServiceSheet
+          selectedKey={whereServiceKey}
+          onSelect={(serviceKey) => {
+            setWhereServiceKey(serviceKey);
+            persistWherePrefs(whereCountry, serviceKey);
+            bottomSheet.dismiss(sheetId);
+          }}
+        />
+      ),
+      {
+        eyebrow: 'Where to Watch',
+        title: 'Streaming Service',
+        subtitle: 'Narrow the match to one service',
+        size: 'large',
+        scrollable: true,
+      },
+    );
+  };
+
+  const openWhereCollectionsSheet = () => {
+    Haptics.selectionAsync();
+    bottomSheet.show(
+      (sheetId) => (
+        <WhereToWatchCollectionsSheet
+          collections={availableCollections}
+          selectedIds={whereCollectionIds}
+          onApply={(collectionIds) => {
+            setWhereCollectionIds(collectionIds);
+            bottomSheet.dismiss(sheetId);
+          }}
+        />
+      ),
+      {
+        eyebrow: 'Where to Watch',
+        title: 'Collections',
+        subtitle: 'Choose which lists to search',
+        size: 'large',
+        scrollable: true,
+      },
+    );
   };
 
   useEffect(() => {
@@ -403,7 +673,7 @@ export function WatchlistView({
     );
   }
 
-  const isCategoryCollapsed = (categoryId) => collapsedCategoryIds[categoryId] ?? true;
+  const isCategoryCollapsed = (categoryId) => collapsedCategoryIds[categoryId] ?? !whereActive;
 
   const toggleCategory = (categoryId) => {
     Haptics.selectionAsync();
@@ -425,7 +695,7 @@ export function WatchlistView({
   };
 
   const isGroupCollapsed = (categoryId, groupLabel) =>
-    collapsedGroupKeys[groupKey(categoryId, groupLabel)] ?? true;
+    collapsedGroupKeys[groupKey(categoryId, groupLabel)] ?? !whereActive;
 
   const retryNowPlaying = () => {
     setNowPlayingLoading(true);
@@ -593,6 +863,11 @@ export function WatchlistView({
             onRemove={onRemove}
             onMarkWatched={onMarkWatched}
             reduceMotion={reduceMotion}
+            matchedServiceKeys={
+              whereMatches && !whereServiceKey
+                ? whereMatches.services.get(watchlistEntryKey(item))
+                : null
+            }
           />
         ) : (
           <GridPosterCard
@@ -607,6 +882,27 @@ export function WatchlistView({
         ),
       )}
       {row.items.length === 1 ? <View style={styles.gridCardSpacer} /> : null}
+    </View>
+  );
+
+  const renderWhereEmpty = () => (
+    <View
+      style={[
+        styles.whereEmptyBox,
+        { backgroundColor: glassSurface, borderColor: GOLD_DIM, borderRadius: radii.lg },
+      ]}
+    >
+      <Ionicons name="eye-off-outline" size={22} color={GOLD_ACCENT} />
+      <Text style={[styles.whereEmptyTitle, { color: colors.onSurface, ...typography.titleMd }]}>
+        Nothing to stream yet
+      </Text>
+      <Text
+        style={[styles.whereEmptyText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+      >
+        None of the {whereScopeCount} {whereScopeCount === 1 ? 'title' : 'titles'} in scope
+        {whereServiceKey ? ` are on ${getServiceLabel(whereServiceKey)}` : ' are streamable'} in{' '}
+        {whereCountry.label} right now. Try another service, country, or collection.
+      </Text>
     </View>
   );
 
@@ -630,10 +926,17 @@ export function WatchlistView({
         return renderGroupHeader(row);
       case 'posterRow':
         return renderPosterRow(row);
+      case 'whereEmpty':
+        return renderWhereEmpty();
       default:
         return null;
     }
   };
+
+  const whereMatchedCount = whereMatches ? whereMatches.keys.size : 0;
+  const whereCollectionsLabel = !whereCollectionIds?.length
+    ? 'All Collections'
+    : `${whereCollectionIds.length} ${whereCollectionIds.length === 1 ? 'Collection' : 'Collections'}`;
 
   const listHeader = (
     <>
@@ -645,87 +948,126 @@ export function WatchlistView({
 
       <View
         style={[
-          styles.randomPanel,
+          styles.wherePanel,
           {
             backgroundColor: glassSurface,
-            borderColor: GOLD_DIM,
+            borderColor: whereActive ? GOLD_ACCENT + '66' : GOLD_DIM,
             borderRadius: radii.xl,
           },
         ]}
       >
-        <View style={styles.randomCopy}>
-          <Text style={[styles.randomEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-            Random Pick
+        <View style={styles.whereCopy}>
+          <Text style={[styles.whereEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+            Where to Watch
           </Text>
-          <Text style={[styles.randomTitle, { color: colors.onSurface, ...typography.titleLg }]}>
-            What should I watch?
+          <Text style={[styles.whereTitle, { color: colors.onSurface, ...typography.titleLg }]}>
+            Find something to stream
           </Text>
           <Text
-            style={[styles.randomSubtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
+            style={[styles.whereSubtitle, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
           >
-            Shuffle your saved titles when decision fatigue hits.
+            Only show saved titles you can stream right now.
           </Text>
         </View>
-        <TouchableOpacity
-          style={[styles.randomButton, { borderColor: GOLD_ACCENT, borderRadius: radii.full }]}
-          onPress={chooseRandomPick}
-          accessibilityRole="button"
-          accessibilityLabel="Pick a random title from your watchlist"
-        >
-          <Ionicons name="shuffle" size={18} color={GOLD_ACCENT} />
-          <Text style={[styles.randomButtonText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-            Pick
-          </Text>
-        </TouchableOpacity>
-        {randomPick && (
-          <Animated.View
+
+        <View style={styles.wherePillRow}>
+          <WherePill
+            icon="earth-outline"
+            label={whereCountry.label}
+            onPress={openWhereCountrySheet}
+            colors={colors}
+            typography={typography}
+            accessibilityLabel={`Country: ${whereCountry.label}. Change country`}
+          />
+          <WherePill
+            icon="tv-outline"
+            label={getServiceLabel(whereServiceKey)}
+            onPress={openWhereServiceSheet}
+            colors={colors}
+            typography={typography}
+            accessibilityLabel={`Service: ${getServiceLabel(whereServiceKey)}. Change streaming service`}
+          />
+          <WherePill
+            icon="albums-outline"
+            label={whereCollectionsLabel}
+            onPress={openWhereCollectionsSheet}
+            colors={colors}
+            typography={typography}
+            accessibilityLabel={`Searching ${whereCollectionsLabel}. Change collections`}
+          />
+        </View>
+
+        <View style={styles.whereActionsRow}>
+          <TouchableOpacity
             style={[
-              styles.randomResult,
+              styles.whereToggle,
               {
-                opacity: pickOpacity,
-                backgroundColor:
-                  resolvedMode === 'dark' ? 'rgba(212,168,83,0.08)' : 'rgba(212,168,83,0.12)',
-                borderColor: GOLD_DIM,
-                borderRadius: radii.lg,
+                backgroundColor: whereActive ? 'transparent' : GOLD_ACCENT,
+                borderColor: GOLD_ACCENT,
+                borderRadius: radii.full,
               },
             ]}
+            onPress={toggleWhereActive}
+            accessibilityRole="button"
+            accessibilityLabel={
+              whereActive ? 'Clear the where-to-watch filter' : 'Show only streamable titles'
+            }
           >
-            <MediaArtwork
-              uri={randomPick.posterUrl}
-              style={[styles.randomPoster, { borderRadius: radii.md }]}
-              accessibilityLabel={`${randomPick.title} poster`}
-              title={randomPick.title}
-              instant
+            <Ionicons
+              name={whereActive ? 'close' : 'funnel-outline'}
+              size={16}
+              color={whereActive ? GOLD_ACCENT : '#1C1710'}
             />
-            <View style={styles.randomResultCopy}>
-              <Text style={[styles.randomResultLabel, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-                Tonight's Pick
-              </Text>
-              <Text
-                style={[styles.randomResultTitle, { color: colors.onSurface, ...typography.titleLg }]}
-                numberOfLines={2}
-              >
-                {randomPick.title}
-              </Text>
+            <Text
+              style={[
+                styles.whereToggleText,
+                { color: whereActive ? GOLD_ACCENT : '#1C1710', ...typography.labelSm },
+              ]}
+            >
+              {whereActive ? 'Clear' : 'Show Streamable'}
+            </Text>
+          </TouchableOpacity>
+
+          {whereActive && whereChecking && (
+            <View style={styles.whereStatus}>
+              <ActivityIndicator size="small" color={GOLD_ACCENT} />
               <Text
                 style={[
-                  styles.randomResultMeta,
-                  { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                  styles.whereStatusText,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
                 ]}
                 numberOfLines={1}
               >
-                {randomPick.year} · {getStatusLabel(randomPick.status)}
+                Checking {whereProgress?.checked ?? 0}/{whereProgress?.total ?? 0}
               </Text>
             </View>
-            <TouchableOpacity
-              style={[styles.randomOpenButton, { borderColor: GOLD_DIM, borderRadius: radii.full }]}
-              onPress={() => onSelect(randomPick)}
-              accessibilityRole="button"
-              accessibilityLabel={`Open details for ${randomPick.title}`}
+          )}
+        </View>
+
+        {whereActive && !whereChecking && whereAvailability && (
+          <View style={styles.whereResultRow}>
+            <Text
+              style={[styles.whereResultText, { color: colors.onSurface, ...typography.bodyMd }]}
             >
-              <Ionicons name="chevron-forward" size={18} color={GOLD_ACCENT} />
-            </TouchableOpacity>
-          </Animated.View>
+              {whereMatchedCount} of {whereScopeCount}{' '}
+              {whereScopeCount === 1 ? 'title streams' : 'titles stream'}
+              {whereServiceKey ? ` on ${getServiceLabel(whereServiceKey)}` : ''} in{' '}
+              {whereCountry.label}.
+            </Text>
+            {whereFailedCount > 0 && (
+              <TouchableOpacity
+                onPress={() => setWhereRetryNonce((nonce) => nonce + 1)}
+                accessibilityRole="button"
+                accessibilityLabel={`${whereFailedCount} titles could not be checked. Retry`}
+              >
+                <Text
+                  style={[styles.whereRetryText, { color: colors.error, ...typography.labelSm }]}
+                >
+                  {whereFailedCount} unchecked · Tap to retry
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       </View>
 
@@ -833,77 +1175,98 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: GRID_PAD,
   },
-  randomPanel: {
+  wherePanel: {
     borderWidth: StyleSheet.hairlineWidth,
-    gap: scale(16),
+    gap: scale(14),
     marginBottom: scale(8),
     padding: scale(18),
   },
-  randomCopy: {
+  whereCopy: {
     gap: 4,
   },
-  randomEyebrow: {
+  whereEyebrow: {
     fontWeight: '800',
     letterSpacing: 1.4,
     paddingEnd: 2,
     textTransform: 'uppercase',
   },
-  randomTitle: {
+  whereTitle: {
     fontWeight: '800',
   },
-  randomSubtitle: {
+  whereSubtitle: {
     fontWeight: '500',
   },
-  randomButton: {
+  wherePillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  wherePill: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    maxWidth: '100%',
+    minHeight: 40,
+    paddingHorizontal: scale(12),
+  },
+  wherePillText: {
+    flexShrink: 1,
+    fontWeight: '700',
+  },
+  whereActionsRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  whereToggle: {
+    alignItems: 'center',
+    borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
     minHeight: 48,
     paddingHorizontal: scale(18),
   },
-  randomButtonText: {
+  whereToggleText: {
     fontWeight: '800',
     letterSpacing: 1.1,
     paddingEnd: 2,
     textTransform: 'uppercase',
   },
-  randomResult: {
+  whereStatus: {
     alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    gap: 12,
-    padding: 12,
-  },
-  randomPoster: {
-    height: verticalScale(82),
-    overflow: 'hidden',
-    width: scale(56),
-  },
-  randomResultCopy: {
     flex: 1,
-    gap: 3,
+    flexDirection: 'row',
+    gap: 8,
+    minWidth: 0,
   },
-  randomResultLabel: {
+  whereStatusText: {
+    flexShrink: 1,
+    fontWeight: '700',
+  },
+  whereResultRow: {
+    gap: 4,
+  },
+  whereResultText: {
+    fontWeight: '700',
+  },
+  whereRetryText: {
     fontWeight: '800',
-    letterSpacing: 1.1,
-    paddingEnd: 2,
-    textTransform: 'uppercase',
   },
-  randomResultTitle: {
-    fontWeight: '800',
-    lineHeight: 26,
-  },
-  randomResultMeta: {
-    fontWeight: '600',
-  },
-  randomOpenButton: {
+  whereEmptyBox: {
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    height: verticalScale(48),
-    justifyContent: 'center',
-    width: scale(48),
+    gap: 8,
+    marginTop: scale(16),
+    padding: scale(20),
+  },
+  whereEmptyTitle: {
+    fontWeight: '800',
+  },
+  whereEmptyText: {
+    textAlign: 'center',
   },
   categorySection: {
     gap: scale(16),

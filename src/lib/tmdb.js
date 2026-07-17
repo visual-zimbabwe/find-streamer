@@ -767,6 +767,35 @@ async function getProviderCountries(mediaType, tmdbId) {
 
 const _providerCountryCache = new Map();
 let _countryNamesCache = null;
+let _watchRegionsCache = null;
+
+/**
+ * Per-title streaming availability for the watchlist where-to-watch filter:
+ * a map of service key → sorted ISO country codes (see providerAvailability).
+ * TV titles resolve at show level unless the episode-lookup flag is enabled,
+ * which keeps bulk watchlist checks to one request per title.
+ */
+export async function fetchTitleProviderCountries(mediaType, tmdbId) {
+  return getProviderCountries(mediaType, tmdbId);
+}
+
+/**
+ * Regions TMDB reports watch-provider data for, as `{ code, label }` sorted by
+ * label. Throws on network failure — callers fall back to a static list.
+ */
+export async function fetchWatchProviderRegions() {
+  if (_watchRegionsCache) return _watchRegionsCache;
+  const data = await tmdbGet('/watch/providers/regions', { language: 'en-US' });
+  const regions = (data.results || [])
+    .filter((region) => region.iso_3166_1 && (region.english_name || region.native_name))
+    .map((region) => ({
+      code: region.iso_3166_1,
+      label: region.english_name || region.native_name,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  if (regions.length) _watchRegionsCache = regions;
+  return regions;
+}
 
 async function getTvProviderCountries(tmdbId) {
   const showLevelData = await tmdbGet(`/tv/${tmdbId}/watch/providers`);
@@ -874,7 +903,7 @@ function toRows(availability, countryNames) {
   return rows;
 }
 
-const SERVICE_FALLBACK_COLORS = {
+export const SERVICE_FALLBACK_COLORS = {
   netflix: '#E50914',
   amazon_prime_video: '#00A8E1',
   max: '#002BE7',
