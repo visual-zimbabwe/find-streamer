@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { WatchlistView } from '../components/WatchlistView';
 import { ResultView } from '../components/ResultView';
 import { FilmographyScreen } from '../components/FilmographyScreen';
+import { FullCastScreen } from '../components/FullCastScreen';
 import {
   useWatchlist,
   useSearch,
@@ -61,6 +62,24 @@ function WatchlistDetailScreen() {
       onCompanyPress={(companyId, companyName, logoUrl) =>
         handleCompanyPress(companyId, companyName, logoUrl, navigation)
       }
+      onSeeAllPeople={(params) => navigation.push('FullCast', params)}
+    />
+  );
+}
+
+function WatchlistFullCastScreen({ route }) {
+  const navigation = useNavigation();
+  const { handlePersonPress } = usePeople();
+  const { title, cast, crew } = route.params || {};
+
+  return (
+    <FullCastScreen
+      title={title}
+      cast={cast}
+      crew={crew}
+      onPersonPress={(personId, personName, role) =>
+        handlePersonPress(personId, personName, role, navigation)
+      }
     />
   );
 }
@@ -91,6 +110,7 @@ export function WatchlistStack() {
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="Watchlist" component={WatchlistMainScreen} />
       <Stack.Screen name="Detail" component={WatchlistDetailScreen} />
+      <Stack.Screen name="FullCast" component={WatchlistFullCastScreen} />
       <Stack.Screen name="Filmography" component={WatchlistFilmographyScreen} />
     </Stack.Navigator>
   );

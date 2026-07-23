@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { DiscoverScreen } from '../components/DiscoverScreen';
 import { ResultView } from '../components/ResultView';
 import { FilmographyScreen } from '../components/FilmographyScreen';
+import { FullCastScreen } from '../components/FullCastScreen';
 import {
   useSearch,
   useDiscover,
@@ -57,6 +58,24 @@ function DiscoverDetailScreen() {
       onCompanyPress={(companyId, companyName, logoUrl) =>
         handleCompanyPress(companyId, companyName, logoUrl, navigation)
       }
+      onSeeAllPeople={(params) => navigation.push('FullCast', params)}
+    />
+  );
+}
+
+function DiscoverFullCastScreen({ route }) {
+  const navigation = useNavigation();
+  const { handlePersonPress } = usePeople();
+  const { title, cast, crew } = route.params || {};
+
+  return (
+    <FullCastScreen
+      title={title}
+      cast={cast}
+      crew={crew}
+      onPersonPress={(personId, personName, role) =>
+        handlePersonPress(personId, personName, role, navigation)
+      }
     />
   );
 }
@@ -87,6 +106,7 @@ export function DiscoverStack() {
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="Discover" component={DiscoverMainScreen} />
       <Stack.Screen name="Detail" component={DiscoverDetailScreen} />
+      <Stack.Screen name="FullCast" component={DiscoverFullCastScreen} />
       <Stack.Screen name="Filmography" component={DiscoverFilmographyScreen} />
     </Stack.Navigator>
   );

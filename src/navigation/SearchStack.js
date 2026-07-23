@@ -18,6 +18,7 @@ import { MatchResults } from '../components/MatchResults';
 import { EmptyState } from '../components/EmptyState';
 import { ResultView } from '../components/ResultView';
 import { FilmographyScreen } from '../components/FilmographyScreen';
+import { FullCastScreen } from '../components/FullCastScreen';
 import {
   useSearch,
   useDetail,
@@ -223,6 +224,24 @@ function SearchDetailScreen() {
       onCompanyPress={(companyId, companyName, logoUrl) =>
         handleCompanyPress(companyId, companyName, logoUrl, navigation)
       }
+      onSeeAllPeople={(params) => navigation.push('FullCast', params)}
+    />
+  );
+}
+
+function SearchFullCastScreen({ route }) {
+  const navigation = useNavigation();
+  const { handlePersonPress } = usePeople();
+  const { title, cast, crew } = route.params || {};
+
+  return (
+    <FullCastScreen
+      title={title}
+      cast={cast}
+      crew={crew}
+      onPersonPress={(personId, personName, role) =>
+        handlePersonPress(personId, personName, role, navigation)
+      }
     />
   );
 }
@@ -253,6 +272,7 @@ export function SearchStack() {
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="Search" component={SearchMainScreen} />
       <Stack.Screen name="Detail" component={SearchDetailScreen} />
+      <Stack.Screen name="FullCast" component={SearchFullCastScreen} />
       <Stack.Screen name="Filmography" component={SearchFilmographyScreen} />
     </Stack.Navigator>
   );

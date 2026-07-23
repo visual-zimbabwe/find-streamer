@@ -27,6 +27,7 @@ const ROUTE_TO_VIEW = {
   Home: 'home',
   Collections: 'collections',
   Detail: 'detail',
+  FullCast: 'detail',
   Filmography: 'filmography',
   Search: 'search',
   Discover: 'discover',
@@ -34,7 +35,7 @@ const ROUTE_TO_VIEW = {
   Settings: 'settings',
 };
 
-const IMMERSIVE_ROUTES = new Set(['Home', 'Collections', 'Detail', 'Filmography']);
+const IMMERSIVE_ROUTES = new Set(['Home', 'Collections', 'Detail', 'FullCast', 'Filmography']);
 /** Tool tabs use ProgrammeSectionHeader — no AppHeader wordmark on top. */
 const TOOL_TAB_ROUTES = new Set(['Search', 'Discover', 'Watchlist', 'Settings']);
 

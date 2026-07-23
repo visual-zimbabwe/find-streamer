@@ -32,7 +32,9 @@ import { ShareOptionsSheetContent } from './ShareOptionsSheet';
 import { TrailerModal } from './TrailerModal';
 import { SoundtrackPickerSheetContent } from './SoundtrackPickerSheet';
 import { WhereToWatchSection } from './WhereToWatchSection';
-import { searchPersonByName, fetchPersonFilmography } from '../lib/tmdb';
+import { ActorFilmographySheetContent } from './ActorFilmographySheet';
+import { PersonCard } from './PersonCard';
+import { searchPersonByName } from '../lib/tmdb';
 import { openSpotifyAlbum } from '../lib/spotify';
 import { parseSoundtracksFromBindings } from '../lib/wikidataSoundtracks';
 import {
@@ -77,6 +79,8 @@ function formatRuntime(minutes, mediaType) {
 }
 
 const HERO_HEIGHT = verticalScale(480);
+/** Cast/crew rails never render more than this; the rest lives on the full screen. */
+const RAIL_PERSON_CAP = 10;
 
 function AwardLogoImage({ uri, label, style, fallbackStyle, iconColor }) {
   const [failed, setFailed] = React.useState(false);
@@ -124,16 +128,6 @@ function normalizePersonName(name) {
     .trim();
 }
 
-function initialsForName(name = '') {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('');
-  return initials || '?';
-}
-
 function personKey(person, index) {
   return `${person.role || 'person'}-${person.id || person.name}-${index}`;
 }
@@ -143,6 +137,42 @@ function filmographyRoleForPerson(person) {
   if (person.role === 'writer') return 'writer';
   if (person.role === 'composer') return 'composer';
   return 'movie';
+}
+
+/**
+ * TMDb dedupes crew per job, not per person, so a director-writer arrives as two
+ * separate entries. Collapse them into one card whose label joins the jobs
+ * ("Director · Writer"); the first role wins for filmography routing.
+ */
+function mergeCrewByPerson(people) {
+  const merged = [];
+  const indexByKey = new Map();
+
+  for (const person of people) {
+    const key = person.id ? `id:${person.id}` : `name:${normalizePersonName(person.name)}`;
+    if (!key) continue;
+
+    const existingIndex = indexByKey.get(key);
+    if (existingIndex === undefined) {
+      indexByKey.set(key, merged.length);
+      merged.push({ ...person, roleLabels: [person.roleLabel] });
+      continue;
+    }
+
+    const existing = merged[existingIndex];
+    if (!existing.roleLabels.includes(person.roleLabel)) {
+      existing.roleLabels.push(person.roleLabel);
+    }
+    // Prefer any entry that carries a profile photo.
+    if (!existing.profileUrl && person.profileUrl) {
+      existing.profileUrl = person.profileUrl;
+    }
+  }
+
+  return merged.map((person) => ({
+    ...person,
+    roleLabel: person.roleLabels.join(' · '),
+  }));
 }
 
 const isEntityUri = (val) =>
@@ -281,163 +311,6 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// ─── Actor Sheet Content ─────────────────────────────────────────────────────
-/**
- * Lightweight filmography peek sheet pushed onto the stack when an actor card
- * is long-pressed. Shows a loading state, then the first 8 credits.
- * "See full filmography" calls onPersonPress to navigate to the full screen.
- */
-function ActorFilmographySheetContent({
-  person,
-  role,
-  colors,
-  typography,
-  radii,
-  onPersonPress,
-  onDismiss,
-}) {
-  const [credits, setCredits] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const { results } = await fetchPersonFilmography(person.id, person.name, role);
-        if (!cancelled) setCredits(results.slice(0, 10));
-      } catch {
-        if (!cancelled) setError('Could not load filmography.');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [person.id, person.name, role]);
-
-  return (
-    <View style={{ flex: 1 }}>
-      {/* Actor identity row */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-        {person.profileUrl ? (
-          <Image
-            source={{ uri: person.profileUrl }}
-            style={{ width: 52, height: 52, borderRadius: 26, marginRight: 12 }}
-          />
-        ) : (
-          <View
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 26,
-              marginRight: 12,
-              backgroundColor: GOLD_ACCENT + '18',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ color: GOLD_ACCENT, fontWeight: '700' }}>
-              {initialsForName(person.name)}
-            </Text>
-          </View>
-        )}
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }} numberOfLines={1}>
-            {person.name}
-          </Text>
-          {person.roleLabel ? (
-            <Text
-              style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 }}
-              numberOfLines={1}
-            >
-              {person.roleLabel}
-            </Text>
-          ) : null}
-        </View>
-        <TouchableOpacity
-          onPress={() => {
-            onDismiss();
-            if (onPersonPress) onPersonPress(person.id, person.name, role);
-          }}
-          style={{
-            paddingHorizontal: 14,
-            paddingVertical: 7,
-            borderRadius: 20,
-            backgroundColor: GOLD_ACCENT + '18',
-            borderWidth: 1,
-            borderColor: GOLD_DIM,
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={`See full filmography for ${person.name}`}
-        >
-          <Text style={{ color: GOLD_ACCENT, fontWeight: '800', fontSize: 12 }}>
-            Full →
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Credits list */}
-      {loading ? (
-        <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-          <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>
-            Loading filmography…
-          </Text>
-        </View>
-      ) : error ? (
-        <Text style={{ color: '#ff6b6b', fontSize: 13, textAlign: 'center' }}>{error}</Text>
-      ) : credits.length === 0 ? (
-        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, textAlign: 'center' }}>
-          No credits found.
-        </Text>
-      ) : (
-        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-          {credits.map((item, i) => (
-            <View
-              key={`${item.tmdbId}-${item.mediaType}-${i}`}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingVertical: 9,
-                borderBottomWidth: i < credits.length - 1 ? StyleSheet.hairlineWidth : 0,
-                borderBottomColor: 'rgba(255,255,255,0.07)',
-              }}
-            >
-              <Image
-                source={{ uri: item.posterUrl }}
-                style={{
-                  width: 36,
-                  height: 54,
-                  borderRadius: 6,
-                  marginRight: 12,
-                  backgroundColor: '#111',
-                }}
-                resizeMode="cover"
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 2 }}>
-                  {[item.year, item.character && `as ${item.character}`]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </Text>
-              </View>
-              <Ionicons
-                name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
-                size={14}
-                color="rgba(255,255,255,0.3)"
-              />
-            </View>
-          ))}
-        </ScrollView>
-      )}
-    </View>
-  );
-}
 
 export function ResultView({
   result,
@@ -449,6 +322,7 @@ export function ResultView({
   onSelectSimilar,
   onPersonPress,
   onCompanyPress,
+  onSeeAllPeople,
 }) {
   const { theme } = useTheme();
   const { typography, radii } = theme;
@@ -489,7 +363,6 @@ export function ResultView({
   });
   const meshShift = useRef(new Animated.Value(0)).current;
   const [shareCountries, setShareCountries] = useState(null);
-  const [showAllCast, setShowAllCast] = useState(false);
   const [trailerVisible, setTrailerVisible] = useState(false);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   const reduceMotion = useReduceMotion();
@@ -528,7 +401,6 @@ export function ResultView({
   }, [palette, paletteOpacity, reduceMotion]);
 
   useEffect(() => {
-    setShowAllCast(false);
     setIsSynopsisExpanded(false);
     setWikiData({ languages: [], countries: [], basedOn: null, soundtracks: [], awards: [] });
     setWikiLoading(false);
@@ -696,7 +568,7 @@ export function ResultView({
     [onPersonPress],
   );
 
-  /** Long-press an actor card → push a filmography peek sheet */
+  /** Long-press a cast or crew card → push a filmography peek sheet */
   const handleActorLongPress = useCallback(
     (person, role) => {
       if (!person.id) return; // need an ID to fetch filmography
@@ -706,9 +578,6 @@ export function ResultView({
         <ActorFilmographySheetContent
           person={person}
           role={role}
-          colors={colors}
-          typography={typography}
-          radii={radii}
           onPersonPress={onPersonPress}
           onDismiss={() => dismissSheet(sheetId)}
         />
@@ -721,7 +590,7 @@ export function ResultView({
         dismissOnBackdrop: true,
       });
     },
-    [colors, typography, radii, onPersonPress, showSheet, dismissSheet],
+    [onPersonPress, showSheet, dismissSheet],
   );
 
   useEffect(() => {
@@ -880,10 +749,27 @@ export function ResultView({
     }));
 
     return {
-      crewPeople: [...directorPeople, ...writerPeople, ...composerPeople],
+      crewPeople: mergeCrewByPerson([...directorPeople, ...writerPeople, ...composerPeople]),
       castPeople,
     };
   }, [result]);
+
+  /** Hand the full credit list to the dedicated screen — never expand in place. */
+  const handleSeeAllPeople = useCallback(() => {
+    if (!onSeeAllPeople) return;
+    Haptics.selectionAsync();
+    onSeeAllPeople({
+      title: result?.title,
+      cast: peopleSections.castPeople.map((person) => ({
+        ...person,
+        filmographyRole: 'cast',
+      })),
+      crew: peopleSections.crewPeople.map((person) => ({
+        ...person,
+        filmographyRole: filmographyRoleForPerson(person),
+      })),
+    });
+  }, [onSeeAllPeople, result?.title, peopleSections]);
 
   if (loading || !result) {
     return <DetailSkeleton />;
@@ -896,14 +782,26 @@ export function ResultView({
   const runtimeLabel = formatRuntime(result.runtimeMinutes, result.mediaType);
   const hasRating = hasValue(result.rating);
   const hasGenres = hasValue(result.genres);
-  const hasPeople = peopleSections.crewPeople.length > 0 || peopleSections.castPeople.length > 0;
-  const visibleCastPeople = showAllCast
-    ? peopleSections.castPeople
-    : peopleSections.castPeople.slice(0, 10);
-  const remainingCastCount = Math.max(
-    peopleSections.castPeople.length - visibleCastPeople.length,
-    0,
-  );
+  const totalPeopleCount = peopleSections.crewPeople.length + peopleSections.castPeople.length;
+  /** Rails stay capped; the full list is a destination, not an expansion. */
+  const visibleCastPeople = peopleSections.castPeople.slice(0, RAIL_PERSON_CAP);
+  const visibleCrewPeople = peopleSections.crewPeople.slice(0, RAIL_PERSON_CAP);
+  const hasMorePeople =
+    Boolean(onSeeAllPeople) &&
+    (peopleSections.castPeople.length > visibleCastPeople.length ||
+      peopleSections.crewPeople.length > visibleCrewPeople.length);
+  const seeAllPeopleButton = hasMorePeople ? (
+    <TouchableOpacity
+      onPress={handleSeeAllPeople}
+      accessibilityRole="button"
+      accessibilityLabel={`See all ${totalPeopleCount} cast and crew`}
+      style={styles.seeAllButton}
+    >
+      <Text style={[styles.seeAllText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+        {`See All ${totalPeopleCount}`}
+      </Text>
+    </TouchableOpacity>
+  ) : null;
   const hasAvailabilityData = Array.isArray(result.rows);
   const franchiseParts =
     result.isFranchise && result.collection?.parts?.length ? result.collection.parts : [];
@@ -1230,7 +1128,7 @@ export function ResultView({
                   { backgroundColor: 'rgba(255,255,255,0.12)' },
                 ]}
               >
-                <SkeletonBlock width="62%" height={16} borderRadius={8} />
+                <SkeletonBlock style={{ width: '62%', height: 16, borderRadius: 8 }} />
               </View>
             ) : playableSoundtracks.length === 1 ? (
               <TouchableOpacity
@@ -1337,10 +1235,10 @@ export function ResultView({
                 {wikiLoading ? (
                   <>
                     <View style={[styles.infoPill, styles.skeletonPill]}>
-                      <SkeletonBlock width={50} height={12} borderRadius={6} />
+                      <SkeletonBlock style={{ width: 50, height: 12, borderRadius: 6 }} />
                     </View>
                     <View style={[styles.infoPill, styles.skeletonPill]}>
-                      <SkeletonBlock width={60} height={12} borderRadius={6} />
+                      <SkeletonBlock style={{ width: 60, height: 12, borderRadius: 6 }} />
                     </View>
                   </>
                 ) : (
@@ -1718,24 +1616,12 @@ export function ResultView({
             </View>
           )}
 
-          {hasPeople && (
+          {/* ─── Cast ────────────────────────────────────────────────────── */}
+          {visibleCastPeople.length > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
-                <ProgrammeEyebrowLabel eyebrow="Cast & Crew" />
-                {remainingCastCount > 0 && (
-                  <TouchableOpacity
-                    onPress={() => setShowAllCast(true)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Show ${remainingCastCount} more cast members`}
-                    style={styles.seeAllButton}
-                  >
-                    <Text
-                      style={[styles.seeAllText, { color: GOLD_ACCENT, ...typography.labelSm }]}
-                    >
-                      See All
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                <ProgrammeEyebrowLabel eyebrow="Cast" />
+                {seeAllPeopleButton}
               </View>
               <ScrollView
                 horizontal
@@ -1743,126 +1629,50 @@ export function ResultView({
                 contentContainerStyle={styles.peopleScroll}
                 decelerationRate="fast"
               >
-                {peopleSections.crewPeople.map((person, index) => (
-                  <TouchableOpacity
+                {visibleCastPeople.map((person, index) => (
+                  <PersonCard
                     key={personKey(person, index)}
-                    style={styles.personCard}
+                    person={person}
+                    colors={colors}
+                    typography={typography}
+                    canPeek={Boolean(person.id)}
+                    onPress={() => handlePersonPressWithFallback(person, 'cast')}
+                    onLongPress={() => handleActorLongPress(person, 'cast')}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* ─── Crew ────────────────────────────────────────────────────── */}
+          {visibleCrewPeople.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <ProgrammeEyebrowLabel eyebrow="Crew" />
+                {/* Falls to the crew header only when there's no cast rail above. */}
+                {visibleCastPeople.length === 0 ? seeAllPeopleButton : null}
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.peopleScroll}
+                decelerationRate="fast"
+              >
+                {visibleCrewPeople.map((person, index) => (
+                  <PersonCard
+                    key={personKey(person, index)}
+                    person={person}
+                    colors={colors}
+                    typography={typography}
+                    accent
+                    canPeek={Boolean(person.id)}
                     onPress={() =>
                       handlePersonPressWithFallback(person, filmographyRoleForPerson(person))
                     }
-                    onLongPress={
-                      person.role === 'composer' && person.id
-                        ? () => handleActorLongPress(person, 'composer')
-                        : undefined
+                    onLongPress={() =>
+                      handleActorLongPress(person, filmographyRoleForPerson(person))
                     }
-                    delayLongPress={person.role === 'composer' ? 400 : undefined}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      person.role === 'composer' && person.id
-                        ? `View filmography for ${person.name}. Long press for a quick preview.`
-                        : `View work by ${person.name}`
-                    }
-                    activeOpacity={0.78}
-                  >
-                    <View
-                      style={[
-                        styles.avatarRing,
-                        !person.profileUrl && { backgroundColor: GOLD_ACCENT + '18' },
-                      ]}
-                    >
-                      {person.profileUrl ? (
-                        <MediaArtwork
-                          uri={person.profileUrl}
-                          style={styles.personAvatar}
-                          accessibilityLabel={`${person.name} profile photo`}
-                          title={person.name}
-                          icon="person-outline"
-                          compactFallback
-                          instant
-                        />
-                      ) : (
-                        <Text
-                          style={[
-                            styles.avatarInitials,
-                            { color: GOLD_ACCENT, ...typography.labelSm },
-                          ]}
-                        >
-                          {initialsForName(person.name)}
-                        </Text>
-                      )}
-                    </View>
-                    <Text
-                      style={[styles.personName, { color: colors.onSurface, ...typography.bodyMd }]}
-                      numberOfLines={2}
-                    >
-                      {person.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.personRole,
-                        { color: colors.onSurfaceVariant, ...typography.labelSm },
-                      ]}
-                      numberOfLines={2}
-                    >
-                      {person.roleLabel}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-
-                {visibleCastPeople.map((person, index) => (
-                  <TouchableOpacity
-                    key={personKey(person, index)}
-                    style={styles.personCard}
-                    onPress={() => handlePersonPressWithFallback(person, 'cast')}
-                    onLongPress={() => handleActorLongPress(person, 'cast')}
-                    delayLongPress={400}
-                    accessibilityRole="button"
-                    accessibilityLabel={`View filmography for ${person.name}. Long press for a quick preview.`}
-                    activeOpacity={0.78}
-                  >
-                    <View
-                      style={[
-                        styles.avatarRing,
-                        !person.profileUrl && { backgroundColor: colors.surfaceContainerHigh },
-                      ]}
-                    >
-                      {person.profileUrl ? (
-                        <MediaArtwork
-                          uri={person.profileUrl}
-                          style={styles.personAvatar}
-                          accessibilityLabel={`${person.name} profile photo`}
-                          title={person.name}
-                          icon="person-outline"
-                          compactFallback
-                          instant
-                        />
-                      ) : (
-                        <Text
-                          style={[
-                            styles.avatarInitials,
-                            { color: colors.onSurface, ...typography.labelSm },
-                          ]}
-                        >
-                          {initialsForName(person.name)}
-                        </Text>
-                      )}
-                    </View>
-                    <Text
-                      style={[styles.personName, { color: colors.onSurface, ...typography.bodyMd }]}
-                      numberOfLines={2}
-                    >
-                      {person.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.personRole,
-                        { color: colors.onSurfaceVariant, ...typography.labelSm },
-                      ]}
-                      numberOfLines={2}
-                    >
-                      {person.roleLabel}
-                    </Text>
-                  </TouchableOpacity>
+                  />
                 ))}
               </ScrollView>
             </View>
@@ -1881,8 +1691,8 @@ export function ResultView({
                 >
                   {[0, 1, 2].map((index) => (
                     <View key={`award-skeleton-${index}`} style={styles.awardTile}>
-                      <SkeletonBlock width={86} height={54} borderRadius={8} />
-                      <SkeletonBlock width={72} height={12} borderRadius={6} />
+                      <SkeletonBlock style={{ width: 86, height: 54, borderRadius: 8 }} />
+                      <SkeletonBlock style={{ width: 72, height: 12, borderRadius: 6 }} />
                     </View>
                   ))}
                 </ScrollView>
@@ -2447,37 +2257,6 @@ const styles = StyleSheet.create({
   peopleScroll: {
     gap: 16,
     paddingRight: 40,
-  },
-  personCard: {
-    alignItems: 'center',
-    width: scale(92),
-  },
-  avatarRing: {
-    alignItems: 'center',
-    borderRadius: scale(38),
-    height: scale(76),
-    justifyContent: 'center',
-    marginBottom: scale(10),
-    overflow: 'hidden',
-    width: scale(76),
-  },
-  personAvatar: {
-    height: '100%',
-    width: '100%',
-  },
-  avatarInitials: {
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  personName: {
-    fontWeight: '800',
-    minHeight: 40,
-    textAlign: 'center',
-  },
-  personRole: {
-    fontWeight: '700',
-    minHeight: 32,
-    textAlign: 'center',
   },
   seriesStats: {
     flexDirection: 'row',
