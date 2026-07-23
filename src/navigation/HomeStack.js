@@ -5,6 +5,7 @@ import { HomeScreen } from '../components/HomeScreen';
 import { CollectionsScreen } from '../components/CollectionsScreen';
 import { ResultView } from '../components/ResultView';
 import { FilmographyScreen } from '../components/FilmographyScreen';
+import { FullCastScreen } from '../components/FullCastScreen';
 import {
   useSearch,
   useDetail,
@@ -87,6 +88,24 @@ function DetailScreenRoute() {
       onCompanyPress={(companyId, companyName, logoUrl) =>
         handleCompanyPress(companyId, companyName, logoUrl, navigation)
       }
+      onSeeAllPeople={(params) => navigation.push('FullCast', params)}
+    />
+  );
+}
+
+function FullCastScreenRoute({ route }) {
+  const navigation = useNavigation();
+  const { handlePersonPress } = usePeople();
+  const { title, cast, crew } = route.params || {};
+
+  return (
+    <FullCastScreen
+      title={title}
+      cast={cast}
+      crew={crew}
+      onPersonPress={(personId, personName, role) =>
+        handlePersonPress(personId, personName, role, navigation)
+      }
     />
   );
 }
@@ -118,6 +137,7 @@ export function HomeStack() {
       <Stack.Screen name="Home" component={HomeScreenRoute} />
       <Stack.Screen name="Collections" component={CollectionsScreenRoute} />
       <Stack.Screen name="Detail" component={DetailScreenRoute} />
+      <Stack.Screen name="FullCast" component={FullCastScreenRoute} />
       <Stack.Screen name="Filmography" component={FilmographyScreenRoute} />
     </Stack.Navigator>
   );
