@@ -128,6 +128,41 @@ export function addOrRestoreItem(watchlist, result) {
 }
 
 /**
+ * Insert a new library row (prepended) or replace the existing one with the
+ * same entry key. Pure: returns the normalized item plus the next list. This is
+ * the commit primitive behind "pick where to save" — the sheet builds a draft,
+ * and the first destination the user taps flows through here to create the row.
+ * @param {WatchlistItem[]} watchlist
+ * @param {WatchlistItem | ResolvedDetailResult | SearchResult} item
+ * @returns {{ item: WatchlistItem | null, watchlist: WatchlistItem[] }}
+ */
+export function upsertItem(watchlist, item) {
+  const normalized = normalizeWatchlistItem(item);
+  if (!normalized) return { item: null, watchlist };
+  const key = watchlistEntryKey(normalized);
+  const exists = watchlist.some((row) => watchlistEntryKey(row) === key);
+  const next = exists
+    ? watchlist.map((row) => (watchlistEntryKey(row) === key ? normalized : row))
+    : [normalized, ...watchlist];
+  return { item: normalized, watchlist: next };
+}
+
+/**
+ * Move a collection id to the front of the most-recently-used list, de-duping
+ * and capping the length. Pure. Feeds the "Recent" quick-pick row in the save
+ * sheet so "pick every time" doesn't mean "hunt every time".
+ * @param {string[]} recents
+ * @param {string} collectionId
+ * @param {number} [max]
+ * @returns {string[]}
+ */
+export function recordRecentDestination(recents, collectionId, max = 4) {
+  if (!collectionId) return Array.isArray(recents) ? recents : [];
+  const prior = Array.isArray(recents) ? recents.filter((id) => id !== collectionId) : [];
+  return [collectionId, ...prior].slice(0, Math.max(1, max));
+}
+
+/**
  * Remove an item by entry key. Returns the same array reference (a no-op
  * sentinel the caller can detect with `===`) when nothing matched.
  * @param {WatchlistItem[]} watchlist

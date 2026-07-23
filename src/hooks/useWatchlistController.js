@@ -15,7 +15,8 @@ import {
   applyCreateCollection,
   applyToggleCollection,
   applySetStatus,
-  addOrRestoreItem,
+  upsertItem,
+  recordRecentDestination,
   removeItem,
   markItemWatched,
 } from '../lib/watchlistActions';
@@ -24,6 +25,8 @@ import {
   saveWatchlist,
   loadWatchlistCollections,
   saveWatchlistCollections,
+  loadRecentDestinations,
+  saveRecentDestinations,
 } from '../lib/storage';
 
 /**
@@ -42,6 +45,8 @@ export function useWatchlistController({ showToast }) {
   const watchlistSheetIdRef = useRef(null);
   const watchlistRef = useRef([]);
   const watchlistCollectionsRef = useRef([]);
+  // Most-recently-used collection ids — powers the save sheet's "Recent" row.
+  const recentDestinationsRef = useRef([]);
 
   useEffect(() => {
     watchlistRef.current = watchlist;
@@ -53,11 +58,23 @@ export function useWatchlistController({ showToast }) {
 
   useEffect(() => {
     async function init() {
-      const [saved, collections] = await Promise.all([loadWatchlist(), loadWatchlistCollections()]);
+      const [saved, collections, recents] = await Promise.all([
+        loadWatchlist(),
+        loadWatchlistCollections(),
+        loadRecentDestinations(),
+      ]);
       setWatchlist(saved);
       setWatchlistCollections(collections);
+      recentDestinationsRef.current = recents;
     }
     init();
+  }, []);
+
+  const recordRecentDestinationId = useCallback((collectionId) => {
+    if (!collectionId) return;
+    const next = recordRecentDestination(recentDestinationsRef.current, collectionId);
+    recentDestinationsRef.current = next;
+    saveRecentDestinations(next).catch(() => {});
   }, []);
 
   const userWatchlistCollections = useMemo(
@@ -113,6 +130,13 @@ export function useWatchlistController({ showToast }) {
       const itemKey = watchlistEntryKey(sheetItem);
       if (!itemKey) return;
 
+      // Was this title already in the library when the sheet opened? Drives the
+      // header eyebrow only; the live committed state is recomputed per render.
+      const initialExisting = watchlistRef.current.find(
+        (item) => watchlistEntryKey(item) === itemKey,
+      );
+      const openedCommitted = !!initialExisting && isInUserLibrary(initialExisting);
+
       const closeSheet = () => {
         if (watchlistSheetIdRef.current) {
           dismissSheet(watchlistSheetIdRef.current);
@@ -120,129 +144,160 @@ export function useWatchlistController({ showToast }) {
         }
       };
 
-      const updateOne = async (updater, successMessage) => {
+      // Insert-or-replace the row. This is the single commit path: in save mode
+      // the first destination the user taps creates the row here; nothing is
+      // persisted until then, so dismissing without a pick saves nothing.
+      const persistItem = async (nextItem, successMessage) => {
         const previous = watchlistRef.current;
-        const next = previous.map((item) =>
-          watchlistEntryKey(item) === itemKey ? normalizeWatchlistItem(updater(item)) : item,
-        );
-        if (!next.some((item) => watchlistEntryKey(item) === itemKey)) return;
+        const { item: normalized, watchlist: next } = upsertItem(previous, nextItem);
+        if (!normalized) return null;
         setWatchlist(next);
         watchlistRef.current = next;
         try {
           await saveWatchlist(next);
           if (successMessage) toastiva.success(successMessage);
+          return normalized;
         } catch {
           setWatchlist(previous);
           watchlistRef.current = previous;
-          toastiva.error('Failed to update Watchlist');
+          toastiva.error('Failed to update Library');
+          return null;
         }
       };
 
-      const renderContent = (currentItem, currentCollections = userWatchlistCollections) => (
-        <WatchlistCollectionsSheet
-          item={currentItem}
-          collections={currentCollections}
-          onCreateCollection={async (name) => {
-            const collection = {
-              id: `custom_${Date.now().toString(36)}`,
-              name,
-              icon: 'albums-outline',
-              source: 'custom',
-              createdAt: new Date().toISOString(),
-            };
-            const previousCollections = watchlistCollectionsRef.current;
-            const nextCollections = normalizeWatchlistCollections([
-              ...previousCollections,
-              collection,
-            ]);
-            setWatchlistCollections(nextCollections);
-            watchlistCollectionsRef.current = nextCollections;
-            try {
-              await saveWatchlistCollections(nextCollections);
-            } catch {
-              setWatchlistCollections(previousCollections);
-              watchlistCollectionsRef.current = previousCollections;
-              toastiva.error('Failed to create collection');
-              return;
-            }
-            await updateOne(
-              (item) => applyCreateCollection(item, collection),
-              'Collection created',
-            );
-            updateSheet(
-              watchlistSheetIdRef.current,
-              renderContent(
-                applyCreateCollection(currentItem, collection),
-                getUserWatchlistCollections(nextCollections),
-              ),
-            );
-          }}
-          onToggleCollection={async (collectionId) => {
-            const selected = currentItem.collectionIds?.includes(collectionId);
-            const nextItem = applyToggleCollection(currentItem, collectionId);
-            await updateOne(
-              () => nextItem,
-              selected ? 'Removed from collection' : 'Added to collection',
-            );
-            updateSheet(watchlistSheetIdRef.current, renderContent(nextItem));
-          }}
-          onSetStatus={async (status) => {
-            const nextItem = applySetStatus(currentItem, status);
-            await updateOne(() => nextItem, `Status set to ${getStatusLabel(status)}`);
-            updateSheet(watchlistSheetIdRef.current, renderContent(nextItem));
-          }}
-          onRemove={async () => {
-            const previous = watchlistRef.current;
-            const next = previous.filter((item) => watchlistEntryKey(item) !== itemKey);
-            setWatchlist(next);
-            watchlistRef.current = next;
-            try {
-              await saveWatchlist(next);
-              toastiva.success('Removed from Library');
-              closeSheet();
-            } catch {
-              setWatchlist(previous);
-              watchlistRef.current = previous;
-              toastiva.error('Failed to update Watchlist');
-            }
-          }}
-          onClose={closeSheet}
-        />
-      );
+      const collectionName = (collectionId, currentCollections) =>
+        currentCollections.find((collection) => collection.id === collectionId)?.name || 'list';
+
+      const renderContent = (currentItem, currentCollections = userWatchlistCollections) => {
+        const liveExisting = watchlistRef.current.find(
+          (item) => watchlistEntryKey(item) === itemKey,
+        );
+        const committed = !!liveExisting && isInUserLibrary(liveExisting);
+
+        return (
+          <WatchlistCollectionsSheet
+            item={currentItem}
+            collections={currentCollections}
+            committed={committed}
+            recentCollectionIds={recentDestinationsRef.current}
+            onCreateCollection={async (name) => {
+              const collection = {
+                id: `custom_${Date.now().toString(36)}`,
+                name,
+                icon: 'albums-outline',
+                source: 'custom',
+                createdAt: new Date().toISOString(),
+              };
+              const previousCollections = watchlistCollectionsRef.current;
+              const nextCollections = normalizeWatchlistCollections([
+                ...previousCollections,
+                collection,
+              ]);
+              setWatchlistCollections(nextCollections);
+              watchlistCollectionsRef.current = nextCollections;
+              try {
+                await saveWatchlistCollections(nextCollections);
+              } catch {
+                setWatchlistCollections(previousCollections);
+                watchlistCollectionsRef.current = previousCollections;
+                toastiva.error('Failed to create collection');
+                return;
+              }
+              const nextItem = applyCreateCollection(currentItem, collection);
+              const saved = await persistItem(nextItem, `Saved to ${name}`);
+              recordRecentDestinationId(collection.id);
+              updateSheet(
+                watchlistSheetIdRef.current,
+                renderContent(saved || nextItem, getUserWatchlistCollections(nextCollections)),
+              );
+            }}
+            onToggleCollection={async (collectionId) => {
+              const selected = currentItem.collectionIds?.includes(collectionId);
+              const nextItem = applyToggleCollection(currentItem, collectionId);
+              const name = collectionName(collectionId, currentCollections);
+              const saved = await persistItem(
+                nextItem,
+                selected ? `Removed from ${name}` : `Saved to ${name}`,
+              );
+              if (!selected) recordRecentDestinationId(collectionId);
+              updateSheet(
+                watchlistSheetIdRef.current,
+                renderContent(saved || nextItem, currentCollections),
+              );
+            }}
+            onSetStatus={async (status) => {
+              const wasCommitted = committed;
+              const nextItem = applySetStatus(currentItem, status);
+              const saved = await persistItem(
+                nextItem,
+                wasCommitted ? `Status: ${getStatusLabel(status)}` : 'Saved to Library',
+              );
+              updateSheet(
+                watchlistSheetIdRef.current,
+                renderContent(saved || nextItem, currentCollections),
+              );
+            }}
+            onSave={async () => {
+              const saved = await persistItem(currentItem, 'Saved to Library');
+              if (saved) closeSheet();
+            }}
+            onRemove={async () => {
+              const previous = watchlistRef.current;
+              const next = previous.filter((item) => watchlistEntryKey(item) !== itemKey);
+              setWatchlist(next);
+              watchlistRef.current = next;
+              try {
+                await saveWatchlist(next);
+                toastiva.success('Removed from Library');
+                closeSheet();
+              } catch {
+                setWatchlist(previous);
+                watchlistRef.current = previous;
+                toastiva.error('Failed to update Library');
+              }
+            }}
+            onClose={closeSheet}
+          />
+        );
+      };
 
       const id = showSheet(renderContent(sheetItem), {
-        title: 'Manage Collections',
+        eyebrow: openedCommitted ? 'Manage' : 'Save to',
+        title: sheetItem?.title || 'Library',
         size: 'large',
-        scrollable: true,
+        scrollable: false,
         onClose: () => {
           if (watchlistSheetIdRef.current === id) watchlistSheetIdRef.current = null;
         },
       });
       watchlistSheetIdRef.current = id;
     },
-    [userWatchlistCollections, dismissSheet, showSheet, updateSheet],
+    [userWatchlistCollections, dismissSheet, showSheet, updateSheet, recordRecentDestinationId],
   );
 
+  // Bookmark tap: always open the destination picker — never an instant save.
+  // Already-in-library → manage; otherwise a draft the sheet commits on pick.
   const handleToggleWatchlist = useCallback(
-    async (result) => {
-      const { action, item, watchlist: nextWatchlist } = addOrRestoreItem(watchlist, result);
+    (result) => {
+      const key = watchlistEntryKey(result);
+      const existing = key
+        ? watchlist.find((item) => watchlistEntryKey(item) === key)
+        : null;
 
-      if (action === 'exists') {
-        openWatchlistSheet(item);
+      if (existing && isInUserLibrary(existing)) {
+        openWatchlistSheet(existing);
         return;
       }
 
-      setWatchlist(nextWatchlist);
-      watchlistRef.current = nextWatchlist;
-      try {
-        await saveWatchlist(nextWatchlist);
-        toastiva.success('Added to Library');
-        openWatchlistSheet(item);
-      } catch {
-        setWatchlist(watchlist);
-        watchlistRef.current = watchlist;
-        toastiva.error('Failed to save to Watchlist');
-      }
+      // Build a draft — NOT persisted. Preserve a dropped row's prior lists.
+      const draft = normalizeWatchlistItem({
+        ...(existing || {}),
+        ...result,
+        status: 'saved',
+        collectionIds: existing?.collectionIds || [],
+      });
+      if (!draft) return;
+      openWatchlistSheet(draft);
     },
     [watchlist, openWatchlistSheet],
   );

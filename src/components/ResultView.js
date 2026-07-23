@@ -2201,18 +2201,13 @@ export function ResultView({
             ]}
             onPress={() => {
               Haptics.selectionAsync();
-              if (isInWatchlist) {
-                toastiva.info('Already saved — tap to manage');
-              } else {
-                toastiva.success('Adding to Watchlist…');
-              }
               onToggleWatchlist(result);
             }}
             accessibilityRole="button"
             accessibilityLabel={
               isInWatchlist
-                ? `Remove ${result.title} from watchlist`
-                : `Add ${result.title} to watchlist`
+                ? `Manage ${result.title} in your library`
+                : `Save ${result.title} to your library`
             }
             accessibilityState={{ selected: isInWatchlist }}
           >
