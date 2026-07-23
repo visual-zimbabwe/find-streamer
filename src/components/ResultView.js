@@ -31,6 +31,7 @@ import { ShareCard } from './ShareCard';
 import { ShareOptionsSheetContent } from './ShareOptionsSheet';
 import { TrailerModal } from './TrailerModal';
 import { SoundtrackPickerSheetContent } from './SoundtrackPickerSheet';
+import { WhereToWatchSection } from './WhereToWatchSection';
 import { searchPersonByName, fetchPersonFilmography } from '../lib/tmdb';
 import { openSpotifyAlbum } from '../lib/spotify';
 import { parseSoundtracksFromBindings } from '../lib/wikidataSoundtracks';
@@ -903,8 +904,6 @@ export function ResultView({
     peopleSections.castPeople.length - visibleCastPeople.length,
     0,
   );
-  const providerSummary = result.providerSummary || [];
-  const hasAvailabilityRows = (result.rows || []).length > 0;
   const hasAvailabilityData = Array.isArray(result.rows);
   const franchiseParts =
     result.isFranchise && result.collection?.parts?.length ? result.collection.parts : [];
@@ -1429,6 +1428,19 @@ export function ResultView({
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Availability leads the detail stack — it is the question the app exists to answer */}
+          {hasAvailabilityData && (
+            <WhereToWatchSection
+              key={`where-to-watch-${result.tmdbId}`}
+              rows={result.rows}
+              providerSummary={result.providerSummary}
+              confidence={result.providerAvailabilityConfidence}
+              isTv={isTv}
+              colors={colors}
+              typography={typography}
+            />
+          )}
 
           {/* Based On Section */}
           {wikiLoading ? (
@@ -1996,75 +2008,6 @@ export function ResultView({
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-            </View>
-          )}
-
-          {/* Detailed Country View */}
-          {hasAvailabilityData && (
-            <View style={styles.section}>
-              <ProgrammeEyebrowLabel eyebrow="Where To Watch" />
-
-              {hasAvailabilityRows ? (
-                <View style={styles.table}>
-                  {result.rows.map((row, rowIndex) => (
-                    <View
-                      key={row.code}
-                      style={[
-                        styles.tableRow,
-                        rowIndex > 0 && {
-                          borderTopWidth: StyleSheet.hairlineWidth,
-                          borderTopColor: GOLD_DIM,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.countryName,
-                          { color: colors.onSurface, ...typography.bodyMd },
-                        ]}
-                      >
-                        {row.country}
-                      </Text>
-                      <View style={styles.providerBadges}>
-                        {providerSummary.map((provider) =>
-                          row.providers[provider.key] ? (
-                            provider.logoUrl ? (
-                              <Image
-                                key={provider.key}
-                                source={{ uri: provider.logoUrl }}
-                                style={[
-                                  styles.serviceLogo,
-                                  { borderColor: provider.fallbackColor },
-                                ]}
-                                accessibilityLabel={provider.label}
-                              />
-                            ) : (
-                              <View
-                                key={provider.key}
-                                style={[styles.dot, { backgroundColor: provider.fallbackColor }]}
-                              />
-                            )
-                          ) : null,
-                        )}
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              ) : (
-                <View style={styles.availabilityEmpty}>
-                  <Ionicons name="earth-outline" size={22} color={colors.onSurfaceVariant} />
-                  <Text
-                    style={[
-                      styles.availabilityEmptyText,
-                      { color: colors.onSurfaceVariant, ...typography.bodyMd },
-                    ]}
-                  >
-                    Not listed on Netflix, Prime Video, Max, Paramount+, CBC Gem, BBC iPlayer,
-                    Channel 4, ITVX, SBS On Demand, or ABC iview in any supported country right
-                    now.
-                  </Text>
-                </View>
-              )}
             </View>
           )}
 
@@ -2726,44 +2669,6 @@ const styles = StyleSheet.create({
   },
   similarTitle: {
     fontWeight: '700',
-  },
-  table: {
-    overflow: 'hidden',
-  },
-  availabilityEmpty: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    paddingVertical: 8,
-  },
-  availabilityEmptyText: {
-    flex: 1,
-    fontWeight: '500',
-    lineHeight: 22,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  countryName: {
-    fontWeight: '500',
-  },
-  providerBadges: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  serviceLogo: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 1.5,
   },
   ratingsRow: {
     flexDirection: 'row',

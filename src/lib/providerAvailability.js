@@ -74,6 +74,32 @@ export function directStreamingServices(info = {}) {
   return matched;
 }
 
+const REGIONAL_INDICATOR_A = 0x1f1e6;
+const LATIN_A = 'A'.charCodeAt(0);
+
+/**
+ * 'CA' → 🇨🇦. Flags carry most of the scanning load in a long country list.
+ * Returns '' for anything that is not a two-letter code, so callers can render
+ * the result unconditionally.
+ */
+export function flagForCountryCode(code) {
+  if (typeof code !== 'string' || !/^[A-Za-z]{2}$/.test(code)) return '';
+  return String.fromCodePoint(
+    ...[...code.toUpperCase()].map((char) => REGIONAL_INDICATOR_A + char.charCodeAt(0) - LATIN_A),
+  );
+}
+
+/**
+ * Display labels for the services an availability row streams on, in
+ * `SERVICE_LABELS` order so every row lists them consistently.
+ */
+export function serviceLabelsForRow(row) {
+  if (!row?.providers) return [];
+  return Object.entries(SERVICE_LABELS)
+    .filter(([key]) => row.providers[key])
+    .map(([, label]) => label);
+}
+
 export function emptyServiceMap(valueFactory) {
   return Object.fromEntries(Object.keys(SERVICE_LABELS).map((key) => [key, valueFactory()]));
 }

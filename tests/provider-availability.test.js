@@ -7,6 +7,8 @@ import {
   directStreamingServices,
   isServiceAvailableInRegion,
   availabilityFromResults,
+  flagForCountryCode,
+  serviceLabelsForRow,
 } from '../src/lib/providerAvailability.js';
 
 /**
@@ -196,4 +198,32 @@ test('directStreamingServices returns matched service keys with their logos', ()
   assert.equal(matched.get('netflix'), '/n.png');
   assert.equal(matched.has('max'), false, 'rent bucket must be ignored');
   assert.equal(matched.has('disney'), false, 'unknown providers are dropped');
+});
+
+// ─── Row presentation helpers ────────────────────────────────────────────────
+
+test('flagForCountryCode maps ISO codes to regional-indicator flags', () => {
+  assert.equal(flagForCountryCode('CA'), '\u{1F1E8}\u{1F1E6}');
+  assert.equal(flagForCountryCode('gb'), '\u{1F1EC}\u{1F1E7}');
+});
+
+test('flagForCountryCode returns empty string for anything that is not a 2-letter code', () => {
+  for (const input of [null, undefined, '', 'USA', 'U1', 42]) {
+    assert.equal(flagForCountryCode(input), '', `expected no flag for ${String(input)}`);
+  }
+});
+
+test('serviceLabelsForRow lists matched services in SERVICE_LABELS order', () => {
+  const row = {
+    country: 'Canada',
+    code: 'CA',
+    providers: { cbc_gem: true, netflix: true, max: false, amazon_prime_video: true },
+  };
+
+  assert.deepEqual(serviceLabelsForRow(row), ['Netflix', 'Prime Video', 'CBC Gem']);
+});
+
+test('serviceLabelsForRow tolerates a missing providers map', () => {
+  assert.deepEqual(serviceLabelsForRow(null), []);
+  assert.deepEqual(serviceLabelsForRow({ code: 'CA' }), []);
 });
