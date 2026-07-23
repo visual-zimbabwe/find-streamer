@@ -6,6 +6,8 @@ import {
   applyToggleCollection,
   applySetStatus,
   addOrRestoreItem,
+  upsertItem,
+  recordRecentDestination,
   removeItem,
   markItemWatched,
 } from '../src/lib/watchlistActions.js';
@@ -137,6 +139,44 @@ test('addOrRestoreItem reports an item already in the library without mutating',
   const out = addOrRestoreItem(watchlist, { tmdbId: 9, mediaType: 'movie', title: 'Test Movie' });
   assert.equal(out.action, 'exists');
   assert.equal(out.watchlist, watchlist); // same reference, no-op
+});
+
+test('upsertItem prepends a brand new row (the save-sheet commit path)', () => {
+  const watchlist = [makeItem({ tmdbId: 1 })];
+  const draft = { tmdbId: 2, mediaType: 'tv', title: 'New Show', status: 'saved', collectionIds: ['favs'] };
+  const out = upsertItem(watchlist, draft);
+  assert.equal(out.watchlist.length, 2);
+  assert.equal(watchlistEntryKey(out.watchlist[0]), 'tv:2');
+  assert.deepEqual(out.item.collectionIds, ['favs']);
+});
+
+test('upsertItem replaces the existing row in place (no duplicate)', () => {
+  const watchlist = [makeItem({ tmdbId: 5, status: 'saved', collectionIds: [] })];
+  const out = upsertItem(watchlist, { tmdbId: 5, mediaType: 'movie', title: 'Test Movie', status: 'watching', collectionIds: ['favs'] });
+  assert.equal(out.watchlist.length, 1);
+  assert.equal(out.watchlist[0].status, 'watching');
+  assert.deepEqual(out.watchlist[0].collectionIds, ['favs']);
+});
+
+test('upsertItem returns the original list for an invalid item', () => {
+  const watchlist = [makeItem({ tmdbId: 1 })];
+  const out = upsertItem(watchlist, { title: 'no id' });
+  assert.equal(out.item, null);
+  assert.equal(out.watchlist, watchlist);
+});
+
+test('recordRecentDestination moves an id to the front, de-duping', () => {
+  assert.deepEqual(recordRecentDestination(['a', 'b', 'c'], 'c'), ['c', 'a', 'b']);
+  assert.deepEqual(recordRecentDestination(['a', 'b'], 'x'), ['x', 'a', 'b']);
+});
+
+test('recordRecentDestination caps the list length', () => {
+  assert.deepEqual(recordRecentDestination(['a', 'b', 'c', 'd'], 'e', 4), ['e', 'a', 'b', 'c']);
+});
+
+test('recordRecentDestination is a no-op for a missing id', () => {
+  assert.deepEqual(recordRecentDestination(['a', 'b'], ''), ['a', 'b']);
+  assert.deepEqual(recordRecentDestination(undefined, ''), []);
 });
 
 test('removeItem drops the matching entry', () => {

@@ -18,6 +18,7 @@ const KEYS = {
   watchlistChunks: 'find-streamer/watchlist/chunks',
   watchlistChunk: 'find-streamer/watchlist/chunk',
   watchlistCollections: 'find-streamer/watchlist/collections',
+  watchlistRecentDestinations: 'find-streamer/watchlist/recent-destinations',
   defaultWatchlistSeeded: 'find-streamer/default-watchlist-seeded',
   watchlistImdbMigrated: 'find-streamer/watchlist-imdb-migrated',
   homeSpotlightCache: 'find-streamer/home-spotlight-cache',
@@ -235,6 +236,35 @@ export async function saveWatchlistCollections(collections, storage = AsyncStora
   const normalized = normalizeWatchlistCollections(collections);
   await storage.setItem(KEYS.watchlistCollections, JSON.stringify(normalized));
   return normalized;
+}
+
+const RECENT_DESTINATIONS_MAX = 4;
+
+/**
+ * Most-recently-used collection ids for the save sheet's "Recent" quick-pick
+ * row. Newest first; capped. Returns [] on any parse/shape problem.
+ * @returns {Promise<string[]>}
+ */
+export async function loadRecentDestinations(storage = AsyncStorage) {
+  try {
+    const raw = await storage.getItem(KEYS.watchlistRecentDestinations);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((id) => typeof id === 'string' && id.trim())
+      .slice(0, RECENT_DESTINATIONS_MAX);
+  } catch {
+    return [];
+  }
+}
+
+export async function saveRecentDestinations(ids, storage = AsyncStorage) {
+  const clean = (Array.isArray(ids) ? ids : [])
+    .filter((id) => typeof id === 'string' && id.trim())
+    .slice(0, RECENT_DESTINATIONS_MAX);
+  await storage.setItem(KEYS.watchlistRecentDestinations, JSON.stringify(clean));
+  return clean;
 }
 
 export async function loadWatchlist(storage = AsyncStorage) {
