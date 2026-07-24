@@ -32,6 +32,7 @@ import { ShareOptionsSheetContent } from './ShareOptionsSheet';
 import { TrailerModal } from './TrailerModal';
 import { SoundtrackPickerSheetContent } from './SoundtrackPickerSheet';
 import { WhereToWatchSection } from './WhereToWatchSection';
+import { SeasonDetailSheetContent } from './SeasonDetailSheet';
 import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { PersonCard } from './PersonCard';
 import { searchPersonByName } from '../lib/tmdb';
@@ -76,6 +77,24 @@ function formatRuntime(minutes, mediaType) {
   const remainingMinutes = minutes % 60;
   if (!hours) return `${remainingMinutes}m`;
   return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
+/**
+ * "Is it over?" in one phrase. A dated next episode beats the status string —
+ * "Returning Series" is true of a show whose next episode is 18 months out and
+ * of one airing on Thursday, and only the second is worth acting on.
+ */
+function formatSeriesStatus(status, nextEpisodeAirDate) {
+  if (nextEpisodeAirDate) {
+    const parsed = new Date(`${nextEpisodeAirDate}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return `Next ${parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    }
+  }
+  if (!hasValue(status)) return null;
+  if (status === 'Returning Series') return 'Returning';
+  if (status === 'In Production' || status === 'Planned') return 'In production';
+  return status; // Ended, Canceled, Pilot
 }
 
 const HERO_HEIGHT = verticalScale(480);
@@ -568,6 +587,29 @@ export function ResultView({
     [onPersonPress],
   );
 
+  /** Tap a season card → peek sheet with that season's own availability */
+  const handleSeasonPress = useCallback(
+    (season) => {
+      Haptics.selectionAsync();
+      showSheet(
+        <SeasonDetailSheetContent
+          season={season}
+          seriesTitle={result?.title}
+          colors={colors}
+          typography={typography}
+        />,
+        {
+          title: season.name,
+          size: 'large',
+          scrollable: false,
+          showCloseButton: true,
+          dismissOnBackdrop: true,
+        },
+      );
+    },
+    [result?.title, colors, typography, showSheet],
+  );
+
   /** Long-press a cast or crew card → push a filmography peek sheet */
   const handleActorLongPress = useCallback(
     (person, role) => {
@@ -777,9 +819,24 @@ export function ResultView({
 
   const isTv = result.mediaType === 'tv';
   const seasonCount = result.numberOfSeasons || result.seasons?.length || 0;
-  const hasSeasonDetails =
-    isTv && ((result.seasons?.length ?? 0) > 0 || Boolean(result.runtimeMinutes));
+  /** Seasons is a rail, not a stats card — without seasons it has nothing to say. */
+  const hasSeasonDetails = isTv && (result.seasons?.length ?? 0) > 0;
   const runtimeLabel = formatRuntime(result.runtimeMinutes, result.mediaType);
+  // Only worth marking when there's something to distinguish it from.
+  const latestSeasonNumber =
+    hasSeasonDetails && result.seasons.length > 1
+      ? Math.max(...result.seasons.map((season) => season.seasonNumber || 0))
+      : null;
+  const seasonSummaryLine = hasSeasonDetails
+    ? [
+        pluralize(seasonCount, 'season'),
+        result.numberOfEpisodes ? pluralize(result.numberOfEpisodes, 'episode') : null,
+        runtimeLabel,
+        formatSeriesStatus(result.seriesStatus, result.nextEpisodeAirDate),
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : null;
   const hasRating = hasValue(result.rating);
   const hasGenres = hasValue(result.genres);
   const totalPeopleCount = peopleSections.crewPeople.length + peopleSections.castPeople.length;
@@ -1550,46 +1607,77 @@ export function ResultView({
 
           {hasSeasonDetails && (
             <View style={styles.section}>
-              {result.runtimeMinutes && (
-                <View style={styles.seriesStats}>
-                  <View style={styles.seriesStat}>
-                    <Ionicons name="timer-outline" size={22} color={GOLD_ACCENT} />
-                    <Text
-                      style={[
-                        styles.seriesStatValue,
-                        { color: colors.onSurface, ...typography.titleLg },
-                      ]}
-                    >
-                      {`${result.runtimeMinutes}m`}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.seriesStatLabel,
-                        { color: colors.onSurfaceVariant, ...typography.labelSm },
-                      ]}
-                    >
-                      Avg Length
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {result.seasons?.length > 0 && (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.seasonsScroll}
+              <ProgrammeEyebrowLabel eyebrow="Seasons" />
+              {seasonSummaryLine ? (
+                <Text
+                  style={[
+                    styles.seasonSummary,
+                    { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                  ]}
                 >
-                  {result.seasons.map((season) => (
-                    <View key={season.id || season.seasonNumber} style={styles.seasonCard}>
-                      <MediaArtwork
-                        uri={season.posterUrl}
-                        style={styles.seasonPoster}
-                        accessibilityLabel={`${season.name} poster`}
-                        title={season.name}
-                        icon="tv-outline"
-                        instant
-                      />
+                  {seasonSummaryLine}
+                </Text>
+              ) : null}
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.seasonsScroll}
+              >
+                {result.seasons.map((season, index) => {
+                  const isLatest = season.seasonNumber === latestSeasonNumber;
+                  return (
+                    <TouchableOpacity
+                      key={season.id || season.seasonNumber}
+                      style={styles.seasonCard}
+                      onPress={() => handleSeasonPress(season)}
+                      activeOpacity={0.78}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${season.name}, ${season.year}, ${pluralize(
+                        season.episodeCount,
+                        'episode',
+                      )}${isLatest ? ', latest season' : ''}`}
+                    >
+                      <View
+                        style={[
+                          styles.seasonPosterFrame,
+                          { borderRadius: radii.md },
+                          isLatest && { borderColor: GOLD_ACCENT, borderWidth: 2 },
+                        ]}
+                      >
+                        <MediaArtwork
+                          uri={season.posterUrl}
+                          style={styles.seasonPoster}
+                          accessibilityLabel={`${season.name} poster`}
+                          title={season.name}
+                          icon="tv-outline"
+                          instant
+                        />
+                        <View
+                          style={[styles.seasonOrderBadge, { backgroundColor: GOLD_ACCENT }]}
+                        >
+                          <Text style={[styles.seasonOrderText, { color: '#141414' }]}>
+                            {season.seasonNumber || index + 1}
+                          </Text>
+                        </View>
+                        {season.ratingValue ? (
+                          <View style={styles.seasonRatingBadge}>
+                            <Ionicons name="star" size={9} color={GOLD_ACCENT} />
+                            <Text style={styles.seasonRatingText}>
+                              {season.ratingValue.toFixed(1)}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {isLatest ? (
+                          <View
+                            style={[styles.seasonLatestPill, { backgroundColor: GOLD_ACCENT }]}
+                          >
+                            <Text style={[styles.seasonLatestText, { color: '#141414' }]}>
+                              LATEST
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
                       <View style={styles.seasonBody}>
                         <Text
                           style={[
@@ -1606,13 +1694,13 @@ export function ResultView({
                             { color: colors.onSurfaceVariant, ...typography.labelSm },
                           ]}
                         >
-                          {season.year} • {pluralize(season.episodeCount, 'episode')}
+                          {`${season.year} • ${pluralize(season.episodeCount, 'episode')}`}
                         </Text>
                       </View>
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
           )}
 
@@ -2258,24 +2346,6 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingRight: 40,
   },
-  seriesStats: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    paddingVertical: 18,
-  },
-  seriesStat: {
-    alignItems: 'center',
-    flex: 1,
-    gap: 4,
-    minWidth: 0,
-  },
-  seriesStatValue: {
-    fontWeight: '900',
-  },
-  seriesStatLabel: {
-    fontWeight: '800',
-    textAlign: 'center',
-  },
   seasonsScroll: {
     gap: 12,
     paddingRight: 40,
@@ -2338,22 +2408,69 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   seasonCard: {
-    overflow: 'hidden',
     width: scale(150),
+  },
+  seasonPosterFrame: {
+    marginBottom: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    width: '100%',
   },
   seasonPoster: {
     width: '100%',
     aspectRatio: 2 / 3,
   },
-  seasonPosterFallback: {
+  seasonOrderBadge: {
     alignItems: 'center',
-    aspectRatio: 2 / 3,
+    borderRadius: 4,
+    height: 22,
     justifyContent: 'center',
-    width: '100%',
+    left: 8,
+    position: 'absolute',
+    top: 8,
+    width: 22,
+  },
+  seasonOrderText: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  seasonRatingBadge: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    borderRadius: 10,
+    flexDirection: 'row',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    position: 'absolute',
+    right: 8,
+    top: 8,
+  },
+  seasonRatingText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  seasonLatestPill: {
+    borderRadius: 8,
+    bottom: 8,
+    left: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    position: 'absolute',
+  },
+  seasonLatestText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  seasonSummary: {
+    fontWeight: '600',
+    marginBottom: 18,
+    marginTop: -6,
   },
   seasonBody: {
-    gap: 4,
-    padding: 10,
+    gap: 2,
   },
   seasonName: {
     fontWeight: '800',

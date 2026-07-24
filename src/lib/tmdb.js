@@ -4,10 +4,10 @@ import { NON_ENGLISH_CODES } from './languagePresets';
 import { createAppError, isRetryableStatus, retryWithBackoff } from './errors';
 import {
   SERVICE_LABELS,
+  availabilityBySeason,
   availabilityFromResults,
-  directStreamingServices,
   emptyServiceMap,
-  isServiceAvailableInRegion,
+  intersectSeasonAvailability,
 } from './providerAvailability';
 
 export { SERVICE_LABELS };
@@ -457,6 +457,8 @@ async function getTitleMetadata(mediaType, tmdbId) {
             seasonNumber: season.season_number,
             episodeCount: season.episode_count || 0,
             year: season.air_date ? season.air_date.slice(0, 4) : 'TBA',
+            overview: (season.overview || '').trim() || null,
+            ratingValue: typeof season.vote_average === 'number' ? season.vote_average : null,
             posterUrl: season.poster_path
               ? `https://image.tmdb.org/t/p/w300${season.poster_path}`
               : null,
@@ -503,6 +505,10 @@ async function getTitleMetadata(mediaType, tmdbId) {
         ? data.number_of_episodes ||
           seasons.reduce((total, season) => total + season.episodeCount, 0)
         : null,
+    // "Is it over?" — already in the /tv/{id} payload, no extra request.
+    seriesStatus: mediaType === 'tv' ? data.status || null : null,
+    nextEpisodeAirDate:
+      mediaType === 'tv' ? data.next_episode_to_air?.air_date?.slice(0, 10) || null : null,
     createdBy:
       mediaType === 'tv'
         ? (data.created_by || [])
@@ -833,39 +839,17 @@ async function getCompleteTvProviderCountries(tmdbId, fallbackAvailability = nul
       `/tv/${tmdbId}/season/${episode.seasonNumber}/episode/${episode.episodeNumber}/watch/providers`,
     ),
   );
-  const availability = emptyServiceMap(() => null);
+
+  // Same fan-out as before, folded twice: once per season so the detail screen
+  // can answer "which seasons stream where", then across seasons for the
+  // show-level answer (mathematically identical to the old single fold).
   const logos = emptyServiceMap(() => null);
-
-  episodeResults.forEach((data) => {
-    const episodeAvailability = emptyServiceMap(() => new Set());
-
-    Object.entries(data.results || {}).forEach(([countryCode, info]) => {
-      directStreamingServices(info).forEach((logoPath, key) => {
-        if (!isServiceAvailableInRegion(key, countryCode)) return;
-        episodeAvailability[key].add(countryCode);
-        if (!logos[key] && logoPath) logos[key] = logoPath;
-      });
-    });
-
-    Object.keys(availability).forEach((key) => {
-      if (availability[key] === null) {
-        availability[key] = episodeAvailability[key];
-      } else {
-        availability[key] = new Set(
-          [...availability[key]].filter((countryCode) => episodeAvailability[key].has(countryCode)),
-        );
-      }
-    });
-  });
+  const bySeason = availabilityBySeason(episodes, episodeResults, logos);
 
   return {
-    ...Object.fromEntries(
-      Object.entries(availability).map(([key, countryCodes]) => [
-        key,
-        Array.from(countryCodes || []).sort(),
-      ]),
-    ),
+    ...intersectSeasonAvailability(bySeason),
     logos,
+    bySeason,
     confidence: 'episode',
   };
 }
@@ -1349,6 +1333,28 @@ async function getMoreFromCastAndCrew(personIds, currentTmdbId) {
   }
 }
 
+/**
+ * Hang per-season availability rows off each season. Absent when the
+ * episode-level lookup is disabled or the show exceeded the episode cap, in
+ * which case seasons pass through untouched and the UI falls back to the
+ * show-level Where To Watch answer.
+ */
+function withSeasonAvailability(seasons, bySeason, countryNames, serviceLogos) {
+  if (!Array.isArray(seasons) || !seasons.length || !bySeason) return seasons;
+
+  return seasons.map((season) => {
+    const seasonAvailability = bySeason[season.seasonNumber];
+    if (!seasonAvailability) return season;
+
+    const seasonRows = toRows(seasonAvailability, countryNames);
+    return {
+      ...season,
+      availabilityRows: seasonRows,
+      providerSummary: buildProviderSummary(seasonRows, serviceLogos),
+    };
+  });
+}
+
 export async function resolveMatch(query, match) {
   // Execute detail requests sequentially to prevent OkHttp / Cloudflare from dropping concurrent sockets
   const metadata = await getTitleMetadata(match.mediaType, match.tmdbId);
@@ -1381,6 +1387,12 @@ export async function resolveMatch(query, match) {
     ...match,
     ...metadata,
     ...credits,
+    seasons: withSeasonAvailability(
+      metadata.seasons,
+      availability.bySeason,
+      countryNames,
+      serviceLogos,
+    ),
     similar,
     moreFromCastAndCrew,
     rows,
