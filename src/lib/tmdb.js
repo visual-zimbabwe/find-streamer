@@ -854,13 +854,33 @@ async function getCompleteTvProviderCountries(tmdbId, fallbackAvailability = nul
   };
 }
 
+/**
+ * /configuration/countries returns 251 entries but skips a handful of real ISO
+ * 3166-1 regions that watch-provider results still land in — Guernsey shows up
+ * on Fight Club, for one. Any code missing here falls through to the bare ISO
+ * code in every list built from rows, so fill the gap once, at the source.
+ */
+const EXTRA_COUNTRY_NAMES = {
+  AX: 'Åland Islands',
+  BL: 'Saint Barthélemy',
+  BQ: 'Caribbean Netherlands',
+  CW: 'Curaçao',
+  GG: 'Guernsey',
+  IM: 'Isle of Man',
+  JE: 'Jersey',
+  MF: 'Saint Martin',
+  SX: 'Sint Maarten',
+};
+
 async function getCountryNames() {
   if (_countryNamesCache) return _countryNamesCache;
   const data = await tmdbGet('/configuration/countries', { language: 'en-US' });
-  const countryNames = {};
+  // TMDb wins wherever it has an answer; the supplement only fills holes.
+  const countryNames = { ...EXTRA_COUNTRY_NAMES };
   data.forEach((item) => {
     if (item.iso_3166_1) {
-      countryNames[item.iso_3166_1] = item.english_name || item.name || item.iso_3166_1;
+      countryNames[item.iso_3166_1] =
+        item.english_name || item.name || EXTRA_COUNTRY_NAMES[item.iso_3166_1] || item.iso_3166_1;
     }
   });
   _countryNamesCache = countryNames;
