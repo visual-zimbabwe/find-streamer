@@ -100,6 +100,12 @@ function formatSeriesStatus(status, nextEpisodeAirDate) {
 const HERO_HEIGHT = verticalScale(480);
 /** Cast/crew rails never render more than this; the rest lives on the full screen. */
 const RAIL_PERSON_CAP = 10;
+/**
+ * Collapsed synopsis clamps to this many rendered lines (not characters, so the
+ * break never lands mid-word). A measured overflow past this count is what
+ * arms the Read more / Read less toggle.
+ */
+const SYNOPSIS_COLLAPSED_LINES = 4;
 
 function AwardLogoImage({ uri, label, style, fallbackStyle, iconColor }) {
   const [failed, setFailed] = React.useState(false);
@@ -385,6 +391,10 @@ export function ResultView({
   const [shareDraft, setShareDraft] = useState(null);
   const [trailerVisible, setTrailerVisible] = useState(false);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
+  /** True once the synopsis is longer than the collapsed clamp — gates the toggle. */
+  const [synopsisOverflows, setSynopsisOverflows] = useState(false);
+  /** The first (unclamped) layout pass sets this; later passes are ignored. */
+  const [synopsisMeasured, setSynopsisMeasured] = useState(false);
   const reduceMotion = useReduceMotion();
   const shareSheetIdRef = useRef(null);
 
@@ -422,6 +432,9 @@ export function ResultView({
 
   useEffect(() => {
     setIsSynopsisExpanded(false);
+    // Re-measure the new title's synopsis from scratch — line counts don't carry over.
+    setSynopsisOverflows(false);
+    setSynopsisMeasured(false);
     setWikiData({ languages: [], countries: [], basedOn: null, soundtracks: [], awards: [] });
     setWikiLoading(false);
     setWikiError(false);
@@ -495,6 +508,21 @@ export function ResultView({
     isInWatchlist,
     wikiRetryToken,
   ]);
+
+  /**
+   * The first paint renders the synopsis unclamped, so this layout pass sees the
+   * true line count and can decide whether the toggle is warranted. Once measured
+   * we stop listening — later passes report the clamped count and would lie.
+   */
+  const handleSynopsisTextLayout = useCallback(
+    (event) => {
+      if (synopsisMeasured) return;
+      const lineCount = event?.nativeEvent?.lines?.length ?? 0;
+      setSynopsisOverflows(lineCount > SYNOPSIS_COLLAPSED_LINES);
+      setSynopsisMeasured(true);
+    },
+    [synopsisMeasured],
+  );
 
   const handleBasedOnPress = useCallback((work) => {
     if (!work?.id) return;
@@ -1450,19 +1478,46 @@ export function ResultView({
 
           <View style={styles.section}>
             <ProgrammeEyebrowLabel eyebrow="Synopsis" />
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.selectionAsync();
-                setIsSynopsisExpanded(!isSynopsisExpanded);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.synopsis, { color: colors.onSurface, ...typography.bodyLg }]}>
-                {isSynopsisExpanded || (displaySynopsis?.length || 0) <= 250
-                  ? displaySynopsis
-                  : `${displaySynopsis.substring(0, 250)}...`}
+            {/* Overflowing synopses become a labelled button carrying the full text
+                as its accessible name; short ones stay plain, un-clamped text.
+                Either way the first paint measures unclamped so the toggle only
+                appears when there's genuinely more to read. */}
+            {synopsisOverflows ? (
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setIsSynopsisExpanded(!isSynopsisExpanded);
+                }}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={displaySynopsis}
+                accessibilityHint={
+                  isSynopsisExpanded ? 'Collapses the synopsis' : 'Expands the full synopsis'
+                }
+                accessibilityState={{ expanded: isSynopsisExpanded }}
+              >
+                <Text
+                  style={[styles.synopsis, { color: colors.onSurface, ...typography.bodyLg }]}
+                  numberOfLines={isSynopsisExpanded ? undefined : SYNOPSIS_COLLAPSED_LINES}
+                  onTextLayout={handleSynopsisTextLayout}
+                >
+                  {displaySynopsis}
+                </Text>
+                <Text style={[styles.synopsisToggle, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+                  {isSynopsisExpanded ? 'Read less' : 'Read more'}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Text
+                style={[styles.synopsis, { color: colors.onSurface, ...typography.bodyLg }]}
+                numberOfLines={
+                  synopsisMeasured && !isSynopsisExpanded ? SYNOPSIS_COLLAPSED_LINES : undefined
+                }
+                onTextLayout={handleSynopsisTextLayout}
+              >
+                {displaySynopsis}
               </Text>
-            </TouchableOpacity>
+            )}
           </View>
 
           {/* Availability leads the detail stack — it is the question the app exists to answer */}
@@ -2386,6 +2441,11 @@ const styles = StyleSheet.create({
   synopsis: {
     fontWeight: '300',
     lineHeight: 28,
+  },
+  synopsisToggle: {
+    fontWeight: '700',
+    marginTop: 8,
+    letterSpacing: 0.3,
   },
   legend: {
     flexDirection: 'row',
