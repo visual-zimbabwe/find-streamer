@@ -427,7 +427,9 @@ async function getTitleMetadata(mediaType, tmdbId) {
   const [data, externalIds] = await Promise.all([
     tmdbGet(`/${mediaType}/${tmdbId}`, {
       language: 'en-US',
-      append_to_response: 'videos',
+      append_to_response: 'videos,images',
+      // `null` = language-neutral logos (no lettering baked in); `en` = English title treatments.
+      include_image_language: 'en,null',
     }),
     mediaType === 'tv'
       ? tmdbGet(`/tv/${tmdbId}/external_ids`).catch(() => ({}))
@@ -528,6 +530,8 @@ async function getTitleMetadata(mediaType, tmdbId) {
             }))
         : [],
     seasons,
+    titleLogo: pickTitleLogo(data.images?.logos),
+    heroBackdropUrl: pickHeroBackdrop(data.images?.backdrops),
     trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : 'N/A',
     productionCompanies: (data.production_companies || [])
       .filter((company) => company.logo_path)
@@ -541,6 +545,67 @@ async function getTitleMetadata(mediaType, tmdbId) {
 
 function personProfileUrl(profilePath) {
   return profilePath ? `https://image.tmdb.org/t/p/w185${profilePath}` : null;
+}
+
+/**
+ * Pick the best title-treatment logo from TMDb's `images.logos`, the way Apple TV /
+ * Netflix lead their hero with logo art instead of typeset text. Returns
+ * `{ url, aspectRatio }` or null when there's nothing usable.
+ *
+ * expo-image cannot rasterize SVG, and TMDb serves many logos as `.svg`, so those
+ * are filtered out — a missing logo falls back to the (now well-behaved) text title.
+ */
+function pickTitleLogo(logos) {
+  if (!Array.isArray(logos) || !logos.length) return null;
+  const raster = logos.filter((l) => l.file_path && !l.file_path.endsWith('.svg'));
+  if (!raster.length) return null;
+  // Prefer English lettering, then language-neutral, then anything; break ties on TMDb votes.
+  const langScore = (l) => (l.iso_639_1 === 'en' ? 2 : l.iso_639_1 === null ? 1 : 0);
+  const best = raster.slice().sort((a, b) => {
+    const s = langScore(b) - langScore(a);
+    if (s !== 0) return s;
+    return (b.vote_average || 0) - (a.vote_average || 0);
+  })[0];
+  const aspectRatio =
+    best.aspect_ratio ||
+    (best.width && best.height ? best.width / best.height : null) ||
+    null;
+  return {
+    url: `https://image.tmdb.org/t/p/w500${best.file_path}`,
+    aspectRatio,
+  };
+}
+
+/**
+ * Pick the hero backdrop the way Apple TV / Netflix pick "background art": a clean,
+ * textless film still to sit *behind* the title treatment — not TMDb's community
+ * `backdrop_path`, whose most-voted primary is routinely dramatic key-art (title
+ * cards, ornate promo art like LOTR's ring inscription) that fights an overlaid
+ * title and sometimes bakes the title straight into the image.
+ *
+ * `iso_639_1 === null` drops language title-cards. Among the rest we rank by
+ * community votes — counter-intuitively the right quality signal here: the ornate
+ * key-art that fights a title treatment (LOTR's ring inscription) is TMDb's
+ * designated *primary* backdrop, NOT the top-voted still, so ranking the null pool
+ * by votes both keeps great default stills (D&D's cast shot) and steps around the
+ * key-art. A ~16:9 preference drops odd crops; resolution breaks ties. Returns a
+ * URL or null (caller falls back to the old backdrop, then the poster).
+ */
+function pickHeroBackdrop(backdrops) {
+  if (!Array.isArray(backdrops) || !backdrops.length) return null;
+  const textless = backdrops.filter((b) => b.file_path && b.iso_639_1 == null);
+  if (!textless.length) return null;
+  const aspectOf = (b) => b.aspect_ratio || (b.width && b.height ? b.width / b.height : 0);
+  const isWide = (b) => (Math.abs(aspectOf(b) - 1.778) <= 0.06 ? 1 : 0);
+  const best = textless.slice().sort((a, b) => {
+    // 1. Prefer standard 16:9 film stills over odd crops / banners.
+    if (isWide(a) !== isWide(b)) return isWide(b) - isWide(a);
+    // 2. Community votes = the hero-quality signal (see note above).
+    if ((b.vote_count || 0) !== (a.vote_count || 0)) return (b.vote_count || 0) - (a.vote_count || 0);
+    // 3. Resolution breaks ties — 4K frame-grabs are almost always real stills.
+    return (b.width || 0) - (a.width || 0);
+  })[0];
+  return `https://image.tmdb.org/t/p/original${best.file_path}`;
 }
 
 function uniquePeople(people = []) {
