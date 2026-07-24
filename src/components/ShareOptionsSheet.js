@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   TextInput,
+  Keyboard,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -81,6 +82,35 @@ export function ShareOptionsSheetContent({ result, cardColors, onShare, onDraftC
   useEffect(() => {
     onDraftChange?.({ selected, format });
   }, [selected, format, onDraftChange]);
+
+  /**
+   * The sheet is a fixed-height container pinned to the bottom of the screen,
+   * so the keyboard lands straight on top of it and buries the very chips the
+   * search is filtering. Nothing above can resize it, so reclaim the space from
+   * inside: while typing, the preview and format switch step aside (neither is
+   * actionable mid-search), the list gets enough bottom padding to scroll up
+   * into what is left, and the search box is pulled to the top of that space so
+   * the first matches land in the visible band above the keyboard.
+   */
+  const scrollRef = useRef(null);
+  const searchAnchorRef = useRef(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates?.height || 0);
+      // Let the preview/format collapse re-lay-out first, then bring the search
+      // box (and the results right below it) up under the header.
+      requestAnimationFrame(() =>
+        scrollRef.current?.scrollTo({ y: searchAnchorRef.current, animated: true }),
+      );
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  const isTyping = keyboardHeight > 0;
 
   const toggleCountry = useCallback((serviceKey, code) => {
     Haptics.selectionAsync();
@@ -192,14 +222,24 @@ export function ShareOptionsSheetContent({ result, cardColors, onShare, onDraftC
   return (
     <View style={styles.contentRoot}>
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         style={styles.body}
-        contentContainerStyle={styles.bodyContent}
+        contentContainerStyle={[
+          styles.bodyContent,
+          isTyping && { paddingBottom: keyboardHeight },
+        ]}
         nestedScrollEnabled
         keyboardShouldPersistTaps="handled"
       >
         {/* ── Live preview ─────────────────────────────────────────── */}
-        <View style={[styles.previewArea, hasMeasured && { height: previewAreaHeight }]}>
+        <View
+          style={[
+            styles.previewArea,
+            hasMeasured && { height: previewAreaHeight },
+            isTyping && styles.hiddenWhileTyping,
+          ]}
+        >
           {/* Until measured, this renders full-size and invisible for one frame
               so onLayout sees the card's true height. */}
           <View
@@ -221,7 +261,13 @@ export function ShareOptionsSheetContent({ result, cardColors, onShare, onDraftC
         </View>
 
         {/* ── Format switch ────────────────────────────────────────── */}
-        <View style={[styles.segmented, { borderColor: colors.outlineVariant + '55' }]}>
+        <View
+          style={[
+            styles.segmented,
+            { borderColor: colors.outlineVariant + '55' },
+            isTyping && styles.hiddenWhileTyping,
+          ]}
+        >
           {Object.values(CARD_FORMATS).map((option) => {
             const isActive = option.key === format;
             return (
@@ -308,6 +354,9 @@ export function ShareOptionsSheetContent({ result, cardColors, onShare, onDraftC
 
             {showCustomize && showCountrySearch && (
               <View
+                onLayout={(e) => {
+                  searchAnchorRef.current = e.nativeEvent.layout.y;
+                }}
                 style={[
                   styles.searchBox,
                   {
@@ -618,6 +667,16 @@ const styles = StyleSheet.create({
   customizeSummary: {
     fontWeight: '600',
     marginTop: 1,
+  },
+  // Collapsed rather than unmounted: the preview's height latch and the card's
+  // image-readiness state survive, so dismissing the keyboard is instant.
+  hiddenWhileTyping: {
+    height: 0,
+    opacity: 0,
+    marginBottom: 0,
+    paddingVertical: 0,
+    borderWidth: 0,
+    overflow: 'hidden',
   },
   searchBox: {
     flexDirection: 'row',
