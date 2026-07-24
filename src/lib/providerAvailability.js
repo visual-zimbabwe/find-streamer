@@ -109,6 +109,96 @@ export function isServiceAvailableInRegion(key, countryCode) {
   return !allowedRegions || allowedRegions.has(countryCode);
 }
 
+/**
+ * Fold a list of per-episode `watch/providers` payloads into one availability
+ * map where a country only counts if *every* episode streams there. Logo paths
+ * are written into `logos` as a side effect so one map can be shared across
+ * several folds (e.g. per-season and show-level).
+ *
+ * An empty list yields empty country lists, not "available everywhere".
+ */
+export function intersectEpisodeAvailability(
+  episodeResults = [],
+  logos = emptyServiceMap(() => null),
+) {
+  const availability = emptyServiceMap(() => null);
+
+  episodeResults.forEach((data) => {
+    const episodeAvailability = emptyServiceMap(() => new Set());
+
+    Object.entries(data?.results || {}).forEach(([countryCode, info]) => {
+      directStreamingServices(info).forEach((logoPath, key) => {
+        if (!isServiceAvailableInRegion(key, countryCode)) return;
+        episodeAvailability[key].add(countryCode);
+        if (!logos[key] && logoPath) logos[key] = logoPath;
+      });
+    });
+
+    Object.keys(availability).forEach((key) => {
+      if (availability[key] === null) {
+        availability[key] = episodeAvailability[key];
+      } else {
+        availability[key] = new Set(
+          [...availability[key]].filter((code) => episodeAvailability[key].has(code)),
+        );
+      }
+    });
+  });
+
+  return Object.fromEntries(
+    Object.entries(availability).map(([key, countryCodes]) => [
+      key,
+      Array.from(countryCodes || []).sort(),
+    ]),
+  );
+}
+
+/**
+ * The same fold, grouped by season: `{ [seasonNumber]: availabilityMap }`.
+ * `episodes[i]` must describe `episodeResults[i]` — both come out of the same
+ * ordered fan-out, so the index is the join key.
+ */
+export function availabilityBySeason(
+  episodes = [],
+  episodeResults = [],
+  logos = emptyServiceMap(() => null),
+) {
+  const grouped = new Map();
+
+  episodes.forEach((episode, index) => {
+    const seasonNumber = episode?.seasonNumber;
+    if (seasonNumber == null) return;
+    if (!grouped.has(seasonNumber)) grouped.set(seasonNumber, []);
+    grouped.get(seasonNumber).push(episodeResults[index]);
+  });
+
+  const bySeason = {};
+  for (const [seasonNumber, results] of grouped) {
+    bySeason[seasonNumber] = intersectEpisodeAvailability(results, logos);
+  }
+  return bySeason;
+}
+
+/**
+ * Collapse per-season availability back to one show-level map. Intersecting the
+ * season intersections is the same answer as intersecting every episode at
+ * once, so show-level behavior is unchanged by the season split.
+ */
+export function intersectSeasonAvailability(bySeason = {}) {
+  const seasons = Object.values(bySeason);
+  if (!seasons.length) return emptyServiceMap(() => []);
+
+  return Object.fromEntries(
+    Object.keys(SERVICE_LABELS).map((key) => {
+      const [first, ...rest] = seasons.map((season) => new Set(season?.[key] || []));
+      return [
+        key,
+        [...first].filter((countryCode) => rest.every((set) => set.has(countryCode))).sort(),
+      ];
+    }),
+  );
+}
+
 export function availabilityFromResults(results = {}) {
   const availability = emptyServiceMap(() => []);
   const logos = emptyServiceMap(() => null);
