@@ -50,7 +50,7 @@ import {
   fetchWikidataAwards,
   parseOmdbAwardsFallback,
 } from '../lib/wikidataAwards';
-import { scale, verticalScale, screenHeight } from '../utils/responsive';
+import { scale, verticalScale, screenHeight, screenWidth, scaleFont } from '../utils/responsive';
 import { useBottomSheet } from './StackBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SkeletonBlock, DetailSkeleton } from './SkeletonLoaders';
@@ -417,6 +417,8 @@ export function ResultView({
   const [synopsisOverflows, setSynopsisOverflows] = useState(false);
   /** The first (unclamped) layout pass sets this; later passes are ignored. */
   const [synopsisMeasured, setSynopsisMeasured] = useState(false);
+  /** Title-treatment logo failed to load (or none exists) → fall back to text title. */
+  const [logoFailed, setLogoFailed] = useState(false);
   const reduceMotion = useReduceMotion();
   const shareSheetIdRef = useRef(null);
 
@@ -457,6 +459,7 @@ export function ResultView({
     // Re-measure the new title's synopsis from scratch — line counts don't carry over.
     setSynopsisOverflows(false);
     setSynopsisMeasured(false);
+    setLogoFailed(false);
     setWikiData({ languages: [], countries: [], basedOn: null, soundtracks: [], awards: [] });
     setWikiLoading(false);
     setWikiError(false);
@@ -464,6 +467,45 @@ export function ResultView({
     // image-set effect re-reports readiness for the new title.
     setShareDraft(null);
   }, [result?.tmdbId]);
+
+  // ── Hero title-treatment logo (Apple TV / Netflix-style) ─────────────────
+  // Size the logo into a fixed vertical band, width-capped to the hero content
+  // box. Falls back to the (now line-capped, auto-shrinking) text title below.
+  const heroLogo = useMemo(() => {
+    const logo = result?.titleLogo;
+    if (!logo?.url) return null;
+    const maxWidth = screenWidth - 48; // heroContent left+right padding (24 each)
+    const maxHeight = verticalScale(84);
+    const ar = logo.aspectRatio && logo.aspectRatio > 0 ? logo.aspectRatio : null;
+    let width;
+    let height;
+    if (ar) {
+      height = maxHeight;
+      width = height * ar;
+      if (width > maxWidth) {
+        width = maxWidth;
+        height = width / ar;
+      }
+    } else {
+      // Unknown ratio — cap the height, let the box width bound it.
+      height = maxHeight;
+      width = maxWidth;
+    }
+    return { url: logo.url, width, height };
+  }, [result?.titleLogo]);
+
+  // Text-title size, tiered by length. `numberOfLines={3}` caps a title at three
+  // lines, but three lines at the full 56px display size (~192dp) is too tall to
+  // coexist with the meta stack (genre + ratings strip) in the hero — it gets
+  // clipped. Deterministic tiers shrink long titles enough to keep everything on
+  // screen, and stay predictable on RN-Android where adjustsFontSizeToFit is
+  // flaky with custom fonts. Short titles keep the full editorial 56px.
+  const titleFont = useMemo(() => {
+    const len = (result?.title || '').length;
+    if (len <= 16) return typography.displayLg; // e.g. "Oppenheimer" — full 56px
+    if (len <= 40) return { fontSize: scaleFont(34), lineHeight: scaleFont(40) }; // e.g. D&D (39)
+    return { fontSize: scaleFont(28), lineHeight: scaleFont(34) };
+  }, [result?.title, typography]);
 
   // ── Wikidata SPARQL fetch ────────────────────────────────────────────────
   useEffect(() => {
@@ -712,11 +754,11 @@ export function ResultView({
   }, [meshShift, reduceMotion]);
 
   useEffect(() => {
-    const heroUri = result?.backdropUrl || result?.posterUrl;
+    const heroUri = result?.heroBackdropUrl || result?.backdropUrl || result?.posterUrl;
     if (heroUri) {
       Image.prefetch(heroUri).catch(() => {});
     }
-  }, [result?.backdropUrl, result?.posterUrl]);
+  }, [result?.heroBackdropUrl, result?.backdropUrl, result?.posterUrl]);
 
   /**
    * The card reports when its images have settled. Capture used to fire on a
@@ -995,7 +1037,13 @@ export function ResultView({
     colors.surfaceContainer,
     colors.background,
   ];
-  const heroArtUri = result.backdropUrl || result.posterUrl;
+  // Prefer the curated textless still (pickHeroBackdrop), then TMDb's default
+  // backdrop, then the poster. `usingPoster` = no backdrop of any kind, so the
+  // poster (which always carries the title) is the hero — in which case we suppress
+  // our own title overlay below to avoid double-titling.
+  const heroBackdrop = result.heroBackdropUrl || result.backdropUrl;
+  const heroArtUri = heroBackdrop || result.posterUrl;
+  const usingPoster = !heroBackdrop && !!result.posterUrl;
   const heroTransform = reduceMotion
     ? {}
     : {
@@ -1164,7 +1212,7 @@ export function ResultView({
             <MediaArtwork
               uri={heroArtUri}
               style={[styles.backdrop, StyleSheet.absoluteFill]}
-              resizeMode={result.backdropUrl ? 'cover' : 'contain'}
+              resizeMode={heroBackdrop ? 'cover' : 'contain'}
               accessibilityLabel={`${result.title} artwork`}
               title={result.title}
             />
@@ -1185,7 +1233,9 @@ export function ResultView({
             style={styles.scrimBottom}
           />
 
-          <Animated.View style={[styles.heroContent, heroContentMotion]}>
+          <Animated.View
+            style={[styles.heroContent, { top: (insets.top || 0) + 52 }, heroContentMotion]}
+          >
             <View style={styles.heroMetaStack}>
               {hasGenres && (
                 <View style={styles.genreBadge}>
@@ -1298,10 +1348,34 @@ export function ResultView({
               </ScrollView>
             </View>
 
-            {/* Title stays white — it always sits on top of the backdrop image */}
-            <Text style={[styles.title, { color: '#ffffff', ...typography.displayLg }]}>
-              {result.title}
-            </Text>
+            {/* Title stays white — it always sits on top of the backdrop image.
+                Logo-first (title-treatment art), falling back to typeset text that
+                caps at 3 lines and auto-shrinks so long titles never blow out the
+                hero or push the ratings strip into the floating buttons.
+                Suppressed entirely on the poster fallback: a poster already carries
+                the title, so overlaying ours would double it (the poster's own title
+                remains the visible one; MediaArtwork's a11y label still names it). */}
+            {usingPoster ? null : heroLogo && !logoFailed ? (
+              <ExpoImage
+                source={{ uri: heroLogo.url }}
+                style={[styles.titleLogo, { width: heroLogo.width, height: heroLogo.height }]}
+                contentFit="contain"
+                contentPosition="left"
+                transition={180}
+                onError={() => setLogoFailed(true)}
+                accessible
+                accessibilityRole="image"
+                accessibilityLabel={result.title}
+              />
+            ) : (
+              <Text
+                style={[styles.title, { color: '#ffffff', ...typography.displayLg, ...titleFont }]}
+                numberOfLines={3}
+                accessibilityRole="header"
+              >
+                {result.title}
+              </Text>
+            )}
 
             {/* Watch Trailer full-width button */}
             {result.trailer && result.trailer !== 'N/A' && (
@@ -2304,13 +2378,19 @@ const styles = StyleSheet.create({
   },
   heroContent: {
     position: 'absolute',
+    // `top` is applied inline (needs safe-area insets) so the bottom-anchored stack
+    // has a floor below the floating header; flex-end keeps content bottom-aligned
+    // and overflow:hidden clips the least-important top (genre badge) instead of
+    // letting a tall title/meta stack draw over the share & bookmark buttons.
     bottom: 40,
     left: 24,
     right: 24,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
   },
   heroMetaStack: {
-    gap: 12,
-    marginBottom: 20,
+    gap: 10,
+    marginBottom: 12,
   },
   genreBadge: {
     alignSelf: 'flex-start',
@@ -2404,7 +2484,16 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: '900',
-    letterSpacing: -2,
+    // -1 (was -2): tighter tracking on the custom display font under-measures the
+    // Text width on RN-Android and clips the last glyph; alignSelf:'stretch' +
+    // textAlign gives the last wrapped line a definite width to clip against.
+    letterSpacing: -1,
+    marginBottom: 12,
+    alignSelf: 'stretch',
+    textAlign: 'left',
+  },
+  titleLogo: {
+    alignSelf: 'flex-start',
     marginBottom: 12,
   },
   infoRow: {
