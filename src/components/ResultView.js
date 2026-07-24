@@ -27,7 +27,7 @@ import { toastiva } from 'toastiva';
 import { useTheme } from '../theme/ThemeProvider';
 import { usePosterTheme } from '../lib/usePosterTheme';
 import { MediaArtwork } from './MediaArtwork';
-import { ShareCard } from './ShareCard';
+import { ShareCard, CARD_FORMATS } from './ShareCard';
 import { ShareOptionsSheetContent } from './ShareOptionsSheet';
 import { TrailerModal } from './TrailerModal';
 import { SoundtrackPickerSheetContent } from './SoundtrackPickerSheet';
@@ -381,7 +381,8 @@ export function ResultView({
     extrapolate: 'clamp',
   });
   const meshShift = useRef(new Animated.Value(0)).current;
-  const [shareCountries, setShareCountries] = useState(null);
+  /** `{ selected, format }` while the share sheet is open; null keeps the capture host unmounted. */
+  const [shareDraft, setShareDraft] = useState(null);
   const [trailerVisible, setTrailerVisible] = useState(false);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   const reduceMotion = useReduceMotion();
@@ -424,6 +425,9 @@ export function ResultView({
     setWikiData({ languages: [], countries: [], basedOn: null, soundtracks: [], awards: [] });
     setWikiLoading(false);
     setWikiError(false);
+    // Unmounting the capture host is enough: on the next open, ShareCard's own
+    // image-set effect re-reports readiness for the new title.
+    setShareDraft(null);
   }, [result?.tmdbId]);
 
   // ── Wikidata SPARQL fetch ────────────────────────────────────────────────
@@ -664,10 +668,54 @@ export function ResultView({
     }
   }, [result?.backdropUrl, result?.posterUrl]);
 
-  const doCapture = useCallback(async () => {
-    if (!shareCardRef.current) return;
-    try {
-      const uri = await shareCardRef.current.capture();
+  /**
+   * The card reports when its images have settled. Capture used to fire on a
+   * fixed 400ms timer, which shot half-painted cards on a cold poster cache and
+   * still reported success.
+   */
+  const cardReadyRef = useRef(false);
+  const readyWaitersRef = useRef([]);
+
+  const handleCardReadyChange = useCallback((ready) => {
+    cardReadyRef.current = ready;
+    if (ready) {
+      readyWaitersRef.current.splice(0).forEach((resolve) => resolve(true));
+    }
+  }, []);
+
+  /** Resolves true when the card is painted, false if we gave up waiting. */
+  const waitForCardReady = useCallback((timeoutMs = 4000) => {
+    if (cardReadyRef.current) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const waiter = (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      };
+      const timer = setTimeout(() => {
+        readyWaitersRef.current = readyWaitersRef.current.filter((w) => w !== waiter);
+        resolve(false);
+      }, timeoutMs);
+      readyWaitersRef.current.push(waiter);
+    });
+  }, []);
+
+  const handleShareDraftChange = useCallback((draft) => {
+    setShareDraft(draft);
+  }, []);
+
+  const captureOptions = useMemo(() => {
+    const spec = CARD_FORMATS[shareDraft?.format] || CARD_FORMATS.card;
+    return { format: 'png', quality: 1, ...(spec.capture || {}) };
+  }, [shareDraft?.format]);
+
+  /**
+   * @returns {Promise<boolean>} true only when the OS actually told us the
+   * share completed. `shareAsync` resolves whether the user sent the card or
+   * dismissed the picker, so on that path we know nothing and say nothing —
+   * the old unconditional "Shared successfully" was a claim we couldn't make.
+   */
+  const deliverShare = useCallback(
+    async (uri) => {
       const canShare = await ExpoSharing.isAvailableAsync();
       if (canShare) {
         await ExpoSharing.shareAsync(uri, {
@@ -675,44 +723,65 @@ export function ResultView({
           dialogTitle: `Check out ${result?.title}`,
           UTI: 'public.png',
         });
-        toastiva.success('Shared successfully');
-      } else {
-        await Share.share({
-          message: `Check out "${result?.title}" (${result?.year}) – ${result?.genres || 'Unknown Genre'}`,
-        });
-        toastiva.success('Shared successfully');
+        return false;
       }
+      const outcome = await Share.share({
+        message: `Check out "${result?.title}" (${result?.year}) – ${result?.genres || 'Unknown Genre'}`,
+      });
+      return outcome?.action === Share.sharedAction;
+    },
+    [result],
+  );
+
+  const handleShareConfirm = useCallback(async () => {
+    if (!shareCardRef.current) {
+      Alert.alert('Share failed', 'The share card is not ready yet. Please try again.');
+      return;
+    }
+
+    const painted = await waitForCardReady();
+    if (!painted) {
+      // Better to say so than to ship a PNG with holes in it.
+      Alert.alert(
+        'Share failed',
+        'Artwork for the card is still loading. Check your connection and try again.',
+      );
+      return;
+    }
+    // Let the committed tree paint before asking the native view to draw itself.
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    let uri;
+    try {
+      uri = await shareCardRef.current.capture();
+    } catch {
+      Alert.alert('Share failed', 'Unable to generate the share card. Please try again.');
+      return;
+    }
+
+    // Hand off only once there is something real to hand off.
+    if (shareSheetIdRef.current) {
+      dismissSheet(shareSheetIdRef.current);
+      shareSheetIdRef.current = null;
+    }
+
+    try {
+      const confirmed = await deliverShare(uri);
+      if (confirmed) toastiva.success('Shared successfully');
     } catch (err) {
       if (err?.message !== 'User did not share') {
-        Alert.alert('Share failed', 'Unable to generate the share card. Please try again.');
+        Alert.alert('Share failed', 'Unable to share the card. Please try again.');
       }
     }
-  }, [result]);
-
-  const handleShareConfirm = useCallback(
-    async (selectedCountries) => {
-      // Dismiss the share options sheet
-      if (shareSheetIdRef.current) {
-        dismissSheet(shareSheetIdRef.current);
-        shareSheetIdRef.current = null;
-      }
-      setShareCountries(selectedCountries);
-      // Wait for ShareCard to re-render and images to load from local cache.
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      await doCapture();
-    },
-    [doCapture, dismissSheet],
-  );
+  }, [waitForCardReady, deliverShare, dismissSheet]);
 
   const handleOpenShareSheet = useCallback(() => {
     const sheetId = showSheet(
       <ShareOptionsSheetContent
         result={result}
-        onClose={() => {
-          dismissSheet(sheetId);
-          shareSheetIdRef.current = null;
-        }}
+        cardColors={colors}
         onShare={handleShareConfirm}
+        onDraftChange={handleShareDraftChange}
       />,
       {
         title: '🎴 Share Card',
@@ -723,7 +792,7 @@ export function ResultView({
       },
     );
     shareSheetIdRef.current = sheetId;
-  }, [result, showSheet, dismissSheet, handleShareConfirm]);
+  }, [result, colors, showSheet, handleShareConfirm, handleShareDraftChange]);
 
   const peopleSections = useMemo(() => {
     const current = result || {};
@@ -965,15 +1034,27 @@ export function ResultView({
 
   return (
     <>
-      {/* Off-screen share card – captured by ViewShot, never visible to the user */}
-      <View
-        style={{ position: 'absolute', left: 5000, width: 450, height: 800, overflow: 'hidden' }}
-        pointerEvents="none"
-      >
-        <ViewShot ref={shareCardRef} options={{ format: 'png', quality: 1 }} style={{ width: 420 }}>
-          <ShareCard result={result} selectedCountries={shareCountries} themeColors={colors} />
-        </ViewShot>
-      </View>
+      {/* Off-screen capture host — mounted only while the share sheet is open.
+          Deliberately unsized: the old 450×800 clipping box silently guillotined
+          the footer (QR included) off provider-heavy cards. */}
+      {shareDraft ? (
+        <View style={styles.shareCaptureHost} pointerEvents="none">
+          <ViewShot ref={shareCardRef} options={captureOptions}>
+            {/* Keyed by format: the two layouts are different trees, but React
+                reconciles them positionally and reuses the already-loaded
+                provider <Image>s, which then never re-fire onLoadEnd and leave
+                readiness stuck. A real remount makes the load events honest. */}
+            <ShareCard
+              key={shareDraft.format}
+              result={result}
+              selectedCountries={shareDraft.selected}
+              format={shareDraft.format}
+              themeColors={colors}
+              onReadyChange={handleCardReadyChange}
+            />
+          </ViewShot>
+        </View>
+      ) : null}
 
       <TrailerModal
         visible={trailerVisible}
@@ -2074,6 +2155,11 @@ const styles = StyleSheet.create({
     left: -2000,
     opacity: 0,
     pointerEvents: 'none',
+  },
+  shareCaptureHost: {
+    position: 'absolute',
+    left: 5000,
+    top: 0,
   },
   stickyTitleBar: {
     position: 'absolute',

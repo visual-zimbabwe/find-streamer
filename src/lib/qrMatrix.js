@@ -1,7 +1,19 @@
-const QR_SIZE = 25;
-const DATA_CODEWORDS = 34;
-const EC_CODEWORDS = 10;
+/**
+ * Version 3-L (29×29, single RS block). Version 2-L only held 32 bytes, which
+ * silently truncated any real https URL into a QR that scanned to a broken
+ * address. v3 is the smallest version that fits a TMDb title URL with room to
+ * spare, and stays single-block so no codeword interleaving is needed.
+ * Versions ≤ 6 also carry no version-info blocks, so only the alignment centre
+ * moves — everything else below is derived from QR_SIZE.
+ */
+const QR_SIZE = 29;
+const DATA_CODEWORDS = 55;
+const EC_CODEWORDS = 15;
+const ALIGNMENT_CENTER = 22;
 const FORMAT_L_MASK_0 = 0b111011111000100;
+
+/** 4 bits mode + 8 bits length + 4 bits terminator of overhead. */
+export const QR_MAX_BYTES = Math.floor((DATA_CODEWORDS * 8 - 4 - 8 - 4) / 8);
 
 function toBytes(value) {
   return Array.from(String(value || ''), (char) => char.charCodeAt(0) & 0xff);
@@ -70,8 +82,7 @@ function reedSolomon(data, degree) {
 }
 
 function encodeData(payload) {
-  const bytes = toBytes(payload);
-  const limitedBytes = bytes.slice(0, 32);
+  const limitedBytes = toBytes(payload);
   const bits = [];
   pushBits(bits, 0b0100, 4);
   pushBits(bits, limitedBytes.length, 8);
@@ -127,7 +138,7 @@ function addPatterns(matrix) {
   addFinder(matrix, 0, 0);
   addFinder(matrix, 0, QR_SIZE - 7);
   addFinder(matrix, QR_SIZE - 7, 0);
-  addAlignment(matrix, 18, 18);
+  addAlignment(matrix, ALIGNMENT_CENTER, ALIGNMENT_CENTER);
 
   for (let i = 8; i < QR_SIZE - 8; i += 1) {
     setModule(matrix, 6, i, i % 2 === 0, true);
@@ -237,8 +248,16 @@ function addData(matrix, codewords) {
   }
 }
 
+/**
+ * Returns a 2D boolean matrix, or `null` when the payload doesn't fit. Callers
+ * must handle null — silently truncating produced a scannable QR pointing at a
+ * broken URL, which is worse than showing no QR at all.
+ */
 export function createQrMatrix(payload) {
-  const data = encodeData(payload);
+  const text = String(payload || '');
+  if (!text || toBytes(text).length > QR_MAX_BYTES) return null;
+
+  const data = encodeData(text);
   const codewords = [...data, ...reedSolomon(data, EC_CODEWORDS)];
   const matrix = createMatrix();
   addPatterns(matrix);

@@ -121,8 +121,63 @@ export const SHORT_COUNTRY_NAMES = {
   NG: 'Nigeria',
 };
 
-export function shortName(code) {
-  return SHORT_COUNTRY_NAMES[code] || code;
+/**
+ * Display labels + a search haystack for every country in `rows`.
+ *
+ * SHORT_COUNTRY_NAMES exists to keep the busiest markets narrow on the card
+ * ("USA", not "United States of America"), but it only covers ~45 of them, so
+ * everything past it used to render as a bare ISO code. The rows already carry
+ * TMDb's English country name (see getCountryNames in lib/tmdb), so use that as
+ * the fallback rather than shipping a second copy of ISO 3166-1.
+ *
+ * The haystack keeps the full name even where a short name overrides it, so
+ * searching "united" still finds USA and UK.
+ */
+export function buildCountryIndex(rows) {
+  const labels = {};
+  const haystacks = {};
+  (rows || []).forEach((row) => {
+    const code = row?.code;
+    if (!code) return;
+    const full = row.country && row.country !== code ? row.country : null;
+    labels[code] = SHORT_COUNTRY_NAMES[code] || full || code;
+    haystacks[code] = [code, SHORT_COUNTRY_NAMES[code], full]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+  });
+  return { labels, haystacks };
+}
+
+export function shortName(code, labels) {
+  return (labels && labels[code]) || SHORT_COUNTRY_NAMES[code] || code;
+}
+
+/**
+ * Filter country codes by a free-text query against name, short name and code.
+ */
+export function filterCountryCodes(codes, query, index) {
+  const q = (query || '').trim().toLowerCase();
+  if (!q) return codes;
+  return (codes || []).filter((code) => {
+    const hay =
+      index?.haystacks?.[code] || `${code} ${SHORT_COUNTRY_NAMES[code] || ''}`.toLowerCase();
+    return hay.includes(q);
+  });
+}
+
+/**
+ * The chips a collapsed service section shows: the `limit` most popular
+ * countries, plus any current selection that falls outside them. Without the
+ * pinning, a pick made while expanded — or an auto-pick for a title that streams
+ * nowhere popular — would vanish and become impossible to clear.
+ */
+export function collapseCountryList(codes, selected, limit) {
+  const all = codes || [];
+  if (all.length <= limit) return all;
+  const head = all.slice(0, limit);
+  const pinned = (selected || []).filter((code) => all.includes(code) && !head.includes(code));
+  return [...head, ...pinned];
 }
 
 /**

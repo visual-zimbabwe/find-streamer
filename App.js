@@ -34,6 +34,7 @@ import { useSearchController } from './src/hooks/useSearchController';
 import { useSurpriseController } from './src/hooks/useSurpriseController';
 import { useAppNavigation } from './src/hooks/useAppNavigation';
 import { useHomeSpotlight } from './src/hooks/useHomeSpotlight';
+import { useDeepLink } from './src/hooks/useDeepLink';
 
 enableScreens(true);
 
@@ -146,6 +147,8 @@ function MobileApp() {
     clearSearchResults: search.clearSearchResults,
     setQuery: search.setQuery,
   });
+
+  useDeepLink({ openResolvedDetail, navigationReady: nav.navigationReady });
 
   const homeSpotlight = useHomeSpotlight(watchlistCtl.watchlist, nav.homeMediaFilter);
 

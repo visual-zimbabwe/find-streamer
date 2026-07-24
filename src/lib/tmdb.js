@@ -1355,6 +1355,31 @@ function withSeasonAvailability(seasons, bySeason, countryNames, serviceLogos) {
   });
 }
 
+/**
+ * Build a search-shaped `match` from nothing but an id — the entry point a deep
+ * link has. `getTitleMetadata` deliberately omits title/poster/synopsis because
+ * every other caller already carries them on the match object it picked, so
+ * handing `resolveMatch` a bare `{ tmdbId, mediaType }` renders a detail screen
+ * titled "undefined" with no artwork.
+ */
+export async function getTitleMatchById(mediaType, tmdbId) {
+  const data = await tmdbGet(`/${mediaType}/${tmdbId}`, { language: 'en-US' });
+  const dateValue = data.release_date || data.first_air_date || '';
+  return {
+    mediaType,
+    tmdbId: data.id,
+    title: data.title || data.name || '(Untitled)',
+    year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+    synopsis: (data.overview || '').trim() || 'No synopsis available.',
+    posterUrl: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,
+    backdropUrl: data.backdrop_path
+      ? `https://image.tmdb.org/t/p/original${data.backdrop_path}`
+      : null,
+    ratingValue: data.vote_average || 0,
+    releaseDate: dateValue || null,
+  };
+}
+
 export async function resolveMatch(query, match) {
   // Execute detail requests sequentially to prevent OkHttp / Cloudflare from dropping concurrent sockets
   const metadata = await getTitleMetadata(match.mediaType, match.tmdbId);
