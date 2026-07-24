@@ -36,6 +36,13 @@ import { SeasonDetailSheetContent } from './SeasonDetailSheet';
 import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { PersonCard } from './PersonCard';
 import { searchPersonByName } from '../lib/tmdb';
+import {
+  rottenTomatoesEmoji,
+  rottenTomatoesFresh,
+  metacriticBadge,
+  rottenTomatoesUrl,
+  metacriticUrl,
+} from '../lib/ratingBadges';
 import { openSpotifyAlbum } from '../lib/spotify';
 import { parseSoundtracksFromBindings } from '../lib/wikidataSoundtracks';
 import {
@@ -334,6 +341,21 @@ function getSpecificType(types) {
 function capitalize(str) {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * A critic score with its scale kept visible ("7.6" + a dimmed "/10"). Four
+ * scores on three scales (/10, %, /100) sat unit-less in one row, so a 74
+ * Metascore read as if it were comparable to a 7.6. The unit is dimmed, not
+ * hidden, so the number still leads.
+ */
+function ScoreValue({ value, unit, typography }) {
+  return (
+    <Text style={[styles.heroRatingText, { ...typography.labelSm }]} numberOfLines={1}>
+      {value}
+      {unit ? <Text style={styles.heroRatingUnit}>{unit}</Text> : null}
+    </Text>
+  );
 }
 
 
@@ -936,6 +958,10 @@ export function ResultView({
     : null;
   const hasRating = hasValue(result.rating);
   const hasGenres = hasValue(result.genres);
+  /** Metacritic tile colored by its own thresholds (green/yellow/red), not fixed green. */
+  const metaBadge = result.omdbRatings?.metascore
+    ? metacriticBadge(result.omdbRatings.metascore)
+    : null;
   const totalPeopleCount = peopleSections.crewPeople.length + peopleSections.castPeople.length;
   /** Rails stay capped; the full list is a destination, not an expansion. */
   const visibleCastPeople = peopleSections.castPeople.slice(0, RAIL_PERSON_CAP);
@@ -1187,14 +1213,12 @@ export function ResultView({
                     }}
                     style={styles.heroRatingItem}
                     accessibilityRole="button"
-                    accessibilityLabel={`View ${result.title} on TMDB`}
+                    accessibilityLabel={`${result.title}, TMDb ${ratingForCard(result.rating)} out of 10. Opens TMDb.`}
                   >
                     <View style={styles.badgeTmdb}>
                       <Text style={styles.badgeTmdbText}>TMDb</Text>
                     </View>
-                    <Text style={[styles.heroRatingText, { ...typography.labelSm }]}>
-                      {result.rating.toString().split('/')[0]}
-                    </Text>
+                    <ScoreValue value={ratingForCard(result.rating)} unit="/10" typography={typography} />
                   </TouchableOpacity>
                 )}
 
@@ -1206,14 +1230,16 @@ export function ResultView({
                     }}
                     style={styles.heroRatingItem}
                     accessibilityRole="button"
-                    accessibilityLabel={`View ${result.title} on IMDb`}
+                    accessibilityLabel={`${result.title}, IMDb ${result.omdbRatings.imdbRating.split('/')[0]} out of 10. Opens IMDb.`}
                   >
                     <View style={styles.badgeImdb}>
                       <Text style={styles.badgeImdbText}>IMDb</Text>
                     </View>
-                    <Text style={[styles.heroRatingText, { ...typography.labelSm }]}>
-                      {result.omdbRatings.imdbRating.split('/')[0]}
-                    </Text>
+                    <ScoreValue
+                      value={result.omdbRatings.imdbRating.split('/')[0]}
+                      unit="/10"
+                      typography={typography}
+                    />
                   </TouchableOpacity>
                 )}
 
@@ -1222,40 +1248,51 @@ export function ResultView({
                     onPress={() => {
                       Haptics.selectionAsync();
                       Linking.openURL(
-                        `https://www.rottentomatoes.com/search?search=${encodeURIComponent(result.title || '')}`,
+                        rottenTomatoesUrl({ title: result.title, mediaType: result.mediaType }),
                       );
                     }}
                     style={styles.heroRatingItem}
                     accessibilityRole="button"
-                    accessibilityLabel={`Search ${result.title} on Rotten Tomatoes`}
+                    accessibilityLabel={`${result.title}, Rotten Tomatoes ${result.omdbRatings.rottenTomatoes.replace(
+                      '%',
+                      '',
+                    )} percent, ${
+                      rottenTomatoesFresh(result.omdbRatings.rottenTomatoes) ? 'Fresh' : 'Rotten'
+                    }. Opens Rotten Tomatoes.`}
                   >
                     <View style={styles.badgeRt}>
-                      <Text style={styles.badgeRtText}>🍅</Text>
+                      <Text style={styles.badgeRtText}>
+                        {rottenTomatoesEmoji(result.omdbRatings.rottenTomatoes)}
+                      </Text>
                     </View>
-                    <Text style={[styles.heroRatingText, { ...typography.labelSm }]}>
-                      {result.omdbRatings.rottenTomatoes.replace('%', '')}%
-                    </Text>
+                    <ScoreValue
+                      value={result.omdbRatings.rottenTomatoes.replace('%', '')}
+                      unit="%"
+                      typography={typography}
+                    />
                   </TouchableOpacity>
                 )}
 
-                {result.omdbRatings?.metascore && (
+                {result.omdbRatings?.metascore && metaBadge && (
                   <TouchableOpacity
                     onPress={() => {
                       Haptics.selectionAsync();
                       Linking.openURL(
-                        `https://www.metacritic.com/search/all/${encodeURIComponent(result.title || '')}/results`,
+                        metacriticUrl({ title: result.title, mediaType: result.mediaType }),
                       );
                     }}
                     style={styles.heroRatingItem}
                     accessibilityRole="button"
-                    accessibilityLabel={`Search ${result.title} on Metacritic`}
+                    accessibilityLabel={`${result.title}, Metacritic ${result.omdbRatings.metascore} out of 100. Opens Metacritic.`}
                   >
-                    <View style={styles.badgeMeta}>
-                      <Text style={styles.badgeMetaText}>M</Text>
+                    <View style={[styles.badgeMeta, { backgroundColor: metaBadge.bg }]}>
+                      <Text style={[styles.badgeMetaText, { color: metaBadge.fg }]}>M</Text>
                     </View>
-                    <Text style={[styles.heroRatingText, { ...typography.labelSm }]}>
-                      {result.omdbRatings.metascore}
-                    </Text>
+                    <ScoreValue
+                      value={result.omdbRatings.metascore}
+                      unit="/100"
+                      typography={typography}
+                    />
                   </TouchableOpacity>
                 )}
               </ScrollView>
@@ -2301,6 +2338,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#ffffff',
     letterSpacing: -0.2,
+  },
+  heroRatingUnit: {
+    fontWeight: '700',
+    // Dimmed so the score still leads, but the scale stays legible.
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 0,
   },
   badgeTmdb: {
     backgroundColor: '#0d253f',
