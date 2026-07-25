@@ -15,7 +15,11 @@ import {
 } from 'react-native';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { Image as ExpoImage } from 'expo-image';
-import { useBottomNavScroll, useBottomNavVisibility, applyBottomNavScrollVisibility } from '../context/BottomNavVisibilityContext';
+import {
+  useBottomNavScroll,
+  useBottomNavVisibility,
+  applyBottomNavScrollVisibility,
+} from '../context/BottomNavVisibilityContext';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -44,7 +48,12 @@ import {
   metacriticUrl,
 } from '../lib/ratingBadges';
 import { openSpotifyAlbum } from '../lib/spotify';
-import { parseSoundtracksFromBindings } from '../lib/wikidataSoundtracks';
+import {
+  buildSoundtrackRows,
+  labelOrNull,
+  parseSoundtracksFromBindings,
+  resolveSoundtrackCovers,
+} from '../lib/wikidataSoundtracks';
 import {
   formatAwardCounts,
   fetchWikidataAwards,
@@ -278,20 +287,26 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
   const countriesSet = new Set();
   const basedOnMap = new Map();
 
+  // Every label here runs through labelOrNull: the service answers with a bare
+  // QID when it can't resolve one, and these paths all shipped guards that only
+  // caught the entity-URI form.
   for (const b of bindings) {
-    if (b.languageLabel?.value && !isEntityUri(b.languageLabel.value)) {
-      languagesSet.add(b.languageLabel.value);
+    const language = labelOrNull(b.languageLabel?.value);
+    if (language) {
+      languagesSet.add(language);
     }
-    if (b.countryLabel?.value && !isEntityUri(b.countryLabel.value)) {
-      countriesSet.add(b.countryLabel.value);
+    const country = labelOrNull(b.countryLabel?.value);
+    if (country) {
+      countriesSet.add(country);
     }
     const basedOnUri = b.basedOn?.value;
-    if (isEntityUri(basedOnUri) && b.basedOnLabel?.value && !isEntityUri(b.basedOnLabel.value)) {
-      const name = b.basedOnLabel.value;
+    const name = labelOrNull(b.basedOnLabel?.value);
+    // Unlike a soundtrack there's nothing playable behind an unnamed source
+    // work, so a nameless card is dropped rather than labelled.
+    if (isEntityUri(basedOnUri) && name) {
       const id = wikidataIdFromUri(basedOnUri);
-      const author =
-        b.authorLabel?.value && !isEntityUri(b.authorLabel.value) ? b.authorLabel.value : null;
-      const type = b.typeLabel?.value && !isEntityUri(b.typeLabel.value) ? b.typeLabel.value : null;
+      const author = labelOrNull(b.authorLabel?.value);
+      const type = labelOrNull(b.typeLabel?.value);
 
       if (!basedOnMap.has(basedOnUri)) {
         basedOnMap.set(basedOnUri, { id, name, authors: new Set(), types: new Set() });
@@ -312,7 +327,9 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     types: Array.from(data.types),
   }));
 
-  const soundtracks = parseSoundtracksFromBindings(bindings, wikidataIdFromUri);
+  const soundtracks = await resolveSoundtrackCovers(
+    parseSoundtracksFromBindings(bindings, wikidataIdFromUri),
+  );
 
   return {
     languages: Array.from(languagesSet),
@@ -357,7 +374,6 @@ function ScoreValue({ value, unit, typography }) {
     </Text>
   );
 }
-
 
 export function ResultView({
   result,
@@ -623,20 +639,25 @@ export function ResultView({
     [wikiData.soundtracks],
   );
 
+  const soundtrackRows = useMemo(
+    () => buildSoundtrackRows(playableSoundtracks, result?.title),
+    [playableSoundtracks, result?.title],
+  );
+
+  /**
+   * Single releases open the sheet too. It costs one tap and buys the one thing
+   * the old straight-to-Spotify path could never show: which album you're about
+   * to be thrown into, with its year and cover, before you leave the app.
+   */
   const handleSoundtrackPress = useCallback(() => {
-    if (!playableSoundtracks.length) return;
+    if (!soundtrackRows.length) return;
 
     Haptics.selectionAsync();
-
-    if (playableSoundtracks.length === 1) {
-      openSpotifyAlbum(playableSoundtracks[0].spotifyAlbumId);
-      return;
-    }
 
     let sheetId;
     const content = (
       <SoundtrackPickerSheetContent
-        soundtracks={playableSoundtracks}
+        soundtracks={soundtrackRows}
         colors={colors}
         typography={typography}
         onSelect={(soundtrack) => openSpotifyAlbum(soundtrack.spotifyAlbumId)}
@@ -644,13 +665,13 @@ export function ResultView({
       />
     );
     sheetId = showSheet(content, {
-      title: 'Choose Soundtrack',
+      title: 'Soundtrack',
       size: 'large',
       scrollable: false,
       showCloseButton: true,
       dismissOnBackdrop: true,
     });
-  }, [playableSoundtracks, colors, typography, showSheet, dismissSheet]);
+  }, [soundtrackRows, colors, typography, showSheet, dismissSheet]);
 
   const handlePersonPressWithFallback = useCallback(
     async (person, role) => {
@@ -1271,7 +1292,11 @@ export function ResultView({
                     <View style={styles.badgeTmdb}>
                       <Text style={styles.badgeTmdbText}>TMDb</Text>
                     </View>
-                    <ScoreValue value={ratingForCard(result.rating)} unit="/10" typography={typography} />
+                    <ScoreValue
+                      value={ratingForCard(result.rating)}
+                      unit="/10"
+                      typography={typography}
+                    />
                   </TouchableOpacity>
                 )}
 
@@ -1402,46 +1427,39 @@ export function ResultView({
               </TouchableOpacity>
             )}
 
-            {wikiLoading ? (
-              <View
-                style={[
-                  styles.trailerButton,
-                  styles.soundtrackSkeleton,
-                  { backgroundColor: 'rgba(255,255,255,0.12)' },
-                ]}
-              >
-                <SkeletonBlock style={{ width: '62%', height: 16, borderRadius: 8 }} />
-              </View>
-            ) : playableSoundtracks.length === 1 ? (
+            {/*
+              No loading skeleton: only a sliver of the catalogue has a
+              Spotify-linked soundtrack in Wikidata, so a reserved button-shaped
+              bar collapses on very nearly every title. It fades in if it exists.
+            */}
+            {soundtrackRows.length > 0 && (
               <TouchableOpacity
-                style={[styles.trailerButton, { backgroundColor: GOLD_ACCENT }]}
+                style={[styles.soundtrackButton, { borderColor: GOLD_DIM }]}
                 onPress={handleSoundtrackPress}
                 accessibilityRole="button"
-                accessibilityLabel={`Play ${playableSoundtracks[0].title} on Spotify`}
+                accessibilityLabel={`Soundtrack for ${result.title}`}
+                accessibilityHint={
+                  soundtrackRows.length > 1
+                    ? `Choose from ${soundtrackRows.length} releases to play on Spotify`
+                    : 'Opens the release to play on Spotify'
+                }
               >
-                <FontAwesome5 name="spotify" size={18} color="#141414" style={{ marginRight: 6 }} />
+                <FontAwesome5
+                  name="spotify"
+                  size={18}
+                  color={GOLD_ACCENT}
+                  style={{ marginRight: 8 }}
+                />
                 <Text
-                  style={[styles.trailerButtonText, { color: '#141414', ...typography.labelLg }]}
+                  style={[styles.trailerButtonText, { color: GOLD_ACCENT, ...typography.labelLg }]}
                   numberOfLines={1}
                 >
-                  {playableSoundtracks[0].title}
+                  {soundtrackRows.length > 1
+                    ? `Soundtrack (${soundtrackRows.length})`
+                    : 'Soundtrack'}
                 </Text>
               </TouchableOpacity>
-            ) : playableSoundtracks.length > 1 ? (
-              <TouchableOpacity
-                style={[styles.trailerButton, { backgroundColor: GOLD_ACCENT }]}
-                onPress={handleSoundtrackPress}
-                accessibilityRole="button"
-                accessibilityLabel={`Choose soundtrack for ${result.title}`}
-              >
-                <FontAwesome5 name="spotify" size={18} color="#141414" style={{ marginRight: 6 }} />
-                <Text
-                  style={[styles.trailerButtonText, { color: '#141414', ...typography.labelLg }]}
-                >
-                  {`Choose Soundtrack (${playableSoundtracks.length})`}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
+            )}
 
             {/* Info Row ScrollView with Gradient Fade */}
             <View style={styles.infoRowContainer}>
@@ -1573,7 +1591,10 @@ export function ResultView({
         <View
           style={[
             styles.detailsContent,
-            { backgroundColor: colors.background, paddingBottom: insets.bottom + SCROLL_BOTTOM_PAD },
+            {
+              backgroundColor: colors.background,
+              paddingBottom: insets.bottom + SCROLL_BOTTOM_PAD,
+            },
           ]}
         >
           <View pointerEvents="none" style={styles.meshBackdrop}>
@@ -1619,7 +1640,9 @@ export function ResultView({
                 >
                   {displaySynopsis}
                 </Text>
-                <Text style={[styles.synopsisToggle, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+                <Text
+                  style={[styles.synopsisToggle, { color: GOLD_ACCENT, ...typography.labelSm }]}
+                >
                   {isSynopsisExpanded ? 'Read less' : 'Read more'}
                 </Text>
               </TouchableOpacity>
@@ -1905,9 +1928,7 @@ export function ResultView({
                           icon="tv-outline"
                           instant
                         />
-                        <View
-                          style={[styles.seasonOrderBadge, { backgroundColor: GOLD_ACCENT }]}
-                        >
+                        <View style={[styles.seasonOrderBadge, { backgroundColor: GOLD_ACCENT }]}>
                           <Text style={[styles.seasonOrderText, { color: '#141414' }]}>
                             {season.seasonNumber || index + 1}
                           </Text>
@@ -1921,9 +1942,7 @@ export function ResultView({
                           </View>
                         ) : null}
                         {isLatest ? (
-                          <View
-                            style={[styles.seasonLatestPill, { backgroundColor: GOLD_ACCENT }]}
-                          >
+                          <View style={[styles.seasonLatestPill, { backgroundColor: GOLD_ACCENT }]}>
                             <Text style={[styles.seasonLatestText, { color: '#141414' }]}>
                               LATEST
                             </Text>
@@ -3021,9 +3040,20 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     flexShrink: 1,
   },
-  soundtrackSkeleton: {
+  /**
+   * Secondary to Watch Trailer directly above it — a gold tonal outline rather
+   * than a second solid-gold full-width primary competing with the first.
+   */
+  soundtrackButton: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    height: verticalScale(48),
+    borderRadius: 12,
+    borderWidth: 1,
+    backgroundColor: 'rgba(212, 168, 83, 0.10)',
+    width: '100%',
+    marginBottom: 16,
   },
   infoRowContainer: {
     position: 'relative',
