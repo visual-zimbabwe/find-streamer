@@ -39,7 +39,8 @@ import { WhereToWatchSection } from './WhereToWatchSection';
 import { SeasonDetailSheetContent } from './SeasonDetailSheet';
 import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { PersonCard } from './PersonCard';
-import { searchPersonByName } from '../lib/tmdb';
+import { TitleRailCard } from './TitleRailCard';
+import { fetchTitleRails, searchPersonByName } from '../lib/tmdb';
 import {
   rottenTomatoesEmoji,
   rottenTomatoesFresh,
@@ -450,6 +451,14 @@ export function ResultView({
   const [wikiError, setWikiError] = useState(false);
   const [wikiRetryToken, setWikiRetryToken] = useState(0);
 
+  // ── Foot-of-page rails ───────────────────────────────────────────────────
+  // Fetched after first paint rather than inside `resolveMatch`: they are the
+  // last two sections of the scroll and used to hold up the availability answer.
+  const [rails, setRails] = useState({ similar: [], fromPeople: [] });
+  const [railsLoading, setRailsLoading] = useState(false);
+  const [railsError, setRailsError] = useState(false);
+  const [railsRetryToken, setRailsRetryToken] = useState(0);
+
   // ── Dynamic poster palette ───────────────────────────────────────────────
   const { palette } = usePosterTheme(result?.posterUrl);
   // Merge poster palette over base theme; fall back gracefully
@@ -479,6 +488,9 @@ export function ResultView({
     setWikiData({ languages: [], countries: [], basedOn: null, soundtracks: [], awards: [] });
     setWikiLoading(false);
     setWikiError(false);
+    setRails({ similar: [], fromPeople: [] });
+    setRailsLoading(false);
+    setRailsError(false);
     // Unmounting the capture host is enough: on the next open, ShareCard's own
     // image-set effect re-reports readiness for the new title.
     setShareDraft(null);
@@ -588,6 +600,41 @@ export function ResultView({
     isInWatchlist,
     wikiRetryToken,
   ]);
+
+  // ── Rails fetch (post-paint) ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!result?.tmdbId || !result?.mediaType) return;
+
+    let cancelled = false;
+    setRailsLoading(true);
+    setRailsError(false);
+
+    fetchTitleRails(result)
+      .then((data) => {
+        if (cancelled) return;
+        setRails(data);
+        setRailsLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRailsLoading(false);
+        setRailsError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // `result` itself is intentionally not a dependency — it is a fresh object
+    // on every render of the parent, and the rails only depend on the identity
+    // of the title and who is in it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result?.tmdbId, result?.mediaType, railsRetryToken]);
+
+  const handleRailsRetry = useCallback(() => {
+    Haptics.selectionAsync();
+    setRailsError(false);
+    setRailsRetryToken((token) => token + 1);
+  }, []);
 
   /**
    * The first paint renders the synopsis unclamped, so this layout pass sees the
@@ -2180,98 +2227,89 @@ export function ResultView({
             </View>
           )}
 
-          {/* More From This Cast & Crew */}
-          {result.moreFromCastAndCrew && result.moreFromCastAndCrew.length > 0 && (
-            <View style={styles.section}>
-              <ProgrammeEyebrowLabel eyebrow="More From Cast & Crew" />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.similarScroll}
-              >
-                {result.moreFromCastAndCrew.map((item) => (
-                  <TouchableOpacity
-                    key={item.tmdbId}
-                    style={styles.similarItem}
-                    onPress={() => onSelectSimilar(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open details for ${item.title}`}
-                  >
-                    <View style={[styles.similarPoster, { borderRadius: radii.md }]}>
-                      <MediaArtwork
-                        uri={item.posterUrl}
-                        style={styles.poster}
-                        accessibilityLabel={`${item.title} poster`}
-                        title={item.title}
-                        instant
-                      />
-                      {item.omdbRatings?.imdbRating && (
-                        <View style={[styles.similarRating, { backgroundColor: '#F5C518' }]}>
-                          <Text style={{ color: '#000000', fontSize: 10, fontWeight: '800' }}>
-                            IMDb {ratingForCard(item.omdbRatings.imdbRating)}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text
-                      style={[
-                        styles.similarTitle,
-                        { color: colors.onSurface, ...typography.bodyMd },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.title}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {/* More Like This */}
-          {result.similar && result.similar.length > 0 && (
+          {/* ─── Foot-of-page rails ───────────────────────────────────────
+              Both arrive together from `fetchTitleRails` after first paint.
+              A single retry covers the pair — they fail as one request. */}
+          {railsError ? (
             <View style={styles.section}>
               <ProgrammeEyebrowLabel eyebrow="More Like This" />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.similarScroll}
+              <TouchableOpacity
+                onPress={handleRailsRetry}
+                style={[styles.basedOnRetry, { borderColor: colors.outlineVariant }]}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading recommendations"
               >
-                {result.similar.map((item) => (
-                  <TouchableOpacity
-                    key={item.tmdbId}
-                    style={styles.similarItem}
-                    onPress={() => onSelectSimilar(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open details for ${item.title}`}
-                  >
-                    <View style={[styles.similarPoster, { borderRadius: radii.md }]}>
-                      <MediaArtwork
-                        uri={item.posterUrl}
-                        style={styles.poster}
-                        accessibilityLabel={`${item.title} poster`}
-                        title={item.title}
-                        instant
-                      />
-                      <View style={styles.similarRating}>
-                        <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>
-                          {ratingForCard(item.rating)}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text
-                      style={[
-                        styles.similarTitle,
-                        { color: colors.onSurface, ...typography.bodyMd },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.title}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+                <Ionicons name="refresh-outline" size={16} color={colors.onSurfaceVariant} />
+                <Text
+                  style={[
+                    styles.basedOnRetryText,
+                    { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                  ]}
+                >
+                  Couldn&apos;t load recommendations. Tap to retry.
+                </Text>
+              </TouchableOpacity>
             </View>
+          ) : (
+            <>
+              {(railsLoading || rails.similar.length > 0) && (
+                <View style={styles.section}>
+                  <ProgrammeEyebrowLabel eyebrow="More Like This" />
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.similarScroll}
+                  >
+                    {railsLoading && rails.similar.length === 0
+                      ? [0, 1, 2, 3].map((index) => (
+                          <View key={`similar-skeleton-${index}`} style={styles.railSkeletonItem}>
+                            <SkeletonBlock style={styles.railSkeletonPoster} />
+                            <SkeletonBlock style={{ width: 96, height: 12, borderRadius: 6 }} />
+                          </View>
+                        ))
+                      : rails.similar.map((item) => (
+                          <TitleRailCard
+                            key={`${item.mediaType}-${item.tmdbId}`}
+                            item={item}
+                            colors={colors}
+                            typography={typography}
+                            radii={radii}
+                            onPress={() => onSelectSimilar(item)}
+                          />
+                        ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {(railsLoading || rails.fromPeople.length > 0) && (
+                <View style={styles.section}>
+                  <ProgrammeEyebrowLabel eyebrow="More From Cast & Crew" />
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.similarScroll}
+                  >
+                    {railsLoading && rails.fromPeople.length === 0
+                      ? [0, 1, 2, 3].map((index) => (
+                          <View key={`people-skeleton-${index}`} style={styles.railSkeletonItem}>
+                            <SkeletonBlock style={styles.railSkeletonPoster} />
+                            <SkeletonBlock style={{ width: 96, height: 12, borderRadius: 6 }} />
+                          </View>
+                        ))
+                      : rails.fromPeople.map((item) => (
+                          <TitleRailCard
+                            key={`${item.mediaType}-${item.tmdbId}`}
+                            item={item}
+                            colors={colors}
+                            typography={typography}
+                            radii={radii}
+                            onPress={() => onSelectSimilar(item)}
+                          />
+                        ))}
+                  </ScrollView>
+                </View>
+              )}
+            </>
           )}
         </View>
       </Animated.ScrollView>
@@ -2842,9 +2880,6 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingRight: 40,
   },
-  similarItem: {
-    width: scale(120),
-  },
   similarPoster: {
     width: scale(120),
     aspectRatio: 2 / 3,
@@ -2856,17 +2891,17 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  similarRating: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
   similarTitle: {
     fontWeight: '700',
+  },
+  railSkeletonItem: {
+    gap: 8,
+    width: scale(120),
+  },
+  railSkeletonPoster: {
+    aspectRatio: 2 / 3,
+    borderRadius: 8,
+    width: scale(120),
   },
   ratingsRow: {
     flexDirection: 'row',
