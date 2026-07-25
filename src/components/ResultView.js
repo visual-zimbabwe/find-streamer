@@ -1161,6 +1161,9 @@ export function ResultView({
       <TrailerModal
         visible={trailerVisible}
         trailerUrl={result?.trailer}
+        candidates={result?.trailerCandidates}
+        trailerType={result?.trailerType}
+        posterUrl={result?.heroBackdropUrl || result?.backdropUrl || result?.posterUrl}
         title={result?.title}
         onClose={() => setTrailerVisible(false)}
       />
@@ -1386,13 +1389,15 @@ export function ResultView({
                   setTrailerVisible(true);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`Watch trailer for ${result.title}`}
+                accessibilityLabel={`Watch ${
+                  result.trailerType === 'Teaser' ? 'teaser' : 'trailer'
+                } for ${result.title}`}
               >
                 <Ionicons name="play" size={18} color="#141414" style={{ marginRight: 6 }} />
                 <Text
                   style={[styles.trailerButtonText, { color: '#141414', ...typography.labelLg }]}
                 >
-                  Watch Trailer
+                  {result.trailerType === 'Teaser' ? 'Watch Teaser' : 'Watch Trailer'}
                 </Text>
               </TouchableOpacity>
             )}

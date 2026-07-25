@@ -2,6 +2,7 @@ import { recordRateQuota429, recordRateQuotaFromResponse } from './apiRateQuota'
 import { fetchOmdbRatings } from './omdb';
 import { NON_ENGLISH_CODES } from './languagePresets';
 import { createAppError, isRetryableStatus, retryWithBackoff } from './errors';
+import { rankTrailerCandidates } from './trailerPicker';
 import {
   SERVICE_LABELS,
   availabilityBySeason,
@@ -430,6 +431,10 @@ async function getTitleMetadata(mediaType, tmdbId) {
       append_to_response: 'videos,images',
       // `null` = language-neutral logos (no lettering baked in); `en` = English title treatments.
       include_image_language: 'en,null',
+      // Same treatment for videos, which `language=en-US` alone filters down hard
+      // (Attack on Titan: 18 videos → 4). The original-language sweep happens below,
+      // once the response tells us what that language actually is.
+      include_video_language: 'en,null',
     }),
     mediaType === 'tv'
       ? tmdbGet(`/tv/${tmdbId}/external_ids`).catch(() => ({}))
@@ -467,11 +472,19 @@ async function getTitleMetadata(mediaType, tmdbId) {
           }))
       : [];
 
-  const videos = data.videos?.results || [];
-  const youtubeVideos = videos.filter((video) => video.site === 'YouTube' && video.key);
-  let trailer = youtubeVideos.find((video) => video.type === 'Trailer' && video.official === true);
-  if (!trailer) trailer = youtubeVideos.find((video) => video.type === 'Trailer');
-  if (!trailer && youtubeVideos.length) trailer = youtubeVideos[0];
+  let trailerCandidates = rankTrailerCandidates(data.videos?.results);
+  // Measured: 8 of the 29 titles (out of 120 popular) that showed no trailer button at all
+  // have a perfectly good *official* trailer that's only tagged in the original language —
+  // Jana Nayagan (ta), Kung Fu Soccer (zh), Boulevard (fr). One extra request, and only on
+  // the titles that would otherwise render no button.
+  const originalLanguage = data.original_language;
+  if (!trailerCandidates.length && originalLanguage && originalLanguage !== 'en') {
+    const widened = await tmdbGet(`/${mediaType}/${tmdbId}/videos`, {
+      include_video_language: `en,null,${originalLanguage}`,
+    }).catch(() => null);
+    trailerCandidates = rankTrailerCandidates(widened?.results);
+  }
+  const trailer = trailerCandidates[0] || null;
 
   // Movies: imdb_id is in the main response. TV: must come from external_ids.
   const imdbId = data.imdb_id || externalIds?.imdb_id || null;
@@ -532,7 +545,11 @@ async function getTitleMetadata(mediaType, tmdbId) {
     seasons,
     titleLogo: pickTitleLogo(data.images?.logos),
     heroBackdropUrl: pickHeroBackdrop(data.images?.backdrops),
-    trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : 'N/A',
+    trailer: trailer ? trailer.url : 'N/A',
+    // Drives the button label — a teaser shouldn't be sold as a trailer.
+    trailerType: trailer ? trailer.type : null,
+    // The player walks these when YouTube rejects the first (age gate, geo-block, takedown).
+    trailerCandidates,
     productionCompanies: (data.production_companies || [])
       .filter((company) => company.logo_path)
       .map((company) => ({
