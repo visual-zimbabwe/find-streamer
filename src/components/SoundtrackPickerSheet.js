@@ -3,7 +3,9 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 
 /**
- * Bottom-sheet content for choosing among multiple soundtrack releases.
+ * Bottom-sheet content for a title's soundtrack releases. Rows come from
+ * `buildSoundtrackRows`, which supplies `displayTitle` (leading with whatever
+ * tells two releases apart) and `showYear` (false when every row shares one).
  */
 export function SoundtrackPickerSheetContent({
   soundtracks,
@@ -30,14 +32,14 @@ export function SoundtrackPickerSheetContent({
           }}
           activeOpacity={0.78}
           accessibilityRole="button"
-          accessibilityLabel={`Play ${soundtrack.title}${soundtrack.year ? ` from ${soundtrack.year}` : ''} on Spotify`}
+          accessibilityLabel={`Play ${soundtrack.displayTitle}${soundtrack.year ? ` from ${soundtrack.year}` : ''} on Spotify`}
         >
           {soundtrack.coverUrl ? (
             <Image
               source={{ uri: soundtrack.coverUrl }}
               style={styles.cover}
               resizeMode="cover"
-              accessibilityLabel={`${soundtrack.title} cover art`}
+              accessibilityLabel={`${soundtrack.displayTitle} cover art`}
             />
           ) : (
             <View style={[styles.coverFallback, { backgroundColor: colors.surfaceContainerHigh }]}>
@@ -49,9 +51,9 @@ export function SoundtrackPickerSheetContent({
               style={[styles.title, { color: colors.onSurface, ...typography.bodyMd }]}
               numberOfLines={2}
             >
-              {soundtrack.title}
+              {soundtrack.displayTitle}
             </Text>
-            {soundtrack.year ? (
+            {soundtrack.showYear ? (
               <Text
                 style={[styles.year, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
               >
