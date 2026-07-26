@@ -54,17 +54,24 @@ export function usePeopleController({ openResolvedDetail, handleRequestError, se
         name: companyName,
         role: 'company',
         profileUrl: logoUrl || null,
+        total: null,
       });
       setFilmographyResults([]);
       openFilmography(navigation);
       try {
-        const { results, profileUrl } = await fetchProductionCompanyCatalog(
+        const { results, profileUrl, total } = await fetchProductionCompanyCatalog(
           companyId,
           companyName,
           logoUrl,
         );
         setFilmographyResults(results);
-        setFilmographyPerson((prev) => ({ ...prev, profileUrl: profileUrl ?? prev.profileUrl }));
+        setFilmographyPerson((prev) => ({
+          ...prev,
+          profileUrl: profileUrl ?? prev.profileUrl,
+          // The grid is a page-1 slice; the header needs the real catalogue
+          // size to stop presenting that slice as the total.
+          total: total ?? null,
+        }));
         setOfflineBanner(null);
       } catch (err) {
         handleRequestError(err, 'Unable to load titles from this studio.');

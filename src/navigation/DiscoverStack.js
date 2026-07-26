@@ -92,6 +92,7 @@ function DiscoverFilmographyScreen() {
       personName={filmographyPerson.name}
       role={filmographyPerson.role}
       profileUrl={filmographyPerson.profileUrl}
+      total={filmographyPerson.total}
       results={filmographyResults}
       onSelectItem={(item) => handleSelectFilmographyItem(item, navigation)}
       loading={filmographyLoading}

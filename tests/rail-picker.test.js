@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  ABSOLUTE_MIN_RAIL_VOTES,
   MIN_RAIL_VOTES,
   creditsForPerson,
   railScore,
+  rankCompanyCatalog,
   rankPeopleTitles,
   rankSimilarTitles,
   selectRailPeople,
@@ -246,4 +248,64 @@ test('railScore lets a well-supported good film beat a thin great one', () => {
 
 test('MIN_RAIL_VOTES is the documented floor', () => {
   assert.equal(MIN_RAIL_VOTES, 200);
+});
+
+// ── Studio catalogue ──────────────────────────────────────────────────────
+
+const row = (overrides) => ({ mediaType: 'movie', tmdbId: 1, title: 'A Film', voteCount: 5000, ...overrides });
+
+test('rankCompanyCatalog drops the thin titles that used to lead a studio page', () => {
+  // The real regression: Walt Disney Pictures opened with Radio Disney Music
+  // Awards (9.6 from 7 votes) and a 1989 safety PSA, because the catalogue was
+  // sorted by vote_average behind a 5-vote floor.
+  const picked = rankCompanyCatalog([
+    row({ tmdbId: 10, title: 'Radio Disney Music Awards', voteCount: 7 }),
+    row({ tmdbId: 11, title: 'Street Safe, Street Smart', voteCount: 38 }),
+    row({ tmdbId: 12, title: 'The Lion King', voteCount: 18000 }),
+    row({ tmdbId: 13, title: 'Frozen', voteCount: 16000 }),
+  ]);
+  assert.deepEqual(
+    picked.map((item) => item.title),
+    ['The Lion King', 'Frozen'],
+  );
+});
+
+test('rankCompanyCatalog preserves the popularity order it was handed', () => {
+  const picked = rankCompanyCatalog([
+    row({ tmdbId: 1, title: 'Second Best', voteCount: 900 }),
+    row({ tmdbId: 2, title: 'Most Popular', voteCount: 300 }),
+  ]);
+  assert.deepEqual(
+    picked.map((item) => item.title),
+    ['Second Best', 'Most Popular'],
+  );
+});
+
+test('rankCompanyCatalog falls to the hard floor for a small studio', () => {
+  // One title over the preferred floor is not a page. Dropping to the hard
+  // floor is better than showing a single card — but 40 votes still never shows.
+  const picked = rankCompanyCatalog([
+    row({ tmdbId: 1, title: 'Their One Hit', voteCount: 4000 }),
+    row({ tmdbId: 2, title: 'A Modest Second', voteCount: 120 }),
+    row({ tmdbId: 3, title: 'Barely Rated', voteCount: 40 }),
+  ]);
+  assert.deepEqual(
+    picked.map((item) => item.title),
+    ['Their One Hit', 'A Modest Second'],
+  );
+});
+
+test('rankCompanyCatalog does not cap the grid the way a rail is capped', () => {
+  const many = Array.from({ length: 30 }, (_, i) => row({ tmdbId: i, title: `Film ${i}` }));
+  assert.equal(rankCompanyCatalog(many).length, 30);
+});
+
+test('rankCompanyCatalog survives a missing voteCount', () => {
+  assert.deepEqual(rankCompanyCatalog([{ title: 'No Votes Field' }]), []);
+  assert.deepEqual(rankCompanyCatalog(null), []);
+});
+
+test('the studio floors are the rail floors, not a second set of numbers', () => {
+  assert.equal(MIN_RAIL_VOTES, 200);
+  assert.equal(ABSOLUTE_MIN_RAIL_VOTES, 50);
 });

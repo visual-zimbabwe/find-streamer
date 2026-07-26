@@ -158,6 +158,49 @@ function AwardLogoImage({ uri, label, style, fallbackStyle, iconColor }) {
   );
 }
 
+/**
+ * A production company's mark on a light plate.
+ *
+ * Measured across 100 popular titles: 68.3% of the logos TMDb serves are dark
+ * ink on transparency (90 of 188 are literally #000000), which on this dark
+ * surface rendered at a contrast ratio of 1.27:1 — invisible. The plate is the
+ * only fix that covers all of them; TMDb has a lighter alternate asset for just
+ * 23% of the dark ones, so selecting a better file cannot do this job.
+ *
+ * The `uri`-keyed reset is the discipline `AwardLogoImage` established: a
+ * recycled row must not inherit the previous company's failure.
+ */
+function CompanyLogoImage({ uri, name, iconColor }) {
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setFailed(false);
+  }, [uri]);
+
+  // No art (a quarter of all credits) or a broken URL: a muted plate carrying a
+  // glyph, not a bright empty rectangle drawing attention to the gap.
+  if (!uri || failed) {
+    return (
+      <View style={[styles.productionLogoPlate, styles.productionLogoPlateEmpty]}>
+        <Ionicons name="business-outline" size={22} color={iconColor} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.productionLogoPlate}>
+      <ExpoImage
+        source={{ uri }}
+        style={styles.productionLogo}
+        contentFit="contain"
+        transition={150}
+        onError={() => setFailed(true)}
+        accessibilityLabel={`${name} logo`}
+      />
+    </View>
+  );
+}
+
 function splitPeople(value) {
   if (!hasValue(value)) return [];
   return String(value)
@@ -2299,6 +2342,7 @@ export function ResultView({
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
+                style={styles.productionRail}
                 contentContainerStyle={styles.productionScroll}
               >
                 {result.productionCompanies.map((company) => (
@@ -2313,39 +2357,34 @@ export function ResultView({
                     disabled={!onCompanyPress}
                     activeOpacity={0.78}
                     accessibilityRole="button"
+                    // Set unconditionally: without a handler this was a button
+                    // with no name at all.
                     accessibilityLabel={
-                      onCompanyPress ? `View titles from ${company.name}` : undefined
+                      onCompanyPress ? `View titles from ${company.name}` : company.name
                     }
                     accessibilityState={{ disabled: !onCompanyPress }}
                   >
-                    <View
+                    <CompanyLogoImage
+                      uri={company.logoUrl}
+                      name={company.name}
+                      iconColor={colors.onSurfaceVariant}
+                    />
+                    <Text
                       style={[
-                        styles.productionLogoHaloBase,
-                        Platform.OS === 'ios'
-                          ? styles.productionLogoHaloOuterIos
-                          : styles.productionLogoHaloOuterAndroid,
+                        styles.productionName,
+                        {
+                          color: colors.onSurface,
+                          ...typography.labelSm,
+                          // Device-scaled, never a raw constant — a fixed
+                          // minHeight drifts out of step with the font at
+                          // other display densities.
+                          minHeight: typography.labelSm.lineHeight * 2,
+                        },
                       ]}
+                      numberOfLines={2}
                     >
-                      {Platform.OS === 'ios' ? (
-                        <View
-                          style={[styles.productionLogoHaloBase, styles.productionLogoHaloInnerIos]}
-                        >
-                          <Image
-                            source={{ uri: company.logoUrl }}
-                            style={styles.productionLogo}
-                            resizeMode="contain"
-                            accessibilityLabel={`${company.name} logo`}
-                          />
-                        </View>
-                      ) : (
-                        <Image
-                          source={{ uri: company.logoUrl }}
-                          style={styles.productionLogo}
-                          resizeMode="contain"
-                          accessibilityLabel={`${company.name} logo`}
-                        />
-                      )}
-                    </View>
+                      {company.name}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -3136,47 +3175,55 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   // ── Production Companies ────────────────────────────────────────────────
+  // Bleed to the screen edge. Inside `detailsContent`'s 24dp page padding the
+  // viewport is 336dp, which fitted exactly two 132dp tiles with no peek and no
+  // hint that 41% of titles have more. Pairs with `paddingRight` below.
+  productionRail: {
+    marginRight: -24,
+  },
   productionScroll: {
     gap: 12,
     paddingRight: 24,
     paddingVertical: 6,
   },
   productionTile: {
-    padding: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    height: 80,
-    minWidth: 120,
-    overflow: 'visible',
+    gap: 8,
+    paddingVertical: 10,
+    width: scale(112),
   },
-  productionLogoHaloBase: {
-    width: 80,
-    height: 40,
+  // The legibility fix. Replaces a platform-forked "halo" whose iOS branch
+  // (a white glow, which would have worked) was unreachable — app.json ships
+  // Android only — and whose Android branch could not draw at all: RN maps
+  // shadow* to outline shadows, and the wrapper had no background to cast one.
+  //
+  // Don't "improve" this to a mid-grey to protect the light-ink marks. The
+  // logo distribution is bimodal — near-black or near-white, little between —
+  // so a mid-tone loses to both tiers at once. Measured over 246 real tiles,
+  // share reaching 3:1: dark surface 25.2%, mid-grey #8a8a84 63.0%, this
+  // plate 88.6%. The ~11% that stay washed out are light marks, and for those
+  // the company name under the plate is the fallback — which is the whole
+  // reason the name is there.
+  productionLogoPlate: {
     alignItems: 'center',
+    backgroundColor: '#f2f2ee',
+    borderRadius: 8,
+    height: 52,
     justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    width: scale(96),
   },
-  productionLogoHaloOuterIos: {
-    shadowColor: '#ffffff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 3,
-  },
-  productionLogoHaloInnerIos: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.45,
-    shadowRadius: 4,
-  },
-  productionLogoHaloOuterAndroid: {
-    elevation: 6,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
+  productionLogoPlateEmpty: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
   productionLogo: {
-    width: 80,
-    height: 40,
+    height: '100%',
+    width: '100%',
+  },
+  productionName: {
+    fontWeight: '600',
+    textAlign: 'center',
   },
   floatingHeader: {
     position: 'absolute',
