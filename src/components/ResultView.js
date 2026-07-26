@@ -57,10 +57,14 @@ import {
   resolveSoundtrackCovers,
 } from '../lib/wikidataSoundtracks';
 import {
-  formatAwardCounts,
+  awardCountLines,
+  buildAwardCeremonies,
+  formatAwardTotals,
   fetchWikidataAwards,
-  parseOmdbAwardsFallback,
+  parseOmdbAwardTotals,
+  spokenAwardCounts,
 } from '../lib/wikidataAwards';
+import { AwardsSheetContent } from './AwardsSheet';
 import { scale, verticalScale, screenHeight, screenWidth, scaleFont } from '../utils/responsive';
 import { useBottomSheet } from './StackBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -124,6 +128,8 @@ const RAIL_PERSON_CAP = 10;
  * arms the Read more / Read less toggle.
  */
 const SYNOPSIS_COLLAPSED_LINES = 4;
+/** Ceremonies shown on the rail before it defers to the "See all" sheet. */
+const AWARD_RAIL_CAP = 6;
 
 function AwardLogoImage({ uri, label, style, fallbackStyle, iconColor }) {
   const [failed, setFailed] = React.useState(false);
@@ -233,10 +239,14 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     clauses.push(`?item wdt:P345 "${imdbId}"`);
   }
   if (tmdbId) {
+    // Same identifier fix as the award query: P4983 is "TMDB TV series ID" and
+    // P4947 "TMDB movie ID". P4985 is TMDB *person* ID, so this union used to
+    // pull a same-numbered person's languages, countries and source works into a
+    // TV title's enrichment; P9721 ("image of entrance") matched nothing.
     if (mediaType === 'tv') {
-      clauses.push(`?item wdt:P4985 "${tmdbId}"`);
+      clauses.push(`?item wdt:P4983 "${tmdbId}"`);
     } else {
-      clauses.push(`?item wdt:P9721 "${tmdbId}"`);
+      clauses.push(`?item wdt:P4947 "${tmdbId}"`);
     }
   }
 
@@ -658,23 +668,86 @@ export function ResultView({
     Linking.openURL(`https://www.wikidata.org/wiki/${work.id}`);
   }, []);
 
-  const handleAwardPress = useCallback((award) => {
-    if (!award?.wikidataId) return;
+  /**
+   * The one-line answer, parsed from a string OMDb already gave us. It used to be
+   * a consolation prize shown only when Wikidata came back empty — but every
+   * Wikidata-path title carries it too, so a 47-tile rail could never say the
+   * thing a viewer actually wants ("won 16 Emmys").
+   */
+  const awardTotals = useMemo(
+    () => parseOmdbAwardTotals(result?.omdbRatings?.awards),
+    [result?.omdbRatings?.awards],
+  );
+
+  const awardTotalsLine = useMemo(() => formatAwardTotals(awardTotals), [awardTotals]);
+
+  const displayAwards = useMemo(
+    () => buildAwardCeremonies(wikiData.awards || [], result?.omdbRatings?.awards),
+    [wikiData.awards, result?.omdbRatings?.awards],
+  );
+
+  const visibleAwards = useMemo(
+    () => displayAwards.slice(0, AWARD_RAIL_CAP),
+    [displayAwards],
+  );
+  const hiddenAwardCount = Math.max(0, displayAwards.length - AWARD_RAIL_CAP);
+
+  /**
+   * Only claim the space when something is coming. The old gate included
+   * `wikiLoading`, so every detail screen drew the eyebrow plus three skeleton
+   * tiles and then two thirds of them unmounted the section entirely, jumping the
+   * content below upward. The OMDb string is already loaded at first paint, so
+   * whether there's anything to say is knowable before Wikidata answers.
+   */
+  const showAwardsSection =
+    Boolean(awardTotalsLine) ||
+    displayAwards.length > 0 ||
+    (wikiLoading && Boolean(result?.omdbRatings?.awards));
+
+  const awardsImdbId = result?.imdbId || null;
+
+  const handleOpenImdbAwards = useCallback(() => {
+    if (!awardsImdbId) return;
+    Linking.openURL(`https://www.imdb.com/title/${awardsImdbId}/awards`);
+  }, [awardsImdbId]);
+
+  /**
+   * Every tile opens the same sheet, whichever source filled it — the old build
+   * made Wikidata-backed tiles touchable and OMDb ones inert `View`s that looked
+   * identical. The sheet is also the only place the per-category detail lives now
+   * that the rail groups by ceremony.
+   */
+  const handleAwardPress = useCallback(() => {
+    if (!displayAwards.length) return;
+
     Haptics.selectionAsync();
-    Linking.openURL(`https://www.wikidata.org/wiki/${award.wikidataId}`);
-  }, []);
 
-  const displayAwards = useMemo(() => {
-    if (wikiData.awards?.length) {
-      return wikiData.awards;
-    }
-
-    if (wikiLoading) {
-      return [];
-    }
-
-    return parseOmdbAwardsFallback(result?.omdbRatings?.awards);
-  }, [wikiData.awards, wikiLoading, result?.omdbRatings?.awards]);
+    let sheetId;
+    const content = (
+      <AwardsSheetContent
+        ceremonies={displayAwards}
+        colors={colors}
+        typography={typography}
+        onOpenImdb={awardsImdbId ? handleOpenImdbAwards : null}
+        onDismiss={() => dismissSheet(sheetId)}
+      />
+    );
+    sheetId = showSheet(content, {
+      title: 'Awards & Recognition',
+      size: 'large',
+      scrollable: false,
+      showCloseButton: true,
+      dismissOnBackdrop: true,
+    });
+  }, [
+    displayAwards,
+    colors,
+    typography,
+    awardsImdbId,
+    handleOpenImdbAwards,
+    showSheet,
+    dismissSheet,
+  ]);
 
   const handleWikiRetry = useCallback(() => {
     Haptics.selectionAsync();
@@ -2080,9 +2153,20 @@ export function ResultView({
           )}
 
           {/* ─── Awards ──────────────────────────────────────────────────── */}
-          {(wikiLoading || displayAwards.length > 0) && (
+          {showAwardsSection && (
             <View style={styles.section}>
               <ProgrammeEyebrowLabel eyebrow="Awards & Recognition" />
+
+              {awardTotalsLine ? (
+                <Text
+                  style={[
+                    styles.awardTotals,
+                    { color: colors.onSurface, ...typography.bodyMd },
+                  ]}
+                >
+                  {awardTotalsLine}
+                </Text>
+              ) : null}
 
               {wikiLoading && displayAwards.length === 0 ? (
                 <ScrollView
@@ -2097,16 +2181,24 @@ export function ResultView({
                     </View>
                   ))}
                 </ScrollView>
-              ) : (
+              ) : displayAwards.length === 0 ? null : (
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
+                  style={styles.awardsRail}
                   contentContainerStyle={styles.awardsScroll}
                 >
-                  {displayAwards.map((award) => {
-                    const awardKey = award.wikidataId || award.key || award.label;
-                    const tile = (
-                      <>
+                  {visibleAwards.map((award) => {
+                    const counts = awardCountLines(award);
+                    return (
+                      <TouchableOpacity
+                        key={award.key}
+                        style={styles.awardTile}
+                        onPress={handleAwardPress}
+                        activeOpacity={0.78}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${award.label}, ${spokenAwardCounts(award)}. Opens award details.`}
+                      >
                         <AwardLogoImage
                           uri={award.logoUrl}
                           label={award.label}
@@ -2117,47 +2209,85 @@ export function ResultView({
                           ]}
                           iconColor={GOLD_ACCENT}
                         />
-                        <Text
-                          style={[
-                            styles.awardCountText,
-                            { color: colors.onSurface, ...typography.labelSm },
-                          ]}
-                        >
-                          {formatAwardCounts(award)}
-                        </Text>
+                        <View style={styles.awardCounts}>
+                          <Text
+                            style={[
+                              styles.awardCountText,
+                              { color: colors.onSurface, ...typography.labelSm },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {counts.primary}
+                          </Text>
+                          {counts.secondary ? (
+                            <Text
+                              style={[
+                                styles.awardCountSubText,
+                                { color: colors.onSurfaceVariant, ...typography.labelSm },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {counts.secondary}
+                            </Text>
+                          ) : null}
+                        </View>
                         <Text
                           style={[
                             styles.awardLabelText,
-                            { color: colors.onSurfaceVariant, ...typography.labelSm },
+                            {
+                              color: colors.onSurfaceVariant,
+                              ...typography.labelSm,
+                              minHeight: typography.labelSm.lineHeight * 2,
+                            },
                           ]}
                           numberOfLines={2}
                         >
                           {award.label}
                         </Text>
-                      </>
-                    );
-
-                    if (award.wikidataId) {
-                      return (
-                        <TouchableOpacity
-                          key={awardKey}
-                          style={styles.awardTile}
-                          onPress={() => handleAwardPress(award)}
-                          activeOpacity={0.78}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Open ${award.label} on Wikidata`}
-                        >
-                          {tile}
-                        </TouchableOpacity>
-                      );
-                    }
-
-                    return (
-                      <View key={awardKey} style={styles.awardTile}>
-                        {tile}
-                      </View>
+                      </TouchableOpacity>
                     );
                   })}
+
+                  {hiddenAwardCount > 0 ? (
+                    <TouchableOpacity
+                      style={styles.awardTile}
+                      onPress={handleAwardPress}
+                      activeOpacity={0.78}
+                      accessibilityRole="button"
+                      accessibilityLabel={`See all ${displayAwards.length} award ceremonies`}
+                    >
+                      <View
+                        style={[
+                          styles.awardLogoFallback,
+                          { backgroundColor: colors.surfaceContainerHigh },
+                        ]}
+                      >
+                        <Ionicons name="ellipsis-horizontal" size={26} color={GOLD_ACCENT} />
+                      </View>
+                      <Text
+                        style={[
+                          styles.awardCountText,
+                          { color: colors.onSurface, ...typography.labelSm },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {`+${hiddenAwardCount} more`}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.awardLabelText,
+                          {
+                            color: colors.onSurfaceVariant,
+                            ...typography.labelSm,
+                            minHeight: typography.labelSm.lineHeight * 2,
+                          },
+                        ]}
+                        numberOfLines={2}
+                      >
+                        See all
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </ScrollView>
               )}
             </View>
@@ -2946,32 +3076,57 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   // ── Awards ──────────────────────────────────────────────────────────────
+  awardTotals: {
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  // The rail sits inside detailsContent's 24dp page padding, which left the
+  // viewport at 336dp — exactly two tiles wide, so the rest of the rail (and the
+  // "See all" tile) gave no hint it existed. Bleeding right restores the peek.
+  awardsRail: {
+    marginRight: -24,
+  },
   awardsScroll: {
     gap: 12,
     paddingRight: 24,
     marginBottom: 20,
   },
+  // Every sibling rail in this file pins a width. Awards didn't, and a horizontal
+  // ScrollView hands children unbounded width in the scroll axis — so the label
+  // never wrapped and the tile stretched to fit it, a median 305dp and up to
+  // 664dp on a 384dp screen.
   awardTile: {
-    justifyContent: 'center',
-    paddingHorizontal: 18,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 10,
     paddingVertical: 16,
     alignItems: 'center',
-    gap: 10,
-    minWidth: 120,
+    gap: 8,
+    width: scale(124),
   },
   awardLogo: {
     width: 86,
     height: 54,
+  },
+  awardCounts: {
+    alignItems: 'center',
+    gap: 1,
   },
   awardCountText: {
     fontWeight: '800',
     letterSpacing: 0.3,
     textAlign: 'center',
   },
+  awardCountSubText: {
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
+  // minHeight is supplied at render from typography.labelSm.lineHeight — a raw
+  // constant here desyncs from the device font scale and steps two-line tiles out
+  // of line with their one-line neighbours.
   awardLabelText: {
     fontWeight: '700',
     textAlign: 'center',
-    minHeight: 32,
   },
   awardLogoFallback: {
     width: 86,
