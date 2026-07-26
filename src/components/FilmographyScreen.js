@@ -51,6 +51,7 @@ export function FilmographyScreen({
   onSelectItem,
   loading,
   profileUrl,
+  total = null,
 }) {
   const { theme, resolvedMode } = useTheme();
   const { colors, typography, radii } = theme;
@@ -70,7 +71,16 @@ export function FilmographyScreen({
               ? 'Directed By'
               : 'Created By';
 
-  const countText = `${results.length} title${results.length !== 1 ? 's' : ''}`;
+  const isCompany = role === 'company';
+
+  // A person's filmography is the whole credit list, so its length IS the count.
+  // A studio catalogue is a page-1 slice of something far larger — printing the
+  // slice as a total is how Columbia Pictures came to claim 22 titles against a
+  // real 1,544. Say which it is rather than rounding the truth away.
+  const countText =
+    total && total > results.length
+      ? `Top ${results.length} of ${total.toLocaleString()}`
+      : `${results.length} title${results.length !== 1 ? 's' : ''}`;
 
   const atmosphereColors = [
     resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
@@ -92,16 +102,27 @@ export function FilmographyScreen({
           <View
             style={[
               styles.personAvatar,
-              { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM },
+              isCompany && styles.companyAvatar,
+              {
+                // A studio wordmark is usually black artwork on transparency;
+                // on this dark surface it needs a light plate to read at all.
+                backgroundColor: isCompany && profileUrl ? '#f2f2ee' : GOLD_ACCENT + '18',
+                borderColor: GOLD_DIM,
+              },
             ]}
           >
             {profileUrl ? (
               <MediaArtwork
                 uri={profileUrl}
                 style={styles.avatarImage}
-                accessibilityLabel={`${personName} profile photo`}
+                // `cover` (the default) crops a 1000×269 wordmark to its middle
+                // slice — Columbia Pictures rendered as "MBI / URE".
+                resizeMode={isCompany ? 'contain' : 'cover'}
+                accessibilityLabel={
+                  isCompany ? `${personName} logo` : `${personName} profile photo`
+                }
                 title={personName}
-                icon="person-outline"
+                icon={isCompany ? 'business-outline' : 'person-outline'}
                 compactFallback
               />
             ) : (
@@ -147,7 +168,11 @@ export function FilmographyScreen({
           <EmptyState
             variant="empty"
             title="No titles found"
-            description="We couldn't find any credits matching this person."
+            description={
+              isCompany
+                ? "We couldn't find any titles from this studio."
+                : "We couldn't find any credits matching this person."
+            }
             compact
           />
         ) : (
@@ -203,6 +228,15 @@ const styles = StyleSheet.create({
     marginBottom: scale(14),
     overflow: 'hidden',
     width: scale(64),
+  },
+  // A 64dp circle cannot hold a wordmark at any fit mode: `cover` crops it,
+  // `contain` shrinks it past reading size. Studios get a wide rounded plate.
+  companyAvatar: {
+    borderRadius: scale(12),
+    height: scale(56),
+    paddingHorizontal: scale(10),
+    paddingVertical: scale(8),
+    width: scale(148),
   },
   avatarImage: {
     height: '100%',
