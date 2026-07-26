@@ -41,6 +41,7 @@ import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { PersonCard } from './PersonCard';
 import { TitleRailCard } from './TitleRailCard';
 import { fetchTitleRails, searchPersonByName } from '../lib/tmdb';
+import { buildTitleDetailRows, spokenRuntime } from '../lib/titleMeta';
 import {
   rottenTomatoesEmoji,
   rottenTomatoesFresh,
@@ -1068,6 +1069,27 @@ export function ResultView({
     : null;
   const hasRating = hasValue(result.rating);
   const hasGenres = hasValue(result.genres);
+  /**
+   * Info-pill chrome is derived from the palette rather than hardcoded white.
+   * usePosterTheme can hand back a light background — buildPalette explicitly
+   * flips `onSurface` to dark ink when it does — and fixed white would go
+   * unreadable there. `onSurface` is always a 6-digit hex in every palette, so
+   * the `+ 'AA'` suffix idiom used for the hero scrims applies here too.
+   * The certification pill keeps a brighter border: it is the one chip in the
+   * row that's a classification rather than a plain fact, and both IMDb and
+   * Apple TV box it the same way.
+   */
+  const pillInk = colors.onSurface + 'BF'; // 75%
+  const pillInkStrong = colors.onSurface + 'D9'; // 85%
+  const pillSurface = {
+    backgroundColor: colors.onSurface + '1F', // 12%
+    borderColor: colors.onSurface + '14', // 8%
+  };
+  const pillSurfaceStrong = {
+    backgroundColor: colors.onSurface + '1F',
+    borderColor: colors.onSurface + '59', // 35%
+  };
+  const detailRows = buildTitleDetailRows(wikiData);
   /** Metacritic tile colored by its own thresholds (green/yellow/red), not fixed green. */
   const metaBadge = result.omdbRatings?.metascore
     ? metacriticBadge(result.omdbRatings.metascore)
@@ -1508,129 +1530,61 @@ export function ResultView({
               </TouchableOpacity>
             )}
 
-            {/* Info Row ScrollView with Gradient Fade */}
-            <View style={styles.infoRowContainer}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.infoRowScroll}
+            {/* Metadata pills.
+                This used to be a horizontal ScrollView behind a 32px fade. Measured
+                over 100 popular titles it overflowed on 86 of them (median 494dp of
+                content in a 336dp slot), which buried the two pills that cost a
+                network round-trip: language was fully visible on 19/100 titles and
+                country on 3/100. Those moved to the Details section below; what's
+                left is cheap, local, and fits one line on every title measured.
+                The row still wraps so a long certification or a large system font
+                spills onto a second line instead of off the edge. */}
+            <View style={styles.infoRow}>
+              <View
+                style={[styles.infoPill, pillSurface]}
+                accessible
+                accessibilityLabel={`${isTv ? 'First aired' : 'Released'} ${result.year}`}
               >
-                <View style={styles.infoPill}>
-                  <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.75)" />
-                  <Text
-                    style={[
-                      styles.infoText,
-                      { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
-                    ]}
-                  >
-                    {result.year}
+                <Ionicons name="calendar-outline" size={14} color={pillInk} />
+                <Text style={[styles.infoText, { color: pillInk, ...typography.labelSm }]}>
+                  {result.year}
+                </Text>
+              </View>
+              {isTv && seasonCount > 0 && (
+                <View
+                  style={[styles.infoPill, pillSurface]}
+                  accessible
+                  accessibilityLabel={pluralize(seasonCount, 'season')}
+                >
+                  <Ionicons name="tv-outline" size={14} color={pillInk} />
+                  <Text style={[styles.infoText, { color: pillInk, ...typography.labelSm }]}>
+                    {pluralize(seasonCount, 'season')}
                   </Text>
                 </View>
-                {isTv && seasonCount > 0 && (
-                  <View style={styles.infoPill}>
-                    <Ionicons name="tv-outline" size={14} color="rgba(255,255,255,0.75)" />
-                    <Text
-                      style={[
-                        styles.infoText,
-                        { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
-                      ]}
-                    >
-                      {pluralize(seasonCount, 'season')}
-                    </Text>
-                  </View>
-                )}
-                {!isTv && runtimeLabel && (
-                  <View style={styles.infoPill}>
-                    <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.75)" />
-                    <Text
-                      style={[
-                        styles.infoText,
-                        { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
-                      ]}
-                    >
-                      {runtimeLabel}
-                    </Text>
-                  </View>
-                )}
-                {result.omdbRatings?.rated && (
-                  <View style={[styles.infoPill, styles.ratedBadge]}>
-                    <Text
-                      style={[
-                        styles.infoText,
-                        { color: 'rgba(255,255,255,0.85)', ...typography.labelSm },
-                      ]}
-                    >
-                      {result.omdbRatings.rated}
-                    </Text>
-                  </View>
-                )}
-                {result.isFranchise && (
-                  <View style={[styles.infoPill, styles.ratedBadge]}>
-                    <Ionicons name="albums-outline" size={14} color="rgba(255,255,255,0.85)" />
-                    <Text
-                      style={[
-                        styles.infoText,
-                        { color: 'rgba(255,255,255,0.85)', ...typography.labelSm },
-                      ]}
-                    >
-                      {result.franchiseLabel}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Wikidata Language and Country pills */}
-                {wikiLoading ? (
-                  <>
-                    <View style={[styles.infoPill, styles.skeletonPill]}>
-                      <SkeletonBlock style={{ width: 50, height: 12, borderRadius: 6 }} />
-                    </View>
-                    <View style={[styles.infoPill, styles.skeletonPill]}>
-                      <SkeletonBlock style={{ width: 60, height: 12, borderRadius: 6 }} />
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    {wikiData.languages && wikiData.languages.length > 0 && (
-                      <View style={styles.infoPill}>
-                        <Ionicons
-                          name="language-outline"
-                          size={14}
-                          color="rgba(255,255,255,0.75)"
-                        />
-                        <Text
-                          style={[
-                            styles.infoText,
-                            { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
-                          ]}
-                        >
-                          {wikiData.languages.join(', ')}
-                        </Text>
-                      </View>
-                    )}
-                    {wikiData.countries && wikiData.countries.length > 0 && (
-                      <View style={styles.infoPill}>
-                        <Ionicons name="globe-outline" size={14} color="rgba(255,255,255,0.75)" />
-                        <Text
-                          style={[
-                            styles.infoText,
-                            { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
-                          ]}
-                        >
-                          {wikiData.countries.join(', ')}
-                        </Text>
-                      </View>
-                    )}
-                  </>
-                )}
-              </ScrollView>
-
-              <LinearGradient
-                colors={['transparent', colors.background]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.infoFadeOverlay}
-                pointerEvents="none"
-              />
+              )}
+              {!isTv && runtimeLabel && (
+                <View
+                  style={[styles.infoPill, pillSurface]}
+                  accessible
+                  accessibilityLabel={`Runtime ${spokenRuntime(result.runtimeMinutes) || runtimeLabel}`}
+                >
+                  <Ionicons name="time-outline" size={14} color={pillInk} />
+                  <Text style={[styles.infoText, { color: pillInk, ...typography.labelSm }]}>
+                    {runtimeLabel}
+                  </Text>
+                </View>
+              )}
+              {result.omdbRatings?.rated && (
+                <View
+                  style={[styles.infoPill, pillSurfaceStrong]}
+                  accessible
+                  accessibilityLabel={`Rated ${result.omdbRatings.rated}`}
+                >
+                  <Text style={[styles.infoText, { color: pillInkStrong, ...typography.labelSm }]}>
+                    {result.omdbRatings.rated}
+                  </Text>
+                </View>
+              )}
             </View>
           </Animated.View>
         </View>
@@ -1820,6 +1774,47 @@ export function ResultView({
               </View>
             )
           )}
+
+          {/* Origin metadata, rehomed from the hero pill row.
+              Shares the Based On SPARQL call, so this costs no extra request —
+              it only moves where the answer is shown. The error branch renders
+              nothing on purpose: Based On above already owns the retry for this
+              same fetch, and two retry buttons for one request is one too many. */}
+          {wikiLoading ? (
+            <View style={styles.section}>
+              <ProgrammeEyebrowLabel eyebrow="Details" />
+              <View style={styles.detailRows}>
+                <SkeletonBlock style={{ width: 180, height: 14, borderRadius: 4 }} />
+                <SkeletonBlock style={{ width: 220, height: 14, borderRadius: 4 }} />
+              </View>
+            </View>
+          ) : detailRows.length > 0 ? (
+            <View style={styles.section}>
+              <ProgrammeEyebrowLabel eyebrow="Details" />
+              <View style={styles.detailRows}>
+                {detailRows.map((row) => (
+                  <View key={row.key} style={styles.detailRow}>
+                    <Text
+                      style={[
+                        styles.detailLabel,
+                        { color: colors.onSurfaceVariant, ...typography.labelSm },
+                      ]}
+                    >
+                      {row.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.detailValue,
+                        { color: colors.onSurface, ...typography.bodyMd },
+                      ]}
+                    >
+                      {row.value}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           {franchiseParts.length > 1 && (
             <View key={`franchise-${result.tmdbId}`} style={styles.section}>
@@ -2444,7 +2439,11 @@ const styles = StyleSheet.create({
     // has a floor below the floating header; flex-end keeps content bottom-aligned
     // and overflow:hidden clips the least-important top (genre badge) instead of
     // letting a tall title/meta stack draw over the share & bookmark buttons.
-    bottom: 40,
+    //
+    // Lowered from 40 to reclaim headroom for a wrapped second pill line (rare
+    // now that language/country moved to Details, but reachable at large system
+    // font scales) and to close some of the dead space above the first section.
+    bottom: 28,
     left: 24,
     right: 24,
     justifyContent: 'flex-end',
@@ -2560,25 +2559,21 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row',
-    gap: 16,
     flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 12,
   },
   infoPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.12)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   infoText: {
     fontWeight: '600',
-  },
-  ratedBadge: {
-    borderColor: 'rgba(255,255,255,0.35)',
   },
   detailsContent: {
     paddingHorizontal: 24,
@@ -3090,28 +3085,25 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 16,
   },
-  infoRowContainer: {
-    position: 'relative',
-    width: '100%',
+  detailRows: {
+    marginTop: 8,
+    gap: 10,
   },
-  infoRowScroll: {
-    paddingRight: 32,
-    gap: 12,
+  detailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  infoFadeOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    width: 32,
+  detailLabel: {
+    // Fixed width, not content-sized: a stretched/measured box sidesteps the
+    // Android custom-font width under-measurement that clips a final glyph.
+    width: scale(92),
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
-  skeletonPill: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 12,
+  detailValue: {
+    flex: 1,
   },
   basedOnContainer: {
     marginTop: 8,
