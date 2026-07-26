@@ -141,6 +141,31 @@ export function rankSimilarTitles(results, mediaType, options = {}) {
 }
 
 /**
+ * Apply the same two-tier vote floor to a studio catalogue.
+ *
+ * Shared with the rails deliberately: `fetchProductionCompanyCatalog` carried
+ * the identical `vote_average.desc` + tiny-vote-floor defect this module was
+ * written to cure, which is how Walt Disney Pictures came to open with "Radio
+ * Disney Music Awards" (9.6 from 7 votes). The caller has already ordered by
+ * popularity, so as with `rankSimilarTitles` the floor only removes — it never
+ * reorders.
+ *
+ * Unlike a rail there is no `size` cap: this feeds a full-page grid, and a
+ * studio with 40 well-supported titles should show all 40.
+ */
+export function rankCompanyCatalog(items, options = {}) {
+  const { minVotes = MIN_RAIL_VOTES } = options;
+  if (!Array.isArray(items)) return [];
+
+  const preferred = items.filter((item) => (item?.voteCount || 0) >= minVotes);
+  if (preferred.length >= MIN_RAIL_ITEMS) return preferred;
+
+  // Too few well-supported titles to fill a grid — a small studio, not a bug.
+  // Drop to the hard floor rather than show an almost-empty page.
+  return items.filter((item) => (item?.voteCount || 0) >= ABSOLUTE_MIN_RAIL_VOTES);
+}
+
+/**
  * Choose whose filmographies to pull, best signal first. Director carries the
  * strongest "if you liked this" signal, then top billing; writers and the
  * composer are the tail.

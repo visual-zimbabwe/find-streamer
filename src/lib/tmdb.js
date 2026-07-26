@@ -4,8 +4,10 @@ import { NON_ENGLISH_CODES } from './languagePresets';
 import { createAppError, isRetryableStatus, retryWithBackoff } from './errors';
 import { rankTrailerCandidates } from './trailerPicker';
 import {
+  ABSOLUTE_MIN_RAIL_VOTES,
   RAIL_SIZE,
   creditsForPerson,
+  rankCompanyCatalog,
   rankPeopleTitles,
   rankSimilarTitles,
   selectRailPeople,
@@ -557,12 +559,15 @@ async function getTitleMetadata(mediaType, tmdbId) {
     trailerType: trailer ? trailer.type : null,
     // The player walks these when YouTube rejects the first (age gate, geo-block, takedown).
     trailerCandidates,
+    // No `logo_path` filter: the tile leads with the company name, so a company
+    // without art still has something to render. Measured on 100 popular titles,
+    // filtering on the logo silently deleted 80 of 326 credits (24.5%).
     productionCompanies: (data.production_companies || [])
-      .filter((company) => company.logo_path)
+      .filter((company) => company.id && company.name)
       .map((company) => ({
         id: company.id,
         name: company.name,
-        logoUrl: `https://image.tmdb.org/t/p/w200${company.logo_path}`,
+        logoUrl: company.logo_path ? `https://image.tmdb.org/t/p/w200${company.logo_path}` : null,
       })),
   };
 }
@@ -1748,15 +1753,26 @@ export async function fetchPersonFilmography(personId, personName, role) {
 }
 
 /**
- * Movies and TV where the given company appears in production_companies,
- * merged and sorted by TMDb vote average (highest first).
+ * Movies and TV where the given company appears in production_companies.
+ *
+ * Ordered by popularity, not rating. A studio page should open with what the
+ * studio is *known for*; rating-sorting a catalogue is what put "Radio Disney
+ * Music Awards" (9.6 from 7 votes) at the top of Walt Disney Pictures and a
+ * 1991 stand-up set third on Universal Pictures. The vote floors are the same
+ * two-tier pair the recommendation rails already use — this function carried
+ * the identical `vote_average.desc` + `vote_count.gte: 5` defect that
+ * `rankSimilarTitles` was written to cure, in the file next door.
+ *
+ * `total` is TMDb's own count for the same query. The screen used to print the
+ * length of this page-1 slice as if it were the catalogue, which is how
+ * Columbia Pictures came to claim 22 titles against a real 1,544.
  */
 export async function fetchProductionCompanyCatalog(companyId, companyName, logoUrl) {
   const baseParams = {
     with_companies: companyId,
     language: 'en-US',
-    sort_by: 'vote_average.desc',
-    'vote_count.gte': 5,
+    sort_by: 'popularity.desc',
+    'vote_count.gte': ABSOLUTE_MIN_RAIL_VOTES,
     include_adult: false,
     page: 1,
   };
@@ -1781,6 +1797,10 @@ export async function fetchProductionCompanyCatalog(companyId, companyName, logo
         : null,
       ratingValue: vote || 0,
       rating: typeof vote === 'number' ? `${vote.toFixed(1)}/10` : 'N/A',
+      // Captured so the floors below can be applied at all — the old mapRow
+      // dropped both of these, the same gap the rails fix had to close first.
+      voteCount: item.vote_count || 0,
+      popularity: item.popularity || 0,
     };
   };
 
@@ -1788,13 +1808,16 @@ export async function fetchProductionCompanyCatalog(companyId, companyName, logo
   const shows = (tvData.results || []).map((item) => mapRow(item, 'tv'));
   const combined = [...movies, ...shows];
 
-  combined.sort((a, b) => (b.ratingValue || 0) - (a.ratingValue || 0));
+  combined.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+
+  const results = rankCompanyCatalog(combined);
 
   return {
     personName: companyName,
     role: 'company',
-    results: combined,
+    results,
     profileUrl: logoUrl || null,
+    total: (movieData.total_results || 0) + (tvData.total_results || 0),
   };
 }
 
