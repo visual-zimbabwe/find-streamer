@@ -87,14 +87,32 @@
  * @typedef {SearchResult & {
  *   query?: string,
  *   rows?: object[],
- *   similar?: object[],
- *   moreFromCastAndCrew?: object[],
  *   providerSummary?: object,
  *   serviceLogos?: ProviderLogoMap,
  *   providerAvailabilityConfidence?: string,
  *   omdbRatings?: OmdbRatings,
  *   imdbId?: string | null,
  * }} ResolvedDetailResult
+ */
+
+/**
+ * One card on a foot-of-page rail. `via*` fields are present only on the
+ * "More From Cast & Crew" rail, where they carry the reason the title is being
+ * shown — the old OR-joined discover query could not report it.
+ *
+ * @typedef {{
+ *   mediaType: 'movie' | 'tv',
+ *   tmdbId: number,
+ *   title: string,
+ *   year: string,
+ *   posterUrl: string,
+ *   ratingValue: number,
+ *   voteCount: number,
+ *   rating: string,
+ *   viaPersonId?: number,
+ *   viaPersonName?: string,
+ *   viaRole?: string,
+ * }} RailItem
  */
 
 /**

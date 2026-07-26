@@ -39,7 +39,9 @@ import { WhereToWatchSection } from './WhereToWatchSection';
 import { SeasonDetailSheetContent } from './SeasonDetailSheet';
 import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { PersonCard } from './PersonCard';
-import { searchPersonByName } from '../lib/tmdb';
+import { TitleRailCard } from './TitleRailCard';
+import { fetchTitleRails, searchPersonByName } from '../lib/tmdb';
+import { buildTitleDetailRows, spokenRuntime } from '../lib/titleMeta';
 import {
   rottenTomatoesEmoji,
   rottenTomatoesFresh,
@@ -450,6 +452,14 @@ export function ResultView({
   const [wikiError, setWikiError] = useState(false);
   const [wikiRetryToken, setWikiRetryToken] = useState(0);
 
+  // ── Foot-of-page rails ───────────────────────────────────────────────────
+  // Fetched after first paint rather than inside `resolveMatch`: they are the
+  // last two sections of the scroll and used to hold up the availability answer.
+  const [rails, setRails] = useState({ similar: [], fromPeople: [] });
+  const [railsLoading, setRailsLoading] = useState(false);
+  const [railsError, setRailsError] = useState(false);
+  const [railsRetryToken, setRailsRetryToken] = useState(0);
+
   // ── Dynamic poster palette ───────────────────────────────────────────────
   const { palette } = usePosterTheme(result?.posterUrl);
   // Merge poster palette over base theme; fall back gracefully
@@ -479,6 +489,9 @@ export function ResultView({
     setWikiData({ languages: [], countries: [], basedOn: null, soundtracks: [], awards: [] });
     setWikiLoading(false);
     setWikiError(false);
+    setRails({ similar: [], fromPeople: [] });
+    setRailsLoading(false);
+    setRailsError(false);
     // Unmounting the capture host is enough: on the next open, ShareCard's own
     // image-set effect re-reports readiness for the new title.
     setShareDraft(null);
@@ -588,6 +601,41 @@ export function ResultView({
     isInWatchlist,
     wikiRetryToken,
   ]);
+
+  // ── Rails fetch (post-paint) ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!result?.tmdbId || !result?.mediaType) return;
+
+    let cancelled = false;
+    setRailsLoading(true);
+    setRailsError(false);
+
+    fetchTitleRails(result)
+      .then((data) => {
+        if (cancelled) return;
+        setRails(data);
+        setRailsLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRailsLoading(false);
+        setRailsError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // `result` itself is intentionally not a dependency — it is a fresh object
+    // on every render of the parent, and the rails only depend on the identity
+    // of the title and who is in it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result?.tmdbId, result?.mediaType, railsRetryToken]);
+
+  const handleRailsRetry = useCallback(() => {
+    Haptics.selectionAsync();
+    setRailsError(false);
+    setRailsRetryToken((token) => token + 1);
+  }, []);
 
   /**
    * The first paint renders the synopsis unclamped, so this layout pass sees the
@@ -1021,6 +1069,27 @@ export function ResultView({
     : null;
   const hasRating = hasValue(result.rating);
   const hasGenres = hasValue(result.genres);
+  /**
+   * Info-pill chrome is derived from the palette rather than hardcoded white.
+   * usePosterTheme can hand back a light background — buildPalette explicitly
+   * flips `onSurface` to dark ink when it does — and fixed white would go
+   * unreadable there. `onSurface` is always a 6-digit hex in every palette, so
+   * the `+ 'AA'` suffix idiom used for the hero scrims applies here too.
+   * The certification pill keeps a brighter border: it is the one chip in the
+   * row that's a classification rather than a plain fact, and both IMDb and
+   * Apple TV box it the same way.
+   */
+  const pillInk = colors.onSurface + 'BF'; // 75%
+  const pillInkStrong = colors.onSurface + 'D9'; // 85%
+  const pillSurface = {
+    backgroundColor: colors.onSurface + '1F', // 12%
+    borderColor: colors.onSurface + '14', // 8%
+  };
+  const pillSurfaceStrong = {
+    backgroundColor: colors.onSurface + '1F',
+    borderColor: colors.onSurface + '59', // 35%
+  };
+  const detailRows = buildTitleDetailRows(wikiData);
   /** Metacritic tile colored by its own thresholds (green/yellow/red), not fixed green. */
   const metaBadge = result.omdbRatings?.metascore
     ? metacriticBadge(result.omdbRatings.metascore)
@@ -1461,129 +1530,61 @@ export function ResultView({
               </TouchableOpacity>
             )}
 
-            {/* Info Row ScrollView with Gradient Fade */}
-            <View style={styles.infoRowContainer}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.infoRowScroll}
+            {/* Metadata pills.
+                This used to be a horizontal ScrollView behind a 32px fade. Measured
+                over 100 popular titles it overflowed on 86 of them (median 494dp of
+                content in a 336dp slot), which buried the two pills that cost a
+                network round-trip: language was fully visible on 19/100 titles and
+                country on 3/100. Those moved to the Details section below; what's
+                left is cheap, local, and fits one line on every title measured.
+                The row still wraps so a long certification or a large system font
+                spills onto a second line instead of off the edge. */}
+            <View style={styles.infoRow}>
+              <View
+                style={[styles.infoPill, pillSurface]}
+                accessible
+                accessibilityLabel={`${isTv ? 'First aired' : 'Released'} ${result.year}`}
               >
-                <View style={styles.infoPill}>
-                  <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.75)" />
-                  <Text
-                    style={[
-                      styles.infoText,
-                      { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
-                    ]}
-                  >
-                    {result.year}
+                <Ionicons name="calendar-outline" size={14} color={pillInk} />
+                <Text style={[styles.infoText, { color: pillInk, ...typography.labelSm }]}>
+                  {result.year}
+                </Text>
+              </View>
+              {isTv && seasonCount > 0 && (
+                <View
+                  style={[styles.infoPill, pillSurface]}
+                  accessible
+                  accessibilityLabel={pluralize(seasonCount, 'season')}
+                >
+                  <Ionicons name="tv-outline" size={14} color={pillInk} />
+                  <Text style={[styles.infoText, { color: pillInk, ...typography.labelSm }]}>
+                    {pluralize(seasonCount, 'season')}
                   </Text>
                 </View>
-                {isTv && seasonCount > 0 && (
-                  <View style={styles.infoPill}>
-                    <Ionicons name="tv-outline" size={14} color="rgba(255,255,255,0.75)" />
-                    <Text
-                      style={[
-                        styles.infoText,
-                        { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
-                      ]}
-                    >
-                      {pluralize(seasonCount, 'season')}
-                    </Text>
-                  </View>
-                )}
-                {!isTv && runtimeLabel && (
-                  <View style={styles.infoPill}>
-                    <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.75)" />
-                    <Text
-                      style={[
-                        styles.infoText,
-                        { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
-                      ]}
-                    >
-                      {runtimeLabel}
-                    </Text>
-                  </View>
-                )}
-                {result.omdbRatings?.rated && (
-                  <View style={[styles.infoPill, styles.ratedBadge]}>
-                    <Text
-                      style={[
-                        styles.infoText,
-                        { color: 'rgba(255,255,255,0.85)', ...typography.labelSm },
-                      ]}
-                    >
-                      {result.omdbRatings.rated}
-                    </Text>
-                  </View>
-                )}
-                {result.isFranchise && (
-                  <View style={[styles.infoPill, styles.ratedBadge]}>
-                    <Ionicons name="albums-outline" size={14} color="rgba(255,255,255,0.85)" />
-                    <Text
-                      style={[
-                        styles.infoText,
-                        { color: 'rgba(255,255,255,0.85)', ...typography.labelSm },
-                      ]}
-                    >
-                      {result.franchiseLabel}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Wikidata Language and Country pills */}
-                {wikiLoading ? (
-                  <>
-                    <View style={[styles.infoPill, styles.skeletonPill]}>
-                      <SkeletonBlock style={{ width: 50, height: 12, borderRadius: 6 }} />
-                    </View>
-                    <View style={[styles.infoPill, styles.skeletonPill]}>
-                      <SkeletonBlock style={{ width: 60, height: 12, borderRadius: 6 }} />
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    {wikiData.languages && wikiData.languages.length > 0 && (
-                      <View style={styles.infoPill}>
-                        <Ionicons
-                          name="language-outline"
-                          size={14}
-                          color="rgba(255,255,255,0.75)"
-                        />
-                        <Text
-                          style={[
-                            styles.infoText,
-                            { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
-                          ]}
-                        >
-                          {wikiData.languages.join(', ')}
-                        </Text>
-                      </View>
-                    )}
-                    {wikiData.countries && wikiData.countries.length > 0 && (
-                      <View style={styles.infoPill}>
-                        <Ionicons name="globe-outline" size={14} color="rgba(255,255,255,0.75)" />
-                        <Text
-                          style={[
-                            styles.infoText,
-                            { color: 'rgba(255,255,255,0.75)', ...typography.labelSm },
-                          ]}
-                        >
-                          {wikiData.countries.join(', ')}
-                        </Text>
-                      </View>
-                    )}
-                  </>
-                )}
-              </ScrollView>
-
-              <LinearGradient
-                colors={['transparent', colors.background]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.infoFadeOverlay}
-                pointerEvents="none"
-              />
+              )}
+              {!isTv && runtimeLabel && (
+                <View
+                  style={[styles.infoPill, pillSurface]}
+                  accessible
+                  accessibilityLabel={`Runtime ${spokenRuntime(result.runtimeMinutes) || runtimeLabel}`}
+                >
+                  <Ionicons name="time-outline" size={14} color={pillInk} />
+                  <Text style={[styles.infoText, { color: pillInk, ...typography.labelSm }]}>
+                    {runtimeLabel}
+                  </Text>
+                </View>
+              )}
+              {result.omdbRatings?.rated && (
+                <View
+                  style={[styles.infoPill, pillSurfaceStrong]}
+                  accessible
+                  accessibilityLabel={`Rated ${result.omdbRatings.rated}`}
+                >
+                  <Text style={[styles.infoText, { color: pillInkStrong, ...typography.labelSm }]}>
+                    {result.omdbRatings.rated}
+                  </Text>
+                </View>
+              )}
             </View>
           </Animated.View>
         </View>
@@ -1773,6 +1774,47 @@ export function ResultView({
               </View>
             )
           )}
+
+          {/* Origin metadata, rehomed from the hero pill row.
+              Shares the Based On SPARQL call, so this costs no extra request —
+              it only moves where the answer is shown. The error branch renders
+              nothing on purpose: Based On above already owns the retry for this
+              same fetch, and two retry buttons for one request is one too many. */}
+          {wikiLoading ? (
+            <View style={styles.section}>
+              <ProgrammeEyebrowLabel eyebrow="Details" />
+              <View style={styles.detailRows}>
+                <SkeletonBlock style={{ width: 180, height: 14, borderRadius: 4 }} />
+                <SkeletonBlock style={{ width: 220, height: 14, borderRadius: 4 }} />
+              </View>
+            </View>
+          ) : detailRows.length > 0 ? (
+            <View style={styles.section}>
+              <ProgrammeEyebrowLabel eyebrow="Details" />
+              <View style={styles.detailRows}>
+                {detailRows.map((row) => (
+                  <View key={row.key} style={styles.detailRow}>
+                    <Text
+                      style={[
+                        styles.detailLabel,
+                        { color: colors.onSurfaceVariant, ...typography.labelSm },
+                      ]}
+                    >
+                      {row.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.detailValue,
+                        { color: colors.onSurface, ...typography.bodyMd },
+                      ]}
+                    >
+                      {row.value}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           {franchiseParts.length > 1 && (
             <View key={`franchise-${result.tmdbId}`} style={styles.section}>
@@ -2180,98 +2222,89 @@ export function ResultView({
             </View>
           )}
 
-          {/* More From This Cast & Crew */}
-          {result.moreFromCastAndCrew && result.moreFromCastAndCrew.length > 0 && (
-            <View style={styles.section}>
-              <ProgrammeEyebrowLabel eyebrow="More From Cast & Crew" />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.similarScroll}
-              >
-                {result.moreFromCastAndCrew.map((item) => (
-                  <TouchableOpacity
-                    key={item.tmdbId}
-                    style={styles.similarItem}
-                    onPress={() => onSelectSimilar(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open details for ${item.title}`}
-                  >
-                    <View style={[styles.similarPoster, { borderRadius: radii.md }]}>
-                      <MediaArtwork
-                        uri={item.posterUrl}
-                        style={styles.poster}
-                        accessibilityLabel={`${item.title} poster`}
-                        title={item.title}
-                        instant
-                      />
-                      {item.omdbRatings?.imdbRating && (
-                        <View style={[styles.similarRating, { backgroundColor: '#F5C518' }]}>
-                          <Text style={{ color: '#000000', fontSize: 10, fontWeight: '800' }}>
-                            IMDb {ratingForCard(item.omdbRatings.imdbRating)}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text
-                      style={[
-                        styles.similarTitle,
-                        { color: colors.onSurface, ...typography.bodyMd },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.title}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {/* More Like This */}
-          {result.similar && result.similar.length > 0 && (
+          {/* ─── Foot-of-page rails ───────────────────────────────────────
+              Both arrive together from `fetchTitleRails` after first paint.
+              A single retry covers the pair — they fail as one request. */}
+          {railsError ? (
             <View style={styles.section}>
               <ProgrammeEyebrowLabel eyebrow="More Like This" />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.similarScroll}
+              <TouchableOpacity
+                onPress={handleRailsRetry}
+                style={[styles.basedOnRetry, { borderColor: colors.outlineVariant }]}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading recommendations"
               >
-                {result.similar.map((item) => (
-                  <TouchableOpacity
-                    key={item.tmdbId}
-                    style={styles.similarItem}
-                    onPress={() => onSelectSimilar(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open details for ${item.title}`}
-                  >
-                    <View style={[styles.similarPoster, { borderRadius: radii.md }]}>
-                      <MediaArtwork
-                        uri={item.posterUrl}
-                        style={styles.poster}
-                        accessibilityLabel={`${item.title} poster`}
-                        title={item.title}
-                        instant
-                      />
-                      <View style={styles.similarRating}>
-                        <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>
-                          {ratingForCard(item.rating)}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text
-                      style={[
-                        styles.similarTitle,
-                        { color: colors.onSurface, ...typography.bodyMd },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.title}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+                <Ionicons name="refresh-outline" size={16} color={colors.onSurfaceVariant} />
+                <Text
+                  style={[
+                    styles.basedOnRetryText,
+                    { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                  ]}
+                >
+                  Couldn&apos;t load recommendations. Tap to retry.
+                </Text>
+              </TouchableOpacity>
             </View>
+          ) : (
+            <>
+              {(railsLoading || rails.similar.length > 0) && (
+                <View style={styles.section}>
+                  <ProgrammeEyebrowLabel eyebrow="More Like This" />
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.similarScroll}
+                  >
+                    {railsLoading && rails.similar.length === 0
+                      ? [0, 1, 2, 3].map((index) => (
+                          <View key={`similar-skeleton-${index}`} style={styles.railSkeletonItem}>
+                            <SkeletonBlock style={styles.railSkeletonPoster} />
+                            <SkeletonBlock style={{ width: 96, height: 12, borderRadius: 6 }} />
+                          </View>
+                        ))
+                      : rails.similar.map((item) => (
+                          <TitleRailCard
+                            key={`${item.mediaType}-${item.tmdbId}`}
+                            item={item}
+                            colors={colors}
+                            typography={typography}
+                            radii={radii}
+                            onPress={() => onSelectSimilar(item)}
+                          />
+                        ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {(railsLoading || rails.fromPeople.length > 0) && (
+                <View style={styles.section}>
+                  <ProgrammeEyebrowLabel eyebrow="More From Cast & Crew" />
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.similarScroll}
+                  >
+                    {railsLoading && rails.fromPeople.length === 0
+                      ? [0, 1, 2, 3].map((index) => (
+                          <View key={`people-skeleton-${index}`} style={styles.railSkeletonItem}>
+                            <SkeletonBlock style={styles.railSkeletonPoster} />
+                            <SkeletonBlock style={{ width: 96, height: 12, borderRadius: 6 }} />
+                          </View>
+                        ))
+                      : rails.fromPeople.map((item) => (
+                          <TitleRailCard
+                            key={`${item.mediaType}-${item.tmdbId}`}
+                            item={item}
+                            colors={colors}
+                            typography={typography}
+                            radii={radii}
+                            onPress={() => onSelectSimilar(item)}
+                          />
+                        ))}
+                  </ScrollView>
+                </View>
+              )}
+            </>
           )}
         </View>
       </Animated.ScrollView>
@@ -2406,7 +2439,11 @@ const styles = StyleSheet.create({
     // has a floor below the floating header; flex-end keeps content bottom-aligned
     // and overflow:hidden clips the least-important top (genre badge) instead of
     // letting a tall title/meta stack draw over the share & bookmark buttons.
-    bottom: 40,
+    //
+    // Lowered from 40 to reclaim headroom for a wrapped second pill line (rare
+    // now that language/country moved to Details, but reachable at large system
+    // font scales) and to close some of the dead space above the first section.
+    bottom: 28,
     left: 24,
     right: 24,
     justifyContent: 'flex-end',
@@ -2522,25 +2559,21 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row',
-    gap: 16,
     flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 12,
   },
   infoPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.12)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   infoText: {
     fontWeight: '600',
-  },
-  ratedBadge: {
-    borderColor: 'rgba(255,255,255,0.35)',
   },
   detailsContent: {
     paddingHorizontal: 24,
@@ -2842,9 +2875,6 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingRight: 40,
   },
-  similarItem: {
-    width: scale(120),
-  },
   similarPoster: {
     width: scale(120),
     aspectRatio: 2 / 3,
@@ -2856,17 +2886,17 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  similarRating: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
   similarTitle: {
     fontWeight: '700',
+  },
+  railSkeletonItem: {
+    gap: 8,
+    width: scale(120),
+  },
+  railSkeletonPoster: {
+    aspectRatio: 2 / 3,
+    borderRadius: 8,
+    width: scale(120),
   },
   ratingsRow: {
     flexDirection: 'row',
@@ -3055,28 +3085,25 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 16,
   },
-  infoRowContainer: {
-    position: 'relative',
-    width: '100%',
+  detailRows: {
+    marginTop: 8,
+    gap: 10,
   },
-  infoRowScroll: {
-    paddingRight: 32,
-    gap: 12,
+  detailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  infoFadeOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    width: 32,
+  detailLabel: {
+    // Fixed width, not content-sized: a stretched/measured box sidesteps the
+    // Android custom-font width under-measurement that clips a final glyph.
+    width: scale(92),
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
-  skeletonPill: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 12,
+  detailValue: {
+    flex: 1,
   },
   basedOnContainer: {
     marginTop: 8,
