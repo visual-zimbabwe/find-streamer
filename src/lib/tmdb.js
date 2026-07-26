@@ -3,6 +3,7 @@ import { fetchOmdbRatings } from './omdb';
 import { NON_ENGLISH_CODES } from './languagePresets';
 import { createAppError, isRetryableStatus, retryWithBackoff } from './errors';
 import { rankTrailerCandidates } from './trailerPicker';
+import { hasAdaptationKeyword, hasSourceMaterialCredit } from './basedOn';
 import {
   ABSOLUTE_MIN_RAIL_VOTES,
   RAIL_SIZE,
@@ -437,7 +438,10 @@ async function getTitleMetadata(mediaType, tmdbId) {
   const [data, externalIds] = await Promise.all([
     tmdbGet(`/${mediaType}/${tmdbId}`, {
       language: 'en-US',
-      append_to_response: 'videos,images',
+      // `keywords` costs no extra round trip and answers "is this an adaptation?"
+      // at first paint — the Based On section needs that before Wikidata replies
+      // so it doesn't reserve space on every original screenplay and then vanish.
+      append_to_response: 'videos,images,keywords',
       // `null` = language-neutral logos (no lettering baked in); `en` = English title treatments.
       include_image_language: 'en,null',
       // Same treatment for videos, which `language=en-US` alone filters down hard
@@ -552,6 +556,10 @@ async function getTitleMetadata(mediaType, tmdbId) {
             }))
         : [],
     seasons,
+    // Movies nest the array under `keywords`, TV under `results` — the helper
+    // takes either. Half of the Based On section's pre-signal; the credits call
+    // supplies the other, stronger half and `resolveMatch` ORs the two.
+    hasAdaptationKeyword: hasAdaptationKeyword(data.keywords),
     titleLogo: pickTitleLogo(data.images?.logos),
     heroBackdropUrl: pickHeroBackdrop(data.images?.backdrops),
     trailer: trailer ? trailer.url : 'N/A',
@@ -672,6 +680,10 @@ async function getCredits(mediaType, tmdbId) {
   const topCast = fullCast.slice(0, 5);
 
   return {
+    // TMDb credits a source author with the source form as the job title
+    // ("Novel", "Graphic Novel", "Book"). The most reliable free answer to
+    // "is this an adaptation?" before Wikidata is asked.
+    hasSourceCredit: hasSourceMaterialCredit(crew),
     director: director ? director.name : 'N/A',
     directorId: director ? director.id : null,
     directorPersons: directors
@@ -1552,6 +1564,10 @@ export async function resolveMatch(query, match) {
       ]),
     ),
     providerAvailabilityConfidence: availability.confidence || 'show',
+    // Either signal is enough to reserve space for the Based On section before
+    // Wikidata replies. Neither is a promise there is a P144 statement to show —
+    // when the fetch comes back empty the section still renders nothing.
+    isAdaptation: Boolean(metadata.hasAdaptationKeyword || credits.hasSourceCredit),
     omdbRatings,
   };
 }

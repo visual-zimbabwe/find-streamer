@@ -65,6 +65,17 @@ import {
   spokenAwardCounts,
 } from '../lib/wikidataAwards';
 import { AwardsSheetContent } from './AwardsSheet';
+import {
+  BASED_ON_CARD_CAP,
+  buildSourceMetaLine,
+  capitalize,
+  overflowSourceCount,
+  parseBasedOnFromBindings,
+  pickSourceType,
+  resolveBasedOnCovers,
+  sourceSectionEyebrow,
+} from '../lib/basedOn';
+import { BasedOnSheetContent, SourceCoverImage } from './BasedOnSheet';
 import { scale, verticalScale, screenHeight, screenWidth, scaleFont } from '../utils/responsive';
 import { useBottomSheet } from './StackBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -267,9 +278,6 @@ function mergeCrewByPerson(people) {
   }));
 }
 
-const isEntityUri = (val) =>
-  typeof val === 'string' && val.startsWith('http://www.wikidata.org/entity/');
-
 function wikidataIdFromUri(uri) {
   if (!uri || typeof uri !== 'string') return null;
   const match = uri.match(/\/entity\/(Q\d+)$/i);
@@ -298,15 +306,36 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
 
   const unionClause = clauses.map((c) => `{ ${c} }`).join(' UNION ');
 
+  // P144 (based on) and P941 (inspired by) are fetched as separate variables
+  // rather than one alternation: the two are different strengths of claim and the
+  // card labels them differently. Each source work also pulls its illustrator
+  // (P110 — a graphic-novel credit that names only the writer is half a credit),
+  // its publication date and its cover image, plus one hop through its own P144
+  // so a film credited to a screenplay can show the novel behind the screenplay.
   const sparql = `
-    SELECT DISTINCT ?item ?languageLabel ?countryLabel ?basedOn ?basedOnLabel ?authorLabel ?typeLabel ?soundtrack ?soundtrackLabel ?spotifyAlbumId ?releaseDate ?cover WHERE {
+    SELECT DISTINCT ?item ?languageLabel ?countryLabel
+      ?basedOn ?basedOnLabel ?basedOnAuthorLabel ?basedOnIllustratorLabel ?basedOnTypeLabel ?basedOnDate ?basedOnImage ?basedOnRoot ?basedOnRootLabel
+      ?inspiredBy ?inspiredByLabel ?inspiredByAuthorLabel ?inspiredByIllustratorLabel ?inspiredByTypeLabel ?inspiredByDate ?inspiredByImage
+      ?soundtrack ?soundtrackLabel ?spotifyAlbumId ?releaseDate ?cover WHERE {
       ${unionClause} .
       OPTIONAL { ?item wdt:P364 ?language . }
       OPTIONAL { ?item wdt:P495 ?country . }
       OPTIONAL {
         ?item wdt:P144 ?basedOn .
-        OPTIONAL { ?basedOn wdt:P50 ?author . }
-        OPTIONAL { ?basedOn wdt:P31 ?type . }
+        OPTIONAL { ?basedOn wdt:P50 ?basedOnAuthor . }
+        OPTIONAL { ?basedOn wdt:P110 ?basedOnIllustrator . }
+        OPTIONAL { ?basedOn wdt:P31 ?basedOnType . }
+        OPTIONAL { ?basedOn wdt:P577 ?basedOnDate . }
+        OPTIONAL { ?basedOn wdt:P18 ?basedOnImage . }
+        OPTIONAL { ?basedOn wdt:P144 ?basedOnRoot . }
+      }
+      OPTIONAL {
+        ?item wdt:P941 ?inspiredBy .
+        OPTIONAL { ?inspiredBy wdt:P50 ?inspiredByAuthor . }
+        OPTIONAL { ?inspiredBy wdt:P110 ?inspiredByIllustrator . }
+        OPTIONAL { ?inspiredBy wdt:P31 ?inspiredByType . }
+        OPTIONAL { ?inspiredBy wdt:P577 ?inspiredByDate . }
+        OPTIONAL { ?inspiredBy wdt:P18 ?inspiredByImage . }
       }
       OPTIONAL {
         ?item wdt:P406 ?soundtrack .
@@ -340,7 +369,6 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
 
   const languagesSet = new Set();
   const countriesSet = new Set();
-  const basedOnMap = new Map();
 
   // Every label here runs through labelOrNull: the service answers with a bare
   // QID when it can't resolve one, and these paths all shipped guards that only
@@ -354,37 +382,12 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
     if (country) {
       countriesSet.add(country);
     }
-    const basedOnUri = b.basedOn?.value;
-    const name = labelOrNull(b.basedOnLabel?.value);
-    // Unlike a soundtrack there's nothing playable behind an unnamed source
-    // work, so a nameless card is dropped rather than labelled.
-    if (isEntityUri(basedOnUri) && name) {
-      const id = wikidataIdFromUri(basedOnUri);
-      const author = labelOrNull(b.authorLabel?.value);
-      const type = labelOrNull(b.typeLabel?.value);
-
-      if (!basedOnMap.has(basedOnUri)) {
-        basedOnMap.set(basedOnUri, { id, name, authors: new Set(), types: new Set() });
-      }
-      if (author) {
-        basedOnMap.get(basedOnUri).authors.add(author);
-      }
-      if (type) {
-        basedOnMap.get(basedOnUri).types.add(type);
-      }
-    }
   }
 
-  const basedOn = Array.from(basedOnMap.values()).map((data) => ({
-    id: data.id,
-    name: data.name,
-    authors: Array.from(data.authors),
-    types: Array.from(data.types),
-  }));
-
-  const soundtracks = await resolveSoundtrackCovers(
-    parseSoundtracksFromBindings(bindings, wikidataIdFromUri),
-  );
+  const [basedOn, soundtracks] = await Promise.all([
+    resolveBasedOnCovers(parseBasedOnFromBindings(bindings)),
+    resolveSoundtrackCovers(parseSoundtracksFromBindings(bindings, wikidataIdFromUri)),
+  ]);
 
   return {
     languages: Array.from(languagesSet),
@@ -395,25 +398,6 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
   };
 }
 
-const GENERIC_TYPES = new Set([
-  'literary work',
-  'written work',
-  'creative work',
-  'work',
-  'media franchise',
-  'intellectual property',
-]);
-
-function getSpecificType(types) {
-  if (!types || types.length === 0) return null;
-  const specific = types.find((t) => !GENERIC_TYPES.has(t.toLowerCase()));
-  return specific || types[0];
-}
-
-function capitalize(str) {
-  if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
 
 /**
  * A critic score with its scale kept visible ("7.6" + a dimmed "/10"). Four
@@ -705,11 +689,54 @@ export function ResultView({
     [synopsisMeasured],
   );
 
-  const handleBasedOnPress = useCallback((work) => {
+  const handleOpenWikidataWork = useCallback((work) => {
     if (!work?.id) return;
-    Haptics.selectionAsync();
     Linking.openURL(`https://www.wikidata.org/wiki/${work.id}`);
   }, []);
+
+  /**
+   * Tapping a source work used to leave the app for `wikidata.org/wiki/Q…`, a
+   * property table meant for data editors. It opens a peek sheet now — the same
+   * interstitial the cast rail uses — where the cover, byline and year we
+   * already fetched are shown, plus the other adaptations of the same source.
+   * Wikidata is still one tap away at the bottom of the sheet.
+   */
+  const handleBasedOnPress = useCallback(
+    (work) => {
+      if (!work?.id) return;
+      Haptics.selectionAsync();
+      let sheetId;
+      const content = (
+        <BasedOnSheetContent
+          work={work}
+          currentTitle={{ tmdbId: result?.tmdbId, mediaType: result?.mediaType }}
+          onOpenWikidata={handleOpenWikidataWork}
+          onSelectTitle={onSelectSimilar}
+          onDismiss={() => dismissSheet(sheetId)}
+        />
+      );
+      sheetId = showSheet(content, {
+        eyebrow: work.relation === 'inspiredBy' ? 'INSPIRED BY' : 'BASED ON',
+        title: work.name,
+        // Large: measured on Watchmen, `medium` showed 2 of its 4 sibling
+        // adaptations with the Wikidata footer sitting directly underneath, which
+        // reads as the end of the list. Dead space on a source with no siblings
+        // is the cheaper failure.
+        size: 'large',
+        scrollable: false,
+        showCloseButton: true,
+        dismissOnBackdrop: true,
+      });
+    },
+    [
+      result?.tmdbId,
+      result?.mediaType,
+      handleOpenWikidataWork,
+      onSelectSimilar,
+      showSheet,
+      dismissSheet,
+    ],
+  );
 
   /**
    * The one-line answer, parsed from a string OMDb already gave us. It used to be
@@ -746,6 +773,33 @@ export function ResultView({
     Boolean(awardTotalsLine) ||
     displayAwards.length > 0 ||
     (wikiLoading && Boolean(result?.omdbRatings?.awards));
+
+  /**
+   * Same gate, same reason, for source material. `isAdaptation` comes from TMDb's
+   * own "based on …" keywords, which ship with the detail payload — so whether to
+   * reserve the space is knowable at first paint instead of after Wikidata
+   * answers. Without it every original screenplay drew an eyebrow and a skeleton
+   * card at scroll position three and then deleted the section, dragging the page
+   * up under the user's thumb.
+   *
+   * The keyword grants permission to reserve space, not a promise of content: a
+   * title tagged "based on true story" usually has no Wikidata P144, and when the
+   * fetch comes back empty the section still renders nothing at all.
+   */
+  const basedOnWorks = useMemo(
+    () => (Array.isArray(wikiData.basedOn) ? wikiData.basedOn : []),
+    [wikiData.basedOn],
+  );
+  const visibleBasedOnWorks = useMemo(
+    () => basedOnWorks.slice(0, BASED_ON_CARD_CAP),
+    [basedOnWorks],
+  );
+  const hiddenBasedOnCount = overflowSourceCount(basedOnWorks);
+  const basedOnEyebrow = sourceSectionEyebrow(basedOnWorks);
+  /** Only a mixed section needs each card to declare which claim it is. */
+  const basedOnShowsRelation = basedOnEyebrow === 'Based On';
+  const isAdaptation = result?.isAdaptation === true;
+  const showBasedOnSection = basedOnWorks.length > 0 || (wikiLoading && isAdaptation);
 
   const awardsImdbId = result?.imdbId || null;
 
@@ -1789,32 +1843,166 @@ export function ResultView({
             />
           )}
 
-          {/* Based On Section */}
+          {/* Based On — only drawn once we know there is something to draw.
+              The eyebrow follows the claim: P941 ("inspired by") is a weaker
+              statement than P144 and saying "Based On" over a rail of them
+              overstates what Wikidata actually asserts. */}
+          {showBasedOnSection && (
+            <View style={styles.section}>
+              <ProgrammeEyebrowLabel eyebrow={basedOnEyebrow} />
+              <View style={styles.basedOnContainer}>
+                {basedOnWorks.length === 0
+                  ? [
+                      // Shaped like the card it becomes — cover, title, byline —
+                      // so the swap when Wikidata answers doesn't resize the row.
+                      <View
+                        key="based-on-skeleton"
+                        style={[
+                          styles.basedOnCard,
+                          {
+                            backgroundColor: colors.surfaceContainer,
+                            borderColor: colors.outlineVariant,
+                          },
+                        ]}
+                      >
+                        <SkeletonBlock style={styles.basedOnCoverSkeleton} />
+                        <View style={styles.basedOnBody}>
+                          <SkeletonBlock style={{ width: '64%', height: 14, borderRadius: 4 }} />
+                          <SkeletonBlock
+                            style={{ width: '40%', height: 11, borderRadius: 4, marginTop: 6 }}
+                          />
+                        </View>
+                      </View>,
+                    ]
+                  : visibleBasedOnWorks.map((work, idx) => {
+                      const specificType = pickSourceType(work.types);
+                      const typeLabel = specificType ? capitalize(specificType) : '';
+                      const metaLine = buildSourceMetaLine(work, {
+                        showRelation: basedOnShowsRelation,
+                      });
+                      // Title and byline get their own clamps: they used to share
+                      // one two-line Text, so a long title ate the attribution.
+                      const cardContent = (
+                        <>
+                          <SourceCoverImage
+                            uri={work.coverUrl}
+                            style={[
+                              styles.basedOnCover,
+                              { backgroundColor: colors.surfaceContainerHigh },
+                            ]}
+                            fallbackStyle={[
+                              styles.basedOnCover,
+                              styles.basedOnCoverFallback,
+                              { backgroundColor: GOLD_ACCENT + '18' },
+                            ]}
+                            iconColor={GOLD_ACCENT}
+                          />
+                          <View style={styles.basedOnBody}>
+                            <Text
+                              style={[
+                                styles.basedOnText,
+                                { color: colors.onSurface, ...typography.bodyMd },
+                              ]}
+                              numberOfLines={2}
+                            >
+                              {typeLabel ? (
+                                <Text style={{ color: GOLD_ACCENT, fontWeight: '700' }}>
+                                  {typeLabel}:{' '}
+                                </Text>
+                              ) : null}
+                              <Text style={{ fontWeight: 'bold' }}>{work.name}</Text>
+                            </Text>
+                            {metaLine ? (
+                              <Text
+                                style={[
+                                  styles.basedOnMeta,
+                                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {metaLine}
+                              </Text>
+                            ) : null}
+                          </View>
+                          {work.id ? (
+                            <Ionicons
+                              name="chevron-forward"
+                              size={16}
+                              color={colors.onSurfaceVariant}
+                            />
+                          ) : null}
+                        </>
+                      );
+                      const cardStyle = [
+                        styles.basedOnCard,
+                        {
+                          backgroundColor: colors.surfaceContainer,
+                          borderColor: colors.outlineVariant,
+                        },
+                      ];
+                      return work.id ? (
+                        <TouchableOpacity
+                          key={work.id}
+                          style={cardStyle}
+                          onPress={() => handleBasedOnPress(work)}
+                          activeOpacity={0.78}
+                          accessibilityRole="button"
+                          accessibilityLabel={[
+                            typeLabel || 'Source work',
+                            work.name,
+                            metaLine,
+                            'Opens details',
+                          ]
+                            .filter(Boolean)
+                            .join(', ')}
+                        >
+                          {cardContent}
+                        </TouchableOpacity>
+                      ) : (
+                        <View key={`based-on-${idx}`} style={cardStyle}>
+                          {cardContent}
+                        </View>
+                      );
+                    })}
+                {hiddenBasedOnCount > 0 ? (
+                  <Text
+                    style={[
+                      styles.basedOnOverflow,
+                      { color: colors.onSurfaceVariant, ...typography.labelSm },
+                    ]}
+                  >
+                    {`+${hiddenBasedOnCount} more`}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          )}
+
+          {/* Origin metadata, rehomed from the hero pill row.
+              Shares the Based On SPARQL call, so this costs no extra request —
+              it only moves where the answer is shown. It also owns the retry for
+              that whole request now: the retry used to live inside Based On,
+              which meant hiding that section on a non-adaptation would have
+              taken error recovery for languages, countries, soundtracks and
+              Wikidata awards down with it. The copy names the request, not the
+              books — a failed call costs all four, and most titles that see this
+              never had source material to lose in the first place. */}
           {wikiLoading ? (
             <View style={styles.section}>
-              <ProgrammeEyebrowLabel eyebrow="Based On" />
-              <View style={styles.basedOnContainer}>
-                <View
-                  style={[
-                    styles.basedOnCard,
-                    {
-                      backgroundColor: colors.surfaceContainer,
-                      borderColor: colors.outlineVariant,
-                    },
-                  ]}
-                >
-                  <SkeletonBlock style={{ width: 140, height: 16, borderRadius: 4 }} />
-                </View>
+              <ProgrammeEyebrowLabel eyebrow="Details" />
+              <View style={styles.detailRows}>
+                <SkeletonBlock style={{ width: 180, height: 14, borderRadius: 4 }} />
+                <SkeletonBlock style={{ width: 220, height: 14, borderRadius: 4 }} />
               </View>
             </View>
           ) : wikiError ? (
             <View style={styles.section}>
-              <ProgrammeEyebrowLabel eyebrow="Based On" />
+              <ProgrammeEyebrowLabel eyebrow="Details" />
               <TouchableOpacity
                 onPress={handleWikiRetry}
                 style={[styles.basedOnRetry, { borderColor: colors.outlineVariant }]}
                 accessibilityRole="button"
-                accessibilityLabel="Retry loading source material"
+                accessibilityLabel="Retry loading extra details"
               >
                 <Ionicons name="refresh-outline" size={16} color={colors.onSurfaceVariant} />
                 <Text
@@ -1823,86 +2011,9 @@ export function ResultView({
                     { color: colors.onSurfaceVariant, ...typography.bodyMd },
                   ]}
                 >
-                  Couldn&apos;t load source material. Tap to retry.
+                  Couldn&apos;t load extra details. Tap to retry.
                 </Text>
               </TouchableOpacity>
-            </View>
-          ) : (
-            wikiData.basedOn &&
-            wikiData.basedOn.length > 0 && (
-              <View style={styles.section}>
-                <ProgrammeEyebrowLabel eyebrow="Based On" />
-                <View style={styles.basedOnContainer}>
-                  {wikiData.basedOn.map((work, idx) => {
-                    const authorText =
-                      work.authors && work.authors.length > 0
-                        ? ` by ${work.authors.join(', ')}`
-                        : '';
-                    const specificType = getSpecificType(work.types);
-                    const typeLabel = specificType ? capitalize(specificType) : '';
-                    const cardContent = (
-                      <>
-                        <Text
-                          style={[
-                            styles.basedOnText,
-                            { color: colors.onSurface, ...typography.bodyMd },
-                          ]}
-                          numberOfLines={2}
-                        >
-                          {typeLabel ? (
-                            <Text style={{ color: GOLD_ACCENT, fontWeight: '700' }}>
-                              {typeLabel}:{' '}
-                            </Text>
-                          ) : null}
-                          <Text style={{ fontWeight: 'bold' }}>{work.name}</Text>
-                          {authorText}
-                        </Text>
-                        {work.id ? (
-                          <Ionicons name="open-outline" size={16} color={colors.onSurfaceVariant} />
-                        ) : null}
-                      </>
-                    );
-                    const cardStyle = [
-                      styles.basedOnCard,
-                      {
-                        backgroundColor: colors.surfaceContainer,
-                        borderColor: colors.outlineVariant,
-                      },
-                    ];
-                    return work.id ? (
-                      <TouchableOpacity
-                        key={work.id}
-                        style={cardStyle}
-                        onPress={() => handleBasedOnPress(work)}
-                        activeOpacity={0.78}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Open ${work.name} on Wikidata`}
-                      >
-                        {cardContent}
-                      </TouchableOpacity>
-                    ) : (
-                      <View key={`based-on-${idx}`} style={cardStyle}>
-                        {cardContent}
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            )
-          )}
-
-          {/* Origin metadata, rehomed from the hero pill row.
-              Shares the Based On SPARQL call, so this costs no extra request —
-              it only moves where the answer is shown. The error branch renders
-              nothing on purpose: Based On above already owns the retry for this
-              same fetch, and two retry buttons for one request is one too many. */}
-          {wikiLoading ? (
-            <View style={styles.section}>
-              <ProgrammeEyebrowLabel eyebrow="Details" />
-              <View style={styles.detailRows}>
-                <SkeletonBlock style={{ width: 180, height: 14, borderRadius: 4 }} />
-                <SkeletonBlock style={{ width: 220, height: 14, borderRadius: 4 }} />
-              </View>
             </View>
           ) : detailRows.length > 0 ? (
             <View style={styles.section}>
@@ -3319,9 +3430,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
   },
-  basedOnText: {
+  basedOnCover: {
+    borderRadius: 4,
+    height: 54,
+    width: 36,
+  },
+  basedOnCoverFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  basedOnCoverSkeleton: {
+    borderRadius: 4,
+    height: 54,
+    width: 36,
+  },
+  basedOnBody: {
     flex: 1,
+    minWidth: 0,
+  },
+  basedOnText: {
     lineHeight: 20,
+  },
+  basedOnMeta: {
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  basedOnOverflow: {
+    fontWeight: '700',
+    paddingLeft: 4,
+    paddingTop: 2,
   },
   basedOnRetry: {
     alignItems: 'center',
