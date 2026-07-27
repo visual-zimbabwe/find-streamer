@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTitleDetailRows, spokenRuntime } from '../src/lib/titleMeta.js';
+import { buildTitleDetailRows, spokenRuntime, stickyTitleFontSize } from '../src/lib/titleMeta.js';
 
 test('spokenRuntime says hours and minutes as words', () => {
   assert.equal(spokenRuntime(148), '2 hours 28 minutes');
@@ -64,4 +64,23 @@ test('buildTitleDetailRows returns nothing to render when there is nothing to sa
 test('buildTitleDetailRows renders country alone when language is missing', () => {
   const rows = buildTitleDetailRows({ countries: ['Ireland'] });
   assert.deepEqual(rows, [{ key: 'country', label: 'Country', value: 'Ireland' }]);
+});
+
+test('stickyTitleFontSize keeps short titles at the full bar size', () => {
+  assert.equal(stickyTitleFontSize('Oppenheimer'), 18);
+  assert.equal(stickyTitleFontSize('Game of Thrones'), 18);
+  // Exactly on the boundary — 20 characters still gets the full size.
+  assert.equal(stickyTitleFontSize('Mortal Kombat II XYZ'), 18);
+});
+
+test('stickyTitleFontSize steps down past the 20-character tier', () => {
+  assert.equal(stickyTitleFontSize('Law & Order: Special Victims Unit'), 15);
+  assert.equal(stickyTitleFontSize('Killers of the Flower Moon'), 15);
+  assert.equal(stickyTitleFontSize('Demon Slayer: Kimetsu no Yaiba Infinity Castle'), 15);
+});
+
+test('stickyTitleFontSize tolerates a missing title', () => {
+  assert.equal(stickyTitleFontSize(null), 18);
+  assert.equal(stickyTitleFontSize(undefined), 18);
+  assert.equal(stickyTitleFontSize(''), 18);
 });
