@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchPanel } from '../components/SearchPanel';
-import { MatchResults } from '../components/MatchResults';
+import { MatchResults, SearchResultsLoading } from '../components/MatchResults';
 import { EmptyState } from '../components/EmptyState';
 import { FilmographyScreen } from '../components/FilmographyScreen';
 import { FullCastScreen } from '../components/FullCastScreen';
@@ -35,6 +35,19 @@ import { GOLD_ACCENT, GOLD_DIM, SCROLL_BOTTOM_PAD } from '../theme/programme';
 
 const Stack = createNativeStackNavigator();
 
+/**
+ * The Surprise Me dock floats over the scroll view, so scroll content has to end
+ * above it. `SCROLL_BOTTOM_PAD` only clears the bottom nav, which left the dock
+ * sitting on top of the "Also Matched" header and the first row of result
+ * posters (and, on an empty search, on the rail headers below it).
+ */
+const SURPRISE_DOCK_OFFSET = 88;
+const SURPRISE_DOCK_HEIGHT = 76; // 52 minHeight + 12 padding top/bottom
+const SEARCH_SCROLL_BOTTOM_PAD = Math.max(
+  SCROLL_BOTTOM_PAD,
+  SURPRISE_DOCK_OFFSET + SURPRISE_DOCK_HEIGHT + 16,
+);
+
 function SearchMainScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -47,28 +60,34 @@ function SearchMainScreen() {
     handleSearch,
     recentSearches,
     results,
-    filteredResults,
-    filter,
-    setFilter,
+    searchPhase,
+    searchError,
+    submittedQuery,
     typeResults,
     typeLoading,
     handleTypeSelect,
     toggleVoiceSearch,
     voiceListening,
     handleSelectMatch,
-    clearSearchResults,
+    clearSearch,
     loading,
   } = useSearch();
   const { recentViewed } = useDetail();
   const { handleToggleWatchlist, savedWatchlistKeys } = useWatchlist();
   const { surpriseLoading, setSurprisePickerVisible } = useSurprise();
   const { handleTabPress } = useNav();
+  const searchInputRef = useRef(null);
 
   const atmosphereColors = [
     resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
     colors.background,
   ];
   const surpriseSurface = colors.glass;
+  const showLoadingState = searchPhase === 'loading';
+  const showResults = searchPhase === 'results' && results.length > 0;
+  const showEmptyState = searchPhase === 'empty';
+  const showErrorState = searchPhase === 'error';
+  const focusSearchInput = () => searchInputRef.current?.focus();
 
   return (
     <View style={[searchStyles.root, { backgroundColor: colors.background }]}>
@@ -82,7 +101,10 @@ function SearchMainScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           searchStyles.scrollContent,
-          { paddingTop: insets.top + scale(8), paddingBottom: insets.bottom + SCROLL_BOTTOM_PAD },
+          {
+            paddingTop: insets.top + scale(8),
+            paddingBottom: insets.bottom + SEARCH_SCROLL_BOTTOM_PAD,
+          },
         ]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
@@ -90,6 +112,7 @@ function SearchMainScreen() {
         {...bottomNavScroll}
       >
         <SearchPanel
+          ref={searchInputRef}
           value={query}
           onChangeText={handleQueryChange}
           onSubmit={() => handleSearch(query, navigation)}
@@ -98,61 +121,74 @@ function SearchMainScreen() {
           recentViewed={recentViewed}
           onPickSuggestion={(suggestion) => handleSearch(suggestion, navigation)}
           onPickRecentViewed={(match) => handleSelectMatch(match, navigation)}
-          hideHistory={results.length > 0}
+          hideHistory={searchPhase !== 'idle'}
           typeResults={typeResults}
           typeLoading={typeLoading}
           onTypeSelect={(match) => handleTypeSelect(match, navigation)}
+          onClear={clearSearch}
+          submittedQuery={submittedQuery}
           onVoicePress={toggleVoiceSearch}
           voiceListening={voiceListening}
         />
-        {results.length > 0 && (
-          <>
-            <MatchResults
-              matches={filteredResults}
-              onSelect={(match) => handleSelectMatch(match, navigation)}
-              onToggleWatchlist={handleToggleWatchlist}
-              watchlistIds={savedWatchlistKeys}
-            />
-            {filteredResults.length === 0 && (
-              <EmptyState
-                variant="empty"
-                title="No matches found"
-                description={
-                  filter
-                    ? `We couldn't find any ${filter === 'movie' ? 'movies' : 'TV shows'} for "${query}".`
-                    : `We couldn't find any matches for "${query}".`
-                }
-                primaryAction={
-                  filter
-                    ? {
-                        label: 'Clear Filters',
-                        icon: 'close-circle-outline',
-                        onPress: () => setFilter(null),
-                        accessibilityLabel: 'Clear result filters',
-                      }
-                    : {
-                        label: 'Check Spelling',
-                        icon: 'create-outline',
-                        onPress: clearSearchResults,
-                        accessibilityLabel: 'Edit search text',
-                      }
-                }
-                secondaryAction={{
-                  label: 'Discover',
-                  onPress: () => handleTabPress('discover'),
-                  accessibilityLabel: 'Go to Discover',
-                }}
-                compact
-              />
-            )}
-          </>
+        {showLoadingState && <SearchResultsLoading query={submittedQuery} />}
+        {showResults && (
+          <MatchResults
+            matches={results}
+            onSelect={(match) => handleSelectMatch(match, navigation)}
+            onToggleWatchlist={handleToggleWatchlist}
+            watchlistIds={savedWatchlistKeys}
+          />
+        )}
+        {showEmptyState && (
+          <EmptyState
+            variant="empty"
+            title="No matches found"
+            description={`We couldn't find anything for “${submittedQuery}”. Try a shorter title or edit your search.`}
+            primaryAction={{
+              label: 'Edit Search',
+              icon: 'create-outline',
+              onPress: focusSearchInput,
+              accessibilityLabel: `Edit search for ${submittedQuery}`,
+            }}
+            secondaryAction={{
+              label: 'Discover',
+              onPress: () => handleTabPress('discover'),
+              accessibilityLabel: 'Go to Discover',
+            }}
+            compact
+          />
+        )}
+        {showErrorState && (
+          <EmptyState
+            variant={
+              searchError?.severity === 'offline'
+                ? 'offline'
+                : searchError?.severity === 'service'
+                  ? 'service'
+                  : 'error'
+            }
+            title={searchError?.title || 'Unable to search right now'}
+            description={searchError?.message || 'Please try your search again.'}
+            primaryAction={{
+              label: 'Try Again',
+              icon: 'refresh-outline',
+              onPress: () => handleSearch(submittedQuery, navigation),
+              accessibilityLabel: `Retry search for ${submittedQuery}`,
+            }}
+            secondaryAction={{
+              label: 'Edit Search',
+              onPress: focusSearchInput,
+              accessibilityLabel: `Edit search for ${submittedQuery}`,
+            }}
+            compact
+          />
         )}
       </ScrollView>
 
       <View
         style={[
           searchStyles.surpriseDock,
-          { bottom: insets.bottom + 88, paddingHorizontal: scale(22) },
+          { bottom: insets.bottom + SURPRISE_DOCK_OFFSET, paddingHorizontal: scale(22) },
         ]}
       >
         <TouchableOpacity

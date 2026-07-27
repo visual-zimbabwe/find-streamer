@@ -5,6 +5,12 @@ import { createAppError, isRetryableStatus, retryWithBackoff } from './errors';
 import { rankTrailerCandidates } from './trailerPicker';
 import { hasAdaptationKeyword, hasSourceMaterialCredit } from './basedOn';
 import {
+  SEARCH_PANEL_MAX_ROWS,
+  SEARCH_RESULTS_MAX,
+  isRankablePersonDepartment,
+  rankSearchCandidates,
+} from './searchRanker';
+import {
   ABSOLUTE_MIN_RAIL_VOTES,
   RAIL_SIZE,
   creditsForPerson,
@@ -32,13 +38,6 @@ const TV_EPISODE_PROVIDER_LOOKUP_ENABLED =
 const TV_EPISODE_PROVIDER_MAX_EPISODES = Number(
   process.env.EXPO_PUBLIC_TMDB_TV_EPISODE_MAX_EPISODES || 60,
 );
-
-function normalize(text) {
-  return (text || '')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, '')
-    .trim();
-}
 
 async function mapWithConcurrency(items, limit, task) {
   const results = [];
@@ -94,6 +93,27 @@ class ConcurrencyLimiter {
 
 const tmdbLimiter = new ConcurrencyLimiter(3);
 const _tmdbPromiseCache = new Map();
+/**
+ * The cache used to evict only on failure, so every successful response was
+ * retained for the life of the process. Search-as-you-type made that expensive:
+ * with no minimum query length, one request fires per typing pause, and prefix
+ * responses are the fattest ones we ask for (median 12.1KB measured over 701
+ * live prefixes). Typing a title held one of those per prefix, forever.
+ *
+ * Evicting an entry can at worst cost a duplicate request — the map is a
+ * dedupe/short-circuit, never a correctness guarantee — so plain insertion-order
+ * eviction is safe. Map preserves insertion order, so the first key is oldest.
+ */
+const TMDB_PROMISE_CACHE_MAX = 200;
+
+function rememberTmdbPromise(cacheKey, promise) {
+  _tmdbPromiseCache.set(cacheKey, promise);
+  while (_tmdbPromiseCache.size > TMDB_PROMISE_CACHE_MAX) {
+    const oldestKey = _tmdbPromiseCache.keys().next().value;
+    if (oldestKey === undefined || oldestKey === cacheKey) break;
+    _tmdbPromiseCache.delete(oldestKey);
+  }
+}
 
 async function tmdbGet(pathname, params = {}) {
   // Sort parameters to ensure consistent cache keys
@@ -190,7 +210,7 @@ async function tmdbGet(pathname, params = {}) {
     );
   })();
 
-  _tmdbPromiseCache.set(cacheKey, promise);
+  rememberTmdbPromise(cacheKey, promise);
 
   // If the request fails, remove it from the cache to allow future retries
   promise.catch(() => {
@@ -200,6 +220,33 @@ async function tmdbGet(pathname, params = {}) {
   return promise;
 }
 
+/**
+ * Map a raw `/search/multi` payload into the app's candidate shape, keeping
+ * titles and eligible people together. Shared by both search paths so they can
+ * no longer disagree about what the same request means.
+ */
+function mapSearchPayload(data) {
+  return (data.results || [])
+    .map((item) => {
+      if (item.media_type === 'person') return mapSearchPersonItem(item);
+      if (item.media_type === 'movie' || item.media_type === 'tv') return mapSearchMediaItem(item);
+      return null;
+    })
+    .filter(Boolean);
+}
+
+/**
+ * The submitted search.
+ *
+ * This used to short-circuit the entire query when TMDb's #1 result happened to
+ * be a person with any `known_for_department` at all, pushing a filmography and
+ * discarding what was typed. Measured over 701 live prefixes it fired on 43 of
+ * them (6.1%, and 23% at two characters) on names like "Av (Production)" and
+ * "Happy The Sparrow" — and 19 of those were people the live panel already
+ * refused to display. People are now rows in the result list, the way the panel
+ * has always treated them, so a person can be the best answer without being the
+ * only answer.
+ */
 export async function searchTitleCandidates(query) {
   const data = await tmdbGet('/search/multi', {
     query,
@@ -208,39 +255,12 @@ export async function searchTitleCandidates(query) {
     page: 1,
   });
 
-  const allResults = data.results || [];
-
-  // If the top result is a person, treat the whole search as a person query.
-  // A person result is considered "strong" when it is ranked #1 by TMDB and has
-  // a known_for_department (i.e. it is a real person profile, not a stub).
-  const topResult = allResults[0];
-  if (topResult?.media_type === 'person' && topResult.known_for_department) {
-    return {
-      isPerson: true,
-      personId: topResult.id,
-      personName: topResult.name || query,
-      role: personRoleForDepartment(topResult.known_for_department),
-    };
-  }
-
-  const candidates = allResults.filter(
-    (item) => item.media_type === 'movie' || item.media_type === 'tv',
-  );
+  const candidates = mapSearchPayload(data);
   if (!candidates.length) {
     throw createAppError(`We couldn't find any matches for "${query}".`, 'NO_RESULTS', { query });
   }
 
-  const queryNorm = normalize(query);
-  candidates.sort((a, b) => {
-    const aTitle = normalize(a.title || a.name || '');
-    const bTitle = normalize(b.title || b.name || '');
-    const aExact = aTitle === queryNorm ? 0 : 1;
-    const bExact = bTitle === queryNorm ? 0 : 1;
-    if (aExact !== bExact) return aExact - bExact;
-    return (b.popularity || 0) - (a.popularity || 0);
-  });
-
-  return candidates.slice(0, 10).map(mapSearchMediaItem);
+  return rankSearchCandidates(candidates, query).slice(0, SEARCH_RESULTS_MAX);
 }
 
 function personRoleForDepartment(department) {
@@ -273,11 +293,14 @@ function mapSearchMediaItem(item) {
     backdropUrl: item.backdrop_path
       ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
       : null,
+    // Carried so `rankSearchCandidates` can order titles and people in one pool
+    // without re-reading the raw payload.
+    popularity: item.popularity || 0,
   };
 }
 
 function mapSearchPersonItem(item) {
-  if (!item.known_for_department || !['Acting', 'Directing'].includes(item.known_for_department)) {
+  if (!isRankablePersonDepartment(item.known_for_department)) {
     return null;
   }
 
@@ -291,6 +314,7 @@ function mapSearchPersonItem(item) {
     departmentLabel: personLabelForDepartment(item.known_for_department),
     knownFor: knownForSummary(item.known_for),
     profileUrl: item.profile_path ? `https://image.tmdb.org/t/p/w185${item.profile_path}` : null,
+    popularity: item.popularity || 0,
   };
 }
 
@@ -397,6 +421,14 @@ export async function fetchTitleCollection(result) {
   return getMovieCollectionInfo(seed, result.tmdbId);
 }
 
+/**
+ * Search-as-you-type.
+ *
+ * Note the order: rank the whole payload, *then* cut to the visible rows. TMDb
+ * returns 20 and the panel shows a handful; ranking after the slice would throw
+ * away the part of the win that comes from pulling the intended title up into
+ * the visible rows at all (measured: 77.2% -> 79.0% reachable).
+ */
 export async function searchLiveCandidates(query) {
   const data = await tmdbGet('/search/multi', {
     query,
@@ -405,14 +437,7 @@ export async function searchLiveCandidates(query) {
     page: 1,
   });
 
-  return (data.results || [])
-    .map((item) => {
-      if (item.media_type === 'person') return mapSearchPersonItem(item);
-      if (item.media_type === 'movie' || item.media_type === 'tv') return mapSearchMediaItem(item);
-      return null;
-    })
-    .filter(Boolean)
-    .slice(0, 10);
+  return rankSearchCandidates(mapSearchPayload(data), query).slice(0, SEARCH_PANEL_MAX_ROWS);
 }
 
 export async function searchPersonByName(name) {

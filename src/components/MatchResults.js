@@ -7,10 +7,13 @@ import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { scale, verticalScale } from '../utils/responsive';
-import { GOLD_ACCENT, GRID_PAD } from '../theme/programme';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { GridPosterCard, PosterGrid } from './GridPosterCard';
+import { SearchResultRow } from './SearchResultRow';
+import { ResultsSkeleton } from './SkeletonLoaders';
+import { partitionSearchResults } from '../lib/searchRanker';
 
 const FEATURE_H = verticalScale(280);
 
@@ -114,21 +117,91 @@ const TopMatchFeature = memo(function TopMatchFeature({
   );
 });
 
-export function MatchResults({
-  matches,
-  onSelect,
-  onToggleWatchlist,
-  watchlistIds = [],
-  selectedId,
-}) {
+/**
+ * The people the search turned up. Rendered as rows rather than poster cards
+ * because a person is a route to a filmography, not a thing you can watch — and
+ * because this is the same row the live panel shows, so tapping the same name in
+ * either place looks and behaves identically.
+ */
+function PeopleBlock({ people, colors, typography, radii, onSelect }) {
+  if (!people.length) return null;
+
+  return (
+    <View style={styles.peopleBlock}>
+      <Text style={[styles.blockLabel, { color: colors.onSurface, ...typography.labelSm }]}>
+        {people.length === 1 ? 'Person' : 'People'}
+      </Text>
+      <View
+        style={[
+          styles.peopleCard,
+          { backgroundColor: colors.glass, borderColor: GOLD_DIM, borderRadius: radii.lg },
+        ]}
+      >
+        {people.map((person, index) => (
+          <SearchResultRow
+            key={`person-${person.personId ?? person.tmdbId}`}
+            item={person}
+            showDivider={index < people.length - 1}
+            colors={colors}
+            typography={typography}
+            radii={radii}
+            onPress={() => onSelect(person)}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** The committed-search replacement while one exact query is resolving. */
+export function SearchResultsLoading({ query }) {
+  const { theme } = useTheme();
+  const { colors, typography } = theme;
+
+  return (
+    <View
+      style={styles.container}
+      accessibilityLiveRegion="polite"
+      accessibilityLabel={`Searching for ${query}`}
+    >
+      <ProgrammeHairline />
+      <ProgrammeSectionHeader
+        eyebrow="Searching"
+        title={`Looking for “${query}”`}
+        subtitle="Finding the best matches"
+        titleUppercase
+      />
+      <ResultsSkeleton count={4} />
+      <Text style={[styles.loadingHint, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+        You can keep typing to search for something else.
+      </Text>
+    </View>
+  );
+}
+
+export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistIds = [] }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
 
   if (!matches || matches.length === 0) return null;
 
-  const topMatch = matches[0];
-  const others = matches.slice(1);
+  // `searchTitleCandidates` returns titles and people in one ranked list now, so
+  // the screen splits them rather than the search abandoning itself whenever a
+  // person happened to rank first.
+  const { people, titles, leadsWithPerson } = partitionSearchResults(matches);
+  const topMatch = titles[0];
+  const others = titles.slice(1);
   const savedIds = new Set(watchlistIds);
+
+  const peopleBlock = (
+    <PeopleBlock
+      people={people}
+      colors={colors}
+      typography={typography}
+      radii={radii}
+      onSelect={onSelect}
+    />
+  );
 
   return (
     <View style={styles.container}>
@@ -136,27 +209,34 @@ export function MatchResults({
 
       <ProgrammeSectionHeader
         eyebrow="Results"
-        title="Top Matches"
-        subtitle={`${matches.length} ${matches.length === 1 ? 'TITLE' : 'TITLES'} FOUND`}
+        title={titles.length > 0 ? 'Top Matches' : 'People'}
+        subtitle={
+          titles.length > 0
+            ? `${titles.length} ${titles.length === 1 ? 'TITLE' : 'TITLES'} FOUND`
+            : `${people.length} ${people.length === 1 ? 'PERSON' : 'PEOPLE'} FOUND`
+        }
         titleUppercase
       />
 
-      <TopMatchFeature
-        item={topMatch}
-        colors={colors}
-        typography={typography}
-        radii={radii}
-        saved={savedIds.has(watchlistEntryKey(topMatch))}
-        onPress={() => onSelect(topMatch)}
-        onToggleWatchlist={onToggleWatchlist}
-      />
+      {/* When the best answer overall was a person — "Tom Hanks" — they lead. */}
+      {leadsWithPerson ? peopleBlock : null}
+
+      {topMatch ? (
+        <TopMatchFeature
+          item={topMatch}
+          colors={colors}
+          typography={typography}
+          radii={radii}
+          saved={savedIds.has(watchlistEntryKey(topMatch))}
+          onPress={() => onSelect(topMatch)}
+          onToggleWatchlist={onToggleWatchlist}
+        />
+      ) : null}
 
       {others.length > 0 && (
         <View style={styles.alsoMatchedBlock}>
           <ProgrammeHairline />
-          <Text
-            style={[styles.alsoMatchedTitle, { color: colors.onSurface, ...typography.labelSm }]}
-          >
+          <Text style={[styles.blockLabel, { color: colors.onSurface, ...typography.labelSm }]}>
             Also Matched
           </Text>
           <PosterGrid
@@ -177,6 +257,8 @@ export function MatchResults({
           />
         </View>
       )}
+
+      {leadsWithPerson ? null : peopleBlock}
     </View>
   );
 }
@@ -289,7 +371,7 @@ const styles = StyleSheet.create({
   alsoMatchedBlock: {
     marginTop: scale(28),
   },
-  alsoMatchedTitle: {
+  blockLabel: {
     fontWeight: '800',
     letterSpacing: 1.2,
     marginBottom: scale(14),
@@ -298,5 +380,17 @@ const styles = StyleSheet.create({
   },
   alsoMatchedGrid: {
     paddingHorizontal: 0,
+  },
+  peopleBlock: {
+    marginTop: scale(24),
+  },
+  peopleCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    paddingVertical: scale(4),
+  },
+  loadingHint: {
+    marginTop: scale(14),
+    textAlign: 'center',
   },
 });

@@ -1,15 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
-import { MediaArtwork } from './MediaArtwork';
 import { ContentRail } from './ContentRail';
 import { fetchHomeNowPlayingRail, fetchHomeTraktTrendingRail } from '../lib/homeFeed';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
@@ -18,96 +10,61 @@ import { hugLabel } from '../utils/labelText';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { LiveMatchesSkeleton, SkeletonBlock } from './SkeletonLoaders';
+import { SearchResultRow } from './SearchResultRow';
+import { MIN_SEARCH_QUERY_LENGTH, SEARCH_PANEL_MAX_ROWS } from '../lib/searchRanker';
 
-function LiveResultRow({ item, index, total, colors, typography, radii, onPress }) {
-  const isPerson = item.resultType === 'person';
-  const hasYear = item.year && item.year !== 'N/A';
-  const metaText = isPerson
-    ? `${item.departmentLabel}${item.knownFor ? ` · ${item.knownFor}` : ''}`
-    : `${hasYear ? item.year : ''}${hasYear && item.mediaType ? ' · ' : ''}${item.mediaType === 'tv' ? 'TV Show' : item.mediaType === 'movie' ? 'Movie' : ''}`;
-  const imageUrl = isPerson ? item.profileUrl : item.posterUrl;
-
-  return (
-    <TouchableOpacity
-      style={[
-        styles.liveRow,
-        index < total - 1 && {
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: GOLD_DIM,
-        },
-      ]}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={isPerson ? `View filmography for ${item.title}` : `Select ${item.title}`}
-      activeOpacity={0.78}
-    >
-      <View
-        style={[
-          styles.liveThumbFrame,
-          isPerson ? styles.liveAvatarFrame : styles.livePosterFrame,
-          { borderRadius: radii.md, backgroundColor: colors.surfaceContainerHigh },
-        ]}
-      >
-        <MediaArtwork
-          uri={imageUrl}
-          style={isPerson ? styles.liveAvatar : styles.posterImg}
-          resizeMode="cover"
-          icon={isPerson ? 'person-outline' : 'film-outline'}
-          title={item.title}
-          compactFallback
-          instant
-          accessibilityLabel={isPerson ? `${item.title} profile photo` : `${item.title} poster`}
-        />
-      </View>
-      <View style={styles.liveInfo}>
-        <View style={styles.liveTitleRow}>
-          {isPerson && (
-            <Ionicons
-              name={item.role === 'movie' ? 'camera-outline' : 'star-outline'}
-              size={13}
-              color={GOLD_ACCENT}
-            />
-          )}
-          <Text
-            style={[styles.liveTitle, { color: colors.onSurface, ...typography.bodyMd }]}
-            numberOfLines={1}
-          >
-            {item.title}
-          </Text>
-        </View>
-        <Text
-          style={[styles.liveMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
-          numberOfLines={1}
-        >
-          {metaText}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={15} color={GOLD_ACCENT} style={{ opacity: 0.72 }} />
-    </TouchableOpacity>
-  );
-}
-
-export function SearchPanel({
-  value,
-  onChangeText,
-  onSubmit,
-  loading,
-  recentSearches,
-  recentViewed,
-  onPickSuggestion,
-  onPickRecentViewed,
-  hideHistory,
-  typeResults,
-  typeLoading,
-  onTypeSelect,
-  onVoicePress,
-  voiceListening,
-}) {
+export const SearchPanel = forwardRef(function SearchPanel(
+  {
+    value,
+    onChangeText,
+    onSubmit,
+    loading,
+    recentSearches,
+    recentViewed,
+    onPickSuggestion,
+    onPickRecentViewed,
+    hideHistory,
+    typeResults,
+    typeLoading,
+    onTypeSelect,
+    onClear,
+    submittedQuery,
+    onVoicePress,
+    voiceListening,
+  },
+  ref,
+) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
-  const visibleTypeResults = typeResults ? typeResults.slice(0, 10) : [];
+  const inputRef = useRef(null);
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => inputRef.current?.focus(),
+    }),
+    [],
+  );
+  const visibleTypeResults = typeResults ? typeResults.slice(0, SEARCH_PANEL_MAX_ROWS) : [];
   const hasSearchText = (value || '').length > 0;
   const hasRecentViewed = recentViewed && recentViewed.length > 0;
+  const trimmedValue = (value || '').trim();
+  // Below the minimum the controller never fires a request, so the panel must
+  // not claim to be looking for anything.
+  const querySearchable = trimmedValue.length >= MIN_SEARCH_QUERY_LENGTH;
+  const isSubmittedQuery = Boolean(submittedQuery) && trimmedValue === submittedQuery;
+  // The third state the panel never had. It used to render only while loading
+  // or while it had rows, so a query TMDb has no answer for — 20 of 25 realistic
+  // typos return literally zero results — made the whole block disappear and the
+  // screen looked exactly as if nothing had been typed.
+  const showNoMatches = querySearchable && !typeLoading && visibleTypeResults.length === 0;
+  // Once a query has been submitted, its answer is the results section below —
+  // the panel would otherwise announce "no matches" for a query whose matches
+  // are on screen, because submitting clears the suggestions but keeps the text.
+  // Editing the text makes this false again and the panel comes straight back.
+  const showPanel =
+    !isSubmittedQuery &&
+    querySearchable &&
+    (typeLoading || visibleTypeResults.length > 0 || showNoMatches);
   const [traktTrending, setTraktTrending] = useState([]);
   const [nowPlaying, setNowPlaying] = useState([]);
 
@@ -151,25 +108,38 @@ export function SearchPanel({
         <View style={styles.searchRow}>
           <Ionicons name="search-outline" size={20} color={GOLD_ACCENT} style={styles.searchIcon} />
           <TextInput
+            ref={inputRef}
             style={[styles.input, { color: colors.onSurface, ...typography.bodyLg }]}
             placeholder="Search for a movie, show"
             placeholderTextColor={colors.onSurfaceVariant}
             value={value}
             onChangeText={onChangeText}
             onSubmitEditing={onSubmit}
-            editable={!loading}
             textAlign="center"
+            // The field is full of proper nouns, so autocorrect is a liability
+            // rather than a help, and the action key should say what it does.
+            returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="words"
+            autoComplete="off"
             accessibilityLabel="Search for a movie or show"
+            accessibilityState={{ busy: Boolean(loading) }}
           />
-          {typeLoading && (
-            <View style={styles.typeLoaderDot} accessibilityLabel="Searching">
+          {(typeLoading || loading) && (
+            <View
+              style={styles.typeLoaderDot}
+              accessibilityLabel={loading ? `Searching for ${submittedQuery}` : 'Searching'}
+            >
               <SkeletonBlock style={StyleSheet.absoluteFill} />
             </View>
           )}
           {hasSearchText && !typeLoading && (
             <TouchableOpacity
               style={styles.clearButton}
-              onPress={() => onChangeText('')}
+              // Clears the committed results too, not just the text. Clearing
+              // only the field left the previous search's "Top Matches" sitting
+              // under an empty search box.
+              onPress={onClear}
               accessibilityRole="button"
               accessibilityLabel="Clear search"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -189,13 +159,13 @@ export function SearchPanel({
               voiceListening && { backgroundColor: GOLD_ACCENT + '22', borderColor: GOLD_ACCENT },
             ]}
             onPress={onVoicePress}
-            disabled={loading || !onVoicePress}
+            disabled={!onVoicePress}
             accessibilityRole="button"
             accessibilityLabel={voiceListening ? 'Stop voice search' : 'Start voice search'}
             accessibilityHint="Dictates search text with the device microphone"
             accessibilityState={{
               selected: Boolean(voiceListening),
-              disabled: loading || !onVoicePress,
+              disabled: !onVoicePress,
             }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -219,25 +189,38 @@ export function SearchPanel({
         </View>
       </View>
 
-      {value.trim().length > 0 && (typeLoading || visibleTypeResults.length > 0) && (
+      {showPanel && (
         <View
           style={[
             styles.liveResults,
             { backgroundColor: searchSurface, borderColor: GOLD_DIM, borderRadius: radii.lg },
           ]}
+          accessibilityLiveRegion="polite"
         >
           <Text style={[styles.liveResultsLabel, { color: GOLD_ACCENT, ...typography.labelSm }]}>
             Matches
           </Text>
           {typeLoading && visibleTypeResults.length === 0 ? (
             <LiveMatchesSkeleton count={3} />
+          ) : showNoMatches ? (
+            <View style={styles.noMatchRow}>
+              <Ionicons name="search-outline" size={16} color={colors.onSurfaceVariant} />
+              <Text
+                style={[
+                  styles.noMatchText,
+                  { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                ]}
+                numberOfLines={2}
+              >
+                No matches for “{trimmedValue}”. Try a shorter title or another search.
+              </Text>
+            </View>
           ) : (
             visibleTypeResults.map((item, index) => (
-              <LiveResultRow
+              <SearchResultRow
                 key={`${item.resultType || item.mediaType}-${item.tmdbId}`}
                 item={item}
-                index={index}
-                total={visibleTypeResults.length}
+                showDivider={index < visibleTypeResults.length - 1}
                 colors={colors}
                 typography={typography}
                 radii={radii}
@@ -260,10 +243,20 @@ export function SearchPanel({
         />
       )}
 
-      {!hideHistory && !hasRecentViewed && recentSearches && recentSearches.length > 0 && (
+      {/*
+        This used to be gated on `!hasRecentViewed`, so opening a single title
+        hid the search history permanently while `rememberSearch` carried on
+        writing to it. Both belong here — they answer different questions
+        ("what was I looking at" vs "what was I looking for").
+      */}
+      {!hideHistory && recentSearches && recentSearches.length > 0 && (
         <View style={styles.historyBlock}>
           <ProgrammeHairline />
-          <ProgrammeSectionHeader eyebrow="History" title="Recent Searches" titleVariant="titleMd" />
+          <ProgrammeSectionHeader
+            eyebrow="History"
+            title="Recent Searches"
+            titleVariant="titleMd"
+          />
           <View style={styles.recentChips}>
             {recentSearches.map((item) => (
               <TouchableOpacity
@@ -315,7 +308,7 @@ export function SearchPanel({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -408,62 +401,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(16),
     textTransform: 'uppercase',
   },
-  liveRow: {
+  noMatchRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: scale(12),
+    gap: scale(10),
     minHeight: 48,
+    paddingBottom: scale(12),
     paddingHorizontal: scale(16),
-    paddingVertical: scale(10),
+    paddingTop: scale(4),
   },
-  liveThumbFrame: {
-    overflow: 'hidden',
-  },
-  livePosterFrame: {
-    height: 52,
-    width: 36,
-  },
-  liveAvatarFrame: {
-    height: 44,
-    width: 44,
-  },
-  posterImg: {
-    borderRadius: 6,
-    height: 52,
-    width: 36,
-  },
-  livePoster: {
-    height: 52,
-    width: 36,
-  },
-  liveAvatar: {
-    borderRadius: 22,
-    height: 44,
-    width: 44,
-  },
-  liveLoadingRow: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 56,
-    paddingVertical: scale(12),
-  },
-  liveInfo: {
+  noMatchText: {
     flex: 1,
-    minWidth: 0,
-  },
-  liveTitle: {
-    flexShrink: 1,
-    fontWeight: '600',
-  },
-  liveTitleRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 5,
-    marginBottom: 2,
-  },
-  liveMeta: {
     fontWeight: '500',
-    letterSpacing: 0.2,
   },
   historyBlock: {
     marginTop: scale(28),
