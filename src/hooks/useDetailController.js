@@ -1,13 +1,33 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { resolveMatch } from '../lib/tmdb';
+import { createAppError } from '../lib/errors';
 import { pushOnCurrentTab } from '../navigation/navigationRef';
 import { loadRecentViewed, saveRecentViewed } from '../lib/storage';
+import {
+  DETAIL_RESOLVE_DEADLINE_MS,
+  OPEN_DETAIL_DEBOUNCE_MS,
+  seedDetailResult,
+} from '../lib/detailResult';
 
 /**
- * Owns the detail view: the `selectedResult`, the recently-viewed history, and
- * the shared "resolve a match then push the Detail screen" flow used by search,
- * discover, and filmography. The `loading` flag here is the cross-cutting
- * spinner for resolving a title to open it.
+ * Owns the Detail screens: one entry per *push*, the recently-viewed history,
+ * and the "open a title" flow used by search, discover, rails and filmography.
+ *
+ * Two things changed here after the opening-a-title critique:
+ *
+ * 1. There is no longer a single `selectedResult`. Every `DetailScreenRoute`
+ *    read the same slot, so pushing a second Detail (tapping a card in More Like
+ *    This) overwrote the one underneath: backing out of the second screen landed
+ *    on the first one rendering the second one's hero, ratings, synopsis,
+ *    availability and rails, with Share and the bookmark both retargeted. Each
+ *    push now gets its own id and its own entry, released when the screen
+ *    unmounts.
+ *
+ * 2. The screen is pushed on the tap, not after `resolveMatch` returns. The
+ *    resolve is five serial network legs — 648ms of unmarked dead time measured
+ *    on device — during which the app sat on the list with no spinner, no
+ *    disabled card and no transition. The push now happens immediately against
+ *    a seed built from the tapped row, and the payload merges in when it lands.
  *
  * @param {{
  *   syncWatchlistFromResolvedDetail: (fullResult: object) => Promise<void>,
@@ -20,21 +40,52 @@ export function useDetailController({
   handleRequestError,
   setOfflineBanner,
 }) {
-  const [loading, setLoading] = useState(false);
-  const [selectedResult, setSelectedResult] = useState(null);
+  /** `{ [detailId]: { result, loading, error } }` — one entry per pushed screen. */
+  const [details, setDetails] = useState({});
   const [recentViewed, setRecentViewed] = useState([]);
+  const detailIdRef = useRef(0);
+  /** Timestamp of the last accepted open, for the double-push guard. */
+  const lastOpenAtRef = useRef(0);
+  /** `{ [detailId]: { query, match, fallbackMessage } }` — what a retry needs. */
+  const pendingRef = useRef({});
 
   useEffect(() => {
     loadRecentViewed().then(setRecentViewed);
   }, []);
 
-  const openDetail = useCallback((fullResult, navigation) => {
-    setSelectedResult(fullResult);
+  const nextDetailId = useCallback(() => {
+    detailIdRef.current += 1;
+    return `detail-${detailIdRef.current}`;
+  }, []);
+
+  /**
+   * Two taps dispatched in the same frame used to push two screens. Nothing
+   * downstream can undo that once both pushes land, so it is refused here.
+   */
+  const claimOpen = useCallback(() => {
+    const now = Date.now();
+    if (now - lastOpenAtRef.current < OPEN_DETAIL_DEBOUNCE_MS) return false;
+    lastOpenAtRef.current = now;
+    return true;
+  }, []);
+
+  const pushDetail = useCallback((detailId, navigation) => {
     if (navigation) {
-      navigation.push('Detail');
+      navigation.push('Detail', { detailId });
     } else {
-      pushOnCurrentTab('Detail');
+      pushOnCurrentTab('Detail', { detailId });
     }
+  }, []);
+
+  /** Drop a screen's entry once it unmounts, so the map can't grow unbounded. */
+  const releaseDetail = useCallback((detailId) => {
+    delete pendingRef.current[detailId];
+    setDetails((prev) => {
+      if (!(detailId in prev)) return prev;
+      const next = { ...prev };
+      delete next[detailId];
+      return next;
+    });
   }, []);
 
   const rememberViewed = useCallback(
@@ -53,41 +104,126 @@ export function useDetailController({
   );
 
   /**
-   * Resolve a picked match/result to a full detail object, record it as viewed,
-   * sync it back into the watchlist, and push the Detail screen. Toggles the
-   * shared `loading` spinner and reports failures through `handleRequestError`.
+   * Open a screen for an already-resolved payload (Surprise Me, which has to
+   * pick the title before it can name it).
    */
-  const openResolvedDetail = useCallback(
-    async (queryTitle, match, navigation, fallbackMessage = 'Unable to fetch details.') => {
-      setLoading(true);
+  const openDetail = useCallback(
+    (fullResult, navigation) => {
+      if (!claimOpen()) return null;
+      const detailId = nextDetailId();
+      setDetails((prev) => ({
+        ...prev,
+        [detailId]: { result: fullResult, loading: false, error: null },
+      }));
+      pushDetail(detailId, navigation);
+      return detailId;
+    },
+    [claimOpen, nextDetailId, pushDetail],
+  );
+
+  /**
+   * The five legs of `resolveMatch`, bounded. Each leg allows a 12s timeout and
+   * two retries; without a deadline a bad connection can hold a half-built
+   * screen for minutes rather than failing into a retry the user can act on.
+   */
+  const resolveWithDeadline = useCallback(async (queryTitle, match) => {
+    let timer;
+    try {
+      return await Promise.race([
+        resolveMatch(queryTitle, match),
+        new Promise((_resolve, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(
+                createAppError('Please check your connection and try again.', 'TIMEOUT', {}),
+              ),
+            DETAIL_RESOLVE_DEADLINE_MS,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }, []);
+
+  const runResolve = useCallback(
+    async (detailId, queryTitle, match, fallbackMessage) => {
       try {
-        const fullResult = await resolveMatch(queryTitle, match);
+        const fullResult = await resolveWithDeadline(queryTitle, match);
+        // Liveness is read off the ref, not off a flag set inside the state
+        // updater: `setDetails` here runs outside an event handler, so React
+        // schedules the updater rather than running it inline and the flag
+        // would always still be false by the time we looked at it.
+        const stillMounted = Boolean(pendingRef.current[detailId]);
+        setDetails((prev) => {
+          if (!prev[detailId]) return prev;
+          return { ...prev, [detailId]: { result: fullResult, loading: false, error: null } };
+        });
+        // The screen was popped mid-flight — don't touch history or the
+        // watchlist for a title the user has already walked away from.
+        if (!stillMounted) return;
         await rememberViewed(fullResult);
         await syncWatchlistFromResolvedDetail(fullResult);
-        openDetail(fullResult, navigation);
         setOfflineBanner(null);
       } catch (err) {
-        handleRequestError(err, fallbackMessage);
-      } finally {
-        setLoading(false);
+        setDetails((prev) => {
+          if (!prev[detailId]) return prev;
+          return { ...prev, [detailId]: { ...prev[detailId], loading: false, error: err } };
+        });
+        // The Detail screen carries its own retry now, so the toast is a
+        // notification rather than the only surface — it names the title, which
+        // a bare "check your connection" never did.
+        handleRequestError(err, fallbackMessage, { titleName: match?.title });
       }
     },
     [
+      resolveWithDeadline,
       rememberViewed,
       syncWatchlistFromResolvedDetail,
-      openDetail,
       handleRequestError,
       setOfflineBanner,
     ],
   );
 
+  /**
+   * Push a Detail screen for a picked match and resolve into it. Returns once
+   * the resolve settles so callers can still await the full open.
+   */
+  const openResolvedDetail = useCallback(
+    async (queryTitle, match, navigation, fallbackMessage = 'Unable to fetch details.') => {
+      if (!claimOpen()) return;
+      const detailId = nextDetailId();
+      pendingRef.current[detailId] = { queryTitle, match, fallbackMessage };
+      setDetails((prev) => ({
+        ...prev,
+        [detailId]: { result: seedDetailResult(queryTitle, match), loading: true, error: null },
+      }));
+      pushDetail(detailId, navigation);
+      await runResolve(detailId, queryTitle, match, fallbackMessage);
+    },
+    [claimOpen, nextDetailId, pushDetail, runResolve],
+  );
+
+  /** In-page retry for a screen whose resolve failed. */
+  const retryDetail = useCallback(
+    (detailId) => {
+      const pending = pendingRef.current[detailId];
+      if (!pending) return;
+      setDetails((prev) => {
+        if (!prev[detailId]) return prev;
+        return { ...prev, [detailId]: { ...prev[detailId], loading: true, error: null } };
+      });
+      runResolve(detailId, pending.queryTitle, pending.match, pending.fallbackMessage);
+    },
+    [runResolve],
+  );
+
   return {
-    loading,
-    setLoading,
-    selectedResult,
-    setSelectedResult,
+    details,
     recentViewed,
     openDetail,
+    releaseDetail,
+    retryDetail,
     rememberViewed,
     openResolvedDetail,
   };

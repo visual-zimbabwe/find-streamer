@@ -131,7 +131,13 @@ export const GridPosterCard = memo(function GridPosterCard({
   return (
     <TouchableOpacity
       style={rootStyle}
-      onPress={onPress}
+      // The bookmark button beside it, and every rail tile on the detail screen,
+      // already confirm the touch this way; the poster — the most-tapped control
+      // in the app — was the one that didn't.
+      onPress={(event) => {
+        Haptics.selectionAsync();
+        onPress(event);
+      }}
       activeOpacity={activeOpacity}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? `Open details for ${item.title}`}

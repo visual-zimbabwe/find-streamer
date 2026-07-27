@@ -110,7 +110,7 @@ function MobileApp() {
     handleRequestError,
     setOfflineBanner,
   });
-  const { openDetail, openResolvedDetail, rememberViewed, setLoading } = detail;
+  const { openDetail, openResolvedDetail, rememberViewed } = detail;
 
   const people = usePeopleController({
     openResolvedDetail,
@@ -120,7 +120,6 @@ function MobileApp() {
   const { handlePersonPress } = people;
 
   const search = useSearchController({
-    setLoading,
     openResolvedDetail,
     handlePersonPress,
     handleRequestError,
@@ -174,6 +173,7 @@ function MobileApp() {
   // React skip re-rendering consumers of the unchanged domains.
   const searchValue = useMemo(
     () => ({
+      loading: search.loading,
       query: search.query,
       results: search.results,
       filteredResults: search.filteredResults,
@@ -192,6 +192,7 @@ function MobileApp() {
       toggleVoiceSearch,
     }),
     [
+      search.loading,
       search.query,
       search.results,
       search.filteredResults,
@@ -215,11 +216,15 @@ function MobileApp() {
 
   const detailValue = useMemo(
     () => ({
-      loading: detail.loading,
-      selectedResult: detail.selectedResult,
+      // One entry per pushed screen, keyed by push id — never a single shared
+      // `selectedResult`, which used to make every Detail below the top of the
+      // stack render the topmost one's title.
+      details: detail.details,
       recentViewed: detail.recentViewed,
+      releaseDetail: detail.releaseDetail,
+      retryDetail: detail.retryDetail,
     }),
-    [detail.loading, detail.selectedResult, detail.recentViewed],
+    [detail.details, detail.recentViewed, detail.releaseDetail, detail.retryDetail],
   );
 
   const watchlistValue = useMemo(

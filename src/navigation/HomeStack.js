@@ -3,19 +3,16 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { HomeScreen } from '../components/HomeScreen';
 import { CollectionsScreen } from '../components/CollectionsScreen';
-import { ResultView } from '../components/ResultView';
 import { FilmographyScreen } from '../components/FilmographyScreen';
 import { FullCastScreen } from '../components/FullCastScreen';
 import {
   useSearch,
-  useDetail,
   useWatchlist,
   usePeople,
   useNav,
 } from '../context/domainContexts';
-import { useTheme } from '../theme/ThemeProvider';
 import { useStackScreenOptions } from './useStackScreenOptions';
-import { watchlistEntryKey } from '../lib/watchlistModel';
+import { DetailScreenRoute } from './DetailScreenRoute';
 const Stack = createNativeStackNavigator();
 
 function HomeScreenRoute() {
@@ -59,39 +56,6 @@ function CollectionsScreenRoute() {
       imdbMediaTab={collectionsImdbTab}
       onImdbMediaTabChange={setCollectionsImdbTab}
       onOpenHomeFilter={openHomeFromCollections}
-    />
-  );
-}
-
-function DetailScreenRoute() {
-  const navigation = useNavigation();
-  const { selectedResult } = useDetail();
-  const {
-    handleToggleWatchlist,
-    handleEnrichWatchlistItem,
-    savedWatchlistKeys,
-  } = useWatchlist();
-  const { handleSelectMatch } = useSearch();
-  const { handlePersonPress, handleCompanyPress, handleCollectionPress } = usePeople();
-
-  return (
-    <ResultView
-      result={selectedResult}
-      onBack={() => navigation.goBack()}
-      onToggleWatchlist={handleToggleWatchlist}
-      onEnrichWatchlistItem={handleEnrichWatchlistItem}
-      isInWatchlist={savedWatchlistKeys.includes(watchlistEntryKey(selectedResult))}
-      onSelectSimilar={(match) => handleSelectMatch(match, navigation)}
-      onPersonPress={(personId, personName, role) =>
-        handlePersonPress(personId, personName, role, navigation)
-      }
-      onCompanyPress={(companyId, companyName, logoUrl) =>
-        handleCompanyPress(companyId, companyName, logoUrl, navigation)
-      }
-      onCollectionPress={(collection, currentTmdbId) =>
-        handleCollectionPress(collection, currentTmdbId, navigation)
-      }
-      onSeeAllPeople={(params) => navigation.push('FullCast', params)}
     />
   );
 }

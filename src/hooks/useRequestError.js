@@ -29,7 +29,10 @@ export function useRequestError({ showToast }) {
         setErrorInfo(classified);
       } else {
         showToast(message, {
-          title: classified.title,
+          // A failed open used to report "No internet connection" with no hint
+          // as to which tap it was answering. Naming the title is the whole
+          // difference between a notification and a shrug.
+          title: options.titleName ? `Couldn't open ${options.titleName}` : classified.title,
           icon:
             classified.severity === 'offline' ? 'cloud-offline-outline' : 'alert-circle-outline',
         });
