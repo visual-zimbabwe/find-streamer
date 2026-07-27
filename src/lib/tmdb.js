@@ -294,13 +294,6 @@ function mapSearchPersonItem(item) {
   };
 }
 
-function franchiseKindForParts(parts = [], collectionName = '') {
-  if (parts.length === 3) return 'trilogy';
-  if (/saga/i.test(collectionName)) return 'saga';
-  if (parts.length >= 4) return 'saga';
-  return 'series';
-}
-
 function releaseDateValue(item = {}) {
   return item.release_date || item.first_air_date || '';
 }
@@ -334,21 +327,16 @@ function mapCollectionPart(item) {
   };
 }
 
-function standaloneFranchiseInfo(collection = null) {
+/**
+ * The cheap half of the franchise feature: the id, name and art that
+ * `/movie/{id}` already carries in `belongs_to_collection`. Costs no request, so
+ * it rides along with the rest of the metadata and lets the detail screen draw
+ * the section header — with the real collection name — at first paint while the
+ * parts are still in flight.
+ */
+function mapCollectionSeed(belongsToCollection) {
+  if (!belongsToCollection?.id) return null;
   return {
-    isFranchise: false,
-    franchiseKind: 'standalone',
-    franchiseLabel: 'Standalone',
-    collection,
-  };
-}
-
-async function getMovieCollectionInfo(belongsToCollection, tmdbId) {
-  if (!belongsToCollection?.id) {
-    return standaloneFranchiseInfo(null);
-  }
-
-  const collection = {
     id: belongsToCollection.id,
     name: belongsToCollection.name || null,
     posterUrl: belongsToCollection.poster_path
@@ -357,52 +345,56 @@ async function getMovieCollectionInfo(belongsToCollection, tmdbId) {
     backdropUrl: belongsToCollection.backdrop_path
       ? `https://image.tmdb.org/t/p/original${belongsToCollection.backdrop_path}`
       : null,
-    parts: [],
+  };
+}
+
+/**
+ * The expensive half: `/collection/{id}` for the actual parts. Deliberately NOT
+ * called from `getTitleMetadata` — see `fetchTitleCollection`.
+ *
+ * @param {{ id: number, name?: string|null, posterUrl?: string|null, backdropUrl?: string|null }} seed
+ */
+async function getMovieCollectionInfo(seed, tmdbId) {
+  if (!seed?.id) {
+    return { isFranchise: false, collection: null };
+  }
+
+  const data = await tmdbGet(`/collection/${seed.id}`, { language: 'en-US' });
+  const parts = sortCollectionParts(data.parts || [])
+    .filter((item) => item?.id)
+    .map(mapCollectionPart);
+  const relatedParts = parts.filter((item) => item.tmdbId !== tmdbId);
+
+  const collection = {
+    id: data.id || seed.id,
+    name: data.name || seed.name || null,
+    overview: data.overview || null,
+    posterUrl: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : seed.posterUrl || null,
+    backdropUrl: data.backdrop_path
+      ? `https://image.tmdb.org/t/p/original${data.backdrop_path}`
+      : seed.backdropUrl || null,
+    parts,
   };
 
-  try {
-    const data = await tmdbGet(`/collection/${belongsToCollection.id}`, { language: 'en-US' });
-    const parts = sortCollectionParts(data.parts || [])
-      .filter((item) => item?.id)
-      .map(mapCollectionPart);
-    const relatedParts = parts.filter((item) => item.tmdbId !== tmdbId);
+  // A "collection" holding only this film is not a franchise worth a section.
+  return { isFranchise: relatedParts.length > 0, collection };
+}
 
-    if (relatedParts.length === 0) {
-      return standaloneFranchiseInfo({ ...collection, parts });
-    }
-
-    const collectionName = data.name || collection.name || '';
-    const franchiseKind = franchiseKindForParts(parts, collectionName);
-
-    return {
-      isFranchise: true,
-      franchiseKind,
-      franchiseLabel:
-        franchiseKind === 'trilogy' ? 'Trilogy' : franchiseKind === 'saga' ? 'Saga' : 'Series',
-      collection: {
-        id: data.id || collection.id,
-        name: collectionName || null,
-        overview: data.overview || null,
-        posterUrl: data.poster_path
-          ? `https://image.tmdb.org/t/p/w500${data.poster_path}`
-          : collection.posterUrl,
-        backdropUrl: data.backdrop_path
-          ? `https://image.tmdb.org/t/p/original${data.backdrop_path}`
-          : collection.backdropUrl,
-        parts,
-      },
-    };
-  } catch (error) {
-    console.warn(
-      '[getMovieCollectionInfo] failed for collection:',
-      belongsToCollection.id,
-      error?.message || error,
-    );
-    return {
-      ...standaloneFranchiseInfo(collection),
-      collectionLookupFailed: true,
-    };
-  }
+/**
+ * Post-paint franchise fetch.
+ *
+ * This used to be a bare `await` inside `getTitleMetadata`, which put a measured
+ * median 97ms / p90 114ms in front of `getProviderCountries` on 32% of movie
+ * detail screens — i.e. in front of the availability answer the app exists to
+ * give — for a section that sits fifth down the scroll. Same reasoning (and the
+ * same fix) as `fetchTitleRails`. Note that `resolveMatch` is sequential on
+ * purpose, so the fix is to defer this call, never to fold it into a
+ * `Promise.all` alongside the others.
+ */
+export async function fetchTitleCollection(result) {
+  const seed = result?.collectionSeed;
+  if (!seed?.id || !result?.tmdbId) return { isFranchise: false, collection: null };
+  return getMovieCollectionInfo(seed, result.tmdbId);
 }
 
 export async function searchLiveCandidates(query) {
@@ -501,23 +493,10 @@ async function getTitleMetadata(mediaType, tmdbId) {
 
   // Movies: imdb_id is in the main response. TV: must come from external_ids.
   const imdbId = data.imdb_id || externalIds?.imdb_id || null;
-  const belongsToCollection =
-    mediaType === 'movie' && data.belongs_to_collection
-      ? {
-          id: data.belongs_to_collection.id,
-          name: data.belongs_to_collection.name || null,
-          posterUrl: data.belongs_to_collection.poster_path
-            ? `https://image.tmdb.org/t/p/w500${data.belongs_to_collection.poster_path}`
-            : null,
-          backdropUrl: data.belongs_to_collection.backdrop_path
-            ? `https://image.tmdb.org/t/p/original${data.belongs_to_collection.backdrop_path}`
-            : null,
-        }
-      : null;
-  const franchiseInfo =
-    mediaType === 'movie'
-      ? await getMovieCollectionInfo(data.belongs_to_collection, tmdbId)
-      : standaloneFranchiseInfo(null);
+  // TV has no `belongs_to_collection` on TMDb, so the franchise section is a
+  // movie-only surface by data, not by choice.
+  const collectionSeed =
+    mediaType === 'movie' ? mapCollectionSeed(data.belongs_to_collection) : null;
 
   return {
     year,
@@ -525,8 +504,7 @@ async function getTitleMetadata(mediaType, tmdbId) {
     rating,
     runtimeMinutes,
     imdbId,
-    belongsToCollection,
-    ...franchiseInfo,
+    collectionSeed,
     numberOfSeasons: mediaType === 'tv' ? data.number_of_seasons || seasons.length : null,
     numberOfEpisodes:
       mediaType === 'tv'
@@ -1338,7 +1316,10 @@ async function getHomeCollectionRowFromSeed(seed) {
     const detail = await tmdbGet(`/movie/${seed.tmdbId}`, { language: 'en-US' });
     if (!detail.belongs_to_collection?.id) return null;
 
-    const collectionInfo = await getMovieCollectionInfo(detail.belongs_to_collection, seed.tmdbId);
+    const collectionInfo = await getMovieCollectionInfo(
+      mapCollectionSeed(detail.belongs_to_collection),
+      seed.tmdbId,
+    );
     if (!collectionInfo.isFranchise || !collectionInfo.collection?.parts?.length) return null;
 
     const firstMovie = collectionInfo.collection.parts[0] || seed;

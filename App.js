@@ -259,6 +259,7 @@ function MobileApp() {
       handleSelectFilmographyItem: people.handleSelectFilmographyItem,
       handlePersonPress: people.handlePersonPress,
       handleCompanyPress: people.handleCompanyPress,
+      handleCollectionPress: people.handleCollectionPress,
     }),
     [
       people.filmographyPerson,
@@ -267,6 +268,7 @@ function MobileApp() {
       people.handleSelectFilmographyItem,
       people.handlePersonPress,
       people.handleCompanyPress,
+      people.handleCollectionPress,
     ],
   );
 
