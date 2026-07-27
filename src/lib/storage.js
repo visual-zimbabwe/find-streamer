@@ -181,9 +181,16 @@ export async function loadRecentSearches() {
   }
 }
 
+/**
+ * How many recent searches to keep. Was 3, which is barely a history — and the
+ * list was hidden entirely once anything had been viewed, so the cap never got
+ * tested. Now that it renders alongside Recently Viewed, it can hold a session's
+ * worth; the chips wrap, so the row grows down rather than off-screen.
+ */
+export const RECENT_SEARCH_LIMIT = 8;
+
 export async function saveRecentSearches(items) {
-  // Keep only the last 3 unique searches
-  const uniqueItems = Array.from(new Set(items)).slice(0, 3);
+  const uniqueItems = Array.from(new Set(items)).slice(0, RECENT_SEARCH_LIMIT);
   await AsyncStorage.setItem(KEYS.recentSearches, JSON.stringify(uniqueItems));
 }
 
