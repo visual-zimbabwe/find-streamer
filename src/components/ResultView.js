@@ -88,7 +88,13 @@ import { useBottomSheet } from './StackBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SkeletonBlock, DetailSkeleton } from './SkeletonLoaders';
 import { watchlistEntryKey } from '../lib/watchlistModel';
-import { GOLD_ACCENT, GOLD_DIM, FADE_MS, SCROLL_BOTTOM_PAD } from '../theme/programme';
+import {
+  GOLD_ACCENT,
+  GOLD_DIM,
+  FADE_MS,
+  HERO_HEIGHT,
+  SCROLL_BOTTOM_PAD,
+} from '../theme/programme';
 import { ProgrammeEyebrowLabel } from './ProgrammeSectionHeader';
 
 function pluralize(count, singular, plural = `${singular}s`) {
@@ -137,7 +143,7 @@ function formatSeriesStatus(status, nextEpisodeAirDate) {
   return status; // Ended, Canceled, Pilot
 }
 
-const HERO_HEIGHT = verticalScale(480);
+// Lives in the theme module so `DetailSkeleton` reserves the same band.
 /** Cast/crew rails never render more than this; the rest lives on the full screen. */
 const RAIL_PERSON_CAP = 10;
 /** Franchise tile width + gap, i.e. how far the rail travels per entry. */
@@ -429,7 +435,11 @@ function ScoreValue({ value, unit, typography }) {
 
 export function ResultView({
   result,
+  /** True while `resolveMatch` is still filling in the tapped row's seed. */
   loading = false,
+  /** Set when that resolve failed — the screen carries its own retry. */
+  error = null,
+  onRetry,
   onBack,
   onToggleWatchlist,
   onEnrichWatchlistItem,
@@ -524,6 +534,13 @@ export function ResultView({
   const [synopsisMeasured, setSynopsisMeasured] = useState(false);
   /** Title-treatment logo failed to load (or none exists) → fall back to text title. */
   const [logoFailed, setLogoFailed] = useState(false);
+  /**
+   * The logo has actually painted. The branch used to key off the logo merely
+   * *existing* and fall back only `onError`, so the title slot was empty for the
+   * whole image load — measured at 530ms, and now that the screen opens on the
+   * tap it would read as text → blank → logo.
+   */
+  const [logoReady, setLogoReady] = useState(false);
   const reduceMotion = useReduceMotion();
   const shareSheetIdRef = useRef(null);
 
@@ -563,14 +580,22 @@ export function ResultView({
   // Merge poster palette over base theme; fall back gracefully
   const colors = palette ?? theme.colors;
 
-  // Fade in when palette arrives so the color shift feels smooth
+  /**
+   * Fade the palette-derived backdrop in when the poster's colors arrive.
+   *
+   * This used to sit on the whole `Animated.ScrollView`, dropping the entire
+   * page to 0.3 opacity and back roughly half a second after it had painted —
+   * so the title, ratings and synopsis the user was already reading dimmed and
+   * undimmed for no reason they could see. Only the mesh is palette-dependent,
+   * so only the mesh fades.
+   */
   const paletteOpacity = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (reduceMotion) {
       paletteOpacity.setValue(1);
       return;
     }
-    paletteOpacity.setValue(0.3);
+    paletteOpacity.setValue(0);
     Animated.timing(paletteOpacity, {
       toValue: 1,
       duration: FADE_MS,
@@ -584,6 +609,7 @@ export function ResultView({
     setSynopsisOverflows(false);
     setSynopsisMeasured(false);
     setLogoFailed(false);
+    setLogoReady(false);
     setWikiData({ languages: [], countries: [], basedOn: null, soundtracks: [], awards: [] });
     setWikiLoading(false);
     setWikiError(false);
@@ -637,6 +663,10 @@ export function ResultView({
   // ── Wikidata SPARQL fetch ────────────────────────────────────────────────
   useEffect(() => {
     if (!result?.tmdbId) return;
+    // The seed has no `imdbId`, and the item lookup keys off it. Firing now
+    // would spend a two-query SPARQL round trip on half an identity and then
+    // have to repeat it, so it waits for the payload.
+    if (loading) return;
 
     const hasCachedEnrichment = result.wikidataEnriched === true || result.basedOn !== undefined;
     const hasCachedSoundtracks = Array.isArray(result.soundtracks);
@@ -686,6 +716,7 @@ export function ResultView({
       cancelled = true;
     };
   }, [
+    loading,
     result?.tmdbId,
     result?.imdbId,
     result?.mediaType,
@@ -703,6 +734,10 @@ export function ResultView({
   // ── Rails fetch (post-paint) ─────────────────────────────────────────────
   useEffect(() => {
     if (!result?.tmdbId || !result?.mediaType) return;
+    // `selectRailPeople` reads the credits, which the seed does not have — the
+    // people rail would come back empty and never refetch, since the deps are
+    // the title identity rather than the payload.
+    if (loading) return;
 
     let cancelled = false;
     setRailsLoading(true);
@@ -727,7 +762,7 @@ export function ResultView({
     // on every render of the parent, and the rails only depend on the identity
     // of the title and who is in it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result?.tmdbId, result?.mediaType, railsRetryToken]);
+  }, [loading, result?.tmdbId, result?.mediaType, railsRetryToken]);
 
   const handleRailsRetry = useCallback(() => {
     Haptics.selectionAsync();
@@ -773,6 +808,12 @@ export function ResultView({
     setCollectionError(false);
     setCollectionRetryToken((token) => token + 1);
   }, []);
+
+  /** Re-runs the whole `resolveMatch` for this screen, owned by the controller. */
+  const handleDetailRetry = useCallback(() => {
+    Haptics.selectionAsync();
+    onRetry?.();
+  }, [onRetry]);
 
   // ── Franchise (hooks) ────────────────────────────────────────────────────
   // Declared above the `loading || !result` guard further down, so they run in
@@ -1377,7 +1418,12 @@ export function ResultView({
     });
   }, [onSeeAllPeople, result?.title, peopleSections]);
 
-  if (loading || !result) {
+  // `loading` no longer means "show nothing": the screen is pushed on the tap
+  // with a seed built from the row, so the hero, title, synopsis and TMDb score
+  // are on screen from frame one and the rest streams in. The skeleton is for
+  // the case where there is genuinely no payload at all — a Detail route reached
+  // without an entry (state restoration).
+  if (!result) {
     return <DetailSkeleton />;
   }
 
@@ -1660,7 +1706,7 @@ export function ResultView({
       </Animated.View>
 
       <Animated.ScrollView
-        style={[styles.container, { opacity: paletteOpacity, backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: colors.background }]}
         onScroll={scrollHandler}
         onScrollBeginDrag={handleNavScrollAnchor}
         onScrollEndDrag={handleNavScrollSettled}
@@ -1674,6 +1720,10 @@ export function ResultView({
               uri={heroArtUri}
               style={[styles.backdrop, StyleSheet.absoluteFill]}
               resizeMode={heroBackdrop ? 'cover' : 'contain'}
+              // The row the user tapped already decoded this artwork, so it
+              // holds the frame while the chosen clean still loads instead of
+              // leaving the hero black behind a fully composed page.
+              placeholder={result.backdropUrl || result.posterUrl || null}
               accessibilityLabel={`${result.title} artwork`}
               title={result.title}
             />
@@ -1820,26 +1870,43 @@ export function ResultView({
                 Suppressed entirely on the poster fallback: a poster already carries
                 the title, so overlaying ours would double it (the poster's own title
                 remains the visible one; MediaArtwork's a11y label still names it). */}
-            {usingPoster ? null : heroLogo && !logoFailed ? (
-              <ExpoImage
-                source={{ uri: heroLogo.url }}
-                style={[styles.titleLogo, { width: heroLogo.width, height: heroLogo.height }]}
-                contentFit="contain"
-                contentPosition="left"
-                transition={180}
-                onError={() => setLogoFailed(true)}
-                accessible
-                accessibilityRole="image"
-                accessibilityLabel={result.title}
-              />
-            ) : (
-              <Text
-                style={[styles.title, { color: '#ffffff', ...typography.displayLg, ...titleFont }]}
-                numberOfLines={3}
-                accessibilityRole="header"
-              >
-                {result.title}
-              </Text>
+            {usingPoster ? null : (
+              <>
+                {/* The logo takes the layout slot only once it has painted;
+                    until then it loads out of flow behind the text title, so
+                    the title is readable from the first frame and the swap is
+                    text → logo art rather than text → nothing → logo art. */}
+                {heroLogo && !logoFailed ? (
+                  <ExpoImage
+                    source={{ uri: heroLogo.url }}
+                    style={[
+                      styles.titleLogo,
+                      { width: heroLogo.width, height: heroLogo.height },
+                      logoReady ? null : styles.titleLogoLoading,
+                    ]}
+                    contentFit="contain"
+                    contentPosition="left"
+                    transition={180}
+                    onLoad={() => setLogoReady(true)}
+                    onError={() => setLogoFailed(true)}
+                    accessible={logoReady}
+                    accessibilityRole="image"
+                    accessibilityLabel={result.title}
+                  />
+                ) : null}
+                {heroLogo && !logoFailed && logoReady ? null : (
+                  <Text
+                    style={[
+                      styles.title,
+                      { color: '#ffffff', ...typography.displayLg, ...titleFont },
+                    ]}
+                    numberOfLines={3}
+                    accessibilityRole="header"
+                  >
+                    {result.title}
+                  </Text>
+                )}
+              </>
             )}
 
             {/* Watch Trailer full-width button */}
@@ -1966,7 +2033,10 @@ export function ResultView({
             },
           ]}
         >
-          <View pointerEvents="none" style={styles.meshBackdrop}>
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.meshBackdrop, { opacity: paletteOpacity }]}
+          >
             <LinearGradient
               colors={[
                 colors.background,
@@ -1980,7 +2050,7 @@ export function ResultView({
             <Animated.View style={[styles.meshOrb, styles.meshOrbB, meshB]} />
             <Animated.View style={[styles.meshOrb, styles.meshOrbC, meshC]} />
             <View style={[styles.meshVeil, { backgroundColor: colors.background + 'D9' }]} />
-          </View>
+          </Animated.View>
 
           <View style={styles.section}>
             <ProgrammeEyebrowLabel eyebrow="Synopsis" />
@@ -2028,8 +2098,14 @@ export function ResultView({
             )}
           </View>
 
-          {/* Availability leads the detail stack — it is the question the app exists to answer */}
-          {hasAvailabilityData && (
+          {/* Availability leads the detail stack — it is the question the app exists to answer.
+              While the payload is in flight the slot holds a skeleton rather than
+              nothing: `rows` is null on the seed precisely so the section can't
+              render "Not free to stream anywhere right now" — a wrong answer — for
+              the length of the fetch. If the resolve fails, the retry lands here,
+              where the answer should have been, instead of in a toast that has
+              already gone. */}
+          {hasAvailabilityData ? (
             <WhereToWatchSection
               key={`where-to-watch-${result.tmdbId}`}
               rows={result.rows}
@@ -2039,7 +2115,52 @@ export function ResultView({
               colors={colors}
               typography={typography}
             />
-          )}
+          ) : loading ? (
+            <View style={styles.section}>
+              <ProgrammeEyebrowLabel eyebrow="Where To Watch" />
+              <View style={styles.availabilityLoadingChips}>
+                {[0, 1, 2].map((index) => (
+                  <SkeletonBlock key={index} style={styles.availabilityChipSkeleton} />
+                ))}
+              </View>
+              {[0, 1, 2, 3].map((index) => (
+                <SkeletonBlock key={index} style={styles.availabilityRowSkeleton} />
+              ))}
+            </View>
+          ) : error ? (
+            <View style={styles.section}>
+              <ProgrammeEyebrowLabel eyebrow="Where To Watch" />
+              <TouchableOpacity
+                onPress={handleDetailRetry}
+                style={[
+                  styles.detailErrorCard,
+                  { backgroundColor: colors.surfaceContainer, borderColor: GOLD_DIM },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Retry loading ${result.title}`}
+              >
+                <Ionicons name="cloud-offline-outline" size={22} color={GOLD_ACCENT} />
+                <View style={styles.detailErrorBody}>
+                  <Text
+                    style={[
+                      styles.detailErrorTitle,
+                      { color: colors.onSurface, ...typography.bodyMd },
+                    ]}
+                  >
+                    Couldn&apos;t load the rest of this title.
+                  </Text>
+                  <Text
+                    style={[
+                      styles.detailErrorText,
+                      { color: colors.onSurfaceVariant, ...typography.labelSm },
+                    ]}
+                  >
+                    Tap to try again.
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           {/* Based On — only drawn once we know there is something to draw.
               The eyebrow follows the claim: P941 ("inspired by") is a weaker
@@ -2875,14 +2996,21 @@ export function ResultView({
           <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
 
+        {/* Both act on the payload, not the seed: a share card built from a
+            half-built object is wrong art, and saving one writes a watchlist
+            entry with no availability behind it. The window is the length of
+            the resolve. */}
         <View style={styles.floatingRightActions}>
           <TouchableOpacity
             style={[
               styles.floatingButton,
               { backgroundColor: colors.surfaceContainerHighest + 'E6' },
+              loading && styles.floatingButtonPending,
             ]}
             onPress={handleOpenShareSheet}
+            disabled={loading}
             accessibilityRole="button"
+            accessibilityState={{ disabled: loading }}
             accessibilityLabel={`Share ${result.title}`}
           >
             <Ionicons name="share-social-outline" size={20} color={colors.onSurface} />
@@ -2892,18 +3020,20 @@ export function ResultView({
             style={[
               styles.floatingButton,
               { backgroundColor: colors.surfaceContainerHighest + 'E6' },
+              loading && styles.floatingButtonPending,
             ]}
             onPress={() => {
               Haptics.selectionAsync();
               onToggleWatchlist(result);
             }}
+            disabled={loading}
             accessibilityRole="button"
             accessibilityLabel={
               isInWatchlist
                 ? `Manage ${result.title} in your library`
                 : `Save ${result.title} to your library`
             }
-            accessibilityState={{ selected: isInWatchlist }}
+            accessibilityState={{ selected: isInWatchlist, disabled: loading }}
           >
             <Ionicons
               name={isInWatchlist ? 'bookmark' : 'bookmark-outline'}
@@ -3111,6 +3241,11 @@ const styles = StyleSheet.create({
   titleLogo: {
     alignSelf: 'flex-start',
     marginBottom: 12,
+  },
+  /** Out of flow and invisible while it loads — see the title block above. */
+  titleLogoLoading: {
+    opacity: 0,
+    position: 'absolute',
   },
   infoRow: {
     flexDirection: 'row',
@@ -3610,6 +3745,9 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: 'center',
   },
+  floatingButtonPending: {
+    opacity: 0.45,
+  },
   floatingButton: {
     width: 40,
     height: 40,
@@ -3736,5 +3874,45 @@ const styles = StyleSheet.create({
   basedOnRetryText: {
     flex: 1,
     lineHeight: 20,
+  },
+
+  // Availability placeholders — shaped like the service chips and country rows
+  // they become, so the swap when the payload lands doesn't move the page.
+  availabilityLoadingChips: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+    marginTop: 4,
+  },
+  availabilityChipSkeleton: {
+    borderRadius: 20,
+    height: verticalScale(38),
+    width: scale(96),
+  },
+  availabilityRowSkeleton: {
+    borderRadius: 6,
+    height: verticalScale(22),
+    marginBottom: 12,
+    width: '100%',
+  },
+  detailErrorCard: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  detailErrorBody: {
+    flex: 1,
+    gap: 3,
+  },
+  detailErrorTitle: {
+    fontWeight: '700',
+  },
+  detailErrorText: {
+    lineHeight: 18,
   },
 });

@@ -1,7 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Dimensions, StyleSheet, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { GRID_GAP, GRID_PAD, GOLD_ACCENT, GRID_COL_W, GRID_POSTER_H } from '../theme/programme';
+import {
+  GRID_GAP,
+  GRID_PAD,
+  GOLD_ACCENT,
+  GRID_COL_W,
+  GRID_POSTER_H,
+  HERO_HEIGHT,
+} from '../theme/programme';
 import { scale, verticalScale } from '../utils/responsive';
 const FEATURE_H = verticalScale(420);
 const CHIP_W = scale(248);
@@ -86,12 +93,19 @@ function RailRowSkeleton({ posterCount = 4 }) {
 }
 
 /**
- * A full-screen skeleton that matches the ResultView layout:
- * hero image + title + metadata pills.
+ * A full-screen skeleton matching the ResultView layout: hero band, title,
+ * metadata pills, synopsis.
+ *
+ * Reachable again after the opening-a-title work. The Detail screen is now
+ * pushed on the tap against a seed built from the row, so the ordinary open
+ * never shows this — it is the fallback for a Detail route with no entry behind
+ * it (state restoration). It reserves the real `HERO_HEIGHT` rather than a
+ * height of its own; the two had silently drifted apart while nothing rendered
+ * this.
  */
 export function DetailSkeleton() {
   return (
-    <View style={styles.detail}>
+    <View style={styles.detail} accessibilityLabel="Loading title details">
       <SkeletonBlock style={styles.detailHero} />
       <View style={styles.detailBody}>
         <SkeletonBlock style={styles.detailTitle} />
@@ -239,7 +253,7 @@ const styles = StyleSheet.create({
   },
   detailHero: {
     width: '100%',
-    height: FEATURE_H,
+    height: HERO_HEIGHT,
     borderRadius: 0,
   },
   detailBody: {

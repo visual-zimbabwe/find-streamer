@@ -13,8 +13,12 @@ import { loadRecentSearches, saveRecentSearches } from '../lib/storage';
  * search history. Detail resolution and the shared spinner live in the detail
  * controller and are injected here.
  *
+ * Owns its own `loading` flag. It used to borrow the detail controller's, which
+ * meant one boolean stood for both "a search is running" and "a title is
+ * opening" — the coupling that forced `AppShell`'s loading overlay to exclude
+ * six of the eight views to avoid firing on the wrong one.
+ *
  * @param {{
- *   setLoading: (value: boolean) => void,
  *   openResolvedDetail: (queryTitle: string, match: object, navigation: object, fallbackMessage?: string) => Promise<void>,
  *   handlePersonPress: (personId: any, personName: string, role: any, navigation: object) => void,
  *   handleRequestError: (err: unknown, fallbackMessage: string, options?: object) => void,
@@ -24,7 +28,6 @@ import { loadRecentSearches, saveRecentSearches } from '../lib/storage';
  * }} deps
  */
 export function useSearchController({
-  setLoading,
   openResolvedDetail,
   handlePersonPress,
   handleRequestError,
@@ -32,6 +35,7 @@ export function useSearchController({
   setErrorInfo,
   setOfflineBanner,
 }) {
+  const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [filter, setFilter] = useState(null); // 'movie' | 'tv' | null
@@ -211,6 +215,7 @@ export function useSearchController({
   }, [results, filter]);
 
   return {
+    loading,
     query,
     setQuery,
     results,

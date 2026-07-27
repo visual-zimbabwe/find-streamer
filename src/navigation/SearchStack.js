@@ -16,7 +16,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchPanel } from '../components/SearchPanel';
 import { MatchResults } from '../components/MatchResults';
 import { EmptyState } from '../components/EmptyState';
-import { ResultView } from '../components/ResultView';
 import { FilmographyScreen } from '../components/FilmographyScreen';
 import { FullCastScreen } from '../components/FullCastScreen';
 import {
@@ -28,7 +27,7 @@ import {
   usePeople,
 } from '../context/domainContexts';
 import { useStackScreenOptions } from './useStackScreenOptions';
-import { watchlistEntryKey } from '../lib/watchlistModel';
+import { DetailScreenRoute } from './DetailScreenRoute';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { scale, verticalScale } from '../utils/responsive';
@@ -58,8 +57,9 @@ function SearchMainScreen() {
     voiceListening,
     handleSelectMatch,
     clearSearchResults,
+    loading,
   } = useSearch();
-  const { loading, recentViewed } = useDetail();
+  const { recentViewed } = useDetail();
   const { handleToggleWatchlist, savedWatchlistKeys } = useWatchlist();
   const { surpriseLoading, setSurprisePickerVisible } = useSurprise();
   const { handleTabPress } = useNav();
@@ -199,39 +199,6 @@ function SearchMainScreen() {
   );
 }
 
-function SearchDetailScreen() {
-  const navigation = useNavigation();
-  const { selectedResult } = useDetail();
-  const {
-    handleToggleWatchlist,
-    handleEnrichWatchlistItem,
-    savedWatchlistKeys,
-  } = useWatchlist();
-  const { handleSelectMatch } = useSearch();
-  const { handlePersonPress, handleCompanyPress, handleCollectionPress } = usePeople();
-
-  return (
-    <ResultView
-      result={selectedResult}
-      onBack={() => navigation.goBack()}
-      onToggleWatchlist={handleToggleWatchlist}
-      onEnrichWatchlistItem={handleEnrichWatchlistItem}
-      isInWatchlist={savedWatchlistKeys.includes(watchlistEntryKey(selectedResult))}
-      onSelectSimilar={(match) => handleSelectMatch(match, navigation)}
-      onPersonPress={(personId, personName, role) =>
-        handlePersonPress(personId, personName, role, navigation)
-      }
-      onCompanyPress={(companyId, companyName, logoUrl) =>
-        handleCompanyPress(companyId, companyName, logoUrl, navigation)
-      }
-      onCollectionPress={(collection, currentTmdbId) =>
-        handleCollectionPress(collection, currentTmdbId, navigation)
-      }
-      onSeeAllPeople={(params) => navigation.push('FullCast', params)}
-    />
-  );
-}
-
 function SearchFullCastScreen({ route }) {
   const navigation = useNavigation();
   const { handlePersonPress } = usePeople();
@@ -276,7 +243,7 @@ export function SearchStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="Search" component={SearchMainScreen} />
-      <Stack.Screen name="Detail" component={SearchDetailScreen} />
+      <Stack.Screen name="Detail" component={DetailScreenRoute} />
       <Stack.Screen name="FullCast" component={SearchFullCastScreen} />
       <Stack.Screen name="Filmography" component={SearchFilmographyScreen} />
     </Stack.Navigator>

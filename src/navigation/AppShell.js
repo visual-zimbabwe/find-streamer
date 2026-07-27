@@ -11,7 +11,6 @@ import { StatePanel } from '../components/StatePanel';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { BottomSheetPortal } from '../components/StackBottomSheet';
 import {
-  useDetail,
   useStatus,
   useSearch,
   useNav,
@@ -23,18 +22,6 @@ import { navigationRef, getFocusedRouteName, getCurrentTabId, canStackPop } from
 import { buildNavigationTheme } from './navigationTheme';
 import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
 
-const ROUTE_TO_VIEW = {
-  Home: 'home',
-  Collections: 'collections',
-  Detail: 'detail',
-  FullCast: 'detail',
-  Filmography: 'filmography',
-  Search: 'search',
-  Discover: 'discover',
-  Watchlist: 'watchlist',
-  Settings: 'settings',
-};
-
 const IMMERSIVE_ROUTES = new Set(['Home', 'Collections', 'Detail', 'FullCast', 'Filmography']);
 /** Tool tabs use ProgrammeSectionHeader — no AppHeader wordmark on top. */
 const TOOL_TAB_ROUTES = new Set(['Search', 'Discover', 'Watchlist', 'Settings']);
@@ -43,14 +30,12 @@ function AppShellInner({ rootNavState }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
-  const { loading } = useDetail();
   const { error, errorInfo, offlineBanner, setOfflineBanner } = useStatus();
   const { handleSearch, query } = useSearch();
   const { goBack, handleTabPress } = useNav();
   const {
     surprisePickerVisible,
     setSurprisePickerVisible,
-    surpriseLoading,
     handleSurpriseMe,
     handleSurpriseByGenre,
     QUICK_SURPRISE_GENRES,
@@ -61,21 +46,15 @@ function AppShellInner({ rootNavState }) {
   const focusedRoute = getFocusedRouteName(rootNavState);
   const stackCanPop = canStackPop(rootNavState);
 
-  const activeView = ROUTE_TO_VIEW[focusedRoute] || 'home';
   const showAppHeader =
     !IMMERSIVE_ROUTES.has(focusedRoute) &&
     !TOOL_TAB_ROUTES.has(focusedRoute) &&
     stackCanPop;
   const showBack = stackCanPop;
-  // In-tab flows (search submit, filmography → title) use local loaders; never unmount tabs.
-  const showLoading =
-    loading &&
-    activeView !== 'detail' &&
-    activeView !== 'discover' &&
-    activeView !== 'home' &&
-    activeView !== 'collections' &&
-    activeView !== 'search' &&
-    activeView !== 'filmography';
+  // No full-screen loading overlay: opening a title pushes the Detail screen on
+  // the tap and fills it in there, and a search submit is reported by the search
+  // panel's own inline loader. The overlay this replaced was excluded from six of
+  // the eight views precisely because it was answering two different questions.
 
   const bottomNavFixed = activeTab === 'search' && focusedRoute === 'Search';
 
@@ -89,15 +68,6 @@ function AppShellInner({ rootNavState }) {
 
       <View style={styles.mainContent}>
         <RootTabs />
-        {showLoading && (
-          <View style={[styles.mainOverlay, { backgroundColor: colors.background }]}>
-            <StatePanel
-              type="loading"
-              title="Searching..."
-              description="Please wait while we find your movie."
-            />
-          </View>
-        )}
         {error && (
           <View style={[styles.mainOverlay, { backgroundColor: colors.background }]}>
             <StatePanel

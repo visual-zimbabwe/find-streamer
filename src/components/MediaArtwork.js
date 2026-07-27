@@ -14,6 +14,14 @@ export function MediaArtwork({
   title,
   compactFallback = false,
   instant = false,
+  /**
+   * Artwork to hold the frame while `uri` loads — normally a URL the app has
+   * already decoded elsewhere. The detail hero prefers a clean textless still
+   * chosen from `images.backdrops`, which is by definition a cache miss, so
+   * without this the hero sat black for a measured 800ms after the rest of the
+   * page had painted while the poster from the tapped row went unused.
+   */
+  placeholder = null,
 }) {
   const { theme } = useTheme();
   const { colors, typography } = theme;
@@ -47,6 +55,10 @@ export function MediaArtwork({
         source={{ uri }}
         style={style}
         contentFit={
+          resizeMode === 'stretch' ? 'fill' : resizeMode === 'center' ? 'none' : resizeMode
+        }
+        placeholder={placeholder && placeholder !== uri ? { uri: placeholder } : undefined}
+        placeholderContentFit={
           resizeMode === 'stretch' ? 'fill' : resizeMode === 'center' ? 'none' : resizeMode
         }
         transition={instant ? 0 : 250}

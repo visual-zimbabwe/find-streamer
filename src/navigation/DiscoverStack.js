@@ -2,18 +2,11 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { DiscoverScreen } from '../components/DiscoverScreen';
-import { ResultView } from '../components/ResultView';
 import { FilmographyScreen } from '../components/FilmographyScreen';
 import { FullCastScreen } from '../components/FullCastScreen';
-import {
-  useSearch,
-  useDiscover,
-  useDetail,
-  useWatchlist,
-  usePeople,
-} from '../context/domainContexts';
+import { useSearch, useDiscover, useWatchlist, usePeople } from '../context/domainContexts';
 import { useStackScreenOptions } from './useStackScreenOptions';
-import { watchlistEntryKey } from '../lib/watchlistModel';
+import { DetailScreenRoute } from './DetailScreenRoute';
 
 const Stack = createNativeStackNavigator();
 
@@ -29,39 +22,6 @@ function DiscoverMainScreen() {
       vm={discoverVm}
       onToggleWatchlist={handleToggleWatchlist}
       watchlistIds={savedWatchlistKeys}
-    />
-  );
-}
-
-function DiscoverDetailScreen() {
-  const navigation = useNavigation();
-  const { selectedResult } = useDetail();
-  const {
-    handleToggleWatchlist,
-    handleEnrichWatchlistItem,
-    savedWatchlistKeys,
-  } = useWatchlist();
-  const { handleSelectMatch } = useSearch();
-  const { handlePersonPress, handleCompanyPress, handleCollectionPress } = usePeople();
-
-  return (
-    <ResultView
-      result={selectedResult}
-      onBack={() => navigation.goBack()}
-      onToggleWatchlist={handleToggleWatchlist}
-      onEnrichWatchlistItem={handleEnrichWatchlistItem}
-      isInWatchlist={savedWatchlistKeys.includes(watchlistEntryKey(selectedResult))}
-      onSelectSimilar={(match) => handleSelectMatch(match, navigation)}
-      onPersonPress={(personId, personName, role) =>
-        handlePersonPress(personId, personName, role, navigation)
-      }
-      onCompanyPress={(companyId, companyName, logoUrl) =>
-        handleCompanyPress(companyId, companyName, logoUrl, navigation)
-      }
-      onCollectionPress={(collection, currentTmdbId) =>
-        handleCollectionPress(collection, currentTmdbId, navigation)
-      }
-      onSeeAllPeople={(params) => navigation.push('FullCast', params)}
     />
   );
 }
@@ -110,7 +70,7 @@ export function DiscoverStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="Discover" component={DiscoverMainScreen} />
-      <Stack.Screen name="Detail" component={DiscoverDetailScreen} />
+      <Stack.Screen name="Detail" component={DetailScreenRoute} />
       <Stack.Screen name="FullCast" component={DiscoverFullCastScreen} />
       <Stack.Screen name="Filmography" component={DiscoverFilmographyScreen} />
     </Stack.Navigator>
