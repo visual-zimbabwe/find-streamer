@@ -39,8 +39,16 @@ import { SeasonDetailSheetContent } from './SeasonDetailSheet';
 import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { PersonCard } from './PersonCard';
 import { TitleRailCard } from './TitleRailCard';
-import { fetchTitleRails, searchPersonByName } from '../lib/tmdb';
+import { fetchTitleCollection, fetchTitleRails, searchPersonByName } from '../lib/tmdb';
 import { buildTitleDetailRows, spokenRuntime, stickyTitleFontSize } from '../lib/titleMeta';
+import {
+  RELEASED,
+  franchiseCountLabel,
+  franchiseRailWindow,
+  franchiseTileA11yLabel,
+  franchiseTileMeta,
+  releaseStateFor,
+} from '../lib/franchise';
 import {
   rottenTomatoesEmoji,
   rottenTomatoesFresh,
@@ -132,6 +140,12 @@ function formatSeriesStatus(status, nextEpisodeAirDate) {
 const HERO_HEIGHT = verticalScale(480);
 /** Cast/crew rails never render more than this; the rest lives on the full screen. */
 const RAIL_PERSON_CAP = 10;
+/** Franchise tile width + gap, i.e. how far the rail travels per entry. */
+const FRANCHISE_TILE_PITCH = scale(120) + 12;
+/** Left-hand sliver of the previous tile kept visible when the rail auto-scrolls. */
+const FRANCHISE_SCROLL_PEEK = 40;
+/** Stable identity for "no franchise", so memo dependencies don't churn. */
+const EMPTY_FRANCHISE_PARTS = [];
 /**
  * Collapsed synopsis clamps to this many rendered lines (not characters, so the
  * break never lands mid-word). A measured overflow past this count is what
@@ -423,6 +437,7 @@ export function ResultView({
   onSelectSimilar,
   onPersonPress,
   onCompanyPress,
+  onCollectionPress,
   onSeeAllPeople,
 }) {
   const { theme } = useTheme();
@@ -531,6 +546,17 @@ export function ResultView({
   const [railsLoading, setRailsLoading] = useState(false);
   const [railsError, setRailsError] = useState(false);
   const [railsRetryToken, setRailsRetryToken] = useState(0);
+
+  // ── Franchise collection ─────────────────────────────────────────────────
+  // Same treatment as the rails: `/collection/{id}` used to be a serial await
+  // inside `getTitleMetadata`, ahead of the availability lookup, for a section
+  // five scroll-positions down. `collectionSeed` arrives with the metadata at no
+  // request cost, so the header can name the collection while the parts load.
+  const [collectionInfo, setCollectionInfo] = useState(null);
+  const [collectionLoading, setCollectionLoading] = useState(false);
+  const [collectionError, setCollectionError] = useState(false);
+  const [collectionRetryToken, setCollectionRetryToken] = useState(0);
+  const franchiseRailRef = useRef(null);
 
   // ── Dynamic poster palette ───────────────────────────────────────────────
   const { palette } = usePosterTheme(result?.posterUrl);
@@ -708,6 +734,105 @@ export function ResultView({
     setRailsError(false);
     setRailsRetryToken((token) => token + 1);
   }, []);
+
+  // ── Franchise fetch (post-paint) ─────────────────────────────────────────
+  useEffect(() => {
+    setCollectionInfo(null);
+    if (!result?.collectionSeed?.id || !result?.tmdbId) {
+      setCollectionLoading(false);
+      setCollectionError(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setCollectionLoading(true);
+    setCollectionError(false);
+
+    fetchTitleCollection(result)
+      .then((data) => {
+        if (cancelled) return;
+        setCollectionInfo(data);
+        setCollectionLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCollectionLoading(false);
+        setCollectionError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // `result` is a fresh object every parent render; only the title identity
+    // and its collection seed decide what to fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result?.tmdbId, result?.collectionSeed?.id, collectionRetryToken]);
+
+  const handleCollectionRetry = useCallback(() => {
+    Haptics.selectionAsync();
+    setCollectionError(false);
+    setCollectionRetryToken((token) => token + 1);
+  }, []);
+
+  // ── Franchise (hooks) ────────────────────────────────────────────────────
+  // Declared above the `loading || !result` guard further down, so they run in
+  // the same order on every render.
+  const collectionSeed = result?.collectionSeed || null;
+  const franchiseCollection = collectionInfo?.collection || null;
+  // A collection holding only this film is not a franchise. The empty case is a
+  // shared constant rather than a fresh `[]` so the memo below has a stable
+  // dependency instead of a new array identity on every render.
+  const franchiseParts =
+    collectionInfo?.isFranchise && franchiseCollection?.parts?.length
+      ? franchiseCollection.parts
+      : EMPTY_FRANCHISE_PARTS;
+  const franchiseWindow = useMemo(
+    () => franchiseRailWindow(franchiseParts, result?.tmdbId),
+    [franchiseParts, result?.tmdbId],
+  );
+
+  const handleSeeAllFranchise = useCallback(() => {
+    if (!onCollectionPress || !franchiseCollection) return;
+    Haptics.selectionAsync();
+    onCollectionPress(franchiseCollection, result?.tmdbId);
+  }, [onCollectionPress, franchiseCollection, result?.tmdbId]);
+
+  /**
+   * Land the rail on the current title instead of on entry #1. Fires from
+   * `onContentSizeChange` because the tiles' width is not known at mount, and
+   * only once per title (the ref) so a later re-layout can't yank the rail back
+   * after the user has scrolled it themselves.
+   */
+  const franchiseScrolledForRef = useRef(null);
+  const handleFranchiseRailSized = useCallback(
+    (contentWidth) => {
+      const tmdbId = result?.tmdbId;
+      const count = franchiseWindow.items.length;
+      // The skeleton lays out first and fires this too. Claiming the one-shot
+      // then would spend it before the real tiles exist.
+      if (!count) return;
+      if (franchiseScrolledForRef.current === tmdbId) return;
+      // This also fires mid-layout, while the content is still narrower than its
+      // final width — and a scrollTo past the current maximum is silently
+      // clamped, not queued. Waiting for the full width is what separates
+      // "landed on Skyfall" from "nudged one tile off GoldenEye".
+      if (contentWidth < count * FRANCHISE_TILE_PITCH - FRANCHISE_TILE_PITCH / 2) return;
+
+      const index = franchiseWindow.currentWindowIndex;
+      franchiseScrolledForRef.current = tmdbId;
+      if (index <= 0) return;
+      // Leave the previous tile peeking so the rail reads as scrolled, not truncated.
+      const offset = Math.max(0, index * FRANCHISE_TILE_PITCH - FRANCHISE_SCROLL_PEEK);
+      // Deferred a frame on purpose: scrolling synchronously from inside
+      // `onContentSizeChange` is overwritten by the layout pass that follows it.
+      // Device-proven — the synchronous call asked for x=741 and the rail settled
+      // at x=82.
+      requestAnimationFrame(() => {
+        franchiseRailRef.current?.scrollTo({ x: offset, y: 0, animated: false });
+      });
+    },
+    [result?.tmdbId, franchiseWindow.currentWindowIndex, franchiseWindow.items.length],
+  );
 
   /**
    * The first paint renders the synopsis unclamped, so this layout pass sees the
@@ -1318,14 +1443,33 @@ export function ResultView({
       accessibilityLabel={`See all ${totalPeopleCount} cast and crew`}
       style={styles.seeAllButton}
     >
-      <Text style={[styles.seeAllText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+      <Text style={[typography.labelSm, styles.seeAllText, { color: GOLD_ACCENT }]}>
         {`See All ${totalPeopleCount}`}
       </Text>
     </TouchableOpacity>
   ) : null;
   const hasAvailabilityData = Array.isArray(result.rows);
-  const franchiseParts =
-    result.isFranchise && result.collection?.parts?.length ? result.collection.parts : [];
+
+  // ── Franchise (render-side) ──────────────────────────────────────────────
+  // The hooks this section needs live above the loading guard; only the plain
+  // derived values are here.
+  //
+  // Release state is recomputed every render rather than memoized on the parts:
+  // it is a function of the clock, and a screen left open across a release date
+  // should not keep insisting the film is upcoming.
+  const franchiseCountText = franchiseCountLabel(franchiseParts);
+  const franchiseName =
+    franchiseCollection?.name || collectionSeed?.name || `${result.title} Collection`;
+  // Seed present but parts not back yet (or failed) — the header still renders,
+  // and on the ~68% of movies with no collection at all nothing is drawn.
+  const showFranchiseSection =
+    Boolean(collectionSeed?.id) &&
+    (collectionLoading || collectionError || franchiseParts.length > 0);
+  // Two-line titles must not push the year out of step with one-line neighbours.
+  // Derived from the token, never a raw constant — `lineHeight` is `scaleFont`ed,
+  // so a hardcoded pixel value drifts on every device but the one it was tuned on.
+  const franchiseTitleMinHeight = typography.bodyMd.lineHeight * 2;
+
   const displaySynopsis =
     result.synopsis && result.synopsis !== 'No synopsis available.'
       ? result.synopsis
@@ -2097,109 +2241,180 @@ export function ResultView({
             </View>
           ) : null}
 
-          {franchiseParts.length > 1 && (
+          {/* ─── Franchise ───────────────────────────────────────────────────
+              The rail is a window that always contains the current title, not a
+              head slice: the James Bond collection is 27 entries and Skyfall is
+              the 24th, so `slice(0, 10)` would have shown Dr. No through
+              Moonraker and hidden the film the reader is standing on. */}
+          {showFranchiseSection && (
             <View key={`franchise-${result.tmdbId}`} style={styles.section}>
-              <View style={styles.franchiseHeader}>
-                <View style={[styles.franchiseIcon, { backgroundColor: GOLD_ACCENT + '18' }]}>
-                  <Ionicons name="albums-outline" size={20} color={GOLD_ACCENT} />
-                </View>
-                <View style={styles.franchiseHeaderText}>
-                  <Text
-                    style={[
-                      styles.sectionLabel,
-                      { color: colors.onSurfaceVariant, ...typography.labelSm, marginBottom: 4 },
-                    ]}
+              <View style={styles.sectionHeaderRow}>
+                <ProgrammeEyebrowLabel eyebrow="Franchise" />
+                {franchiseWindow.hasMore && onCollectionPress ? (
+                  <TouchableOpacity
+                    onPress={handleSeeAllFranchise}
+                    accessibilityRole="button"
+                    accessibilityLabel={`See all ${franchiseWindow.total} films in ${franchiseName}`}
+                    style={styles.seeAllButton}
                   >
-                    Franchise
-                  </Text>
-                  <Text
-                    style={[
-                      styles.franchiseTitle,
-                      { color: colors.onSurface, ...typography.titleMd },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {result.collection?.name || `${result.title} ${result.franchiseLabel}`}
-                  </Text>
-                </View>
-                <View style={[styles.franchiseCountBadge, { borderColor: colors.outlineVariant }]}>
-                  <Text
-                    style={[
-                      styles.franchiseCountText,
-                      { color: colors.onSurfaceVariant, ...typography.labelSm },
-                    ]}
-                  >
-                    {pluralize(franchiseParts.length, 'film')}
-                  </Text>
-                </View>
+                    <Text style={[typography.labelSm, styles.seeAllText, { color: GOLD_ACCENT }]}>
+                      {`See All ${franchiseWindow.total}`}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
 
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.franchiseScroll}
+              <View
+                style={styles.franchiseHeading}
+                accessible
+                accessibilityLabel={
+                  franchiseCountText ? `${franchiseName}. ${franchiseCountText}.` : franchiseName
+                }
               >
-                {franchiseParts.map((item, index) => {
-                  const isCurrentMovie = item.tmdbId === result.tmdbId;
-                  return (
-                    <TouchableOpacity
-                      key={`${result.tmdbId}-${item.tmdbId}`}
-                      style={styles.franchiseItem}
-                      onPress={() => !isCurrentMovie && onSelectSimilar(item)}
-                      disabled={isCurrentMovie}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        isCurrentMovie
-                          ? `${item.title}, current movie`
-                          : `Open details for ${item.title}`
-                      }
-                      accessibilityState={{ selected: isCurrentMovie }}
-                      activeOpacity={0.78}
-                    >
-                      <View
-                        style={[
-                          styles.similarPoster,
-                          styles.franchisePoster,
-                          { borderRadius: radii.md },
-                          isCurrentMovie && { borderColor: GOLD_ACCENT, borderWidth: 2 },
-                        ]}
-                      >
-                        <MediaArtwork
-                          uri={item.posterUrl}
-                          style={styles.poster}
-                          accessibilityLabel={`${item.title} poster`}
-                          title={item.title}
-                          instant
-                        />
-                        <View
-                          style={[styles.franchiseOrderBadge, { backgroundColor: GOLD_ACCENT }]}
-                        >
-                          <Text style={[styles.franchiseOrderText, { color: '#141414' }]}>
-                            {index + 1}
-                          </Text>
+                {/* Token first, local style second: RN style arrays let the LAST
+                    entry win, so spreading the typography token last silently
+                    killed every `fontWeight` in this section. */}
+                <Text
+                  style={[typography.titleMd, styles.franchiseTitle, { color: colors.onSurface }]}
+                  numberOfLines={2}
+                >
+                  {franchiseName}
+                </Text>
+                {franchiseCountText ? (
+                  <Text
+                    style={[
+                      typography.labelSm,
+                      styles.franchiseCountText,
+                      { color: colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {franchiseCountText}
+                  </Text>
+                ) : null}
+              </View>
+
+              {collectionError ? (
+                <TouchableOpacity
+                  onPress={handleCollectionRetry}
+                  style={[styles.basedOnRetry, { borderColor: colors.outlineVariant }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry loading this franchise"
+                >
+                  <Ionicons name="refresh-outline" size={16} color={colors.onSurfaceVariant} />
+                  <Text
+                    style={[
+                      styles.basedOnRetryText,
+                      { color: colors.onSurfaceVariant, ...typography.bodyMd },
+                    ]}
+                  >
+                    Couldn&apos;t load this franchise. Tap to retry.
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <ScrollView
+                  ref={franchiseRailRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.franchiseScroll}
+                  onContentSizeChange={handleFranchiseRailSized}
+                >
+                  {collectionLoading && franchiseParts.length === 0
+                    ? [0, 1, 2].map((index) => (
+                        <View key={`franchise-skeleton-${index}`} style={styles.railSkeletonItem}>
+                          <SkeletonBlock style={styles.railSkeletonPoster} />
+                          <SkeletonBlock style={{ width: 96, height: 12, borderRadius: 6 }} />
                         </View>
-                      </View>
-                      <Text
-                        style={[
-                          styles.similarTitle,
-                          { color: colors.onSurface, ...typography.bodyMd },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {item.title}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.franchiseYear,
-                          { color: colors.onSurfaceVariant, ...typography.labelSm },
-                        ]}
-                      >
-                        {isCurrentMovie ? `${item.year} · Current` : item.year}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+                      ))
+                    : franchiseWindow.items.map((item) => {
+                        const isCurrentMovie = item.tmdbId === result.tmdbId;
+                        const state = releaseStateFor(item);
+                        const isReleased = state === RELEASED;
+                        return (
+                          <TouchableOpacity
+                            key={`${result.tmdbId}-${item.tmdbId}`}
+                            style={styles.franchiseItem}
+                            onPress={() => !isCurrentMovie && onSelectSimilar(item)}
+                            disabled={isCurrentMovie}
+                            accessibilityRole="button"
+                            accessibilityLabel={franchiseTileA11yLabel({
+                              title: item.title,
+                              order: item.order,
+                              total: franchiseWindow.total,
+                              year: item.year,
+                              state,
+                              isCurrent: isCurrentMovie,
+                            })}
+                            accessibilityState={{ selected: isCurrentMovie }}
+                            activeOpacity={0.78}
+                          >
+                            <View
+                              style={[
+                                styles.similarPoster,
+                                styles.franchisePoster,
+                                { borderRadius: radii.md },
+                                // Gold is the app's "live and actionable" accent
+                                // everywhere else; an unreleased entry keeps the
+                                // poster but gives it back.
+                                !isReleased && styles.franchisePosterPending,
+                                isCurrentMovie && { borderColor: GOLD_ACCENT, borderWidth: 2 },
+                              ]}
+                            >
+                              <MediaArtwork
+                                uri={item.posterUrl}
+                                style={styles.poster}
+                                accessibilityLabel={`${item.title} poster`}
+                                title={item.title}
+                                instant
+                              />
+                              <View
+                                style={[
+                                  styles.franchiseOrderBadge,
+                                  {
+                                    backgroundColor: isReleased
+                                      ? GOLD_ACCENT
+                                      : colors.surfaceContainerHighest,
+                                    borderColor: isReleased ? GOLD_ACCENT : colors.outlineVariant,
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.franchiseOrderText,
+                                    { color: isReleased ? '#141414' : colors.onSurfaceVariant },
+                                  ]}
+                                >
+                                  {item.order}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text
+                              style={[
+                                typography.bodyMd,
+                                styles.similarTitle,
+                                { color: colors.onSurface, minHeight: franchiseTitleMinHeight },
+                              ]}
+                              numberOfLines={2}
+                            >
+                              {item.title}
+                            </Text>
+                            <Text
+                              style={[
+                                typography.labelSm,
+                                styles.franchiseYear,
+                                { color: colors.onSurfaceVariant },
+                              ]}
+                            >
+                              {franchiseTileMeta({
+                                year: item.year,
+                                state,
+                                isCurrent: isCurrentMovie,
+                              })}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                </ScrollView>
+              )}
             </View>
           )}
 
@@ -3025,34 +3240,17 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingRight: 40,
   },
-  franchiseHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
+  franchiseHeading: {
     marginBottom: 16,
-  },
-  franchiseIcon: {
-    alignItems: 'center',
-    borderRadius: 18,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  franchiseHeaderText: {
-    flex: 1,
-    minWidth: 0,
+    marginTop: -4,
   },
   franchiseTitle: {
     fontWeight: '900',
   },
-  franchiseCountBadge: {
-    borderRadius: 4,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
   franchiseCountText: {
     fontWeight: '800',
+    letterSpacing: 0.6,
+    marginTop: 4,
   },
   franchiseScroll: {
     gap: 12,
@@ -3064,9 +3262,14 @@ const styles = StyleSheet.create({
   franchisePoster: {
     marginBottom: 8,
   },
+  /** Unreleased entries keep their artwork but stop competing with what's watchable. */
+  franchisePosterPending: {
+    opacity: 0.55,
+  },
   franchiseOrderBadge: {
     alignItems: 'center',
     borderRadius: 4,
+    borderWidth: 1,
     height: 22,
     justifyContent: 'center',
     left: 8,

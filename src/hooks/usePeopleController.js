@@ -82,6 +82,29 @@ export function usePeopleController({ openResolvedDetail, handleRequestError, se
     [openFilmography, handleRequestError, setOfflineBanner],
   );
 
+  /**
+   * The full franchise. Unlike a person or a studio this needs NO fetch — the
+   * detail screen already holds every part from `/collection/{id}`, so the
+   * screen opens fully populated instead of flashing a skeleton.
+   */
+  const handleCollectionPress = useCallback(
+    (collection, currentTmdbId, navigation) => {
+      if (!collection?.parts?.length) return;
+      setFilmographyLoading(false);
+      setFilmographyPerson({
+        id: collection.id,
+        name: collection.name || 'Collection',
+        role: 'collection',
+        profileUrl: collection.posterUrl || null,
+        total: null,
+        currentTmdbId: currentTmdbId ?? null,
+      });
+      setFilmographyResults(collection.parts);
+      openFilmography(navigation);
+    },
+    [openFilmography],
+  );
+
   const handleSelectFilmographyItem = useCallback(
     async (item, navigation) => {
       await openResolvedDetail(item.title, item, navigation, 'Unable to fetch details.');
@@ -96,6 +119,7 @@ export function usePeopleController({ openResolvedDetail, handleRequestError, se
     openFilmography,
     handlePersonPress,
     handleCompanyPress,
+    handleCollectionPress,
     handleSelectFilmographyItem,
   };
 }

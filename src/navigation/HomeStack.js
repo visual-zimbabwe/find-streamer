@@ -72,7 +72,7 @@ function DetailScreenRoute() {
     savedWatchlistKeys,
   } = useWatchlist();
   const { handleSelectMatch } = useSearch();
-  const { handlePersonPress, handleCompanyPress } = usePeople();
+  const { handlePersonPress, handleCompanyPress, handleCollectionPress } = usePeople();
 
   return (
     <ResultView
@@ -87,6 +87,9 @@ function DetailScreenRoute() {
       }
       onCompanyPress={(companyId, companyName, logoUrl) =>
         handleCompanyPress(companyId, companyName, logoUrl, navigation)
+      }
+      onCollectionPress={(collection, currentTmdbId) =>
+        handleCollectionPress(collection, currentTmdbId, navigation)
       }
       onSeeAllPeople={(params) => navigation.push('FullCast', params)}
     />
@@ -123,6 +126,7 @@ function FilmographyScreenRoute() {
       role={filmographyPerson.role}
       profileUrl={filmographyPerson.profileUrl}
       total={filmographyPerson.total}
+      currentTmdbId={filmographyPerson.currentTmdbId}
       results={filmographyResults}
       onSelectItem={(item) => handleSelectFilmographyItem(item, navigation)}
       loading={filmographyLoading}
