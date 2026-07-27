@@ -12,6 +12,24 @@
  *    of titles; down-page they get a full-width line each.
  */
 
+/**
+ * Pre-`scaleFont` size for the collapsed sticky-bar title, tiered by length.
+ *
+ * The bar gives the title 216dp after the back button, the share/bookmark pair
+ * and 8dp of clearance from the back circle. Measured against 100 popular TMDb
+ * titles with the shipped `Manrope_700Bold` advances, a flat 18 (→17dp on a
+ * 384dp screen) clips 21 of them; one step down to 15 (→14dp) takes that to 14,
+ * and most of the rest are titles like "Secret Mission - Undercover Agents Never
+ * Back Down!" that clip at any legible size. A third tier at 13dp only rescued
+ * three more, which is not worth a 13dp top-bar title.
+ *
+ * Deterministic tiers rather than `adjustsFontSizeToFit` for the same reason the
+ * hero title uses them: RN-Android under-measures custom-font text width.
+ */
+export function stickyTitleFontSize(title) {
+  return (title || '').length <= 20 ? 18 : 15;
+}
+
 /** "2h 28m" is fine to read but terrible to hear — say it in words instead. */
 export function spokenRuntime(minutes) {
   const total = Number(minutes);

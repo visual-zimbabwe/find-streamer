@@ -16,13 +16,12 @@ import {
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { Image as ExpoImage } from 'expo-image';
 import {
-  useBottomNavScroll,
   useBottomNavVisibility,
   applyBottomNavScrollVisibility,
 } from '../context/BottomNavVisibilityContext';
+import { useIsFocused } from '@react-navigation/native';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { ProgressiveBlur } from './ProgressiveBlur';
 import * as Haptics from 'expo-haptics';
 import ViewShot from 'react-native-view-shot';
@@ -41,7 +40,7 @@ import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { PersonCard } from './PersonCard';
 import { TitleRailCard } from './TitleRailCard';
 import { fetchTitleRails, searchPersonByName } from '../lib/tmdb';
-import { buildTitleDetailRows, spokenRuntime } from '../lib/titleMeta';
+import { buildTitleDetailRows, spokenRuntime, stickyTitleFontSize } from '../lib/titleMeta';
 import {
   rottenTomatoesEmoji,
   rottenTomatoesFresh,
@@ -434,32 +433,68 @@ export function ResultView({
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const { setVisible: setBottomNavVisible } = useBottomNavVisibility();
-  const lastOffset = useRef(0);
+  const isFocused = useIsFocused();
+  /** Offset the current gesture started from — the anchor direction is measured against. */
+  const navScrollAnchor = useRef(0);
 
+  // Feeds the hero parallax and the collapsing bar, natively. It deliberately
+  // carries NO `listener`: on the new architecture a natively-driven
+  // `Animated.event` never invokes its JS listener, which is why the bottom-nav
+  // auto-hide that used to live here silently did nothing (the nav simply kept
+  // whatever state the previous screen left it in). Direction now comes from the
+  // drag/momentum callbacks below — ordinary JS props that do reach us, and the
+  // nav only needs direction changes, not a per-frame update.
   const scrollHandler = useRef(
     Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
       useNativeDriver: true,
-      listener: (event) => {
-        if (!event || !event.nativeEvent || !event.nativeEvent.contentOffset) return;
-        const currentOffset = event.nativeEvent.contentOffset.y;
-        lastOffset.current = applyBottomNavScrollVisibility({
-          currentOffset,
-          lastOffset: lastOffset.current,
-          contentSize: event.nativeEvent.contentSize,
-          layoutMeasurement: event.nativeEvent.layoutMeasurement,
-          setVisible: setBottomNavVisible,
-        });
-      },
     }),
   ).current;
-  // Sticky header appears after hero scrolls out of view
-  const stickyOpacity = scrollY.interpolate({
-    inputRange: [HERO_HEIGHT - 100, HERO_HEIGHT],
+
+  const handleNavScrollAnchor = useCallback((event) => {
+    navScrollAnchor.current = event?.nativeEvent?.contentOffset?.y ?? 0;
+  }, []);
+
+  const handleNavScrollSettled = useCallback(
+    (event) => {
+      const nativeEvent = event?.nativeEvent;
+      if (!nativeEvent?.contentOffset) return;
+      navScrollAnchor.current = applyBottomNavScrollVisibility({
+        currentOffset: nativeEvent.contentOffset.y,
+        lastOffset: navScrollAnchor.current,
+        contentSize: nativeEvent.contentSize,
+        layoutMeasurement: nativeEvent.layoutMeasurement,
+        setVisible: setBottomNavVisible,
+      });
+    },
+    [setBottomNavVisible],
+  );
+
+  // Arriving here with the nav hidden (scroll down on Home, tap a poster) used to
+  // strand it off-screen, because nothing on this screen ever reported an offset.
+  useEffect(() => {
+    if (isFocused) setBottomNavVisible(true);
+  }, [isFocused, setBottomNavVisible]);
+
+  // The bar's backdrop and its label ride SEPARATE curves. Animating one opacity
+  // on the wrapper made the "solid" bar translucent for the whole ~100dp of its
+  // fade, so the tail of the hero title art and the first section read straight
+  // through it while the collapsed title sat on top of them — two titles at once.
+  // The backdrop now finishes before the label starts, so the label only ever
+  // appears against an opaque bar (and inheriting the wrapper's alpha is moot by
+  // then, since it is 1). Both ranges derive from HERO_HEIGHT: it is
+  // `verticalScale(480)`, so hardcoded offsets only line up on one screen height.
+  const stickyBackdropOpacity = scrollY.interpolate({
+    inputRange: [HERO_HEIGHT - 100, HERO_HEIGHT - 55],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const stickyLabelOpacity = scrollY.interpolate({
+    inputRange: [HERO_HEIGHT - 45, HERO_HEIGHT],
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
   const stickyTranslateY = scrollY.interpolate({
-    inputRange: [HERO_HEIGHT - 100, HERO_HEIGHT],
+    inputRange: [HERO_HEIGHT - 100, HERO_HEIGHT - 55],
     outputRange: [-16, 0],
     extrapolate: 'clamp',
   });
@@ -970,8 +1005,12 @@ export function ResultView({
     [onPersonPress, showSheet, dismissSheet],
   );
 
+  // Gated on focus. Native-driven and cheap, but an 18s loop that never stops
+  // keeps the whole app permanently non-idle, which is why `uiautomator dump`
+  // fails with "could not get idle state" — and it kept running behind every
+  // pushed screen (full cast, filmography, a studio page) where it isn't visible.
   useEffect(() => {
-    if (reduceMotion) return undefined;
+    if (reduceMotion || !isFocused) return undefined;
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(meshShift, {
@@ -990,7 +1029,7 @@ export function ResultView({
     );
     animation.start();
     return () => animation.stop();
-  }, [meshShift, reduceMotion]);
+  }, [meshShift, reduceMotion, isFocused]);
 
   useEffect(() => {
     const heroUri = result?.heroBackdropUrl || result?.backdropUrl || result?.posterUrl;
@@ -1304,21 +1343,25 @@ export function ResultView({
   const heroBackdrop = result.heroBackdropUrl || result.backdropUrl;
   const heroArtUri = heroBackdrop || result.posterUrl;
   const usingPoster = !heroBackdrop && !!result.posterUrl;
+  // No pull-to-zoom leg: the old `-HERO_HEIGHT` stop (translate down, scale to
+  // 2.0) was unreachable here. Android's ScrollView clamps `getScrollY()` at 0 —
+  // the Android 12+ overscroll stretch is an EdgeEffect draw, not a negative
+  // offset — and this app ships Android only (app.json `platforms`).
   const heroTransform = reduceMotion
     ? {}
     : {
         transform: [
           {
             translateY: scrollY.interpolate({
-              inputRange: [-HERO_HEIGHT, 0, HERO_HEIGHT],
-              outputRange: [HERO_HEIGHT, 0, HERO_HEIGHT * 0.22],
+              inputRange: [0, HERO_HEIGHT],
+              outputRange: [0, HERO_HEIGHT * 0.22],
               extrapolate: 'clamp',
             }),
           },
           {
             scale: scrollY.interpolate({
-              inputRange: [-HERO_HEIGHT, 0, HERO_HEIGHT],
-              outputRange: [2.0, 1, 1.05],
+              inputRange: [0, HERO_HEIGHT],
+              outputRange: [1, 1.05],
               extrapolate: 'clamp',
             }),
           },
@@ -1327,8 +1370,11 @@ export function ResultView({
   const heroContentMotion = reduceMotion
     ? {}
     : {
+        // Fractions of HERO_HEIGHT, not the literal 260/430 these used to be.
+        // HERO_HEIGHT is `verticalScale(480)` — 430dp on the A54, which is the
+        // only reason the hardcoded stops ever lined up with the sticky bar's.
         opacity: scrollY.interpolate({
-          inputRange: [0, 260, 430],
+          inputRange: [0, HERO_HEIGHT * 0.6, HERO_HEIGHT],
           outputRange: [1, 0.65, 0.05],
           extrapolate: 'clamp',
         }),
@@ -1429,12 +1475,20 @@ export function ResultView({
       />
 
       {/* ── Collapsing sticky title bar ─────────────────────── */}
+      {/* Hidden from the accessibility tree outright. `pointerEvents` only gates
+          touch on Android — it does nothing for accessibility, and
+          `isVisibleToUser()` ignores alpha — so at opacity 0 this bar was still
+          handing TalkBack a truncated title before the hero. It is purely
+          decorative redundancy either way: the hero title is already in the tree,
+          and the floating buttons announce the title too. */}
       <Animated.View
         pointerEvents="none"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
         style={[
           styles.stickyTitleBar,
           {
-            opacity: stickyOpacity,
+            opacity: stickyBackdropOpacity,
             transform: [{ translateY: stickyTranslateY }],
             backgroundColor: colors.background,
             borderBottomColor: GOLD_DIM,
@@ -1443,30 +1497,30 @@ export function ResultView({
           },
         ]}
       >
-        {Platform.OS === 'android' ? (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
-        ) : (
-          <BlurView intensity={100} tint="dark" style={StyleSheet.absoluteFill} />
-        )}
-        <View style={styles.stickyTitleContent}>
+        <Animated.View style={[styles.stickyTitleContent, { opacity: stickyLabelOpacity }]}>
           <Text
-            style={[styles.stickyTitle, { color: colors.onSurface, ...typography.titleMd }]}
+            style={[
+              styles.stickyTitle,
+              typography.titleMd,
+              {
+                color: colors.onSurface,
+                fontSize: scaleFont(stickyTitleFontSize(result?.title)),
+                lineHeight: scaleFont(stickyTitleFontSize(result?.title) + 6),
+              },
+            ]}
             numberOfLines={1}
           >
             {result?.title}
           </Text>
-          {result?.year ? (
-            <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-              {result.year}
-            </Text>
-          ) : null}
-        </View>
+        </Animated.View>
       </Animated.View>
 
       <Animated.ScrollView
         style={[styles.container, { opacity: paletteOpacity, backgroundColor: colors.background }]}
-        contentInsetAdjustmentBehavior="never"
         onScroll={scrollHandler}
+        onScrollBeginDrag={handleNavScrollAnchor}
+        onScrollEndDrag={handleNavScrollSettled}
+        onMomentumScrollEnd={handleNavScrollSettled}
         scrollEventThrottle={16}
         removeClippedSubviews={Platform.OS === 'android'}
       >
@@ -2674,17 +2728,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
+  // The floating buttons occupy 56dp on the left (16 page pad + a 40dp pill) and
+  // 104dp on the right (16 + 40 + 8 + 40). The old 72/120 spent 32dp more than
+  // that on a bar where the title box was already the binding constraint — 37 of
+  // 100 popular titles clipped. Left carries 8dp of clearance on top of the
+  // footprint because setting it to the footprint exactly put the first glyph
+  // ~1dp from the back circle; right is the bare footprint, since a title that
+  // reaches that edge ends in an ellipsis whose dots supply their own optical
+  // gap. Box is 216dp, was 156; clipped titles 37 -> 14 of 100.
   stickyTitleContent: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 72,
-    paddingRight: 120,
-    gap: 10,
+    paddingLeft: 64,
+    paddingRight: 104,
     height: '100%',
   },
   stickyTitle: {
-    fontWeight: '800',
     flex: 1,
   },
   heroSection: {
