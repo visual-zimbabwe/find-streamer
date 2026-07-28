@@ -1,12 +1,5 @@
-import React, {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-  useState,
-} from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { ContentRail } from './ContentRail';
@@ -14,8 +7,7 @@ import { fetchHomeNowPlayingRail, fetchHomeTraktTrendingRail } from '../lib/home
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { scale } from '../utils/responsive';
 import { hugLabel } from '../utils/labelText';
-import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
-import { LiveMatchesSkeleton, SkeletonBlock } from './SkeletonLoaders';
+import { LiveMatchesSkeleton } from './SkeletonLoaders';
 import { SearchResultRow } from './SearchResultRow';
 import { SearchPosterGrid } from './SearchPosterGrid';
 import {
@@ -24,41 +16,30 @@ import {
   partitionSearchResults,
 } from '../lib/searchRanker';
 
-export const SearchPanel = forwardRef(function SearchPanel(
-  {
-    value,
-    onChangeText,
-    onSubmit,
-    loading,
-    recentViewed,
-    onPickRecentViewed,
-    onRemoveRecentViewed,
-    onClearRecentViewed,
-    hideHistory,
-    typeResults,
-    typeLoading,
-    onTypeSelect,
-    onClear,
-    submittedQuery,
-    onToggleWatchlist,
-    savedWatchlistKeys,
-    onSeeAllRail,
-  },
-  ref,
-) {
+/**
+ * Everything under the query field: the live "Matches" panel, Recent, and the
+ * two idle rails. The field itself is `SearchField`, docked above the scroll
+ * view by `SearchStack`.
+ */
+export function SearchPanel({
+  value,
+  recentViewed,
+  onPickRecentViewed,
+  onRemoveRecentViewed,
+  onClearRecentViewed,
+  hideHistory,
+  typeResults,
+  typeLoading,
+  onTypeSelect,
+  submittedQuery,
+  onToggleWatchlist,
+  savedWatchlistKeys,
+  onSeeAllRail,
+}) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
-  const inputRef = useRef(null);
-  useImperativeHandle(
-    ref,
-    () => ({
-      focus: () => inputRef.current?.focus(),
-    }),
-    [],
-  );
   const visibleTypeResults = typeResults ? typeResults.slice(0, SEARCH_PANEL_MAX_ROWS) : [];
   const { people: panelPeople, titles: panelTitles } = partitionSearchResults(visibleTypeResults);
-  const hasSearchText = (value || '').length > 0;
   const hasRecentViewed = recentViewed && recentViewed.length > 0;
   const trimmedValue = (value || '').trim();
   // Below the minimum the controller never fires a request, so the panel must
@@ -85,8 +66,6 @@ export const SearchPanel = forwardRef(function SearchPanel(
   const [traktTrending, setTraktTrending] = useState({ status: 'loading', items: [] });
   const [nowPlaying, setNowPlaying] = useState({ status: 'loading', items: [] });
   const railRunRef = useRef(0);
-
-  const searchSurface = colors.glass;
 
   const loadRail = useCallback((fetcher, setState) => {
     const run = railRunRef.current;
@@ -122,69 +101,11 @@ export const SearchPanel = forwardRef(function SearchPanel(
 
   return (
     <View style={styles.container}>
-      <ProgrammeSectionHeader eyebrow="Catalogue" title="Find a Title" titleVariant="titleMd" />
-
-      <View
-        style={[
-          styles.searchTheatre,
-          {
-            backgroundColor: searchSurface,
-            borderColor: GOLD_DIM,
-            borderRadius: radii.lg,
-          },
-        ]}
-      >
-        <View style={styles.searchRow}>
-          <Ionicons name="search-outline" size={20} color={GOLD_ACCENT} style={styles.searchIcon} />
-          <TextInput
-            ref={inputRef}
-            style={[styles.input, { color: colors.onSurface, ...typography.bodyLg }]}
-            placeholder="Search for a movie, show"
-            placeholderTextColor={colors.onSurfaceVariant}
-            value={value}
-            onChangeText={onChangeText}
-            onSubmitEditing={onSubmit}
-            textAlign="center"
-            // The field is full of proper nouns, so autocorrect is a liability
-            // rather than a help, and the action key should say what it does.
-            returnKeyType="search"
-            autoCorrect={false}
-            autoCapitalize="words"
-            autoComplete="off"
-            accessibilityLabel="Search for a movie or show"
-            accessibilityState={{ busy: Boolean(loading) }}
-          />
-          {(typeLoading || loading) && (
-            <View
-              style={styles.typeLoaderDot}
-              accessibilityLabel={loading ? `Searching for ${submittedQuery}` : 'Searching'}
-            >
-              <SkeletonBlock style={StyleSheet.absoluteFill} />
-            </View>
-          )}
-          {hasSearchText && !typeLoading && (
-            <TouchableOpacity
-              style={styles.clearButton}
-              // Clears the committed results too, not just the text. Clearing
-              // only the field left the previous search's "Top Matches" sitting
-              // under an empty search box.
-              onPress={onClear}
-              accessibilityRole="button"
-              accessibilityLabel="Clear search"
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="close-circle-outline" size={22} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
-          )}
-          {!hasSearchText && !typeLoading && <View style={styles.clearButtonSpacer} />}
-        </View>
-      </View>
-
       {showPanel && (
         <View
           style={[
             styles.liveResults,
-            { backgroundColor: searchSurface, borderColor: GOLD_DIM, borderRadius: radii.lg },
+            { backgroundColor: colors.glass, borderColor: GOLD_DIM, borderRadius: radii.lg },
           ]}
           accessibilityLiveRegion="polite"
         >
@@ -332,64 +253,15 @@ export const SearchPanel = forwardRef(function SearchPanel(
       )}
     </View>
   );
-});
+}
 
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: GRID_PAD,
-    paddingTop: scale(8),
-  },
-  searchTheatre: {
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-    ...Platform.select({
-      android: { elevation: 0 },
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-      },
-    }),
-  },
-  searchRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    minHeight: scale(56),
-    paddingHorizontal: scale(14),
-    // The only row in the theatre now that the voice action row is gone, so it
-    // carries the padding on both edges rather than just the top.
-    paddingVertical: scale(10),
-  },
-  searchIcon: {
-    marginRight: scale(8),
-  },
-  input: {
-    flex: 1,
-    fontWeight: '600',
-    minHeight: scale(44),
-    paddingVertical: 0,
-    textAlign: 'center',
-  },
-  typeLoaderDot: {
-    borderRadius: 11,
-    height: 22,
-    marginLeft: scale(8),
-    overflow: 'hidden',
-    width: 22,
-  },
-  clearButton: {
-    alignItems: 'center',
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
-  clearButtonSpacer: {
-    width: 40,
   },
   liveResults: {
     borderWidth: StyleSheet.hairlineWidth,
-    marginTop: scale(14),
+    marginTop: scale(4),
     overflow: 'hidden',
     paddingBottom: scale(4),
     paddingTop: scale(12),

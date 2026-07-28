@@ -35,6 +35,14 @@ export function useSearchController({ openResolvedDetail, handlePersonPress, set
   const typeRequestRef = useRef(0);
   const searchRequestRef = useRef(0);
   const loading = searchSession.phase === SEARCH_PHASE.LOADING;
+  // A counter rather than a boolean: the Search screen focuses its field on
+  // every change, and two consecutive requests must not collapse into one.
+  const [searchFocusSignal, setSearchFocusSignal] = useState(0);
+
+  /** Ask the Search screen to focus its query field (re-pressing the tab). */
+  const requestSearchFocus = useCallback(() => {
+    setSearchFocusSignal((n) => n + 1);
+  }, []);
 
   const clearTypeResults = useCallback(() => {
     if (typeDebounceRef.current) clearTimeout(typeDebounceRef.current);
@@ -211,6 +219,8 @@ export function useSearchController({ openResolvedDetail, handlePersonPress, set
     submittedQuery: searchSession.submittedQuery,
     typeResults,
     typeLoading,
+    searchFocusSignal,
+    requestSearchFocus,
     clearTypeResults,
     clearSearchResults,
     clearSearch,

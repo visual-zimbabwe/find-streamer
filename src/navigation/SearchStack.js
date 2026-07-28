@@ -1,10 +1,11 @@
-import React, { useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchPanel } from '../components/SearchPanel';
+import { SearchField } from '../components/SearchField';
 import { MatchResults, SearchResultsLoading } from '../components/MatchResults';
 import { EmptyState } from '../components/EmptyState';
 import { FilmographyScreen } from '../components/FilmographyScreen';
@@ -15,8 +16,8 @@ import { useStackScreenOptions } from './useStackScreenOptions';
 import { DetailScreenRoute } from './DetailScreenRoute';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { useTheme } from '../theme/ThemeProvider';
-import { scale, verticalScale } from '../utils/responsive';
-import { SCROLL_BOTTOM_PAD } from '../theme/programme';
+import { scale } from '../utils/responsive';
+import { GRID_PAD, SCROLL_BOTTOM_PAD } from '../theme/programme';
 
 const Stack = createNativeStackNavigator();
 
@@ -40,6 +41,7 @@ function SearchMainScreen() {
     handleSelectMatch,
     clearSearch,
     loading,
+    searchFocusSignal,
   } = useSearch();
   const { recentViewed, removeRecentViewed, clearRecentViewed } = useDetail();
   const { handleToggleWatchlist, savedWatchlistKeys } = useWatchlist();
@@ -51,22 +53,55 @@ function SearchMainScreen() {
   const showResults = searchPhase === 'results' && results.length > 0;
   const showEmptyState = searchPhase === 'empty';
   const showErrorState = searchPhase === 'error';
-  const focusSearchInput = () => searchInputRef.current?.focus();
+  const focusSearchInput = useCallback(() => searchInputRef.current?.focus(), []);
+
+  // Re-pressing the Search tab while already on this screen is the "I came here
+  // to type" gesture. Arriving from another tab deliberately does not focus:
+  // the idle rails are the point of the landing state.
+  useEffect(() => {
+    if (!searchFocusSignal) return;
+    focusSearchInput();
+  }, [searchFocusSignal, focusSearchInput]);
+
+  // Clearing is a prelude to typing again, never an exit — so the ✕ hands the
+  // field straight back rather than dropping the user on a dead idle screen.
+  const handleClear = useCallback(() => {
+    clearSearch();
+    focusSearchInput();
+  }, [clearSearch, focusSearchInput]);
 
   return (
     <View style={[searchStyles.root, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={atmosphereColors}
-        style={searchStyles.atmosphereTop}
-        pointerEvents="none"
-      />
+      {/*
+        Docked. The field used to be the first item of the scroll content, so
+        refining a query — the commonest thing anyone does after searching —
+        cost a scroll back past the results grid, three rails and a header.
+        The gradient resolves to the page background at the dock's lower edge,
+        so content scrolling under it has nothing to seam against.
+      */}
+      <View style={[searchStyles.dock, { paddingTop: insets.top + scale(8) }]}>
+        <LinearGradient
+          colors={atmosphereColors}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+        <SearchField
+          ref={searchInputRef}
+          value={query}
+          onChangeText={handleQueryChange}
+          onSubmit={() => handleSearch(query, navigation)}
+          onClear={handleClear}
+          busy={Boolean(loading || typeLoading)}
+          busyLabel={loading ? `Searching for ${submittedQuery}` : 'Searching'}
+        />
+      </View>
 
       <ScrollView
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         contentContainerStyle={[
           searchStyles.scrollContent,
           {
-            paddingTop: insets.top + scale(8),
             paddingBottom: insets.bottom + SCROLL_BOTTOM_PAD,
           },
         ]}
@@ -76,11 +111,7 @@ function SearchMainScreen() {
         {...bottomNavScroll}
       >
         <SearchPanel
-          ref={searchInputRef}
           value={query}
-          onChangeText={handleQueryChange}
-          onSubmit={() => handleSearch(query, navigation)}
-          loading={loading}
           recentViewed={recentViewed}
           onPickRecentViewed={(match) => handleSelectMatch(match, navigation)}
           onRemoveRecentViewed={removeRecentViewed}
@@ -89,7 +120,6 @@ function SearchMainScreen() {
           typeResults={typeResults}
           typeLoading={typeLoading}
           onTypeSelect={(match) => handleTypeSelect(match, navigation)}
-          onClear={clearSearch}
           submittedQuery={submittedQuery}
           onToggleWatchlist={handleToggleWatchlist}
           savedWatchlistKeys={savedWatchlistKeys}
@@ -229,13 +259,10 @@ const searchStyles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  atmosphereTop: {
-    height: verticalScale(280),
-    left: 0,
-    opacity: 0.55,
-    position: 'absolute',
-    right: 0,
-    top: 0,
+  dock: {
+    paddingBottom: scale(8),
+    paddingHorizontal: GRID_PAD,
+    zIndex: 2,
   },
   scrollContent: {
     paddingTop: scale(4),
