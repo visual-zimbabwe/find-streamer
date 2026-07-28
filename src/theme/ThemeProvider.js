@@ -1,71 +1,20 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { Appearance, useColorScheme } from 'react-native';
-import { themes } from './tokens';
-import { loadThemePreference, saveThemePreference } from '../lib/storage';
+import React, { createContext, useContext } from 'react';
+import { theme } from './tokens';
 
+/**
+ * Trova is dark-only. This provider used to resolve a stored preference against
+ * the system color scheme; there is nothing left to resolve, so it publishes one
+ * frozen value. It stays a context rather than a bare import so the `useTheme()`
+ * call sites — which is nearly every component — keep working unchanged, and so
+ * a future per-screen theme override (e.g. poster-derived accents) has a seam to
+ * hook into.
+ */
 const ThemeContext = createContext(null);
 
+const THEME_VALUE = { theme };
+
 export function ThemeProvider({ children }) {
-  const hookScheme = useColorScheme();
-  const [systemScheme, setSystemScheme] = useState(
-    () => Appearance.getColorScheme() ?? hookScheme ?? 'light',
-  );
-  const [preference, setPreference] = useState('system');
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-      if (colorScheme) {
-        setSystemScheme(colorScheme);
-      }
-    });
-
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
-    if (hookScheme) {
-      setSystemScheme(hookScheme);
-    }
-  }, [hookScheme]);
-
-  useEffect(() => {
-    let active = true;
-    loadThemePreference()
-      .then((value) => {
-        if (active) setPreference(value);
-      })
-      .finally(() => {
-        if (active) {
-          const latestScheme = Appearance.getColorScheme() ?? hookScheme ?? 'light';
-          setSystemScheme(latestScheme);
-          setReady(true);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [hookScheme]);
-
-  const resolvedMode =
-    preference === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : preference;
-
-  const value = useMemo(
-    () => ({
-      ready,
-      preference,
-      resolvedMode,
-      theme: themes[resolvedMode],
-      setPreference: async (nextPreference) => {
-        setPreference(nextPreference);
-        await saveThemePreference(nextPreference);
-      },
-    }),
-    [preference, ready, resolvedMode],
-  );
-
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return <ThemeContext.Provider value={THEME_VALUE}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

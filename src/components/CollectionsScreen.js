@@ -118,7 +118,7 @@ export function CollectionsScreen({
   imdbMediaTab = 'movie',
   onImdbMediaTabChange,
 }) {
-  const { theme, resolvedMode } = useTheme();
+  const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
   const headerScrolledRef = useRef(false);
@@ -135,10 +135,7 @@ export function CollectionsScreen({
     return [...source].sort((a, b) => (a.rank || 0) - (b.rank || 0));
   }, [imdbMediaTab]);
 
-  const atmosphereColors = [
-    resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
-    colors.background,
-  ];
+  const atmosphereColors = [colors.surfaceContainerHigh, colors.background];
 
   const loadCollectionRows = useCallback(async () => {
     setLoading(true);

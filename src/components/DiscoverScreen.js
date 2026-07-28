@@ -375,7 +375,7 @@ function SearchablePickerModal({
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistIds = [] }) {
-  const { theme, resolvedMode } = useTheme();
+  const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const c = colors;
   const insets = useSafeAreaInsets();

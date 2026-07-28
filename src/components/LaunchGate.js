@@ -20,13 +20,16 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
  * and the container is one of these children. Gating on it would deadlock
  * (children never mount -> onReady never fires -> children never mount).
  */
-export function LaunchGate({ shellReady, contentReady, themeReady, children }) {
+export function LaunchGate({ shellReady, contentReady, children }) {
   const [introVisible, setIntroVisible] = useState(true);
   const [sequenceComplete, setSequenceComplete] = useState(false);
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
 
   const canDismiss = sequenceComplete && shellReady;
-  const showIntro = introVisible && themeReady;
+  // The intro used to also wait on the theme resolving a stored preference, so
+  // it couldn't paint the wrong palette for a frame. The app is dark-only now,
+  // so the palette is known before the first render.
+  const showIntro = introVisible;
 
   const handleIntroLayout = useCallback(() => {
     if (nativeSplashHidden) return;

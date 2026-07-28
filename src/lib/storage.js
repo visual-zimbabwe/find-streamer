@@ -11,7 +11,6 @@ import {
 /** @typedef {import('./types.js').WatchlistCollection} WatchlistCollection */
 
 const KEYS = {
-  themePreference: 'find-streamer/theme-preference',
   recentViewed: 'find-streamer/recent-viewed',
   watchlist: 'find-streamer/watchlist',
   watchlistChunks: 'find-streamer/watchlist/chunks',
@@ -157,15 +156,6 @@ async function migrateImdbFromPersistedWatchlist(items, storage) {
   }
 
   return normalized;
-}
-
-export async function loadThemePreference() {
-  const value = await AsyncStorage.getItem(KEYS.themePreference);
-  return value === 'light' || value === 'dark' || value === 'system' ? value : 'system';
-}
-
-export async function saveThemePreference(value) {
-  await AsyncStorage.setItem(KEYS.themePreference, value);
 }
 
 export async function loadRecentViewed() {

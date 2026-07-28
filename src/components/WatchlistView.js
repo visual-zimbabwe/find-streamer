@@ -242,7 +242,7 @@ export function WatchlistView({
   onBrowseMovies,
   onBrowseTV,
 }) {
-  const { theme, resolvedMode } = useTheme();
+  const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
   const bottomNavScroll = useBottomNavScroll();
@@ -273,10 +273,7 @@ export function WatchlistView({
   const [nowPlayingError, setNowPlayingError] = useState(null);
 
   const glassSurface = colors.glass;
-  const atmosphereColors = [
-    resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
-    colors.background,
-  ];
+  const atmosphereColors = [colors.surfaceContainerHigh, colors.background];
 
   const libraryItems = useMemo(() => (items || []).filter(isInUserLibrary), [items]);
 

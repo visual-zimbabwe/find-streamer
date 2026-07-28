@@ -84,7 +84,7 @@ function PersonRow({ person, colors, typography, onPress, onLongPress }) {
  * which is a destination, not a progressive disclosure.
  */
 export function FullCastScreen({ title, cast = [], crew = [], onPersonPress }) {
-  const { theme, resolvedMode } = useTheme();
+  const { theme } = useTheme();
   const { colors, typography } = theme;
   const insets = useSafeAreaInsets();
   const bottomNavScroll = useBottomNavScroll();
@@ -123,10 +123,7 @@ export function FullCastScreen({ title, cast = [], crew = [], onPersonPress }) {
     [onPersonPress, showSheet, dismissSheet],
   );
 
-  const atmosphereColors = [
-    resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
-    colors.background,
-  ];
+  const atmosphereColors = [colors.surfaceContainerHigh, colors.background];
 
   const renderItem = useCallback(
     ({ item }) => (

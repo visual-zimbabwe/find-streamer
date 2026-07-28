@@ -103,7 +103,7 @@ export const typography = {
  * usePosterTheme.js overrides it per-poster with a dynamic accent extracted
  * from the artwork; the values here are only the fallback when no poster
  * palette is active. `onPrimary` is a dark warm ink so text/icons stay legible
- * on gold in both modes (light mode previously used white — poor contrast).
+ * on gold.
  */
 const GOLD_DIM_SOLID = '#b58e46'; // darker gold for dim/pressed accent states
 const GOLD_ON = '#1a1204'; // near-black warm ink for content sitting on gold
@@ -128,39 +128,17 @@ const trovaDark = {
   glass: 'rgba(12, 12, 14, 0.94)',
 };
 
-const trovaLight = {
-  background: '#f7f7f2',
-  surface: '#ffffff',
-  surfaceContainerLow: '#ffffff',
-  surfaceContainer: '#ecece4',
-  surfaceContainerHigh: '#e1e2d8',
-  surfaceContainerHighest: '#d6d8cb',
-  primary: GOLD_ACCENT,
-  primaryDim: GOLD_DIM_SOLID,
-  primaryContainer: '#f3e7cc',
-  onPrimary: GOLD_ON,
-  onSurface: '#181b21',
-  onSurfaceVariant: '#61646d',
-  outlineVariant: '#b7baaa',
-  error: '#b3263a',
-  white: '#ffffff',
-  black: '#000000',
-  glass: 'rgba(247, 247, 242, 0.86)',
-};
-
-export const themes = {
-  light: {
-    mode: 'light',
-    colors: { ...trovaLight },
-    spacing,
-    radii,
-    typography,
-  },
-  dark: {
-    mode: 'dark',
-    colors: { ...trovaDark },
-    spacing,
-    radii,
-    typography,
-  },
+/**
+ * Trova is a dark-only app. There is no light palette and no runtime mode
+ * switch: the gold-on-black marquee treatment is the product's identity, and
+ * every surface, scrim, poster gradient and glass blur in the app is tuned
+ * against a black background. A single frozen theme object means components can
+ * read colors without ever branching on mode.
+ */
+export const theme = {
+  mode: 'dark',
+  colors: { ...trovaDark },
+  spacing,
+  radii,
+  typography,
 };

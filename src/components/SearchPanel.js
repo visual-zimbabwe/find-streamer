@@ -33,8 +33,6 @@ export const SearchPanel = forwardRef(function SearchPanel(
     onTypeSelect,
     onClear,
     submittedQuery,
-    onVoicePress,
-    voiceListening,
   },
   ref,
 ) {
@@ -105,7 +103,7 @@ export const SearchPanel = forwardRef(function SearchPanel(
           styles.searchTheatre,
           {
             backgroundColor: searchSurface,
-            borderColor: voiceListening ? GOLD_ACCENT : GOLD_DIM,
+            borderColor: GOLD_DIM,
             borderRadius: radii.lg,
           },
         ]}
@@ -153,44 +151,6 @@ export const SearchPanel = forwardRef(function SearchPanel(
             </TouchableOpacity>
           )}
           {!hasSearchText && !typeLoading && <View style={styles.clearButtonSpacer} />}
-        </View>
-
-        <View style={[styles.searchRule, { backgroundColor: GOLD_DIM }]} />
-
-        <View style={styles.searchActions}>
-          <TouchableOpacity
-            style={[
-              styles.voiceButton,
-              voiceListening && { backgroundColor: GOLD_ACCENT + '22', borderColor: GOLD_ACCENT },
-            ]}
-            onPress={onVoicePress}
-            disabled={!onVoicePress}
-            accessibilityRole="button"
-            accessibilityLabel={voiceListening ? 'Stop voice search' : 'Start voice search'}
-            accessibilityHint="Dictates search text with the device microphone"
-            accessibilityState={{
-              selected: Boolean(voiceListening),
-              disabled: !onVoicePress,
-            }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons
-              name={voiceListening ? 'stop-circle' : 'mic-outline'}
-              size={20}
-              color={voiceListening ? GOLD_ACCENT : colors.onSurfaceVariant}
-            />
-            <Text
-              style={[
-                styles.voiceLabel,
-                {
-                  color: voiceListening ? GOLD_ACCENT : colors.onSurfaceVariant,
-                  ...typography.labelSm,
-                },
-              ]}
-            >
-              {hugLabel(voiceListening ? 'Listening' : 'Voice')}
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -341,7 +301,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     minHeight: scale(56),
     paddingHorizontal: scale(14),
-    paddingTop: scale(10),
+    // The only row in the theatre now that the voice action row is gone, so it
+    // carries the padding on both edges rather than just the top.
+    paddingVertical: scale(10),
   },
   searchIcon: {
     marginRight: scale(8),
@@ -368,32 +330,6 @@ const styles = StyleSheet.create({
   },
   clearButtonSpacer: {
     width: 40,
-  },
-  searchRule: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: scale(18),
-  },
-  searchActions: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: scale(12),
-    paddingTop: scale(8),
-  },
-  voiceButton: {
-    alignItems: 'center',
-    borderColor: 'transparent',
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 6,
-    minHeight: 48,
-    paddingHorizontal: scale(16),
-    paddingVertical: scale(8),
-  },
-  voiceLabel: {
-    fontWeight: '700',
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
   },
   liveResults: {
     borderWidth: StyleSheet.hairlineWidth,

@@ -70,7 +70,7 @@ export function FilmographyScreen({
   total = null,
   currentTmdbId = null,
 }) {
-  const { theme, resolvedMode } = useTheme();
+  const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
   const bottomNavScroll = useBottomNavScroll();
@@ -112,10 +112,7 @@ export function FilmographyScreen({
       ? `Top ${results.length} of ${total.toLocaleString()}`
       : `${results.length} title${results.length !== 1 ? 's' : ''}`;
 
-  const atmosphereColors = [
-    resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
-    colors.background,
-  ];
+  const atmosphereColors = [colors.surfaceContainerHigh, colors.background];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

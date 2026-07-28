@@ -1,10 +1,10 @@
 import 'react-native-gesture-handler';
 import { enableScreens } from 'react-native-screens';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useTheme, ThemeProvider } from './src/theme/ThemeProvider';
+import { ThemeProvider } from './src/theme/ThemeProvider';
 import { BottomSheetProvider } from './src/components/StackBottomSheet';
 import {
   SearchProvider,
@@ -20,7 +20,6 @@ import { useFonts } from 'expo-font';
 import { Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import { Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
-import { useVoiceSearch } from './src/lib/useVoiceSearch';
 import { ToastivaProvider } from 'toastiva';
 import { BottomNavVisibilityProvider } from './src/context/BottomNavVisibilityContext';
 import { LaunchGate } from './src/components/LaunchGate';
@@ -65,7 +64,6 @@ const FONT_MAP = {
 };
 
 function MobileApp() {
-  const { resolvedMode, ready: themeReady } = useTheme();
   const [fontsLoaded, fontError] = useFonts(FONT_MAP);
   // Don't wedge first paint if a face fails to load — fall back to System.
   const fontsReady = fontsLoaded || Boolean(fontError);
@@ -120,21 +118,6 @@ function MobileApp() {
 
   const discoverVm = useDiscoverViewModel();
 
-  const handleVoiceSearchError = useCallback(
-    (message) => {
-      showToast(message, {
-        title: 'Voice Search',
-        icon: 'mic-off-outline',
-      });
-    },
-    [showToast],
-  );
-
-  const { listening: voiceListening, toggleVoiceSearch } = useVoiceSearch({
-    onTranscript: search.handleQueryChange,
-    onError: handleVoiceSearchError,
-  });
-
   // Each domain value is memoized independently so a state change in one domain
   // (e.g. a watchlist edit) keeps the others' value references stable, letting
   // React skip re-rendering consumers of the unchanged domains.
@@ -155,8 +138,6 @@ function MobileApp() {
       handleSelectDiscoverItem: search.handleSelectDiscoverItem,
       clearSearchResults: search.clearSearchResults,
       clearSearch: search.clearSearch,
-      voiceListening,
-      toggleVoiceSearch,
     }),
     [
       search.loading,
@@ -174,8 +155,6 @@ function MobileApp() {
       search.handleSelectDiscoverItem,
       search.clearSearchResults,
       search.clearSearch,
-      voiceListening,
-      toggleVoiceSearch,
     ],
   );
 
@@ -289,15 +268,16 @@ function MobileApp() {
     [error, errorInfo, offlineBanner, setOfflineBanner],
   );
 
-  const shellReady = themeReady && nav.navigationReady && fontsReady;
-  // Mount the shell only once fonts+theme resolve, so its first layout measures
+  const shellReady = nav.navigationReady && fontsReady;
+  // Mount the shell only once the fonts resolve, so its first layout measures
   // text with the real font metrics (T1). navigationReady is excluded on
-  // purpose — see LaunchGate.
-  const contentReady = themeReady && fontsReady;
+  // purpose — see LaunchGate. The theme no longer participates: it is a
+  // constant now, so there is nothing to wait for.
+  const contentReady = fontsReady;
 
   return (
-    <LaunchGate shellReady={shellReady} contentReady={contentReady} themeReady={themeReady}>
-      <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} translucent />
+    <LaunchGate shellReady={shellReady} contentReady={contentReady}>
+      <StatusBar style="light" translucent />
       <StatusProvider value={statusValue}>
         <NavProvider value={navValue}>
           <SearchProvider value={searchValue}>

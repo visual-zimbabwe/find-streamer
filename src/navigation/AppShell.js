@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,7 +11,7 @@ import { BottomSheetPortal } from '../components/StackBottomSheet';
 import { useStatus, useSearch, useNav } from '../context/domainContexts';
 import { RootTabs } from './RootTabs';
 import { navigationRef, getFocusedRouteName, getCurrentTabId, canStackPop } from './navigationRef';
-import { buildNavigationTheme } from './navigationTheme';
+import { navigationTheme } from './navigationTheme';
 
 const IMMERSIVE_ROUTES = new Set(['Home', 'Collections', 'Detail', 'FullCast', 'Filmography']);
 /** Tool tabs use ProgrammeSectionHeader — no AppHeader wordmark on top. */
@@ -84,12 +84,9 @@ function AppShellInner({ rootNavState }) {
 
 export function AppNavigationRoot() {
   const { onNavigationReady } = useNav();
-  const { resolvedMode } = useTheme();
   const [rootNavState, setRootNavState] = useState(() => {
     return navigationRef.isReady() ? navigationRef.getRootState() : null;
   });
-
-  const navigationTheme = useMemo(() => buildNavigationTheme(resolvedMode), [resolvedMode]);
 
   const syncNavState = useCallback((state) => {
     const newState = state ?? (navigationRef.isReady() ? navigationRef.getRootState() : null);
