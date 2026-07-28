@@ -11,6 +11,14 @@ import {
   buildSyncHomeSpotlight,
   orderSpotlightCandidates,
 } from './homeSpotlightCore.js';
+import {
+  NOW_PLAYING_REGION,
+  RAIL_FULL_LIMIT,
+  RAIL_LIMIT,
+  dedupeRailItems,
+  interleaveByTrendingRank,
+  selectNowPlaying,
+} from './searchRails.js';
 import { resolveRatingValue } from './ratings.js';
 
 export {
@@ -21,7 +29,7 @@ export {
   shuffleArray,
 } from './homeSpotlightCore.js';
 
-export const HOME_RAIL_LIMIT = 10;
+export const HOME_RAIL_LIMIT = RAIL_LIMIT;
 export const HOME_HERO_ROTATION_MS = 8000;
 export const HOME_HERO_RESUME_DELAY_MS = 3200;
 
@@ -125,20 +133,6 @@ function sortByTmdbRatingDesc(items) {
   return [...items].sort((a, b) => resolveRatingValue(b) - resolveRatingValue(a));
 }
 
-function takeUniqueTop(items, limit) {
-  const seen = new Set();
-  const out = [];
-  for (const it of items) {
-    if (!it?.tmdbId) continue;
-    const k = dedupeKey(it);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(it);
-    if (out.length >= limit) break;
-  }
-  return out;
-}
-
 async function appendFromTraktAndDiscover(pool, seen, scope) {
   const mediaTypes = scope === 'all' ? ['movie', 'tv'] : [scope];
 
@@ -147,7 +141,12 @@ async function appendFromTraktAndDiscover(pool, seen, scope) {
     try {
       const raw = await fetchTraktTrending(mediaType, 18);
       const enriched = await enrichTraktItems(raw);
-      appendUniqueSpotlight(pool, seen, orderSpotlightCandidates(enriched, scope), HOME_SPOTLIGHT_MAX);
+      appendUniqueSpotlight(
+        pool,
+        seen,
+        orderSpotlightCandidates(enriched, scope),
+        HOME_SPOTLIGHT_MAX,
+      );
     } catch {
       // Trakt enrichment is best-effort.
     }
@@ -197,15 +196,25 @@ export async function buildHomeSpotlight(watchlist = [], scope = 'all') {
   return pool.slice(0, HOME_SPOTLIGHT_MAX);
 }
 
-/** Trakt movie + TV trending, enriched, sorted by TMDB rating, unique, top HOME_RAIL_LIMIT. */
-export async function fetchHomeTraktTrendingRail() {
+/**
+ * Trakt movie + TV trending, interleaved by Trakt's own rank and enriched.
+ *
+ * The enrichment is deliberately the *last* step and runs over a small buffer
+ * rather than the whole pool: ordering no longer depends on anything TMDb
+ * knows, so there is no reason to spend a detail request on an item that was
+ * never going to make the cut. This used to enrich 32 items to render 10.
+ */
+export async function fetchHomeTraktTrendingRail(limit = HOME_RAIL_LIMIT) {
+  // A couple spare per side absorbs the items that turn out to have no poster.
+  const perSide = Math.ceil(limit / 2) + 2;
   const [moviesRaw, tvRaw] = await Promise.all([
-    fetchTraktTrending('movie', 16),
-    fetchTraktTrending('tv', 16),
+    fetchTraktTrending('movie', perSide),
+    fetchTraktTrending('tv', perSide),
   ]);
-  const enriched = await enrichTraktItems([...(moviesRaw || []), ...(tvRaw || [])]);
-  const sorted = sortByTmdbRatingDesc(enriched);
-  return takeUniqueTop(sorted, HOME_RAIL_LIMIT);
+
+  const ordered = dedupeRailItems(interleaveByTrendingRank(moviesRaw || [], tvRaw || []));
+  const enriched = await enrichTraktItems(ordered.slice(0, limit + 4));
+  return enriched.filter((item) => item.posterUrl).slice(0, limit);
 }
 
 export async function fetchHomeTmdbRail(def) {
@@ -219,11 +228,28 @@ export async function fetchHomeTmdbRail(def) {
   return sortByTmdbRatingDesc(results).slice(0, HOME_RAIL_LIMIT);
 }
 
-export async function fetchHomeNowPlayingRail() {
-  const list = await fetchNowPlayingMovies();
-  return sortByTmdbRatingDesc(list).slice(0, HOME_RAIL_LIMIT);
+/**
+ * Theatrical listings for {@link NOW_PLAYING_REGION}, ordered by popularity
+ * behind a vote-count floor. The rail is answering "what can I go see", so an
+ * unvoted festival pickup with a 9.0 is not the right top result.
+ */
+export async function fetchHomeNowPlayingRail(limit = RAIL_LIMIT) {
+  const list = await fetchNowPlayingMovies({ region: NOW_PLAYING_REGION });
+  return selectNowPlaying(list, limit);
 }
 
 export async function fetchHomeCollectionRows() {
   return fetchTopMovieCollectionRows(20);
+}
+
+/**
+ * The full list behind a rail's "See all". Same ordering rules as the rail —
+ * it is the same list, just deeper — so the first ten entries match what the
+ * user just tapped past.
+ *
+ * @param {'trakt-trending' | 'now-playing'} railId
+ */
+export async function fetchSearchRailFull(railId, limit = RAIL_FULL_LIMIT) {
+  if (railId === 'now-playing') return fetchHomeNowPlayingRail(limit);
+  return fetchHomeTraktTrendingRail(limit);
 }
