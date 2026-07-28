@@ -1,5 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Reanimated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -22,6 +28,9 @@ const TAB_COUNT = TABS.length;
 const TAB_W = SCREEN_W / TAB_COUNT;
 const INDICATOR_W = scale(44);
 const MARQUEE_ROW_H = scale(54);
+const INDICATOR_MS = 280;
+const LABEL_MS = 220;
+const EASE_INDICATOR = Easing.out(Easing.cubic);
 
 export function BottomNav({ activeTab, onTabPress, fixed = false }) {
   const { theme } = useTheme();
@@ -36,8 +45,6 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
   const shellH = MARQUEE_ROW_H + insets.bottom;
 
   const translateY = useRef(new Animated.Value(0)).current;
-  const indicatorX = useRef(new Animated.Value(tabIndicatorX(activeIndex))).current;
-  const labelOpacity = useRef(TABS.map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
     Animated.timing(translateY, {
@@ -47,22 +54,23 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
     }).start();
   }, [fixed, visible, translateY, shellH]);
 
+  // The indicator rides a shared value rather than an RN `Animated.Value`. Under
+  // Fabric the native driver never writes back to the JS value, so every commit
+  // re-applied the stale start offset — and an `Animated.parallel` over all five
+  // label values self-cancelled on restart, because `stopTogether` makes the old
+  // group stop whichever animation currently owns each value, i.e. the new one.
+  const indicatorIndex = useSharedValue(activeIndex);
+
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(indicatorX, {
-        toValue: tabIndicatorX(activeIndex),
-        duration: 280,
-        useNativeDriver: true,
-      }),
-      ...TABS.map((_, i) =>
-        Animated.timing(labelOpacity[i], {
-          toValue: i === activeIndex ? 1 : 0,
-          duration: i === activeIndex ? 220 : 140,
-          useNativeDriver: true,
-        }),
-      ),
-    ]).start();
-  }, [activeIndex, indicatorX, labelOpacity]);
+    indicatorIndex.value = withTiming(activeIndex, {
+      duration: INDICATOR_MS,
+      easing: EASE_INDICATOR,
+    });
+  }, [activeIndex, indicatorIndex]);
+
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: indicatorIndex.value * TAB_W + (TAB_W - INDICATOR_W) / 2 }],
+  }));
 
   const marqueeGlass = colors.glass;
   const inactiveColor = 'rgba(245, 245, 247, 0.42)';
@@ -99,7 +107,7 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
         <View style={styles.goldRule} pointerEvents="none" />
 
         <View style={[styles.tabRow, { height: MARQUEE_ROW_H }]}>
-          {TABS.map((tab, i) => {
+          {TABS.map((tab) => {
             const selected = activeTab === tab.id;
             return (
               <Pressable
@@ -120,25 +128,18 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
                     color={selected ? GOLD_ACCENT : inactiveColor}
                   />
                   {selected ? (
-                    <Animated.View style={[styles.labelWrap, { opacity: labelOpacity[i] }]}>
-                      <Text
-                        style={[styles.tabLabel, typography.labelSm, styles.tabLabelActive]}
-                        numberOfLines={1}
-                      >
-                        {tab.label}
-                      </Text>
-                    </Animated.View>
+                    <TabLabel
+                      label={tab.label}
+                      textStyle={[styles.tabLabel, typography.labelSm, styles.tabLabelActive]}
+                    />
                   ) : null}
                 </View>
               </Pressable>
             );
           })}
 
-          <Animated.View
-            style={[
-              styles.slidingIndicator,
-              { width: INDICATOR_W, transform: [{ translateX: indicatorX }] },
-            ]}
+          <Reanimated.View
+            style={[styles.slidingIndicator, { width: INDICATOR_W }, indicatorStyle]}
             pointerEvents="none"
           />
         </View>
@@ -149,8 +150,27 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
   );
 }
 
-function tabIndicatorX(index) {
-  return index * TAB_W + (TAB_W - INDICATOR_W) / 2;
+/**
+ * Only the active tab renders a label, so each one mounts fresh and can own its
+ * fade-in outright — no array of opacity values shared across tabs, and nothing
+ * to animate on behalf of a view that isn't on screen.
+ */
+function TabLabel({ label, textStyle }) {
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withTiming(1, { duration: LABEL_MS });
+  }, [opacity]);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <Reanimated.View style={[styles.labelWrap, animatedStyle]}>
+      <Text style={textStyle} numberOfLines={1}>
+        {label}
+      </Text>
+    </Reanimated.View>
+  );
 }
 
 const styles = StyleSheet.create({
