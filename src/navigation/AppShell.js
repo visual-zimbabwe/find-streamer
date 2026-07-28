@@ -22,12 +22,26 @@ function AppShellInner({ rootNavState }) {
   const { colors } = theme;
   const insets = useSafeAreaInsets();
   const { error, errorInfo, offlineBanner, setOfflineBanner } = useStatus();
-  const { handleSearch, query } = useSearch();
+  const { handleSearch, query, requestSearchFocus } = useSearch();
   const { goBack, handleTabPress } = useNav();
 
   const activeTab = getCurrentTabId(rootNavState);
   const focusedRoute = getFocusedRouteName(rootNavState);
   const stackCanPop = canStackPop(rootNavState);
+
+  // Pressing Search while already on the Search root focuses the field instead
+  // of re-navigating to a screen the user is already looking at. From anywhere
+  // else — another tab, or a Detail inside this stack — it still just navigates.
+  const onTabPress = useCallback(
+    (tab) => {
+      if (tab === 'search' && activeTab === 'search' && focusedRoute === 'Search') {
+        requestSearchFocus();
+        return;
+      }
+      handleTabPress(tab);
+    },
+    [activeTab, focusedRoute, handleTabPress, requestSearchFocus],
+  );
 
   const showAppHeader =
     !IMMERSIVE_ROUTES.has(focusedRoute) && !TOOL_TAB_ROUTES.has(focusedRoute) && stackCanPop;
@@ -76,7 +90,7 @@ function AppShellInner({ rootNavState }) {
         onDismiss={() => setOfflineBanner(null)}
       />
 
-      <BottomNav activeTab={activeTab} onTabPress={handleTabPress} fixed={bottomNavFixed} />
+      <BottomNav activeTab={activeTab} onTabPress={onTabPress} fixed={bottomNavFixed} />
       <BottomSheetPortal />
     </View>
   );

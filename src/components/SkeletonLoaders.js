@@ -191,6 +191,28 @@ export function LiveMatchesSkeleton({ count = SEARCH_PANEL_COLUMNS * 2 }) {
   );
 }
 
+/**
+ * Poster row for a `ContentRail` that is still loading. No eyebrow or title
+ * lines — the rail renders its real header immediately and only the posters are
+ * pending, so shimmering a header the user can already read would be a lie.
+ */
+export function ContentRailSkeleton({ posterCount = 4 }) {
+  return (
+    <View style={styles.railPosterRow} accessibilityLabel="Loading titles">
+      {Array.from({ length: posterCount }).map((_, index) => (
+        <SkeletonBlock
+          key={index}
+          style={[
+            styles.railPoster,
+            { width: RAIL_POSTER_W, height: RAIL_POSTER_H },
+            index > 0 && styles.railPosterGap,
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 /** Discover pagination — two poster cards while loading more. */
 export function LoadMoreSkeleton() {
   return <GridRowSkeleton columns={2} />;
