@@ -165,20 +165,26 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
           useNativeDriver: true,
         }).start();
       }
-      Animated.parallel([
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: ENTRANCE_MS,
-          easing: EASE_OUT,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: getTargetY(),
-          duration: ENTRANCE_MS,
-          easing: EASE_OUT,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.parallel(
+        [
+          Animated.timing(opacityAnim, {
+            toValue: 1,
+            duration: ENTRANCE_MS,
+            easing: EASE_OUT,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: getTargetY(),
+            duration: ENTRANCE_MS,
+            easing: EASE_OUT,
+            useNativeDriver: true,
+          }),
+        ],
+        // See the note on the exit group below: these two values are also driven
+        // by the stack/resize effects and the drag gesture, so the group must not
+        // be allowed to stop animations it did not start.
+        { stopTogether: false },
+      ).start();
     }, delay);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -208,31 +214,49 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowHeight, sheetHeight, bottomInset]);
 
+  // The close button, the drag gesture and the backdrop can all ask for the same
+  // dismissal. Without this latch a second request builds a second `parallel`
+  // over the same values; starting its first child stops the first group's, and
+  // that group's callback still fires — unmounting the sheet mid-slide and
+  // detaching the values out from under the animation that replaced it.
+  const isDismissing = useRef(false);
+
   const dismissWithAnimation = useCallback(() => {
+    if (isDismissing.current) return;
+    isDismissing.current = true;
+
     const isTop = index === 0;
-    Animated.parallel([
-      Animated.timing(opacityAnim, {
-        toValue: 0,
-        duration: EXIT_MS,
-        easing: EASE_OUT,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: windowHeight + sheetHeight,
-        duration: ENTRANCE_MS + 40,
-        easing: EASE_OUT,
-        useNativeDriver: true,
-      }),
-      ...(isTop && totalSheets === 1 && backdropOpacity
-        ? [
-            Animated.timing(backdropOpacity, {
-              toValue: 0,
-              duration: EXIT_MS,
-              useNativeDriver: true,
-            }),
-          ]
-        : []),
-    ]).start(() => {
+    Animated.parallel(
+      [
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: EXIT_MS,
+          easing: EASE_OUT,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: windowHeight + sheetHeight,
+          duration: ENTRANCE_MS + 40,
+          easing: EASE_OUT,
+          useNativeDriver: true,
+        }),
+        ...(isTop && totalSheets === 1 && backdropOpacity
+          ? [
+              Animated.timing(backdropOpacity, {
+                toValue: 0,
+                duration: EXIT_MS,
+                useNativeDriver: true,
+              }),
+            ]
+          : []),
+      ],
+      // `backdropOpacity` is shared with whichever sheet is on top, so another
+      // sheet's entrance can stop this group's fade-out. Under the default
+      // `stopTogether: true` that stop cascades into this sheet's own slide and
+      // fade, ending the exit instantly. Each timing here is independent; let
+      // them end on their own and only run the callback once all three have.
+      { stopTogether: false },
+    ).start(() => {
       onDismiss(sheet.id);
       sheet.options.onClose?.();
     });
@@ -252,7 +276,10 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
   const pan = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) =>
-        index === 0 && g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
+        index === 0 &&
+        !isDismissing.current &&
+        g.dy > 8 &&
+        Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
       onPanResponderGrant: () => {
         gestureStartY.current = getTargetY();
       },
@@ -439,16 +466,24 @@ export function BottomSheetPortal() {
         />
       </Animated.View>
 
-      {sheets.map((sheet, i) => (
-        <Sheet
-          key={sheet.id}
-          sheet={sheet}
-          index={sheets.length - 1 - i}
-          totalSheets={sheets.length}
-          backdropOpacity={i === 0 ? backdropOpacity : undefined}
-          onDismiss={dismiss}
-        />
-      ))}
+      {sheets.map((sheet, i) => {
+        // `depth` is 0 for the sheet on top. Both the entrance fade-in and the
+        // exit fade-out gate on `index === 0`, so the backdrop has to belong to
+        // the same sheet those gates name — handing it to the bottom-most sheet
+        // instead meant a sheet that mounts while the last one is fading out
+        // could never fade the backdrop back in.
+        const depth = sheets.length - 1 - i;
+        return (
+          <Sheet
+            key={sheet.id}
+            sheet={sheet}
+            index={depth}
+            totalSheets={sheets.length}
+            backdropOpacity={depth === 0 ? backdropOpacity : undefined}
+            onDismiss={dismiss}
+          />
+        );
+      })}
     </View>
   );
 }
