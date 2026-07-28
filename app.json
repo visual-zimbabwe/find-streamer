@@ -7,13 +7,10 @@
     "orientation": "portrait",
     "icon": "./icon.png",
     "platforms": ["android"],
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#F7F7F2",
-      "dark": {
-        "backgroundColor": "#0C0C0E"
-      }
+      "backgroundColor": "#0C0C0E"
     },
     "assetBundlePatterns": ["**/*"],
     "android": {
@@ -26,27 +23,12 @@
       "usesCleartextTraffic": false,
       "permissions": [
         "android.permission.INTERNET",
-        "android.permission.RECORD_AUDIO",
         "android.permission.VIBRATE",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
-    "plugins": [
-      "expo-splash-screen",
-      "expo-system-ui",
-      "expo-asset",
-      "expo-sharing",
-      [
-        "expo-speech-recognition",
-        {
-          "microphonePermission": "Allow Trova to use the microphone for voice search.",
-          "speechRecognitionPermission": "Allow Trova to convert speech into search text.",
-          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
-        }
-      ],
-      "expo-image"
-    ],
+    "plugins": ["expo-splash-screen", "expo-system-ui", "expo-asset", "expo-sharing", "expo-image"],
     "extra": {
       "eas": {
         "projectId": "97fe3c0a-d92b-4ec5-8321-1a1eceef171f"

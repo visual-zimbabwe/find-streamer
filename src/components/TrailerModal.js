@@ -24,9 +24,10 @@ const YOUTUBE_WEBVIEW_USER_AGENT_ANDROID =
   'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.4472.114 Mobile Safari/537.36';
 
 /**
- * A video player is a dark-mode surface no matter what the app theme says. Reading
- * `colors.surface` here used to paint a white header bar welded to a black player
- * (and a full-screen white flash on open) for anyone in light mode.
+ * The player owns its own surface, pinned darker than the app's chrome so the
+ * header bar reads as part of the player rather than the screen behind it. These
+ * stay hard-coded rather than reading `colors.*` so a poster-derived accent can
+ * never tint the video frame.
  */
 const PLAYER_SURFACE = '#0B0B0B';
 const PLAYER_SURFACE_HIGH = 'rgba(255,255,255,0.12)';

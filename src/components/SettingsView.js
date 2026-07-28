@@ -12,7 +12,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import * as DocumentPicker from 'expo-document-picker';
@@ -57,50 +56,6 @@ function GlassPanel({ children, glassSurface, radii, style }) {
 
 function PanelDivider() {
   return <ProgrammeHairline style={styles.panelDivider} />;
-}
-
-function AppearanceRow({ icon, label, selected, onPress, colors, typography }) {
-  return (
-    <TouchableOpacity
-      style={[styles.appearanceRow, selected && styles.appearanceRowSelected]}
-      onPress={() => {
-        if (!selected) {
-          Haptics.selectionAsync();
-          onPress();
-        }
-      }}
-      activeOpacity={0.78}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected }}
-    >
-      <View style={styles.appearanceLeft}>
-        <View
-          style={[styles.appearanceIconWrap, { borderColor: selected ? GOLD_ACCENT : GOLD_DIM }]}
-        >
-          <Ionicons
-            name={icon}
-            size={18}
-            color={selected ? GOLD_ACCENT : colors.onSurfaceVariant}
-          />
-        </View>
-        <Text
-          style={[
-            styles.appearanceLabel,
-            { color: selected ? colors.onSurface : colors.onSurfaceVariant, ...typography.bodyMd },
-            selected && styles.appearanceLabelActive,
-          ]}
-        >
-          {label}
-        </Text>
-      </View>
-      {selected ? (
-        <Ionicons name="checkmark" size={18} color={GOLD_ACCENT} />
-      ) : (
-        <View style={styles.appearanceSpacer} />
-      )}
-    </TouchableOpacity>
-  );
 }
 
 function ActionRow({ icon, label, onPress, disabled, busy, colors, typography }) {
@@ -331,7 +286,7 @@ export function SettingsView({
   persistWatchlistChange,
   persistCollectionsChange,
 }) {
-  const { theme, preference, setPreference, resolvedMode } = useTheme();
+  const { theme } = useTheme();
   const { colors, spacing, typography, radii } = theme;
   const insets = useSafeAreaInsets();
   const [backupBusy, setBackupBusy] = useState(false);
@@ -339,11 +294,8 @@ export function SettingsView({
 
   const glassSurface = colors.glass;
   const atmosphereColors = useMemo(
-    () => [
-      resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
-      colors.background,
-    ],
-    [resolvedMode, colors],
+    () => [colors.surfaceContainerHigh, colors.background],
+    [colors],
   );
 
   const handleExportWatchlist = async () => {
@@ -482,22 +434,6 @@ export function SettingsView({
     }
   };
 
-  const appearanceOptions = [
-    {
-      key: 'light',
-      label: 'Light Mode',
-      icon: 'sunny-outline',
-      accessibilityLabel: 'Use light mode',
-    },
-    { key: 'dark', label: 'Dark Mode', icon: 'moon-outline', accessibilityLabel: 'Use dark mode' },
-    {
-      key: 'system',
-      label: 'System Default',
-      icon: 'phone-portrait-outline',
-      accessibilityLabel: 'Use system default appearance',
-    },
-  ];
-
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
@@ -518,30 +454,6 @@ export function SettingsView({
           title="Settings"
           subtitle="Your Programme Specification"
         />
-
-        <ProgrammeHairline />
-
-        <ProgrammeSectionHeader
-          align="left"
-          eyebrow="Display"
-          title="Appearance"
-          titleVariant="titleMd"
-        />
-        <GlassPanel glassSurface={glassSurface} radii={radii} style={styles.blockPanel}>
-          {appearanceOptions.map((option, index) => (
-            <View key={option.key}>
-              <AppearanceRow
-                icon={option.icon}
-                label={option.label}
-                selected={preference === option.key}
-                onPress={() => setPreference(option.key)}
-                colors={colors}
-                typography={typography}
-              />
-              {index < appearanceOptions.length - 1 ? <PanelDivider /> : null}
-            </View>
-          ))}
-        </GlassPanel>
 
         <ProgrammeHairline />
 
@@ -653,40 +565,6 @@ const styles = StyleSheet.create({
   panelDivider: {
     marginBottom: 0,
     marginHorizontal: scale(16),
-  },
-  appearanceRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    minHeight: 52,
-    paddingHorizontal: scale(16),
-    paddingVertical: scale(12),
-  },
-  appearanceRowSelected: {
-    backgroundColor: GOLD_ACCENT + '0F',
-  },
-  appearanceLeft: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flex: 1,
-    gap: scale(12),
-  },
-  appearanceIconWrap: {
-    alignItems: 'center',
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  appearanceLabel: {
-    fontWeight: '500',
-  },
-  appearanceLabelActive: {
-    fontWeight: '700',
-  },
-  appearanceSpacer: {
-    width: 18,
   },
   actionRow: {
     alignItems: 'center',

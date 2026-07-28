@@ -1,22 +1,21 @@
-import { DarkTheme, DefaultTheme } from '@react-navigation/native';
-import { themes } from '../theme/tokens';
+import { DarkTheme } from '@react-navigation/native';
+import { theme } from '../theme/tokens';
 
-/** Keep React Navigation native surfaces aligned with Trova light/dark tokens. */
-export function buildNavigationTheme(resolvedMode) {
-  const trova = themes[resolvedMode]?.colors ?? themes.light.colors;
-  const base = resolvedMode === 'dark' ? DarkTheme : DefaultTheme;
-
-  return {
-    ...base,
-    dark: resolvedMode === 'dark',
-    colors: {
-      ...base.colors,
-      primary: trova.primary,
-      background: trova.background,
-      card: trova.background,
-      text: trova.onSurface,
-      border: trova.outlineVariant,
-      notification: trova.primary,
-    },
-  };
-}
+/**
+ * Keep React Navigation's native surfaces aligned with Trova's dark tokens.
+ * A constant rather than a builder — the app has one theme, so there is nothing
+ * to rebuild and nothing for AppShell to memoize.
+ */
+export const navigationTheme = {
+  ...DarkTheme,
+  dark: true,
+  colors: {
+    ...DarkTheme.colors,
+    primary: theme.colors.primary,
+    background: theme.colors.background,
+    card: theme.colors.background,
+    text: theme.colors.onSurface,
+    border: theme.colors.outlineVariant,
+    notification: theme.colors.primary,
+  },
+};

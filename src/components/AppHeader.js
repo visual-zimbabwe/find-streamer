@@ -6,7 +6,7 @@ import { useTheme } from '../theme/ThemeProvider';
 const TAGLINE = 'What are you watching tonight?';
 
 export function AppHeader({ onBack, showBack, transparent, centeredTitleOnly }) {
-  const { theme, resolvedMode } = useTheme();
+  const { theme } = useTheme();
   const { colors, typography } = theme;
 
   return (
@@ -29,13 +29,7 @@ export function AppHeader({ onBack, showBack, transparent, centeredTitleOnly }) 
           </TouchableOpacity>
         )}
         {!showBack && centeredTitleOnly && (
-          <Text
-            style={[
-              styles.centeredWordmark,
-              { color: resolvedMode === 'dark' ? '#fff' : colors.onSurface },
-            ]}
-            accessibilityRole="header"
-          >
+          <Text style={[styles.centeredWordmark, { color: '#fff' }]} accessibilityRole="header">
             Trova
           </Text>
         )}

@@ -22,7 +22,7 @@ const Stack = createNativeStackNavigator();
 function SearchMainScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { theme, resolvedMode } = useTheme();
+  const { theme } = useTheme();
   const { colors } = theme;
   const bottomNavScroll = useBottomNavScroll();
   const {
@@ -36,8 +36,6 @@ function SearchMainScreen() {
     typeResults,
     typeLoading,
     handleTypeSelect,
-    toggleVoiceSearch,
-    voiceListening,
     handleSelectMatch,
     clearSearch,
     loading,
@@ -47,10 +45,7 @@ function SearchMainScreen() {
   const { handleTabPress } = useNav();
   const searchInputRef = useRef(null);
 
-  const atmosphereColors = [
-    resolvedMode === 'dark' ? colors.surfaceContainerHigh : colors.surfaceContainerLow,
-    colors.background,
-  ];
+  const atmosphereColors = [colors.surfaceContainerHigh, colors.background];
   const showLoadingState = searchPhase === 'loading';
   const showResults = searchPhase === 'results' && results.length > 0;
   const showEmptyState = searchPhase === 'empty';
@@ -95,8 +90,6 @@ function SearchMainScreen() {
           onTypeSelect={(match) => handleTypeSelect(match, navigation)}
           onClear={clearSearch}
           submittedQuery={submittedQuery}
-          onVoicePress={toggleVoiceSearch}
-          voiceListening={voiceListening}
         />
         {showLoadingState && <SearchResultsLoading query={submittedQuery} />}
         {showResults && (

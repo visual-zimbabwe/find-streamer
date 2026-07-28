@@ -28,7 +28,6 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
   const { colors, typography } = theme;
   const insets = useSafeAreaInsets();
   const { visible } = useBottomNavVisibility();
-  const isDark = theme.mode === 'dark';
 
   const activeIndex = Math.max(
     0,
@@ -66,7 +65,7 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
   }, [activeIndex, indicatorX, labelOpacity]);
 
   const marqueeGlass = colors.glass;
-  const inactiveColor = isDark ? 'rgba(245, 245, 247, 0.42)' : 'rgba(97, 100, 109, 0.72)';
+  const inactiveColor = 'rgba(245, 245, 247, 0.42)';
 
   return (
     <Animated.View
@@ -85,14 +84,14 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
           {
             height: shellH,
             backgroundColor: Platform.OS === 'android' ? marqueeGlass : 'transparent',
-            borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)',
+            borderTopColor: 'rgba(255,255,255,0.06)',
           },
         ]}
       >
         {Platform.OS === 'ios' ? (
           <BlurView
-            intensity={isDark ? 78 : 62}
-            tint={isDark ? 'dark' : 'light'}
+            intensity={78}
+            tint="dark"
             style={StyleSheet.absoluteFillObject}
           />
         ) : null}

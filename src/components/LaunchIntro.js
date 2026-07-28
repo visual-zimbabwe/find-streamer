@@ -27,26 +27,16 @@ const EASE_CINEMATIC = Easing.bezier(0.22, 1, 0.36, 1);
 const EASE_OUT = Easing.out(Easing.cubic);
 
 export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismiss }) {
-  const { resolvedMode, theme } = useTheme();
-  const isDark = resolvedMode === 'dark';
+  const { theme } = useTheme();
   const palette = useMemo(
-    () =>
-      isDark
-        ? {
-            background: '#000000',
-            wordmark: theme.colors.onSurface,
-            icon: require('../../icon.png'),
-            mist: ['rgba(212, 168, 83, 0)', 'rgba(212, 168, 83, 0.14)', 'rgba(212, 168, 83, 0)'],
-            vignette: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)'],
-          }
-        : {
-            background: '#F7F7F2',
-            wordmark: theme.colors.onSurface,
-            icon: require('../../icon-light.png'),
-            mist: ['rgba(212, 168, 83, 0)', 'rgba(212, 168, 83, 0.2)', 'rgba(212, 168, 83, 0)'],
-            vignette: ['rgba(247,247,242,0)', 'rgba(24,27,33,0.08)'],
-          },
-    [isDark, theme.colors.onSurface],
+    () => ({
+      background: '#000000',
+      wordmark: theme.colors.onSurface,
+      icon: require('../../icon.png'),
+      mist: ['rgba(212, 168, 83, 0)', 'rgba(212, 168, 83, 0.14)', 'rgba(212, 168, 83, 0)'],
+      vignette: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)'],
+    }),
+    [theme.colors.onSurface],
   );
 
   const progress = useSharedValue(0);
@@ -221,7 +211,7 @@ export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismis
           <Text
             style={[
               styles.wordmark,
-              isDark ? styles.wordmarkDark : styles.wordmarkLight,
+              styles.wordmarkDark,
               { color: palette.wordmark },
             ]}
             accessibilityRole="header"
@@ -302,11 +292,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(212, 168, 83, 0.22)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 18,
-  },
-  wordmarkLight: {
-    textShadowColor: 'rgba(24, 27, 33, 0.08)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 8,
   },
   underline: {
     alignSelf: 'center',

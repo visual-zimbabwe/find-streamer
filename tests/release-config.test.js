@@ -22,11 +22,26 @@ test('Android release config does not allow cleartext traffic', () => {
   assert.equal(appConfig.expo.android.usesCleartextTraffic, false);
 });
 
-test('voice search ships the native speech-recognition plugin', () => {
+// Voice search was removed; the app has no reason to ask for the microphone.
+// This guards against a dependency quietly reintroducing the permission, which
+// is the kind of thing users notice on the Play listing and nobody notices in a
+// diff.
+test('the app requests no microphone or speech-recognition access', () => {
   const appConfig = JSON.parse(read('app.json'));
   assert.ok(
-    JSON.stringify(appConfig.expo.plugins).includes('expo-speech-recognition'),
-    'expo-speech-recognition must be registered as an Expo config plugin',
+    !appConfig.expo.android.permissions.includes('android.permission.RECORD_AUDIO'),
+    'RECORD_AUDIO must not be requested',
+  );
+  assert.ok(
+    !JSON.stringify(appConfig.expo.plugins).includes('speech-recognition'),
+    'no speech-recognition config plugin should be registered',
+  );
+
+  const manifest = read('android/app/src/main/AndroidManifest.xml');
+  assert.ok(!manifest.includes('RECORD_AUDIO'), 'AndroidManifest must not declare RECORD_AUDIO');
+  assert.ok(
+    !manifest.includes('android.speech.RecognitionService'),
+    'AndroidManifest must not query for a speech recognition service',
   );
 });
 
