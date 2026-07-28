@@ -34,6 +34,12 @@ import { tmdbImageAtSize } from '../lib/tmdbImages';
  * @param {string | null} [props.yearBadge] year to letter onto the poster itself,
  *   used when two results in the same set share a title and the art can't
  *   separate them
+ * @param {boolean} [props.showRating] show the ★ TMDb badge. Off for rails
+ *   ranked by something else, where a rating is the wrong number to lead with
+ * @param {number | null} [props.rankBadge] position in an ordered rail, lettered
+ *   into the top-left corner where the ★ would otherwise sit
+ * @param {string | null} [props.footnoteBadge] bottom-left chip for whatever
+ *   signal the rail is actually ordered by (e.g. "3.2k watching")
  * @param {'w185'|'w342'|'w500'|'w780'|'original'} [props.posterSize]
  */
 export const GridPosterCard = memo(function GridPosterCard({
@@ -57,6 +63,9 @@ export const GridPosterCard = memo(function GridPosterCard({
   showMediaType = true,
   showCaption = true,
   yearBadge = null,
+  showRating = true,
+  rankBadge = null,
+  footnoteBadge = null,
   posterSize = 'w500',
   posterStyle,
   pressable = true,
@@ -86,14 +95,20 @@ export const GridPosterCard = memo(function GridPosterCard({
           accessibilityLabel={`${item.title} poster`}
           title={item.title}
         />
-        {ratingValue > 0 && (
+        {rankBadge != null ? (
+          <View style={[styles.rankBadge, { borderRadius: radii.sm }]}>
+            <Text style={styles.rankBadgeText}>{rankBadge}</Text>
+          </View>
+        ) : showRating && ratingValue > 0 ? (
           <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
             <Text style={styles.ratingBadgeText}>★ {ratingValue.toFixed(1)}</Text>
           </View>
-        )}
-        {yearBadge ? (
+        ) : null}
+        {yearBadge || footnoteBadge ? (
           <View style={[styles.yearBadge, { borderRadius: radii.sm }]}>
-            <Text style={styles.yearBadgeText}>{yearBadge}</Text>
+            <Text style={styles.yearBadgeText} numberOfLines={1}>
+              {yearBadge || footnoteBadge}
+            </Text>
           </View>
         ) : null}
         {onRemove ? (
@@ -255,12 +270,31 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.72)',
   },
   ratingBadgeText: { color: '#FFD700', fontSize: 10, fontWeight: '800' },
+  // Takes the ★'s corner rather than sitting beside it: on a ranked rail the
+  // position is the headline number, and two numerals in one corner reads as
+  // noise.
+  rankBadge: {
+    position: 'absolute',
+    left: 8,
+    top: 8,
+    minWidth: 24,
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: GOLD_ACCENT,
+  },
+  rankBadgeText: { color: GOLD_ACCENT, fontSize: 11, fontWeight: '900' },
   // Bottom-left, mirroring the rating badge, so the two read as one system of
   // marks on the art rather than as a caption that moved.
   yearBadge: {
     position: 'absolute',
     left: 8,
     bottom: 8,
+    // Capped because it now also carries the watcher count, which is longer
+    // than a year and must not run off the edge of the art.
+    maxWidth: GRID_COL_W - 16,
     paddingHorizontal: 6,
     paddingVertical: 3,
     backgroundColor: 'rgba(0,0,0,0.72)',

@@ -1193,10 +1193,23 @@ export async function getTvShowNextEpisode(tmdbId) {
  * Fetch movies currently in theatres from TMDB, sorted by rating (highest first).
  * Merges page 1 and page 2 to give a richer result set (~40 titles).
  */
-export async function fetchNowPlayingMovies() {
+/**
+ * Movies currently in theatres.
+ *
+ * `region` decides whose theatres — TMDb silently answers for the US when it is
+ * omitted, which is a fine default but a bad accident. Callers that show the
+ * list to the user should pass one and name it in the UI.
+ *
+ * Still returns the list sorted by rating for the callers that relied on it;
+ * `popularity` and `voteCount` are carried through so a caller can impose its
+ * own ordering instead.
+ *
+ * @param {{ region?: string }} [options]
+ */
+export async function fetchNowPlayingMovies({ region = 'US' } = {}) {
   const [page1, page2] = await Promise.all([
-    tmdbGet('/movie/now_playing', { language: 'en-US', page: 1 }),
-    tmdbGet('/movie/now_playing', { language: 'en-US', page: 2 }),
+    tmdbGet('/movie/now_playing', { language: 'en-US', region, page: 1 }),
+    tmdbGet('/movie/now_playing', { language: 'en-US', region, page: 2 }),
   ]);
 
   const raw = [...(page1.results || []), ...(page2.results || [])];
@@ -1226,6 +1239,8 @@ export async function fetchNowPlayingMovies() {
         : null,
       ratingValue: item.vote_average || 0,
       rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+      popularity: item.popularity || 0,
+      voteCount: item.vote_count || 0,
     };
   });
 }

@@ -1,4 +1,11 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
@@ -33,6 +40,9 @@ export const SearchPanel = forwardRef(function SearchPanel(
     onTypeSelect,
     onClear,
     submittedQuery,
+    onToggleWatchlist,
+    savedWatchlistKeys,
+    onSeeAllRail,
   },
   ref,
 ) {
@@ -68,31 +78,47 @@ export const SearchPanel = forwardRef(function SearchPanel(
     !isSubmittedQuery &&
     querySearchable &&
     (typeLoading || visibleTypeResults.length > 0 || showNoMatches);
-  const [traktTrending, setTraktTrending] = useState([]);
-  const [nowPlaying, setNowPlaying] = useState([]);
+  // Each rail carries its own status. Collapsing a failure into an empty array
+  // used to make "offline", "rate-limited" and "still loading" render as the
+  // same thing — nothing — so the only conclusion available to the user was
+  // that the section didn't exist.
+  const [traktTrending, setTraktTrending] = useState({ status: 'loading', items: [] });
+  const [nowPlaying, setNowPlaying] = useState({ status: 'loading', items: [] });
+  const railRunRef = useRef(0);
 
   const searchSurface = colors.glass;
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      fetchHomeTraktTrendingRail().catch(() => []),
-      fetchHomeNowPlayingRail().catch(() => []),
-    ])
-      .then(([traktItems, nowPlayingItems]) => {
-        if (cancelled) return;
-        setTraktTrending(traktItems || []);
-        setNowPlaying(nowPlayingItems || []);
+  const loadRail = useCallback((fetcher, setState) => {
+    const run = railRunRef.current;
+    setState((prev) => ({ status: 'loading', items: prev.items }));
+    fetcher()
+      .then((items) => {
+        if (railRunRef.current !== run) return;
+        setState({ status: 'ready', items: items || [] });
       })
       .catch(() => {
-        if (cancelled) return;
-        setTraktTrending([]);
-        setNowPlaying([]);
+        if (railRunRef.current !== run) return;
+        setState({ status: 'error', items: [] });
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  const loadTrending = useCallback(
+    () => loadRail(fetchHomeTraktTrendingRail, setTraktTrending),
+    [loadRail],
+  );
+  const loadNowPlaying = useCallback(
+    () => loadRail(fetchHomeNowPlayingRail, setNowPlaying),
+    [loadRail],
+  );
+
+  useEffect(() => {
+    loadTrending();
+    loadNowPlaying();
+    return () => {
+      // Invalidates every in-flight rail load for this mount.
+      railRunRef.current += 1;
+    };
+  }, [loadTrending, loadNowPlaying]);
 
   return (
     <View style={styles.container}>
@@ -249,29 +275,59 @@ export const SearchPanel = forwardRef(function SearchPanel(
         />
       )}
 
+      {/*
+        Numbered, because the rail is now in Trakt's order rather than in TMDb
+        rating order — the number is the content, and it would have been a lie
+        before.
+      */}
       {!hideHistory && (
         <ContentRail
           title="Trending on Trakt"
           icon="trending-up-outline"
-          data={traktTrending}
+          data={traktTrending.items}
+          status={traktTrending.status}
+          onRetry={loadTrending}
+          showRank
           colors={colors}
           typography={typography}
           radii={radii}
           showCaption={false}
           onSelectItem={onPickRecentViewed}
+          onToggleWatchlist={onToggleWatchlist}
+          savedKeys={savedWatchlistKeys}
+          onSeeAll={
+            onSeeAllRail
+              ? () => onSeeAllRail({ railId: 'trakt-trending', title: 'Trending on Trakt' })
+              : null
+          }
         />
       )}
 
+      {/*
+        Named for the country it actually describes. TMDb answers `now_playing`
+        for the US when no region is passed, which it silently was — so the
+        header made a claim about the user's local cinema that the payload never
+        supported. There is no finer granularity than the country available.
+      */}
       {!hideHistory && (
         <ContentRail
-          title="Now playing in theaters"
+          title="Now playing in US theaters"
           icon="ticket-outline"
-          data={nowPlaying}
+          data={nowPlaying.items}
+          status={nowPlaying.status}
+          onRetry={loadNowPlaying}
           colors={colors}
           typography={typography}
           radii={radii}
           showCaption={false}
           onSelectItem={onPickRecentViewed}
+          onToggleWatchlist={onToggleWatchlist}
+          savedKeys={savedWatchlistKeys}
+          onSeeAll={
+            onSeeAllRail
+              ? () => onSeeAllRail({ railId: 'now-playing', title: 'Now playing in US theaters' })
+              : null
+          }
         />
       )}
     </View>

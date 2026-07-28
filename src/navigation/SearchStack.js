@@ -9,6 +9,7 @@ import { MatchResults, SearchResultsLoading } from '../components/MatchResults';
 import { EmptyState } from '../components/EmptyState';
 import { FilmographyScreen } from '../components/FilmographyScreen';
 import { FullCastScreen } from '../components/FullCastScreen';
+import { RailListScreen } from '../components/RailListScreen';
 import { useSearch, useDetail, useWatchlist, useNav, usePeople } from '../context/domainContexts';
 import { useStackScreenOptions } from './useStackScreenOptions';
 import { DetailScreenRoute } from './DetailScreenRoute';
@@ -90,6 +91,9 @@ function SearchMainScreen() {
           onTypeSelect={(match) => handleTypeSelect(match, navigation)}
           onClear={clearSearch}
           submittedQuery={submittedQuery}
+          onToggleWatchlist={handleToggleWatchlist}
+          savedWatchlistKeys={savedWatchlistKeys}
+          onSeeAllRail={(params) => navigation.navigate('RailList', params)}
         />
         {showLoadingState && <SearchResultsLoading query={submittedQuery} />}
         {showResults && (
@@ -166,6 +170,26 @@ function SearchFullCastScreen({ route }) {
   );
 }
 
+function SearchRailListScreen({ route }) {
+  const navigation = useNavigation();
+  const { handleSelectMatch } = useSearch();
+  const { handleToggleWatchlist, savedWatchlistKeys } = useWatchlist();
+  const { railId, title } = route.params || {};
+
+  if (!railId) return null;
+
+  return (
+    <RailListScreen
+      railId={railId}
+      title={title}
+      eyebrow={railId === 'now-playing' ? 'In Cinemas' : 'Trending'}
+      onSelectItem={(item) => handleSelectMatch(item, navigation)}
+      onToggleWatchlist={handleToggleWatchlist}
+      savedKeys={savedWatchlistKeys}
+    />
+  );
+}
+
 function SearchFilmographyScreen() {
   const navigation = useNavigation();
   const { filmographyPerson, filmographyResults, filmographyLoading, handleSelectFilmographyItem } =
@@ -195,6 +219,7 @@ export function SearchStack() {
       <Stack.Screen name="Search" component={SearchMainScreen} />
       <Stack.Screen name="Detail" component={DetailScreenRoute} />
       <Stack.Screen name="FullCast" component={SearchFullCastScreen} />
+      <Stack.Screen name="RailList" component={SearchRailListScreen} />
       <Stack.Screen name="Filmography" component={SearchFilmographyScreen} />
     </Stack.Navigator>
   );
