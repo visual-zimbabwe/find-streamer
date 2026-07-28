@@ -35,6 +35,5 @@ export const [DiscoverProvider, useDiscover] = createDomainContext('DiscoverProv
 export const [DetailProvider, useDetail] = createDomainContext('DetailProvider');
 export const [WatchlistProvider, useWatchlist] = createDomainContext('WatchlistProvider');
 export const [PeopleProvider, usePeople] = createDomainContext('PeopleProvider');
-export const [SurpriseProvider, useSurprise] = createDomainContext('SurpriseProvider');
 export const [NavProvider, useNav] = createDomainContext('NavProvider');
 export const [StatusProvider, useStatus] = createDomainContext('StatusProvider');

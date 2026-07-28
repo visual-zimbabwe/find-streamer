@@ -6,9 +6,11 @@ import {
   isRankablePersonDepartment,
   isSearchableQuery,
   normalizeSearchText,
+  collidingTitleNames,
   partitionSearchResults,
   rankSearchCandidates,
   searchMatchTier,
+  yearBadgeFor,
 } from '../src/lib/searchRanker.js';
 
 const title = (name, popularity, extra = {}) => ({
@@ -181,4 +183,50 @@ test('the panel cap is where the measured value stops', () => {
   // Intended title visible: 76.9% at row 1, 78.7% by row 3, 79.0% by row 5 —
   // and unchanged all the way to row 20.
   assert.equal(SEARCH_PANEL_MAX_ROWS, 6);
+});
+
+// The search grid dropped the year caption under every poster. A year is only
+// drawn — onto the artwork — when two results genuinely share a title, so these
+// guard the difference between "quiet" and "ambiguous".
+
+test('a result set with distinct titles needs no year at all', () => {
+  const collisions = collidingTitleNames([
+    title('Dune', 90, { year: '2021' }),
+    title('Arrival', 80, { year: '2016' }),
+  ]);
+  assert.equal(collisions.size, 0);
+  assert.equal(yearBadgeFor(title('Dune', 90, { year: '2021' }), collisions), null);
+});
+
+test('two films with the same name both get their year', () => {
+  const items = [title('Dune', 90, { year: '2021' }), title('Dune', 40, { year: '1984' })];
+  const collisions = collidingTitleNames(items);
+  assert.deepEqual([...collisions], ['dune']);
+  assert.equal(yearBadgeFor(items[0], collisions), '2021');
+  assert.equal(yearBadgeFor(items[1], collisions), '1984');
+});
+
+test('collision detection folds punctuation and case, like the ranker', () => {
+  const collisions = collidingTitleNames([
+    title("Schindler's List", 70, { year: '1993' }),
+    title('schindlers list', 10, { year: '2015' }),
+  ]);
+  assert.equal(collisions.size, 1);
+});
+
+test('a colliding title with no usable year is left bare rather than labelled N/A', () => {
+  const items = [title('Dune', 90, { year: 'N/A' }), title('Dune', 40, { year: '1984' })];
+  const collisions = collidingTitleNames(items);
+  assert.equal(yearBadgeFor(items[0], collisions), null);
+  assert.equal(yearBadgeFor(items[1], collisions), '1984');
+});
+
+test('a non-colliding result is never given a year, even inside a set that has one', () => {
+  const items = [
+    title('Dune', 90, { year: '2021' }),
+    title('Dune', 40, { year: '1984' }),
+    title('Arrival', 80, { year: '2016' }),
+  ];
+  const collisions = collidingTitleNames(items);
+  assert.equal(yearBadgeFor(items[2], collisions), null);
 });

@@ -1,21 +1,32 @@
 import React, { memo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { MediaArtwork } from './MediaArtwork';
 import { watchlistEntryKey } from '../lib/watchlistModel';
-import { scale, verticalScale } from '../utils/responsive';
-import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
+import { scale } from '../utils/responsive';
+import { GOLD_DIM, GRID_COL_W, GRID_PAD, GRID_POSTER_ASPECT } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { GridPosterCard, PosterGrid } from './GridPosterCard';
 import { SearchResultRow } from './SearchResultRow';
 import { ResultsSkeleton } from './SkeletonLoaders';
-import { partitionSearchResults } from '../lib/searchRanker';
+import { collidingTitleNames, partitionSearchResults, yearBadgeFor } from '../lib/searchRanker';
 
-const FEATURE_H = verticalScale(280);
+const WINDOW_W = Dimensions.get('window').width;
+
+/**
+ * The top match, drawn as one large poster.
+ *
+ * It used to be a 16:9 backdrop card with the title, a two-line synopsis, the
+ * year, a rating pill and a type pill stacked over it. Two things were wrong
+ * with that. The art was `backdropUrl` — TMDb's community-primary backdrop,
+ * which is routinely key-art with the title already baked in (see
+ * `pickHeroBackdrop` in tmdb.js), so the title was drawn twice. And everything
+ * in that stack is on the detail screen, one tap away.
+ *
+ * A poster at ~1.6 grid columns keeps one visual language across the whole
+ * screen: the same artwork, the same star badge, the same year rule.
+ */
+const TOP_MATCH_W = Math.min(GRID_COL_W * 1.62, WINDOW_W - GRID_PAD * 2);
 
 const TopMatchFeature = memo(function TopMatchFeature({
   item,
@@ -23,97 +34,31 @@ const TopMatchFeature = memo(function TopMatchFeature({
   typography,
   radii,
   saved,
+  yearBadge,
   onPress,
   onToggleWatchlist,
 }) {
-  const backdrop = item.backdropUrl || item.posterUrl;
-
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`Open details for ${item.title}`}
-    >
-      <View
-        style={[
-          styles.featureCard,
-          { borderRadius: radii.xl, backgroundColor: colors.surfaceContainerHighest },
-        ]}
-      >
-        <MediaArtwork
-          uri={backdrop}
-          style={styles.featureImg}
-          resizeMode="cover"
-          accessibilityLabel={`Backdrop for ${item.title}`}
-          title={item.title}
-        />
-        <LinearGradient
-          colors={['rgba(0,0,0,0.38)', 'transparent']}
-          style={styles.featureTopScrim}
-        />
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.88)']}
-          style={styles.featureBottomScrim}
-        />
-        {onToggleWatchlist && (
-          <TouchableOpacity
-            style={[
-              styles.featureBookmark,
-              { borderColor: saved ? GOLD_ACCENT : 'rgba(255,255,255,0.22)' },
-            ]}
-            onPress={(event) => {
-              event.stopPropagation?.();
-              Haptics.selectionAsync();
-              onToggleWatchlist(item);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={
-              saved ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`
-            }
-            accessibilityState={{ selected: saved }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons
-              name={saved ? 'bookmark' : 'bookmark-outline'}
-              size={20}
-              color={saved ? GOLD_ACCENT : '#fff'}
-            />
-          </TouchableOpacity>
-        )}
-        <View style={styles.featureContent}>
-          <Text style={[styles.featureEyebrow, typography.labelSm]}>Top Match</Text>
-          <Text style={[styles.featureTitle, typography.headlineMd]} numberOfLines={2}>
-            {item.title}
-          </Text>
-          {item.synopsis ? (
-            <Text style={[styles.featureSynopsis, typography.bodyMd]} numberOfLines={2}>
-              {item.synopsis}
-            </Text>
-          ) : null}
-          <View style={styles.featureMetaRow}>
-            <Text style={[styles.featureMeta, typography.labelSm]}>{item.year}</Text>
-            {item.ratingValue > 0 && (
-              <View style={styles.featureRatingPill}>
-                <Text style={[styles.featureRatingText, typography.labelSm]}>
-                  ★ {item.ratingValue.toFixed(1)}
-                </Text>
-              </View>
-            )}
-            <View style={styles.featureTypePill}>
-              <Ionicons
-                name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
-                size={12}
-                color="#fff"
-              />
-              <Text style={[styles.featureTypeText, typography.labelSm]}>
-                {item.mediaType === 'tv' ? 'Series' : 'Movie'}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    </TouchableOpacity>
+    <View style={styles.featureWrap}>
+      <GridPosterCard
+        item={item}
+        colors={colors}
+        typography={typography}
+        radii={radii}
+        showCaption={false}
+        yearBadge={yearBadge}
+        posterSize="w780"
+        // The visible "TOP MATCH" eyebrow is gone with the rest of the caption
+        // stack, so the label has to carry what it used to say — otherwise a
+        // screen reader hears this and a grid card as the same thing.
+        accessibilityLabel={`Top match: ${item.title}. Open details.`}
+        saved={saved}
+        onToggleWatchlist={onToggleWatchlist}
+        onPress={onPress}
+        style={styles.featureCard}
+        posterStyle={styles.featurePoster}
+      />
+    </View>
   );
 });
 
@@ -192,6 +137,9 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
   const topMatch = titles[0];
   const others = titles.slice(1);
   const savedIds = new Set(watchlistIds);
+  // The year caption is gone, so a year only appears where the posters alone
+  // cannot separate two results — "Dune" 1984 beside "Dune" 2021.
+  const collisions = collidingTitleNames(titles);
 
   const peopleBlock = (
     <PeopleBlock
@@ -228,6 +176,7 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
           typography={typography}
           radii={radii}
           saved={savedIds.has(watchlistEntryKey(topMatch))}
+          yearBadge={yearBadgeFor(topMatch, collisions)}
           onPress={() => onSelect(topMatch)}
           onToggleWatchlist={onToggleWatchlist}
         />
@@ -249,6 +198,8 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
                 colors={colors}
                 typography={typography}
                 radii={radii}
+                showCaption={false}
+                yearBadge={yearBadgeFor(item, collisions)}
                 saved={savedIds.has(watchlistEntryKey(item))}
                 onPress={() => onSelect(item)}
                 onToggleWatchlist={onToggleWatchlist}
@@ -268,105 +219,15 @@ const styles = StyleSheet.create({
     marginTop: scale(8),
     paddingHorizontal: GRID_PAD,
   },
+  featureWrap: {
+    alignItems: 'center',
+  },
   featureCard: {
-    height: FEATURE_H,
-    overflow: 'hidden',
-    position: 'relative',
+    width: TOP_MATCH_W,
   },
-  featureImg: {
-    ...StyleSheet.absoluteFillObject,
-    height: '100%',
-    width: '100%',
-  },
-  featureTopScrim: {
-    height: 80,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
-  featureBottomScrim: {
-    bottom: 0,
-    height: '72%',
-    left: 0,
-    position: 'absolute',
-    right: 0,
-  },
-  featureBookmark: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.42)',
-    borderRadius: 24,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 48,
-    justifyContent: 'center',
-    position: 'absolute',
-    right: scale(14),
-    top: scale(14),
-    width: 48,
-    zIndex: 2,
-  },
-  featureContent: {
-    bottom: 0,
-    left: 0,
-    paddingBottom: scale(20),
-    paddingHorizontal: scale(18),
-    position: 'absolute',
-    right: 0,
-  },
-  featureEyebrow: {
-    color: GOLD_ACCENT,
-    fontWeight: '700',
-    letterSpacing: 2.2,
-    marginBottom: 8,
-    paddingEnd: 3,
-    textTransform: 'uppercase',
-  },
-  featureTitle: {
-    color: '#fff',
-    fontWeight: '800',
-    marginBottom: 8,
-    textShadowColor: 'rgba(0,0,0,0.45)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
-  },
-  featureSynopsis: {
-    color: 'rgba(255,255,255,0.82)',
-    fontWeight: '500',
-    lineHeight: scale(20),
-    marginBottom: 10,
-  },
-  featureMetaRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  featureMeta: {
-    color: 'rgba(255,255,255,0.88)',
-    fontWeight: '600',
-  },
-  featureRatingPill: {
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  featureRatingText: {
-    color: '#FFD580',
-    fontWeight: '800',
-  },
-  featureTypePill: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  featureTypeText: {
-    color: '#fff',
-    fontWeight: '700',
+  featurePoster: {
+    height: TOP_MATCH_W * GRID_POSTER_ASPECT,
+    width: TOP_MATCH_W,
   },
   alsoMatchedBlock: {
     marginTop: scale(28),

@@ -26,10 +26,38 @@ export function gridPosterHeight(colWidth = gridColWidth()) {
   return colWidth * GRID_POSTER_ASPECT;
 }
 
+/**
+ * Column width for an n-up poster row inside an arbitrary content box — used by
+ * the live search panel, which is 3-up inside a card that has its own padding
+ * rather than 2-up against the screen edges.
+ *
+ * Floored, and that is load-bearing. `scale()` makes the pads and the gap
+ * fractional, so an exact division gives columns whose widths sum to precisely
+ * the available width; Yoga then rounds each one out to a whole physical pixel,
+ * the row overflows by a fraction of a pixel, and the last column wraps. On the
+ * A54 that turned this 3-up grid into a 2-up one with a column of dead space.
+ * Flooring buys a few points of slack and costs nothing visible.
+ */
+export function columnWidth(availableWidth, columns, gap = GRID_GAP) {
+  return Math.floor((availableWidth - gap * (columns - 1)) / columns);
+}
+
 const WINDOW_W = Dimensions.get('window').width;
 /** Shared 2-col poster grid width — single source for rails, grids, and skeletons. */
 export const GRID_COL_W = gridColWidth(WINDOW_W);
 export const GRID_POSTER_H = gridPosterHeight(GRID_COL_W);
+
+/**
+ * The live search panel's 3-up poster grid. Shared with the loading skeleton so
+ * the placeholder reserves exactly the band the real posters land in.
+ */
+export const SEARCH_PANEL_COLUMNS = 3;
+export const SEARCH_PANEL_PAD = scale(16);
+export const SEARCH_PANEL_COL_W = columnWidth(
+  WINDOW_W - GRID_PAD * 2 - SEARCH_PANEL_PAD * 2,
+  SEARCH_PANEL_COLUMNS,
+);
+export const SEARCH_PANEL_POSTER_H = SEARCH_PANEL_COL_W * GRID_POSTER_ASPECT;
 
 /** Split items into rows for a 2-column poster grid. */
 export function buildGridRows(items, columns = 2) {

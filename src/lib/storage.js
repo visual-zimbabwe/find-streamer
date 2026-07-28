@@ -12,7 +12,6 @@ import {
 
 const KEYS = {
   themePreference: 'find-streamer/theme-preference',
-  recentSearches: 'find-streamer/recent-searches',
   recentViewed: 'find-streamer/recent-viewed',
   watchlist: 'find-streamer/watchlist',
   watchlistChunks: 'find-streamer/watchlist/chunks',
@@ -169,31 +168,6 @@ export async function saveThemePreference(value) {
   await AsyncStorage.setItem(KEYS.themePreference, value);
 }
 
-export async function loadRecentSearches() {
-  const raw = await AsyncStorage.getItem(KEYS.recentSearches);
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * How many recent searches to keep. Was 3, which is barely a history — and the
- * list was hidden entirely once anything had been viewed, so the cap never got
- * tested. Now that it renders alongside Recently Viewed, it can hold a session's
- * worth; the chips wrap, so the row grows down rather than off-screen.
- */
-export const RECENT_SEARCH_LIMIT = 8;
-
-export async function saveRecentSearches(items) {
-  const uniqueItems = Array.from(new Set(items)).slice(0, RECENT_SEARCH_LIMIT);
-  await AsyncStorage.setItem(KEYS.recentSearches, JSON.stringify(uniqueItems));
-}
-
 export async function loadRecentViewed() {
   const raw = await AsyncStorage.getItem(KEYS.recentViewed);
   if (!raw) return [];
@@ -347,5 +321,8 @@ export async function loadHomeSpotlightCache(storage = AsyncStorage) {
 }
 
 export async function saveHomeSpotlightCache(cache, storage = AsyncStorage) {
-  await storage.setItem(KEYS.homeSpotlightCache, JSON.stringify(normalizeHomeSpotlightCache(cache)));
+  await storage.setItem(
+    KEYS.homeSpotlightCache,
+    JSON.stringify(normalizeHomeSpotlightCache(cache)),
+  );
 }

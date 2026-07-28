@@ -87,14 +87,6 @@ export function useWatchlistController({ showToast }) {
     [watchlist],
   );
 
-  const hasHighlyRecommendedSeeds = useMemo(
-    () =>
-      watchlist.some(
-        (item) => item.collectionIds?.includes('highly_recommend') && isInUserLibrary(item),
-      ),
-    [watchlist],
-  );
-
   const syncWatchlistFromResolvedDetail = useCallback(async (fullResult) => {
     if (!fullResult?.tmdbId || !fullResult?.mediaType) return;
     setWatchlist((prev) => {
@@ -421,7 +413,6 @@ export function useWatchlistController({ showToast }) {
     watchlistCollections,
     userWatchlistCollections,
     savedWatchlistKeys,
-    hasHighlyRecommendedSeeds,
     syncWatchlistFromResolvedDetail,
     openWatchlistSheet,
     handleToggleWatchlist,
