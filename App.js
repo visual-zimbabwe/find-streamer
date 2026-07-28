@@ -12,7 +12,6 @@ import {
   DetailProvider,
   WatchlistProvider,
   PeopleProvider,
-  SurpriseProvider,
   NavProvider,
   StatusProvider,
 } from './src/context/domainContexts';
@@ -31,7 +30,6 @@ import { useWatchlistController } from './src/hooks/useWatchlistController';
 import { useDetailController } from './src/hooks/useDetailController';
 import { usePeopleController } from './src/hooks/usePeopleController';
 import { useSearchController } from './src/hooks/useSearchController';
-import { useSurpriseController } from './src/hooks/useSurpriseController';
 import { useAppNavigation } from './src/hooks/useAppNavigation';
 import { useHomeSpotlight } from './src/hooks/useHomeSpotlight';
 import { useDeepLink } from './src/hooks/useDeepLink';
@@ -55,24 +53,6 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
-
-// Genre list for the Surprise Me picker (TMDB genre IDs)
-const QUICK_SURPRISE_GENRES = [
-  { id: 28, mediaType: 'movie', label: '⚡ Action' },
-  { id: 35, mediaType: 'movie', label: '😂 Comedy' },
-  { id: 18, mediaType: 'movie', label: '🎭 Drama' },
-  { id: 27, mediaType: 'movie', label: '😱 Horror' },
-  { id: 878, mediaType: 'movie', label: '🚀 Sci-Fi' },
-  { id: 53, mediaType: 'movie', label: '🔪 Thriller' },
-  { id: 16, mediaType: 'movie', label: '✨ Animation' },
-  { id: 10749, mediaType: 'movie', label: '💕 Romance' },
-  { id: 99, mediaType: 'movie', label: '📽 Documentary' },
-  { id: 80, mediaType: 'movie', label: '🔫 Crime' },
-  { id: 14, mediaType: 'movie', label: '🧙 Fantasy' },
-  { id: 10759, mediaType: 'tv', label: '⚔️ Action & Adventure (TV)' },
-  { id: 10765, mediaType: 'tv', label: '🧬 Sci-Fi & Fantasy (TV)' },
-  { id: 9648, mediaType: 'tv', label: '🔍 Mystery (TV)' },
-];
 
 // The keys here become the registered font-family names and MUST match the
 // `fonts` map in src/theme/tokens.js. Only the weights imported above are
@@ -110,7 +90,7 @@ function MobileApp() {
     handleRequestError,
     setOfflineBanner,
   });
-  const { openDetail, openResolvedDetail, rememberViewed } = detail;
+  const { openResolvedDetail } = detail;
 
   const people = usePeopleController({
     openResolvedDetail,
@@ -122,16 +102,6 @@ function MobileApp() {
   const search = useSearchController({
     openResolvedDetail,
     handlePersonPress,
-    setOfflineBanner,
-  });
-
-  const surprise = useSurpriseController({
-    watchlist: watchlistCtl.watchlist,
-    clearTypeResults: search.clearTypeResults,
-    rememberViewed,
-    syncWatchlistFromResolvedDetail,
-    openDetail,
-    handleRequestError,
     setOfflineBanner,
   });
 
@@ -176,7 +146,6 @@ function MobileApp() {
       searchPhase: search.searchPhase,
       searchError: search.searchError,
       submittedQuery: search.submittedQuery,
-      recentSearches: search.recentSearches,
       typeResults: search.typeResults,
       typeLoading: search.typeLoading,
       handleQueryChange: search.handleQueryChange,
@@ -196,7 +165,6 @@ function MobileApp() {
       search.searchPhase,
       search.searchError,
       search.submittedQuery,
-      search.recentSearches,
       search.typeResults,
       search.typeLoading,
       search.handleQueryChange,
@@ -220,10 +188,19 @@ function MobileApp() {
       // stack render the topmost one's title.
       details: detail.details,
       recentViewed: detail.recentViewed,
+      removeRecentViewed: detail.removeRecentViewed,
+      clearRecentViewed: detail.clearRecentViewed,
       releaseDetail: detail.releaseDetail,
       retryDetail: detail.retryDetail,
     }),
-    [detail.details, detail.recentViewed, detail.releaseDetail, detail.retryDetail],
+    [
+      detail.details,
+      detail.recentViewed,
+      detail.removeRecentViewed,
+      detail.clearRecentViewed,
+      detail.releaseDetail,
+      detail.retryDetail,
+    ],
   );
 
   const watchlistValue = useMemo(
@@ -232,7 +209,6 @@ function MobileApp() {
       watchlistCollections: watchlistCtl.watchlistCollections,
       userWatchlistCollections: watchlistCtl.userWatchlistCollections,
       savedWatchlistKeys: watchlistCtl.savedWatchlistKeys,
-      hasHighlyRecommendedSeeds: watchlistCtl.hasHighlyRecommendedSeeds,
       handleToggleWatchlist: watchlistCtl.handleToggleWatchlist,
       handleEnrichWatchlistItem: watchlistCtl.handleEnrichWatchlistItem,
       handleRemoveWatchlistItem: watchlistCtl.handleRemoveWatchlistItem,
@@ -245,7 +221,6 @@ function MobileApp() {
       watchlistCtl.watchlistCollections,
       watchlistCtl.userWatchlistCollections,
       watchlistCtl.savedWatchlistKeys,
-      watchlistCtl.hasHighlyRecommendedSeeds,
       watchlistCtl.handleToggleWatchlist,
       watchlistCtl.handleEnrichWatchlistItem,
       watchlistCtl.handleRemoveWatchlistItem,
@@ -273,24 +248,6 @@ function MobileApp() {
       people.handlePersonPress,
       people.handleCompanyPress,
       people.handleCollectionPress,
-    ],
-  );
-
-  const surpriseValue = useMemo(
-    () => ({
-      surpriseLoading: surprise.surpriseLoading,
-      surprisePickerVisible: surprise.surprisePickerVisible,
-      setSurprisePickerVisible: surprise.setSurprisePickerVisible,
-      handleSurpriseMe: surprise.handleSurpriseMe,
-      handleSurpriseByGenre: surprise.handleSurpriseByGenre,
-      QUICK_SURPRISE_GENRES,
-    }),
-    [
-      surprise.surpriseLoading,
-      surprise.surprisePickerVisible,
-      surprise.setSurprisePickerVisible,
-      surprise.handleSurpriseMe,
-      surprise.handleSurpriseByGenre,
     ],
   );
 
@@ -348,9 +305,7 @@ function MobileApp() {
               <DetailProvider value={detailValue}>
                 <WatchlistProvider value={watchlistValue}>
                   <PeopleProvider value={peopleValue}>
-                    <SurpriseProvider value={surpriseValue}>
-                      <AppNavigationRoot />
-                    </SurpriseProvider>
+                    <AppNavigationRoot />
                   </PeopleProvider>
                 </WatchlistProvider>
               </DetailProvider>

@@ -8,10 +8,14 @@ import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { scale } from '../utils/responsive';
 import { hugLabel } from '../utils/labelText';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
-import { ProgrammeHairline } from './ProgrammeHairline';
 import { LiveMatchesSkeleton, SkeletonBlock } from './SkeletonLoaders';
 import { SearchResultRow } from './SearchResultRow';
-import { MIN_SEARCH_QUERY_LENGTH, SEARCH_PANEL_MAX_ROWS } from '../lib/searchRanker';
+import { SearchPosterGrid } from './SearchPosterGrid';
+import {
+  MIN_SEARCH_QUERY_LENGTH,
+  SEARCH_PANEL_MAX_ROWS,
+  partitionSearchResults,
+} from '../lib/searchRanker';
 
 export const SearchPanel = forwardRef(function SearchPanel(
   {
@@ -19,10 +23,10 @@ export const SearchPanel = forwardRef(function SearchPanel(
     onChangeText,
     onSubmit,
     loading,
-    recentSearches,
     recentViewed,
-    onPickSuggestion,
     onPickRecentViewed,
+    onRemoveRecentViewed,
+    onClearRecentViewed,
     hideHistory,
     typeResults,
     typeLoading,
@@ -45,6 +49,7 @@ export const SearchPanel = forwardRef(function SearchPanel(
     [],
   );
   const visibleTypeResults = typeResults ? typeResults.slice(0, SEARCH_PANEL_MAX_ROWS) : [];
+  const { people: panelPeople, titles: panelTitles } = partitionSearchResults(visibleTypeResults);
   const hasSearchText = (value || '').length > 0;
   const hasRecentViewed = recentViewed && recentViewed.length > 0;
   const trimmedValue = (value || '').trim();
@@ -201,7 +206,7 @@ export const SearchPanel = forwardRef(function SearchPanel(
             Matches
           </Text>
           {typeLoading && visibleTypeResults.length === 0 ? (
-            <LiveMatchesSkeleton count={3} />
+            <LiveMatchesSkeleton />
           ) : showNoMatches ? (
             <View style={styles.noMatchRow}>
               <Ionicons name="search-outline" size={16} color={colors.onSurfaceVariant} />
@@ -216,71 +221,72 @@ export const SearchPanel = forwardRef(function SearchPanel(
               </Text>
             </View>
           ) : (
-            visibleTypeResults.map((item, index) => (
-              <SearchResultRow
-                key={`${item.resultType || item.mediaType}-${item.tmdbId}`}
-                item={item}
-                showDivider={index < visibleTypeResults.length - 1}
+            <>
+              {/*
+                Titles are posters, people are rows. A person has no poster and
+                is a route to a filmography rather than something to watch, so
+                the row — with its circular portrait — is still the right shape
+                for them; it is only the titles that stopped needing a caption.
+              */}
+              <SearchPosterGrid
+                items={panelTitles}
                 colors={colors}
                 typography={typography}
                 radii={radii}
-                onPress={() => onTypeSelect && onTypeSelect(item)}
+                onSelect={(item) => onTypeSelect && onTypeSelect(item)}
               />
-            ))
+              {panelPeople.map((item, index) => (
+                <SearchResultRow
+                  key={`person-${item.personId ?? item.tmdbId}`}
+                  item={item}
+                  showDivider={index < panelPeople.length - 1}
+                  colors={colors}
+                  typography={typography}
+                  radii={radii}
+                  onPress={() => onTypeSelect && onTypeSelect(item)}
+                />
+              ))}
+            </>
           )}
         </View>
       )}
 
+      {/*
+        One history block, not two.
+        `Recent Searches` used to sit here as a wrapping cloud of the raw query
+        *strings* the user typed — lowercase, typos and all — with no way to
+        delete any of them; the only eviction was pushing eight newer searches
+        in front. It also duplicated the rail above it, because once a search
+        ends in opening a title, "what I searched for" and "what I looked at"
+        are the same record. This keeps the useful half: the title itself, as
+        artwork, one tap from where the user left off — and now removable.
+      */}
       {!hideHistory && hasRecentViewed && (
         <ContentRail
-          title="Recently Viewed"
+          title="Recent"
           icon="time-outline"
           data={recentViewed}
           colors={colors}
           typography={typography}
           radii={radii}
+          showCaption={false}
           onSelectItem={onPickRecentViewed}
-        />
-      )}
-
-      {/*
-        This used to be gated on `!hasRecentViewed`, so opening a single title
-        hid the search history permanently while `rememberSearch` carried on
-        writing to it. Both belong here — they answer different questions
-        ("what was I looking at" vs "what was I looking for").
-      */}
-      {!hideHistory && recentSearches && recentSearches.length > 0 && (
-        <View style={styles.historyBlock}>
-          <ProgrammeHairline />
-          <ProgrammeSectionHeader
-            eyebrow="History"
-            title="Recent Searches"
-            titleVariant="titleMd"
-          />
-          <View style={styles.recentChips}>
-            {recentSearches.map((item) => (
+          onRemoveItem={onRemoveRecentViewed}
+          headerRight={
+            onClearRecentViewed ? (
               <TouchableOpacity
-                key={item}
-                style={[
-                  styles.recentChip,
-                  { borderColor: GOLD_DIM, backgroundColor: searchSurface },
-                ]}
-                onPress={() => onPickSuggestion(item)}
+                onPress={onClearRecentViewed}
                 accessibilityRole="button"
-                accessibilityLabel={`Search for ${item}`}
-                activeOpacity={0.82}
+                accessibilityLabel="Clear recent titles"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="search-outline" size={12} color={GOLD_ACCENT} />
-                <Text
-                  style={[styles.recentChipText, { color: colors.onSurface, ...typography.bodyMd }]}
-                  numberOfLines={1}
-                >
-                  {item}
+                <Text style={[styles.clearHistory, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+                  {hugLabel('Clear')}
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+            ) : null
+          }
+        />
       )}
 
       {!hideHistory && (
@@ -291,6 +297,7 @@ export const SearchPanel = forwardRef(function SearchPanel(
           colors={colors}
           typography={typography}
           radii={radii}
+          showCaption={false}
           onSelectItem={onPickRecentViewed}
         />
       )}
@@ -303,6 +310,7 @@ export const SearchPanel = forwardRef(function SearchPanel(
           colors={colors}
           typography={typography}
           radii={radii}
+          showCaption={false}
           onSelectItem={onPickRecentViewed}
         />
       )}
@@ -394,6 +402,11 @@ const styles = StyleSheet.create({
     paddingBottom: scale(4),
     paddingTop: scale(12),
   },
+  clearHistory: {
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
   liveResultsLabel: {
     fontWeight: '800',
     letterSpacing: 1.4,
@@ -413,28 +426,5 @@ const styles = StyleSheet.create({
   noMatchText: {
     flex: 1,
     fontWeight: '500',
-  },
-  historyBlock: {
-    marginTop: scale(28),
-  },
-  recentChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: scale(10),
-  },
-  recentChip: {
-    alignItems: 'center',
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    gap: 6,
-    maxWidth: '100%',
-    minHeight: 48,
-    paddingHorizontal: scale(14),
-    paddingVertical: scale(10),
-  },
-  recentChipText: {
-    flexShrink: 1,
-    fontWeight: '600',
   },
 });

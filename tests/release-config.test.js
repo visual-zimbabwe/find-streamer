@@ -48,7 +48,11 @@ test('core interactive surfaces expose accessibility roles and labels', () => {
     'src/components/CollectionsScreen.js',
     'src/components/HomeScreen.js',
     'src/components/HomeTopNav.js',
-    'src/components/MatchResults.js',
+    // MatchResults used to own its controls inline; the search results are now
+    // built from these two shared components, so the guard follows the controls
+    // rather than the screen that arranges them.
+    'src/components/GridPosterCard.js',
+    'src/components/SearchResultRow.js',
     'src/components/ResultView.js',
     'src/components/SettingsView.js',
     'src/components/WatchlistView.js',

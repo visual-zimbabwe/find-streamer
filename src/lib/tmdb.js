@@ -293,6 +293,12 @@ function mapSearchMediaItem(item) {
     backdropUrl: item.backdrop_path
       ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
       : null,
+    // `/search/multi` already returns `vote_average`; nothing used to read it,
+    // so every search result reached the poster grid with no rating and drew no
+    // star badge — while the Recent and Trending rails beside it drew one. Free
+    // to carry, and the badge is the only metadata the artwork can't express.
+    ratingValue: item.vote_average || 0,
+    rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
     // Carried so `rankSearchCandidates` can order titles and people in one pool
     // without re-reading the raw payload.
     popularity: item.popularity || 0,
@@ -740,8 +746,7 @@ async function getCredits(mediaType, tmdbId) {
  * Uses `/recommendations`, not `/similar`. The two overlap by 1.0% measured
  * across 100 popular titles — `/similar` is a keyword-and-genre match, while
  * `/recommendations` is built from what people actually watch together, which
- * is the signal the rail claims to carry. (`fetchSurpriseRecommendation` below
- * already used the right one.)
+ * is the signal the rail claims to carry.
  *
  * The results arrive in relevance order and are deliberately left in it.
  */
@@ -751,117 +756,6 @@ async function getSimilar(mediaType, tmdbId) {
     page: 1,
   });
   return rankSimilarTitles(data.results, mediaType, { currentTmdbId: tmdbId });
-}
-
-export async function fetchSurpriseRecommendation(seedItems = []) {
-  const seeds = seedItems
-    .filter((item) => item?.tmdbId && (item.mediaType === 'movie' || item.mediaType === 'tv'))
-    .slice(0, 8);
-
-  if (!seeds.length) {
-    throw createAppError(
-      'Add a few favorites to Highly Recommend first, then try Surprise Me.',
-      'NO_SURPRISE_SEEDS',
-    );
-  }
-
-  const similarGroups = await mapWithConcurrency(seeds, 3, async (seed) => {
-    try {
-      const data = await tmdbGet(`/${seed.mediaType}/${seed.tmdbId}/recommendations`, {
-        language: 'en-US',
-        page: 1,
-      });
-      return (data.results || []).map((item) => ({
-        mediaType: seed.mediaType,
-        tmdbId: item.id,
-        title: item.title || item.name || '(Untitled)',
-        year: (item.release_date || item.first_air_date || '').slice(0, 4) || 'N/A',
-        synopsis: (item.overview || '').trim() || 'No synopsis available.',
-        posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-        backdropUrl: item.backdrop_path
-          ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
-          : null,
-        ratingValue: item.vote_average || 0,
-        voteCount: item.vote_count || 0,
-        rating:
-          typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
-      }));
-    } catch {
-      return [];
-    }
-  });
-
-  const seedKeys = new Set(seeds.map((item) => `${item.mediaType}:${item.tmdbId}`));
-  const unique = [];
-  const seen = new Set(seedKeys);
-
-  similarGroups.flat().forEach((item) => {
-    const key = `${item.mediaType}:${item.tmdbId}`;
-    if (seen.has(key) || !item.posterUrl) return;
-    seen.add(key);
-    unique.push(item);
-  });
-
-  const strongMatches = unique
-    .filter((item) => item.ratingValue >= 7 && item.voteCount >= 75)
-    .sort(
-      (a, b) =>
-        b.ratingValue * Math.log10(b.voteCount + 10) - a.ratingValue * Math.log10(a.voteCount + 10),
-    );
-
-  const pool = (
-    strongMatches.length >= 5 ? strongMatches : unique.sort((a, b) => b.ratingValue - a.ratingValue)
-  ).slice(0, 24);
-  if (!pool.length) {
-    throw createAppError(
-      'No surprise picks were found from your Highly Recommend titles yet.',
-      'NO_RESULTS',
-    );
-  }
-
-  return pool[Math.floor(Math.random() * pool.length)];
-}
-
-/**
- * Picks a random high-rated title in a specific genre.
- * genreId: TMDB genre id (e.g. 27 for Horror)
- * mediaType: 'movie' | 'tv'
- */
-export async function fetchSurpriseByGenre(genreId, mediaType = 'movie') {
-  // Fetch two random pages from popular high-rated titles in the genre
-  const page = Math.floor(Math.random() * 4) + 1; // pages 1-4
-  const params = {
-    sort_by: 'vote_average.desc',
-    with_genres: String(genreId),
-    'vote_count.gte': 200,
-    'vote_average.gte': 6.5,
-    include_adult: false,
-    language: 'en-US',
-    page,
-  };
-
-  const data = await tmdbGet(`/discover/${mediaType}`, params);
-  const items = (data.results || []).filter((item) => item.poster_path);
-
-  if (!items.length) {
-    throw createAppError('No titles found for that genre right now.', 'NO_RESULTS');
-  }
-
-  const pick = items[Math.floor(Math.random() * Math.min(items.length, 12))];
-  const dateValue = pick.release_date || pick.first_air_date || '';
-  return {
-    mediaType,
-    tmdbId: pick.id,
-    title: pick.title || pick.name || '(Untitled)',
-    year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
-    synopsis: (pick.overview || '').trim() || 'No synopsis available.',
-    posterUrl: `https://image.tmdb.org/t/p/w500${pick.poster_path}`,
-    backdropUrl: pick.backdrop_path
-      ? `https://image.tmdb.org/t/p/original${pick.backdrop_path}`
-      : null,
-    ratingValue: pick.vote_average || 0,
-    rating: typeof pick.vote_average === 'number' ? `${pick.vote_average.toFixed(1)}/10` : 'N/A',
-  };
 }
 
 async function getProviderCountries(mediaType, tmdbId) {

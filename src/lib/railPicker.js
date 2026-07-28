@@ -73,7 +73,7 @@ function yearOf(item) {
 
 /**
  * Quality that respects notability: a 7.9 from 40k voters outranks an 8.6 from
- * 210. Same shape already used by the Surprise Me pool.
+ * 210.
  */
 export function railScore(ratingValue, voteCount) {
   return (ratingValue || 0) * Math.log10((voteCount || 0) + 10);

@@ -104,22 +104,26 @@ export function useDetailController({
   );
 
   /**
-   * Open a screen for an already-resolved payload (Surprise Me, which has to
-   * pick the title before it can name it).
+   * Recent is the only history Search shows now, so it has to be editable —
+   * previously nothing in the app could remove a history entry at all, and the
+   * only way to evict one was to push eight newer ones in front of it.
    */
-  const openDetail = useCallback(
-    (fullResult, navigation) => {
-      if (!claimOpen()) return null;
-      const detailId = nextDetailId();
-      setDetails((prev) => ({
-        ...prev,
-        [detailId]: { result: fullResult, loading: false, error: null },
-      }));
-      pushDetail(detailId, navigation);
-      return detailId;
+  const removeRecentViewed = useCallback(
+    async (item) => {
+      if (!item?.tmdbId || !item?.mediaType) return;
+      const nextViewed = recentViewed.filter(
+        (entry) => !(entry.tmdbId === item.tmdbId && entry.mediaType === item.mediaType),
+      );
+      setRecentViewed(nextViewed);
+      await saveRecentViewed(nextViewed);
     },
-    [claimOpen, nextDetailId, pushDetail],
+    [recentViewed],
   );
+
+  const clearRecentViewed = useCallback(async () => {
+    setRecentViewed([]);
+    await saveRecentViewed([]);
+  }, []);
 
   /**
    * The five legs of `resolveMatch`, bounded. Each leg allows a 12s timeout and
@@ -134,9 +138,7 @@ export function useDetailController({
         new Promise((_resolve, reject) => {
           timer = setTimeout(
             () =>
-              reject(
-                createAppError('Please check your connection and try again.', 'TIMEOUT', {}),
-              ),
+              reject(createAppError('Please check your connection and try again.', 'TIMEOUT', {})),
             DETAIL_RESOLVE_DEADLINE_MS,
           );
         }),
@@ -221,7 +223,8 @@ export function useDetailController({
   return {
     details,
     recentViewed,
-    openDetail,
+    removeRecentViewed,
+    clearRecentViewed,
     releaseDetail,
     retryDetail,
     rememberViewed,

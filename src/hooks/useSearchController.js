@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef, useCallback, useReducer } from 'react';
+import { useState, useRef, useCallback, useReducer } from 'react';
 import { Keyboard } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { searchTitleCandidates, searchLiveCandidates } from '../lib/tmdb';
 import { classifyAppError } from '../lib/errors';
 import { navigateToTabRoot } from '../navigation/navigationRef';
-import { RECENT_SEARCH_LIMIT, loadRecentSearches, saveRecentSearches } from '../lib/storage';
 import { isSearchableQuery } from '../lib/searchRanker';
 import { INITIAL_SEARCH_SESSION, SEARCH_PHASE, searchSessionReducer } from '../lib/searchSession';
 
@@ -30,17 +29,12 @@ export function useSearchController({ openResolvedDetail, handlePersonPress, set
     searchSessionReducer,
     INITIAL_SEARCH_SESSION,
   );
-  const [recentSearches, setRecentSearches] = useState([]);
   const [typeResults, setTypeResults] = useState([]);
   const [typeLoading, setTypeLoading] = useState(false);
   const typeDebounceRef = useRef(null);
   const typeRequestRef = useRef(0);
   const searchRequestRef = useRef(0);
   const loading = searchSession.phase === SEARCH_PHASE.LOADING;
-
-  useEffect(() => {
-    loadRecentSearches().then(setRecentSearches);
-  }, []);
 
   const clearTypeResults = useCallback(() => {
     if (typeDebounceRef.current) clearTimeout(typeDebounceRef.current);
@@ -105,18 +99,6 @@ export function useSearchController({ openResolvedDetail, handlePersonPress, set
     [setOfflineBanner],
   );
 
-  const rememberSearch = useCallback(
-    async (searchQuery) => {
-      const newHistory = [searchQuery, ...recentSearches.filter((q) => q !== searchQuery)].slice(
-        0,
-        RECENT_SEARCH_LIMIT,
-      );
-      setRecentSearches(newHistory);
-      await saveRecentSearches(newHistory);
-    },
-    [recentSearches],
-  );
-
   // Selecting a live suggestion goes straight to the detail view
   const handleTypeSelect = useCallback(
     async (match, navigation) => {
@@ -126,14 +108,13 @@ export function useSearchController({ openResolvedDetail, handlePersonPress, set
       if (match.resultType === 'person') {
         const personName = match.personName || match.title;
         setQuery(personName);
-        await rememberSearch(personName);
         handlePersonPress(match.personId, personName, match.role, navigation);
         return;
       }
 
       await openResolvedDetail(match.title, match, navigation, 'Unable to fetch movie details.');
     },
-    [clearTypeResults, handlePersonPress, openResolvedDetail, rememberSearch],
+    [clearTypeResults, handlePersonPress, openResolvedDetail],
   );
 
   const handleSearch = useCallback(
@@ -164,14 +145,12 @@ export function useSearchController({ openResolvedDetail, handlePersonPress, set
         // History is secondary persistence, not part of the request's visual
         // lifecycle. A storage failure must not turn correct results into an
         // error surface.
-        void rememberSearch(committedQuery).catch(() => {});
       } catch (err) {
         if (requestId !== searchRequestRef.current) return;
         const classified = classifyAppError(err);
         if (classified.code === 'NO_RESULTS') {
           dispatchSearchSession({ type: 'EMPTY' });
           navigateToTabRoot('search');
-          void rememberSearch(committedQuery).catch(() => {});
         } else {
           // A transport/service failure is not a "no matches" answer. Keep it
           // in the Search surface, with the submitted query available for retry.
@@ -186,7 +165,7 @@ export function useSearchController({ openResolvedDetail, handlePersonPress, set
         }
       }
     },
-    [query, clearTypeResults, rememberSearch, setOfflineBanner],
+    [query, clearTypeResults, setOfflineBanner],
   );
 
   const handleSelectMatch = useCallback(
@@ -230,14 +209,12 @@ export function useSearchController({ openResolvedDetail, handlePersonPress, set
     searchPhase: searchSession.phase,
     searchError: searchSession.error,
     submittedQuery: searchSession.submittedQuery,
-    recentSearches,
     typeResults,
     typeLoading,
     clearTypeResults,
     clearSearchResults,
     clearSearch,
     handleQueryChange,
-    rememberSearch,
     handleTypeSelect,
     handleSearch,
     handleSelectMatch,

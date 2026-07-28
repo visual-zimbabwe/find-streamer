@@ -1,13 +1,15 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import {
   GRID_GAP,
-  GRID_PAD,
-  GOLD_ACCENT,
   GRID_COL_W,
   GRID_POSTER_H,
   HERO_HEIGHT,
+  SEARCH_PANEL_COLUMNS,
+  SEARCH_PANEL_COL_W,
+  SEARCH_PANEL_PAD,
+  SEARCH_PANEL_POSTER_H,
 } from '../theme/programme';
 import { scale, verticalScale } from '../utils/responsive';
 const FEATURE_H = verticalScale(420);
@@ -51,21 +53,25 @@ export function SkeletonBlock({ style }) {
   return <Animated.View style={[styles.block, { backgroundColor }, style]} />;
 }
 
-function GridPosterCardSkeleton() {
+function GridPosterCardSkeleton({ captions = true }) {
   return (
     <View style={[styles.gridCard, { width: GRID_COL_W }]}>
       <SkeletonBlock style={[styles.gridPoster, { height: GRID_POSTER_H }]} />
-      <SkeletonBlock style={styles.gridTitleLine} />
-      <SkeletonBlock style={styles.gridMetaLine} />
+      {captions ? (
+        <>
+          <SkeletonBlock style={styles.gridTitleLine} />
+          <SkeletonBlock style={styles.gridMetaLine} />
+        </>
+      ) : null}
     </View>
   );
 }
 
-function GridRowSkeleton({ columns = 2 }) {
+function GridRowSkeleton({ columns = 2, captions = true }) {
   return (
     <View style={styles.gridRow}>
       {Array.from({ length: columns }).map((_, index) => (
-        <GridPosterCardSkeleton key={index} />
+        <GridPosterCardSkeleton key={index} captions={captions} />
       ))}
     </View>
   );
@@ -126,12 +132,16 @@ export function DetailSkeleton() {
 /**
  * 2-column poster grid skeleton matching DiscoverScreen / MatchResults.
  */
-export function ResultsSkeleton({ count = 4 }) {
+export function ResultsSkeleton({ count = 4, captions = true }) {
   const rows = Math.ceil(count / 2);
   return (
     <View style={styles.gridBody}>
       {Array.from({ length: rows }).map((_, index) => (
-        <GridRowSkeleton key={index} columns={index === rows - 1 && count % 2 === 1 ? 1 : 2} />
+        <GridRowSkeleton
+          key={index}
+          columns={index === rows - 1 && count % 2 === 1 ? 1 : 2}
+          captions={captions}
+        />
       ))}
     </View>
   );
@@ -144,10 +154,7 @@ export function HomeFeedSkeleton() {
       <SkeletonBlock style={styles.homeHero} />
       <View style={styles.homeChipRow}>
         {Array.from({ length: 3 }).map((_, index) => (
-          <SkeletonBlock
-            key={index}
-            style={[styles.homeChip, index > 0 && styles.homeChipGap]}
-          />
+          <SkeletonBlock key={index} style={[styles.homeChip, index > 0 && styles.homeChipGap]} />
         ))}
       </View>
       <RailRowSkeleton posterCount={4} />
@@ -168,22 +175,17 @@ export function WatchlistSkeleton({ count = 6 }) {
   );
 }
 
-/** Search live Matches — three editorial row placeholders. */
-export function LiveMatchesSkeleton({ count = 3 }) {
+/**
+ * Placeholder for the live "Matches" panel. Poster-shaped and 3-up because the
+ * panel is a poster grid now; the row-shaped version it replaced reserved a
+ * band about a third of the height the real content needed, so the panel jumped
+ * when results landed.
+ */
+export function LiveMatchesSkeleton({ count = SEARCH_PANEL_COLUMNS * 2 }) {
   return (
-    <View accessibilityLabel="Loading matches">
+    <View style={styles.livePosterGrid} accessibilityLabel="Loading matches">
       {Array.from({ length: count }).map((_, index) => (
-        <View
-          key={index}
-          style={[styles.liveRow, index < count - 1 && styles.liveRowDivider]}
-        >
-          <SkeletonBlock style={styles.liveThumb} />
-          <View style={styles.liveTextCol}>
-            <SkeletonBlock style={styles.liveTitleLine} />
-            <SkeletonBlock style={styles.liveMetaLine} />
-          </View>
-          <SkeletonBlock style={styles.liveChevron} />
-        </View>
+        <SkeletonBlock key={index} style={styles.livePoster} />
       ))}
     </View>
   );
@@ -326,39 +328,17 @@ const styles = StyleSheet.create({
     marginLeft: GRID_GAP,
   },
 
-  liveRow: {
-    alignItems: 'center',
+  livePosterGrid: {
     flexDirection: 'row',
-    gap: scale(12),
-    minHeight: 48,
-    paddingHorizontal: scale(16),
-    paddingVertical: scale(10),
+    flexWrap: 'wrap',
+    gap: GRID_GAP,
+    paddingBottom: scale(12),
+    paddingHorizontal: SEARCH_PANEL_PAD,
   },
-  liveRowDivider: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: GOLD_ACCENT + '38',
-  },
-  liveThumb: {
-    borderRadius: 6,
-    height: 52,
-    width: 36,
-  },
-  liveTextCol: {
-    flex: 1,
-    gap: scale(6),
-  },
-  liveTitleLine: {
-    height: verticalScale(14),
-    width: '72%',
-  },
-  liveMetaLine: {
-    height: verticalScale(11),
-    width: '48%',
-  },
-  liveChevron: {
-    borderRadius: 4,
-    height: scale(14),
-    width: scale(14),
+  livePoster: {
+    borderRadius: scale(14),
+    height: SEARCH_PANEL_POSTER_H,
+    width: SEARCH_PANEL_COL_W,
   },
 
   chipWrap: {

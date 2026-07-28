@@ -1,11 +1,5 @@
 import React, { useCallback } from 'react';
-import {
-  FlatList,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { FlatList, Platform, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GridPosterCard } from './GridPosterCard';
 import { ProgrammeHairline } from './ProgrammeHairline';
@@ -23,9 +17,11 @@ export function ContentRail({
   typography,
   radii,
   onSelectItem,
+  onRemoveItem = null,
   headerRight = null,
   variant = 'section',
   showMediaType = true,
+  showCaption = true,
 }) {
   const renderItem = useCallback(
     ({ item, index }) => (
@@ -36,17 +32,16 @@ export function ContentRail({
           typography={typography}
           radii={radii}
           showMediaType={showMediaType}
+          showCaption={showCaption}
+          onRemove={onRemoveItem}
           onPress={() => onSelectItem(item)}
         />
       </View>
     ),
-    [colors, typography, radii, showMediaType, onSelectItem],
+    [colors, typography, radii, showMediaType, showCaption, onRemoveItem, onSelectItem],
   );
 
-  const keyExtractor = useCallback(
-    (item) => `${item.mediaType || 'movie'}-${item.tmdbId}`,
-    [],
-  );
+  const keyExtractor = useCallback((item) => `${item.mediaType || 'movie'}-${item.tmdbId}`, []);
 
   if (!data?.length) return null;
 

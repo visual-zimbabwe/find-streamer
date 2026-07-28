@@ -151,6 +151,45 @@ export function isSearchableQuery(query) {
 }
 
 /**
+ * Which titles in a result set cannot be told apart by their artwork alone.
+ *
+ * Search deliberately drops the year caption under each poster — the poster
+ * itself is lettered with the title, so the caption only restated it. The one
+ * case that breaks is a genuine collision: "Dune" (1984) beside "Dune" (2021),
+ * "The Lion King" (1994) beside (2019). Both posters say the same word, so the
+ * year is the *only* discriminator and has to survive somewhere.
+ *
+ * Returning the colliding titles rather than always showing a year keeps the
+ * badge meaningful: when one appears, it is because it is load-bearing.
+ *
+ * @param {{ title?: string | null, year?: string | null }[]} titles
+ * @returns {Set<string>} normalised titles that appear more than once
+ */
+export function collidingTitleNames(titles) {
+  const counts = new Map();
+  (Array.isArray(titles) ? titles : []).forEach((item) => {
+    const name = normalizeSearchText(item?.title);
+    if (!name) return;
+    counts.set(name, (counts.get(name) || 0) + 1);
+  });
+  return new Set([...counts.entries()].filter(([, n]) => n > 1).map(([name]) => name));
+}
+
+/**
+ * The year to letter onto a poster, or null when the artwork already separates
+ * it from everything else on screen.
+ *
+ * @param {{ title?: string | null, year?: string | null }} item
+ * @param {Set<string>} collisions from `collidingTitleNames`
+ */
+export function yearBadgeFor(item, collisions) {
+  if (!collisions?.size) return null;
+  const year = item?.year;
+  if (!year || year === 'N/A') return null;
+  return collisions.has(normalizeSearchText(item?.title)) ? String(year) : null;
+}
+
+/**
  * Split a ranked, mixed result list into the two things the results screen
  * renders differently. Order within each group is preserved, so the ranking
  * survives the split.
