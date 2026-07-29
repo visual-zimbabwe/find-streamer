@@ -25,6 +25,7 @@ import {
   availabilityFromResults,
   emptyServiceMap,
   intersectSeasonAvailability,
+  serviceKey,
 } from './providerAvailability';
 
 export { SERVICE_LABELS };
@@ -804,6 +805,30 @@ export async function fetchWatchProviderRegions() {
     .sort((a, b) => a.label.localeCompare(b.label));
   if (regions.length) _watchRegionsCache = regions;
   return regions;
+}
+
+let _serviceLogosCache = null;
+
+/**
+ * Official logo URLs for the ten services in `SERVICE_LABELS`, keyed by our
+ * service key, harvested once from TMDb's full provider list. This is the chip's
+ * counterpart to the country flag: a real brand mark instead of a generic glyph.
+ * Returns `{}` on failure so callers just render no icon.
+ * @returns {Promise<Record<string, string>>}
+ */
+export async function fetchServiceLogos() {
+  if (_serviceLogosCache) return _serviceLogosCache;
+  const data = await tmdbGet('/watch/providers/movie', { language: 'en-US' });
+  /** @type {Record<string, string>} */
+  const logos = {};
+  (data.results || []).forEach((provider) => {
+    const key = serviceKey(provider.provider_name || '');
+    if (key && !logos[key] && provider.logo_path) {
+      logos[key] = `https://image.tmdb.org/t/p/original${provider.logo_path}`;
+    }
+  });
+  if (Object.keys(logos).length) _serviceLogosCache = logos;
+  return logos;
 }
 
 async function getTvProviderCountries(tmdbId) {

@@ -1,6 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   BackHandler,
   FlatList,
@@ -12,7 +11,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { ProgressiveBlur } from './ProgressiveBlur';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
@@ -31,11 +29,12 @@ import { WhereToWatchCountrySheet, WhereToWatchServiceSheet } from './WhereToWat
 import { ContentRail } from './ContentRail';
 import { scale, verticalScale } from '../utils/responsive';
 import { resolveRatingValue } from '../lib/ratings';
-import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, FADE_MS } from '../theme/programme';
+import { tmdbImageAtSize } from '../lib/tmdbImages';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, FADE_MS, SPOTLIGHT_POSTER_H } from '../theme/programme';
 import { HomeFeedSkeleton } from './SkeletonLoaders';
+import { useServiceLogos } from '../hooks/useServiceLogos';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 
-const FEATURE_H = verticalScale(420);
 const HEADER_BODY_H = scale(96);
 // Under an active filter the hero features the matched titles themselves; cap
 // the rotation pool so it stays a highlight, not a slideshow of the whole set.
@@ -44,14 +43,16 @@ const FILTERED_HERO_MAX = 12;
 const FeaturedSpotlightCard = memo(function FeaturedSpotlightCard({
   item,
   colors,
-  typography,
   radii,
   fadeAnim,
   onPress,
   onPressIn,
 }) {
   if (!item) return null;
-  const backdrop = item.backdropUrl || item.posterUrl;
+  // Portrait poster (title lettered into the art), not the landscape backdrop —
+  // the hero now speaks the same visual language as the rails and Search.
+  const poster = item.posterUrl || item.backdropUrl;
+  const ratingValue = resolveRatingValue(item);
 
   return (
     <TouchableOpacity
@@ -69,38 +70,17 @@ const FeaturedSpotlightCard = memo(function FeaturedSpotlightCard({
           ]}
         >
           <MediaArtwork
-            uri={backdrop}
+            uri={tmdbImageAtSize(poster, 'w780')}
             style={styles.featureImg}
             resizeMode="cover"
-            accessibilityLabel={`Backdrop for ${item.title}`}
+            accessibilityLabel={`${item.title} poster`}
             title={item.title}
           />
-          <ProgressiveBlur
-            intensity={64}
-            tint="dark"
-            direction="bottom"
-            locations={[0.22, 1]}
-            style={StyleSheet.absoluteFill}
-          />
-          <LinearGradient
-            colors={['rgba(0,0,0,0.42)', 'transparent']}
-            style={styles.featureTopScrim}
-          />
-          <View style={styles.featureContent}>
-            <Text style={[styles.featureTitle, typography.headlineLg]} numberOfLines={3}>
-              {item.title}
-            </Text>
-            <View style={styles.heroMetaRow}>
-              <Text style={[styles.heroMeta, typography.bodyMd]}>{item.year}</Text>
-              {item.ratingValue > 0 && (
-                <View style={styles.heroRatingPill}>
-                  <Text style={[styles.heroRatingText, typography.labelSm]}>
-                    {item.ratingValue.toFixed(1)}
-                  </Text>
-                </View>
-              )}
+          {ratingValue > 0 ? (
+            <View style={[styles.heroRatingBadge, { borderRadius: radii.sm }]}>
+              <Text style={styles.heroRatingBadgeText}>★ {ratingValue.toFixed(1)}</Text>
             </View>
-          </View>
+          ) : null}
         </View>
       </Animated.View>
     </TouchableOpacity>
@@ -143,7 +123,12 @@ export function HomeScreen({
   const [homeServiceKey, setHomeServiceKey] = useState(null); // null = all services
   const whereActive = isWhereFilterNarrowing(homeCountry, homeServiceKey);
 
-  const { matches: whereMatches, checking: whereChecking, progress: whereProgress, scopeCount } =
+  // Real provider logos for the service chip (the flag's counterpart), keyed by
+  // service. Fetched once, cached; the chip falls back to no icon until present.
+  const serviceLogos = useServiceLogos();
+  const serviceLogoUrl = homeServiceKey ? serviceLogos[homeServiceKey] || null : null;
+
+  const { matches: whereMatches, checking: whereChecking, scopeCount } =
     useWhereToWatchFilter({
       items: watchlist,
       active: whereActive,
@@ -356,13 +341,14 @@ export function HomeScreen({
     ({ item: { category, items } }) => (
       <ContentRail
         title={category.label}
-        icon={category.icon}
         data={items}
         colors={colors}
         typography={typography}
         radii={radii}
         showMediaType={false}
         showCaption={false}
+        showHairline={false}
+        titleCase
         onSelectItem={onSelectItem}
       />
     ),
@@ -371,63 +357,31 @@ export function HomeScreen({
 
   const railKeyExtractor = useCallback(({ category }) => category.id, []);
 
-  const matchedCount = whereMatches ? whereMatches.keys.size : 0;
   const filterContext = homeServiceKey
     ? `on ${getServiceLabel(homeServiceKey)}${homeCountry?.code ? ` in ${homeCountry.label}` : ''}`
     : homeCountry?.code
       ? `in ${homeCountry.label}`
       : '';
 
+  // While a filter is crawling, the whole feed drops to skeleton and swaps to
+  // the fully-filtered result in one paint — no half-populated intermediate and,
+  // deliberately, no "121 of 796" progress readout. The scan stays in the
+  // background; the skeleton is the only thing that says "working".
+  const showFeedSkeleton = whereChecking || (!featuredItem && !whereActive);
   const listHeader = (
     <View style={styles.spotlightSection}>
-      {!featuredItem && !whereActive ? (
+      {showFeedSkeleton ? (
         <HomeFeedSkeleton />
-      ) : (
-        <>
-          {featuredItem ? (
-            <FeaturedSpotlightCard
-              item={featuredItem}
-              colors={colors}
-              typography={typography}
-              radii={radii}
-              fadeAnim={fadeAnim}
-              onPress={() => onSelectItem?.(featuredItem)}
-              onPressIn={handleHeroPressIn}
-            />
-          ) : null}
-
-          {whereActive ? (
-            <View
-              style={[
-                styles.filterStatus,
-                { backgroundColor: colors.glass, borderColor: GOLD_DIM, borderRadius: radii.lg },
-              ]}
-            >
-              {whereChecking ? (
-                <>
-                  <ActivityIndicator size="small" color={GOLD_ACCENT} />
-                  <Text
-                    style={[styles.filterStatusText, { color: colors.onSurface, ...typography.labelSm }]}
-                    numberOfLines={1}
-                  >
-                    Checking {whereProgress?.checked ?? 0}/{whereProgress?.total ?? 0} {filterContext}
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="funnel" size={13} color={GOLD_ACCENT} />
-                  <Text
-                    style={[styles.filterStatusText, { color: colors.onSurface, ...typography.labelSm }]}
-                    numberOfLines={1}
-                  >
-                    {matchedCount} of {scopeCount} {scopeCount === 1 ? 'title' : 'titles'} {filterContext}
-                  </Text>
-                </>
-              )}
-            </View>
-          ) : null}
-        </>
-      )}
+      ) : featuredItem ? (
+        <FeaturedSpotlightCard
+          item={featuredItem}
+          colors={colors}
+          radii={radii}
+          fadeAnim={fadeAnim}
+          onPress={() => onSelectItem?.(featuredItem)}
+          onPressIn={handleHeroPressIn}
+        />
+      ) : null}
     </View>
   );
 
@@ -463,13 +417,14 @@ export function HomeScreen({
         onOpenCollections={onOpenCollections}
         country={homeCountry}
         serviceKey={homeServiceKey}
+        serviceLogoUrl={serviceLogoUrl}
         onOpenCountry={openCountrySheet}
         onOpenService={openServiceSheet}
       />
 
       <FlatList
         style={styles.scroll}
-        data={watchlistRows}
+        data={whereChecking ? [] : watchlistRows}
         renderItem={renderRail}
         keyExtractor={railKeyExtractor}
         extraData={theme}
@@ -507,7 +462,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: GRID_PAD,
   },
   featureCard: {
-    height: FEATURE_H,
+    height: SPOTLIGHT_POSTER_H,
   },
   featureFrame: {
     flex: 1,
@@ -519,57 +474,17 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  featureTopScrim: {
+  // The rail poster's ★ badge, scaled up for the hero: top-left, same dark chip.
+  heroRatingBadge: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 100,
-  },
-  featureContent: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: scale(20),
-    paddingBottom: scale(24),
-  },
-  featureTitle: {
-    color: '#fff',
-    fontWeight: '800',
-    textShadowColor: 'rgba(0,0,0,0.45)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
-  },
-  heroMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    marginTop: 10,
-    gap: 8,
-  },
-  heroMeta: { color: 'rgba(255,255,255,0.88)', fontWeight: '600' },
-  heroRatingPill: {
-    paddingHorizontal: 10,
+    left: 12,
+    top: 12,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.72)',
   },
-  heroRatingText: { color: '#FFD580', fontWeight: '800' },
+  heroRatingBadgeText: { color: '#FFD700', fontSize: 12, fontWeight: '800' },
 
-  filterStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: scale(16),
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: scale(14),
-    paddingVertical: scale(10),
-  },
-  filterStatusText: {
-    flexShrink: 1,
-    fontWeight: '700',
-  },
   whereEmptyBox: {
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,

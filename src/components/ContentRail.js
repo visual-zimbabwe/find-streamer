@@ -45,6 +45,10 @@ export function ContentRail({
   savedKeys = null,
   showRank = false,
   skeletonCount = 4,
+  // Home opts out of the gold divider and the tracked-out caps so its rails read
+  // as editorial shelves; Search/Franchise keep the original chrome.
+  showHairline = true,
+  titleCase = false,
 }) {
   const savedSet = useMemo(() => new Set(savedKeys || []), [savedKeys]);
 
@@ -112,14 +116,18 @@ export function ContentRail({
 
   return (
     <View style={[styles.railBlock, variant === 'inline' && styles.railBlockInline]}>
-      <ProgrammeHairline style={styles.railHairline} />
+      {showHairline ? <ProgrammeHairline style={styles.railHairline} /> : null}
       <View style={styles.railHeaderRow}>
         <View style={styles.railHeaderLeft}>
           {icon ? (
             <Ionicons name={icon} size={16} color={GOLD_ACCENT} style={styles.railIcon} />
           ) : null}
           <Text
-            style={[styles.railTitle, { color: colors.onSurface, ...typography.titleMd }]}
+            style={[
+              styles.railTitle,
+              { color: colors.onSurface, ...typography.titleMd },
+              titleCase && styles.railTitleCase,
+            ]}
             accessibilityRole="header"
             numberOfLines={2}
           >
@@ -207,6 +215,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     fontSize: scale(13),
+  },
+  // Editorial voice for Home: Title Case, no tracking, at the fuller titleMd size.
+  railTitleCase: {
+    textTransform: 'none',
+    letterSpacing: 0.2,
+    fontSize: scale(16),
+    fontWeight: '700',
   },
   railList: {
     paddingRight: GRID_PAD,
