@@ -48,6 +48,14 @@ export const GRID_COL_W = gridColWidth(WINDOW_W);
 export const GRID_POSTER_H = gridPosterHeight(GRID_COL_W);
 
 /**
+ * Home spotlight: a full-bleed 2:3 portrait poster (title lettered into the art
+ * by TMDb, same as the rails). Shared with the loading skeleton so the hero band
+ * it reserves is exactly the height the poster lands at — no jump on swap.
+ */
+export const SPOTLIGHT_POSTER_W = WINDOW_W - GRID_PAD * 2;
+export const SPOTLIGHT_POSTER_H = Math.round(SPOTLIGHT_POSTER_W * GRID_POSTER_ASPECT);
+
+/**
  * The live search panel's 3-up poster grid. Shared with the loading skeleton so
  * the placeholder reserves exactly the band the real posters land in.
  */

@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -22,16 +22,12 @@ import { flagForCountryCode } from '../lib/providerAvailability';
  * line on a phone without truncating a long country/service name, and it unifies
  * the type toggle and the filter into one chip language.
  */
-function Chip({ icon, flag, label, active, trailingIcon, onPress, accessibilityLabel, accessibilityRole = 'button', selected }) {
+function Chip({ flag, logoUrl, label, active, trailingIcon, onPress, accessibilityLabel, accessibilityRole = 'button', selected }) {
   const { theme } = useTheme();
   const { typography } = theme;
   return (
     <TouchableOpacity
-      style={[
-        styles.chip,
-        { borderColor: active ? GOLD_ACCENT : 'rgba(255,255,255,0.22)' },
-        active ? styles.chipActive : styles.chipIdle,
-      ]}
+      style={styles.chip}
       activeOpacity={0.78}
       onPress={() => {
         Haptics.selectionAsync();
@@ -41,18 +37,24 @@ function Chip({ icon, flag, label, active, trailingIcon, onPress, accessibilityL
       accessibilityState={accessibilityRole === 'tab' ? { selected } : undefined}
       accessibilityLabel={accessibilityLabel}
     >
-      {flag ? (
+      {logoUrl ? (
+        <Image
+          source={{ uri: logoUrl }}
+          style={styles.chipLogo}
+          resizeMode="contain"
+          importantForAccessibility="no"
+        />
+      ) : flag ? (
         <Text style={styles.chipFlag} importantForAccessibility="no">
           {flag}
         </Text>
-      ) : icon ? (
-        <Ionicons name={icon} size={14} color={active ? GOLD_ACCENT : 'rgba(255,255,255,0.82)'} />
       ) : null}
       <Text
         style={[
           styles.chipText,
           typography.labelSm,
           { color: active ? GOLD_ACCENT : 'rgba(255,255,255,0.86)' },
+          active && styles.chipTextActive,
         ]}
         numberOfLines={1}
       >
@@ -76,6 +78,7 @@ export const HomeFilterBar = memo(function HomeFilterBar({
   onOpenCollections,
   country = null,
   serviceKey = null,
+  serviceLogoUrl = null,
   onOpenCountry,
   onOpenService,
 }) {
@@ -150,7 +153,6 @@ export const HomeFilterBar = memo(function HomeFilterBar({
         />
         <Chip
           flag={countryActive ? flagForCountryCode(country.code) : null}
-          icon={countryActive ? null : 'earth-outline'}
           label={countryActive ? country.label : 'All countries'}
           trailingIcon="chevron-down"
           active={countryActive}
@@ -158,7 +160,7 @@ export const HomeFilterBar = memo(function HomeFilterBar({
           accessibilityLabel={`Country: ${countryActive ? country.label : 'All countries'}. Change country`}
         />
         <Chip
-          icon="tv-outline"
+          logoUrl={serviceActive ? serviceLogoUrl : null}
           label={serviceActive ? getServiceLabel(serviceKey) : 'All services'}
           trailingIcon="chevron-down"
           active={serviceActive}
@@ -197,31 +199,36 @@ const styles = StyleSheet.create({
   chipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: scale(8),
+    gap: scale(16),
     paddingHorizontal: scale(20),
   },
+  // No fill and no border: the row reads as type sitting in the header, not as
+  // controls floated on top of it. Active/idle live entirely on text colour and
+  // weight, so nothing pops out of the surface. The padding that remains is
+  // touch target, not decoration.
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     minHeight: 36,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: scale(12),
+    paddingHorizontal: scale(4),
     paddingVertical: 6,
-  },
-  chipIdle: {
-    backgroundColor: 'rgba(0,0,0,0.42)',
-  },
-  chipActive: {
-    backgroundColor: GOLD_ACCENT + '22',
   },
   chipFlag: {
     fontSize: 15,
   },
+  chipLogo: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+  },
   chipText: {
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 0.4,
-    textTransform: 'uppercase',
+  },
+  // Weight carries the selected state alongside the gold, so it doesn't rest on
+  // colour alone now that the fill is gone.
+  chipTextActive: {
+    fontWeight: '800',
   },
 });

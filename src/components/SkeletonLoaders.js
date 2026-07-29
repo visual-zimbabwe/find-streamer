@@ -10,9 +10,9 @@ import {
   SEARCH_PANEL_COL_W,
   SEARCH_PANEL_PAD,
   SEARCH_PANEL_POSTER_H,
+  SPOTLIGHT_POSTER_H,
 } from '../theme/programme';
 import { scale, verticalScale } from '../utils/responsive';
-const FEATURE_H = verticalScale(420);
 const CHIP_W = scale(248);
 const CHIP_H = CHIP_W * (9 / 16);
 const RAIL_POSTER_W = GRID_COL_W;
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   },
   homeHero: {
     borderRadius: scale(16),
-    height: FEATURE_H,
+    height: SPOTLIGHT_POSTER_H,
     width: '100%',
   },
   homeChipRow: {
