@@ -20,20 +20,14 @@ import {
   isInUserLibrary,
   watchlistEntryKey,
 } from '../lib/watchlistModel';
-import { fetchNowPlayingMovies, fetchTitleProviderCountries } from '../lib/tmdb';
+import { fetchNowPlayingMovies } from '../lib/tmdb';
 import {
   DEFAULT_WHERE_TO_WATCH_COUNTRY,
-  ensureAvailabilityForItems,
-  getFreshAvailability,
   getServiceLabel,
-  loadAvailabilityCache,
   loadWhereToWatchPrefs,
-  matchingServiceKeys,
-  persistAvailabilityCache,
   saveWhereToWatchPrefs,
-  titleMatchesWhereToWatch,
-  whereToWatchScopeItems,
 } from '../lib/whereToWatch';
+import { useWhereToWatchFilter } from '../hooks/useWhereToWatchFilter';
 import { useBottomSheet } from './StackBottomSheet';
 import {
   WhereToWatchCollectionsSheet,
@@ -252,21 +246,30 @@ export function WatchlistView({
   const [collapsedCategoryIds, setCollapsedCategoryIds] = useState({});
   const [collapsedGroupKeys, setCollapsedGroupKeys] = useState({});
 
-  // Where-to-Watch filter. The persistent availability cache is only touched
-  // inside the check effect (it is mutated by a concurrent fetch loop);
-  // renders read `whereAvailability`, an immutable entryKey → services
-  // snapshot the effect publishes.
+  // Where-to-Watch filter. This screen owns the facet state; the availability
+  // engine (cache priming, the provider-country scan, the immutable snapshot and
+  // the derived match set) lives in useWhereToWatchFilter, shared with Home.
   const [whereActive, setWhereActive] = useState(false);
   const [whereCountry, setWhereCountry] = useState(DEFAULT_WHERE_TO_WATCH_COUNTRY);
   const [whereServiceKey, setWhereServiceKey] = useState(null);
   const [whereCollectionIds, setWhereCollectionIds] = useState(null); // null = all collections
-  const [whereChecking, setWhereChecking] = useState(false);
-  const [whereProgress, setWhereProgress] = useState(null);
-  const [whereFailedCount, setWhereFailedCount] = useState(0);
   const [whereRetryNonce, setWhereRetryNonce] = useState(0);
-  const [whereAvailability, setWhereAvailability] = useState(null);
-  const availabilityCacheRef = useRef(null);
-  const whereRunIdRef = useRef(0);
+
+  const {
+    availability: whereAvailability,
+    checking: whereChecking,
+    progress: whereProgress,
+    failedCount: whereFailedCount,
+    matches: whereMatches,
+    scopeCount: whereScopeCount,
+  } = useWhereToWatchFilter({
+    items,
+    active: whereActive,
+    country: whereCountry,
+    serviceKey: whereServiceKey,
+    collectionIds: whereCollectionIds,
+    retryNonce: whereRetryNonce,
+  });
 
   const [nowPlaying, setNowPlaying] = useState([]);
   const [nowPlayingLoading, setNowPlayingLoading] = useState(true);
@@ -280,35 +283,6 @@ export function WatchlistView({
   const availableCollections = useMemo(
     () => (collections.length ? collections : getUserWatchlistCollections()),
     [collections],
-  );
-
-  /**
-   * Which library entries pass the active where-to-watch filter, plus (in
-   * any-service mode) which services matched, for the poster badge. Null when
-   * the filter is off. `whereAvailability` already reflects the collection
-   * scope — the check effect snapshots exactly the in-scope titles.
-   */
-  const whereMatches = useMemo(() => {
-    if (!whereActive || !whereCountry?.code) return null;
-    const matchedKeys = new Set();
-    const matchedServices = new Map();
-    if (whereAvailability) {
-      const filter = { countryCode: whereCountry.code, serviceKey: whereServiceKey };
-      whereAvailability.forEach((services, entryKey) => {
-        if (titleMatchesWhereToWatch(services, filter)) {
-          matchedKeys.add(entryKey);
-          if (!whereServiceKey) {
-            matchedServices.set(entryKey, matchingServiceKeys(services, whereCountry.code));
-          }
-        }
-      });
-    }
-    return { keys: matchedKeys, services: matchedServices };
-  }, [whereActive, whereCountry, whereServiceKey, whereAvailability]);
-
-  const whereScopeCount = useMemo(
-    () => (whereActive ? whereToWatchScopeItems(libraryItems, whereCollectionIds).length : 0),
-    [whereActive, libraryItems, whereCollectionIds],
   );
 
   const visibleLibraryItems = useMemo(() => {
@@ -458,76 +432,6 @@ export function WatchlistView({
       alive = false;
     };
   }, []);
-
-  /**
-   * While the filter is active, make sure every in-scope title has fresh
-   * availability data. Cache hits are free; misses fetch from TMDB. Country and
-   * service are deliberately NOT dependencies — availability covers every
-   * country/service at once, so changing them only re-runs the match memo.
-   */
-  useEffect(() => {
-    if (!whereActive) return undefined;
-    let alive = true;
-    whereRunIdRef.current += 1;
-    const runId = whereRunIdRef.current;
-
-    (async () => {
-      if (!availabilityCacheRef.current) {
-        availabilityCacheRef.current = await loadAvailabilityCache();
-        if (!alive || runId !== whereRunIdRef.current) return;
-      }
-      const cache = availabilityCacheRef.current;
-      const scope = whereToWatchScopeItems(items || [], whereCollectionIds);
-
-      const publishSnapshot = () => {
-        const snapshot = new Map();
-        scope.forEach((item) => {
-          const entryKey = watchlistEntryKey(item);
-          const services = getFreshAvailability(cache, entryKey);
-          if (services) snapshot.set(entryKey, services);
-        });
-        setWhereAvailability(snapshot);
-      };
-
-      setWhereChecking(true);
-      setWhereFailedCount(0);
-      setWhereProgress({ checked: 0, total: scope.length });
-      publishSnapshot(); // cached titles match instantly
-
-      // Rebuilding the grouped grid costs ~100 ms on a large library, so the
-      // list refreshes at most ~once a second mid-run; the cheap progress text
-      // updates more often.
-      let lastProgressAt = 0;
-      let lastRebuildAt = Date.now();
-      const result = await ensureAvailabilityForItems(scope, {
-        cache,
-        fetchAvailability: fetchTitleProviderCountries,
-        shouldContinue: () => alive && runId === whereRunIdRef.current,
-        onProgress: (progress) => {
-          if (!alive || runId !== whereRunIdRef.current) return;
-          const nowTs = Date.now();
-          if (nowTs - lastProgressAt > 120 || progress.checked === progress.total) {
-            lastProgressAt = nowTs;
-            setWhereProgress(progress);
-          }
-          if (nowTs - lastRebuildAt > 1000) {
-            lastRebuildAt = nowTs;
-            publishSnapshot();
-          }
-        },
-      });
-
-      if (!alive || runId !== whereRunIdRef.current) return;
-      setWhereChecking(false);
-      setWhereFailedCount(result.failed);
-      publishSnapshot();
-      persistAvailabilityCache(cache);
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [whereActive, items, whereCollectionIds, whereRetryNonce]);
 
   const toggleWhereActive = () => {
     Haptics.selectionAsync();

@@ -1,87 +1,45 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   BackHandler,
   FlatList,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { ProgressiveBlur } from './ProgressiveBlur';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
-import { HomeTopNav } from './HomeTopNav';
-import { getUserWatchlistCollections } from '../lib/watchlistModel';
+import { HomeFilterBar } from './HomeFilterBar';
+import { getUserWatchlistCollections, watchlistEntryKey } from '../lib/watchlistModel';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import {
   HOME_HERO_RESUME_DELAY_MS,
   HOME_HERO_ROTATION_MS,
 } from '../lib/homeFeed';
+import { useWhereToWatchFilter } from '../hooks/useWhereToWatchFilter';
+import { getServiceLabel, isWhereFilterNarrowing } from '../lib/whereToWatch';
+import { useBottomSheet } from './StackBottomSheet';
+import { WhereToWatchCountrySheet, WhereToWatchServiceSheet } from './WhereToWatchSheets';
 import { ContentRail } from './ContentRail';
 import { scale, verticalScale } from '../utils/responsive';
 import { resolveRatingValue } from '../lib/ratings';
-import { GOLD_ACCENT, GRID_PAD, FADE_MS } from '../theme/programme';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, FADE_MS } from '../theme/programme';
 import { HomeFeedSkeleton } from './SkeletonLoaders';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 
 const FEATURE_H = verticalScale(420);
-const CHIP_W = scale(248);
-const CHIP_H = CHIP_W * (9 / 16);
-const HEADER_BODY_H = scale(78);
-
-const SpotlightChip = memo(function SpotlightChip({
-  item,
-  colors,
-  typography,
-  radii,
-  selected,
-  onPress,
-}) {
-  const imageUri = item.backdropUrl || item.posterUrl;
-  return (
-    <TouchableOpacity
-      style={styles.spotlightChip}
-      onPress={onPress}
-      activeOpacity={0.88}
-      accessibilityRole="button"
-      accessibilityLabel={`Feature ${item.title} in spotlight`}
-      accessibilityState={{ selected }}
-    >
-      <View
-        style={[
-          styles.spotlightChipFrame,
-          {
-            borderRadius: radii.lg,
-            backgroundColor: colors.surfaceContainerHigh,
-            borderColor: selected ? GOLD_ACCENT : 'transparent',
-          },
-        ]}
-      >
-        <MediaArtwork
-          uri={imageUri}
-          style={styles.spotlightChipImg}
-          resizeMode="cover"
-          accessibilityLabel={`${item.title} still`}
-          title={item.title}
-          instant
-        />
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.82)']}
-          style={styles.spotlightChipScrim}
-        />
-        <Text style={[styles.spotlightChipTitle, typography.labelSm]} numberOfLines={2}>
-          {item.title}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-});
+const HEADER_BODY_H = scale(96);
+// Under an active filter the hero features the matched titles themselves; cap
+// the rotation pool so it stays a highlight, not a slideshow of the whole set.
+const FILTERED_HERO_MAX = 12;
 
 const FeaturedSpotlightCard = memo(function FeaturedSpotlightCard({
   item,
@@ -129,7 +87,6 @@ const FeaturedSpotlightCard = memo(function FeaturedSpotlightCard({
             style={styles.featureTopScrim}
           />
           <View style={styles.featureContent}>
-            <Text style={[styles.featureEyebrow, typography.labelSm]}>Spotlight</Text>
             <Text style={[styles.featureTitle, typography.headlineLg]} numberOfLines={3}>
               {item.title}
             </Text>
@@ -152,6 +109,9 @@ const FeaturedSpotlightCard = memo(function FeaturedSpotlightCard({
 
 export { ContentRail } from './ContentRail';
 
+const sortByRatingDesc = (arr) =>
+  [...arr].sort((a, b) => resolveRatingValue(b) - resolveRatingValue(a));
+
 export function HomeScreen({
   watchlist = [],
   spotlight = [],
@@ -163,6 +123,7 @@ export function HomeScreen({
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
+  const bottomSheet = useBottomSheet();
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const headerScrolledRef = useRef(false);
   const bottomNavScroll = useBottomNavScroll((event) => {
@@ -175,6 +136,22 @@ export function HomeScreen({
   });
   const headerOffset = insets.top + HEADER_BODY_H;
 
+  // ─── Where-to-watch filter (Home owns the facets; the shared engine does the
+  // scan). Rests at All / All = off, so first paint shows the whole library and
+  // nothing is fetched until the user narrows.
+  const [homeCountry, setHomeCountry] = useState(null); // { code, label } | null = all
+  const [homeServiceKey, setHomeServiceKey] = useState(null); // null = all services
+  const whereActive = isWhereFilterNarrowing(homeCountry, homeServiceKey);
+
+  const { matches: whereMatches, checking: whereChecking, progress: whereProgress, scopeCount } =
+    useWhereToWatchFilter({
+      items: watchlist,
+      active: whereActive,
+      country: homeCountry,
+      serviceKey: homeServiceKey,
+      collectionIds: null,
+    });
+
   const [heroIndex, setHeroIndex] = useState(0);
   const [displayIndex, setDisplayIndex] = useState(0);
   const reduceMotion = useReduceMotion();
@@ -182,18 +159,59 @@ export function HomeScreen({
   const pausedRef = useRef(false);
   const resumeTimerRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const spotlightLengthRef = useRef(0);
+  const heroLengthRef = useRef(0);
   const skipHeroFadeRef = useRef(true);
 
-  const featuredItem = spotlight[displayIndex] || spotlight[0] || null;
+  const watchlistRows = useMemo(() => {
+    const matchedKeys = whereMatches?.keys || null;
+    return getUserWatchlistCollections()
+      .map((collection) => {
+        const items = (watchlist || []).filter((w) => {
+          if (mediaFilter && w.mediaType !== mediaFilter) return false;
+          if (matchedKeys && !matchedKeys.has(watchlistEntryKey(w))) return false;
+          return w.collectionIds?.includes(collection.id);
+        });
+        const sorted = [...items].sort((a, b) => resolveRatingValue(b) - resolveRatingValue(a));
+        return {
+          category: {
+            id: collection.id,
+            label: collection.name,
+            icon: collection.icon,
+          },
+          items: sorted,
+        };
+      })
+      .filter((row) => row.items.length > 0);
+  }, [watchlist, mediaFilter, whereMatches]);
+
+  // The hero pool: the curated rotating spotlight when unfiltered; the matched
+  // library titles themselves when a filter is on (so the hero can never feature
+  // something the rails below it just filtered out).
+  const heroPool = useMemo(() => {
+    if (!whereActive) return spotlight;
+    const seen = new Set();
+    const pool = [];
+    watchlistRows.forEach((row) =>
+      row.items.forEach((item) => {
+        const key = watchlistEntryKey(item);
+        if (!seen.has(key)) {
+          seen.add(key);
+          pool.push(item);
+        }
+      }),
+    );
+    return sortByRatingDesc(pool).slice(0, FILTERED_HERO_MAX);
+  }, [whereActive, spotlight, watchlistRows]);
+
+  const featuredItem = heroPool[displayIndex] || heroPool[0] || null;
 
   useEffect(() => {
-    spotlightLengthRef.current = spotlight.length || 1;
+    heroLengthRef.current = heroPool.length || 1;
     setHeroIndex(0);
     setDisplayIndex(0);
     fadeAnim.setValue(1);
     skipHeroFadeRef.current = true;
-  }, [spotlight, fadeAnim]);
+  }, [heroPool, fadeAnim]);
 
   useEffect(() => {
     if (skipHeroFadeRef.current) {
@@ -222,16 +240,16 @@ export function HomeScreen({
   }, [heroIndex, fadeAnim, reduceMotion]);
 
   useEffect(() => {
-    if (spotlight.length <= 1 || reduceMotion) return undefined;
+    if (heroPool.length <= 1 || reduceMotion) return undefined;
     const tick = setInterval(() => {
       if (pausedRef.current) return;
       setHeroIndex((i) => {
-        const len = spotlightLengthRef.current || 1;
+        const len = heroLengthRef.current || 1;
         return (i + 1) % len;
       });
     }, HOME_HERO_ROTATION_MS);
     return () => clearInterval(tick);
-  }, [spotlight.length, reduceMotion]);
+  }, [heroPool.length, reduceMotion]);
 
   const pauseHero = useCallback(() => {
     pausedRef.current = true;
@@ -245,6 +263,14 @@ export function HomeScreen({
     }, HOME_HERO_RESUME_DELAY_MS);
   }, []);
 
+  // Pause the auto-rotate while the user is pressing the hero so it can't swap
+  // mid-tap, then resume shortly after — the "Also in Spotlight" strip used to
+  // own the resume; now the hero press does.
+  const handleHeroPressIn = useCallback(() => {
+    pauseHero();
+    scheduleResumeHero();
+  }, [pauseHero, scheduleResumeHero]);
+
   useEffect(
     () => () => {
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
@@ -252,9 +278,16 @@ export function HomeScreen({
     [],
   );
 
+  // Android back: peel the filter off before leaving Home — first the
+  // availability filter, then the media-type filter.
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
+    if (Platform.OS !== 'android') return undefined;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (whereActive) {
+        setHomeCountry(null);
+        setHomeServiceKey(null);
+        return true;
+      }
       if (mediaFilter) {
         onMediaFilterChange?.(null);
         return true;
@@ -262,37 +295,57 @@ export function HomeScreen({
       return false;
     });
     return () => sub.remove();
-  }, [mediaFilter, onMediaFilterChange]);
+  }, [whereActive, mediaFilter, onMediaFilterChange]);
 
-  const watchlistRows = useMemo(() => {
-    return getUserWatchlistCollections()
-      .map((collection) => {
-        const items = (watchlist || []).filter((w) => {
-          if (mediaFilter && w.mediaType !== mediaFilter) return false;
-          return w.collectionIds?.includes(collection.id);
-        });
-        const sorted = [...items].sort((a, b) => resolveRatingValue(b) - resolveRatingValue(a));
-        return {
-          category: {
-            id: collection.id,
-            label: collection.name,
-            icon: collection.icon,
-          },
-          items: sorted,
-        };
-      })
-      .filter((row) => row.items.length > 0);
-  }, [watchlist, mediaFilter]);
+  const openCountrySheet = useCallback(() => {
+    Haptics.selectionAsync();
+    bottomSheet.show(
+      (sheetId) => (
+        <WhereToWatchCountrySheet
+          selectedCode={homeCountry?.code || null}
+          allowAll
+          onSelect={(region) => {
+            setHomeCountry(region?.code ? { code: region.code, label: region.label } : null);
+            bottomSheet.dismiss(sheetId);
+          }}
+        />
+      ),
+      {
+        eyebrow: 'Where to Watch',
+        title: 'Country',
+        subtitle: 'Show titles you can stream in…',
+        size: 'large',
+        scrollable: true,
+      },
+    );
+  }, [bottomSheet, homeCountry]);
 
-  const selectSpotlightIndex = useCallback(
-    (index) => {
-      Haptics.selectionAsync();
-      pauseHero();
-      scheduleResumeHero();
-      setHeroIndex(index);
-    },
-    [pauseHero, scheduleResumeHero],
-  );
+  const openServiceSheet = useCallback(() => {
+    Haptics.selectionAsync();
+    bottomSheet.show(
+      (sheetId) => (
+        <WhereToWatchServiceSheet
+          selectedKey={homeServiceKey}
+          onSelect={(serviceKey) => {
+            setHomeServiceKey(serviceKey);
+            bottomSheet.dismiss(sheetId);
+            // Nudge: a service without a country answers "on X somewhere", which
+            // is rarely what's meant. Steer straight into picking a country.
+            if (serviceKey && !homeCountry?.code) {
+              setTimeout(openCountrySheet, 220);
+            }
+          }}
+        />
+      ),
+      {
+        eyebrow: 'Where to Watch',
+        title: 'Streaming Service',
+        subtitle: 'Narrow to one service',
+        size: 'large',
+        scrollable: true,
+      },
+    );
+  }, [bottomSheet, homeServiceKey, homeCountry, openCountrySheet]);
 
   const atmosphereColors = useMemo(
     () => [colors.surfaceContainerHigh, colors.background],
@@ -309,6 +362,7 @@ export function HomeScreen({
         typography={typography}
         radii={radii}
         showMediaType={false}
+        showCaption={false}
         onSelectItem={onSelectItem}
       />
     ),
@@ -317,62 +371,59 @@ export function HomeScreen({
 
   const railKeyExtractor = useCallback(({ category }) => category.id, []);
 
+  const matchedCount = whereMatches ? whereMatches.keys.size : 0;
+  const filterContext = homeServiceKey
+    ? `on ${getServiceLabel(homeServiceKey)}${homeCountry?.code ? ` in ${homeCountry.label}` : ''}`
+    : homeCountry?.code
+      ? `in ${homeCountry.label}`
+      : '';
+
   const listHeader = (
     <View style={styles.spotlightSection}>
-      {!featuredItem ? (
+      {!featuredItem && !whereActive ? (
         <HomeFeedSkeleton />
       ) : (
         <>
-          <FeaturedSpotlightCard
-            item={featuredItem}
-            colors={colors}
-            typography={typography}
-            radii={radii}
-            fadeAnim={fadeAnim}
-            onPress={() => onSelectItem?.(featuredItem)}
-            onPressIn={pauseHero}
-          />
-          {spotlight.length > 1 ? (
-            <View style={styles.secondarySpotlightBlock}>
-              <View style={styles.secondaryHeaderRow}>
-                <Text
-                  style={[styles.secondaryTitle, { color: colors.onSurface, ...typography.labelSm }]}
-                >
-                  Also in Spotlight
-                </Text>
-                <Text
-                  style={[
-                    styles.secondaryCount,
-                    { color: colors.onSurfaceVariant, ...typography.labelSm },
-                  ]}
-                >
-                  {displayIndex + 1} / {spotlight.length}
-                </Text>
-              </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.chipList}
-                nestedScrollEnabled
-                overScrollMode="never"
-                decelerationRate="fast"
-              >
-                {spotlight.map((item, index) => (
-                  <View
-                    key={`${item.mediaType || 'movie'}-${item.tmdbId}-${index}`}
-                    style={index > 0 ? styles.chipGap : null}
+          {featuredItem ? (
+            <FeaturedSpotlightCard
+              item={featuredItem}
+              colors={colors}
+              typography={typography}
+              radii={radii}
+              fadeAnim={fadeAnim}
+              onPress={() => onSelectItem?.(featuredItem)}
+              onPressIn={handleHeroPressIn}
+            />
+          ) : null}
+
+          {whereActive ? (
+            <View
+              style={[
+                styles.filterStatus,
+                { backgroundColor: colors.glass, borderColor: GOLD_DIM, borderRadius: radii.lg },
+              ]}
+            >
+              {whereChecking ? (
+                <>
+                  <ActivityIndicator size="small" color={GOLD_ACCENT} />
+                  <Text
+                    style={[styles.filterStatusText, { color: colors.onSurface, ...typography.labelSm }]}
+                    numberOfLines={1}
                   >
-                    <SpotlightChip
-                      item={item}
-                      colors={colors}
-                      typography={typography}
-                      radii={radii}
-                      selected={index === displayIndex}
-                      onPress={() => selectSpotlightIndex(index)}
-                    />
-                  </View>
-                ))}
-              </ScrollView>
+                    Checking {whereProgress?.checked ?? 0}/{whereProgress?.total ?? 0} {filterContext}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="funnel" size={13} color={GOLD_ACCENT} />
+                  <Text
+                    style={[styles.filterStatusText, { color: colors.onSurface, ...typography.labelSm }]}
+                    numberOfLines={1}
+                  >
+                    {matchedCount} of {scopeCount} {scopeCount === 1 ? 'title' : 'titles'} {filterContext}
+                  </Text>
+                </>
+              )}
             </View>
           ) : null}
         </>
@@ -380,21 +431,40 @@ export function HomeScreen({
     </View>
   );
 
+  const renderWhereEmpty = () => {
+    if (!whereActive || whereChecking || !whereMatches) return null;
+    return (
+      <View
+        style={[
+          styles.whereEmptyBox,
+          { backgroundColor: colors.glass, borderColor: GOLD_DIM, borderRadius: radii.lg },
+        ]}
+      >
+        <Ionicons name="eye-off-outline" size={22} color={GOLD_ACCENT} />
+        <Text style={[styles.whereEmptyTitle, { color: colors.onSurface, ...typography.titleMd }]}>
+          Nothing to stream yet
+        </Text>
+        <Text style={[styles.whereEmptyText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+          None of your {scopeCount} saved {scopeCount === 1 ? 'title streams' : 'titles stream'}{' '}
+          {filterContext || 'right now'}. Try another service or country.
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.rootWrap, { backgroundColor: colors.background }]}>
       <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
 
-      <HomeTopNav
-        variant="programme"
+      <HomeFilterBar
         headerScrolled={headerScrolled}
-        selectedKey={mediaFilter}
-        onSelect={(key, selected) => {
-          if (key === 'collections') {
-            onOpenCollections?.();
-            return;
-          }
-          onMediaFilterChange?.(selected ? null : key);
-        }}
+        mediaFilter={mediaFilter}
+        onMediaFilterChange={onMediaFilterChange}
+        onOpenCollections={onOpenCollections}
+        country={homeCountry}
+        serviceKey={homeServiceKey}
+        onOpenCountry={openCountrySheet}
+        onOpenService={openServiceSheet}
       />
 
       <FlatList
@@ -404,6 +474,7 @@ export function HomeScreen({
         keyExtractor={railKeyExtractor}
         extraData={theme}
         ListHeaderComponent={listHeader}
+        ListEmptyComponent={renderWhereEmpty}
         contentContainerStyle={[
           styles.scrollInner,
           { paddingTop: headerOffset, paddingBottom: insets.bottom + 112 },
@@ -463,14 +534,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(20),
     paddingBottom: scale(24),
   },
-  featureEyebrow: {
-    color: GOLD_ACCENT,
-    fontWeight: '700',
-    letterSpacing: 2.2,
-    paddingEnd: 3,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
   featureTitle: {
     color: '#fff',
     fontWeight: '800',
@@ -494,60 +557,31 @@ const styles = StyleSheet.create({
   },
   heroRatingText: { color: '#FFD580', fontWeight: '800' },
 
-  secondarySpotlightBlock: {
-    marginTop: scale(22),
-  },
-  secondaryHeaderRow: {
+  filterStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: scale(12),
+    gap: 8,
+    marginTop: scale(16),
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: scale(14),
+    paddingVertical: scale(10),
   },
-  secondaryTitle: {
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    paddingEnd: 2,
-    textTransform: 'uppercase',
-  },
-  secondaryCount: {
-    fontWeight: '600',
-  },
-  chipList: {
-    paddingRight: GRID_PAD,
-  },
-  chipGap: {
-    marginLeft: scale(12),
-  },
-  spotlightChip: {
-    width: CHIP_W,
-    minHeight: 48,
-  },
-  spotlightChipFrame: {
-    width: CHIP_W,
-    height: CHIP_H,
-    overflow: 'hidden',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  spotlightChipImg: {
-    width: '100%',
-    height: '100%',
-  },
-  spotlightChipScrim: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '62%',
-  },
-  spotlightChipTitle: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 10,
-    color: '#fff',
+  filterStatusText: {
+    flexShrink: 1,
     fontWeight: '700',
   },
-
+  whereEmptyBox: {
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+    marginHorizontal: GRID_PAD,
+    marginTop: scale(24),
+    padding: scale(20),
+  },
+  whereEmptyTitle: {
+    fontWeight: '800',
+  },
+  whereEmptyText: {
+    textAlign: 'center',
+  },
 });

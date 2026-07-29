@@ -11,6 +11,7 @@ import {
   matchingServiceKeys,
   persistAvailabilityCache,
   pruneAvailabilityCache,
+  isWhereFilterNarrowing,
   saveWhereToWatchPrefs,
   setCachedAvailability,
   titleMatchesWhereToWatch,
@@ -57,6 +58,30 @@ test('titleMatchesWhereToWatch with any service matches any provider in the coun
   assert.equal(titleMatchesWhereToWatch(services, { countryCode: 'GB', serviceKey: null }), true);
   assert.equal(titleMatchesWhereToWatch(services, { countryCode: 'CA', serviceKey: null }), false);
   assert.equal(titleMatchesWhereToWatch(null, { countryCode: 'GB', serviceKey: null }), false);
+});
+
+test('titleMatchesWhereToWatch "all countries" (no country) matches a service streaming anywhere', () => {
+  const services = { amazon_prime_video: ['GB', 'DE'] };
+  // Service picked, country left at All → streams on Prime somewhere.
+  assert.equal(
+    titleMatchesWhereToWatch(services, { countryCode: null, serviceKey: 'amazon_prime_video' }),
+    true,
+  );
+  // A different service the title isn't on anywhere.
+  assert.equal(titleMatchesWhereToWatch(services, { countryCode: null, serviceKey: 'netflix' }), false);
+});
+
+test('titleMatchesWhereToWatch "all countries" + any service matches any availability at all', () => {
+  assert.equal(titleMatchesWhereToWatch({ netflix: ['JP'] }, { countryCode: null, serviceKey: null }), true);
+  assert.equal(titleMatchesWhereToWatch({}, { countryCode: null, serviceKey: null }), false);
+  assert.equal(titleMatchesWhereToWatch(null, { countryCode: null, serviceKey: null }), false);
+});
+
+test('isWhereFilterNarrowing is false only when both facets are All', () => {
+  assert.equal(isWhereFilterNarrowing(null, null), false);
+  assert.equal(isWhereFilterNarrowing({ code: 'CA' }, null), true);
+  assert.equal(isWhereFilterNarrowing(null, 'netflix'), true);
+  assert.equal(isWhereFilterNarrowing({ code: 'CA' }, 'netflix'), true);
 });
 
 test('matchingServiceKeys lists every service streaming in the country', () => {

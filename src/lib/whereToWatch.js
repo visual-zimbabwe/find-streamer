@@ -126,15 +126,39 @@ export function matchingServiceKeys(services, countryCode) {
 
 /**
  * @param {ServiceCountryMap | null | undefined} services
- * @param {WhereToWatchFilter} filter
+ * @param {WhereToWatchFilter & { countryCode: string | null }} filter
  * @returns {boolean}
+ *
+ * A null/empty `countryCode` means "all countries": the title matches if it
+ * streams *anywhere* (optionally narrowed to one service). This is what lets the
+ * Home filter rest at "All countries" and still answer "on this service
+ * somewhere" the moment a service is picked without a country.
  */
 export function titleMatchesWhereToWatch(services, filter) {
-  if (!services || !filter?.countryCode) return false;
-  if (filter.serviceKey) {
-    return services[filter.serviceKey]?.includes(filter.countryCode) || false;
+  if (!services) return false;
+  const countryCode = filter?.countryCode || null;
+  const serviceKey = filter?.serviceKey || null;
+
+  if (!countryCode) {
+    if (serviceKey) return (services[serviceKey]?.length || 0) > 0;
+    return Object.keys(SERVICE_LABELS).some((key) => (services[key]?.length || 0) > 0);
   }
-  return matchingServiceKeys(services, filter.countryCode).length > 0;
+
+  if (serviceKey) {
+    return services[serviceKey]?.includes(countryCode) || false;
+  }
+  return matchingServiceKeys(services, countryCode).length > 0;
+}
+
+/**
+ * Is a where-to-watch filter doing any narrowing? False when both facets are at
+ * "All" (no country, any service) — the Home resting state, where nothing should
+ * be filtered and no availability scan should run.
+ * @param {{ code?: string } | null} country
+ * @param {string | null} serviceKey
+ */
+export function isWhereFilterNarrowing(country, serviceKey) {
+  return Boolean(country?.code) || Boolean(serviceKey);
 }
 
 /**

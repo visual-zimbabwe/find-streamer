@@ -60,7 +60,7 @@ function OptionRow({ label, sublabel, selected, onPress, leading, accessibilityL
   );
 }
 
-export function WhereToWatchCountrySheet({ selectedCode, onSelect }) {
+export function WhereToWatchCountrySheet({ selectedCode, onSelect, allowAll = false }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const [regions, setRegions] = useState(null);
@@ -123,6 +123,21 @@ export function WhereToWatchCountrySheet({ selectedCode, onSelect }) {
           </TouchableOpacity>
         )}
       </View>
+
+      {allowAll && !query.trim() ? (
+        <OptionRow
+          label="All Countries"
+          sublabel="Show everything in your library"
+          selected={!selectedCode}
+          onPress={() => onSelect({ code: null, label: 'All countries' })}
+          accessibilityLabel="Show titles from all countries"
+          leading={
+            <View style={[styles.leadingBadge, { borderColor: GOLD_DIM }]}>
+              <Ionicons name="earth-outline" size={16} color={GOLD_ACCENT} />
+            </View>
+          }
+        />
+      ) : null}
 
       {visibleRegions.map((region) => (
         <OptionRow
