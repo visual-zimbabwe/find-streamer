@@ -8,7 +8,7 @@ import {
   enrichTraktItems,
 } from './tmdb';
 import { fetchTraktTrending } from './trakt';
-import { resolvePreset, LANGUAGE_TO_COUNTRY_PRESET } from './languagePresets';
+import { resolvePreset, LANGUAGE_TO_COUNTRY_PRESET, intentPresetActive } from './languagePresets';
 import { codesForCountryPreset, findCountryPreset } from './countryPresets';
 import { classifyAppError } from './errors';
 import {
@@ -41,6 +41,9 @@ const DEFAULT_FILTERS = {
   excludeGenreIds: [],
   // ── Exclude smart tags (e.g. 'anime') ──────────────────────────────────────
   excludeSmartTags: [],
+  // ── Include smart tags (e.g. 'anime') — the positive counterpart, so "find me
+  //    anime" is expressible, not just "hide anime". ────────────────────────────
+  includeSmartTags: [],
   // ── Optional filters ───────────────────────────────────────────────────────
   minRating: '7',
   maxRating: '10.0',
@@ -211,6 +214,26 @@ export function useDiscoverViewModel() {
         excludeSmartTags: already
           ? prev.excludeSmartTags.filter((t) => t !== tag)
           : [...prev.excludeSmartTags, tag],
+        // A tag can only be in one group at a time — excluding it removes it from
+        // the include group.
+        includeSmartTags: prev.includeSmartTags.filter((t) => t !== tag),
+      };
+    });
+    setValidationError(null);
+  }, []);
+
+  // ── Include Smart Tag Toggle ───────────────────────────────────────────────
+
+  const toggleIncludeSmartTag = useCallback((tag) => {
+    setFilters((prev) => {
+      const already = prev.includeSmartTags.includes(tag);
+      return {
+        ...prev,
+        includeSmartTags: already
+          ? prev.includeSmartTags.filter((t) => t !== tag)
+          : [...prev.includeSmartTags, tag],
+        // Including it removes it from the exclude group.
+        excludeSmartTags: prev.excludeSmartTags.filter((t) => t !== tag),
       };
     });
     setValidationError(null);
@@ -225,6 +248,30 @@ export function useDiscoverViewModel() {
         [key]: already ? current.filter((item) => item !== value) : [...current, value],
       };
     });
+    setValidationError(null);
+  }, []);
+
+  // ── Intent Preset Actions ──────────────────────────────────────────────────
+
+  /**
+   * Toggle an intent preset (Anime, Korean, Foreign, …). If the preset is
+   * already satisfied by the live filters it is cleared (each patched key reset
+   * to its default); otherwise the patch is merged in. Stateless — activeness is
+   * derived by `intentPresetActive`, never stored.
+   */
+  const applyIntentPreset = useCallback((preset) => {
+    setFilters((prev) => {
+      if (intentPresetActive(preset, prev)) {
+        const cleared = {};
+        Object.keys(preset.patch).forEach((key) => {
+          cleared[key] = DEFAULT_FILTERS[key];
+        });
+        return { ...prev, ...cleared };
+      }
+      // Clear any legacy region-preset highlight when an intent preset takes over.
+      return { ...prev, activePreset: null, ...preset.patch };
+    });
+    setPendingCountryLink(null);
     setValidationError(null);
   }, []);
 
@@ -325,6 +372,7 @@ export function useDiscoverViewModel() {
       genreIds: [],
       excludeGenreIds: [],
       excludeSmartTags: [],
+      includeSmartTags: [],
       languageCodes: [],
       originCountries: [],
       activePreset: null,
@@ -632,7 +680,9 @@ export function useDiscoverViewModel() {
     toggleGenre,
     toggleExcludeGenre,
     toggleSmartTag,
+    toggleIncludeSmartTag,
     toggleFilterValue,
+    applyIntentPreset,
     applyPreset,
     clearPreset,
     acceptCountryLink,

@@ -140,6 +140,80 @@ export const REGION_PRESETS = [
   },
 ];
 
+// ─── Intent Presets (Airbnb-style "type of place" front door) ─────────────────
+
+/**
+ * One-tap starting points expressed the way people actually search for something
+ * to watch — by vibe, not by continent. Each preset is a thin `patch` over the
+ * existing filter primitives, so it drives the same engine the granular controls
+ * do. Presets are matched *statelessly* (see `intentPresetActive`) against the
+ * live filters — there is no separate "active preset" flag to fall out of sync
+ * when the user edits a control afterwards.
+ *
+ * A `patch` is fully self-contained for the filter *group* it touches (e.g. a
+ * language preset sets both `languageCodes` and `excludeEnglish`) so applying one
+ * never leaves a contradictory half-state behind.
+ */
+export const INTENT_PRESETS = [
+  {
+    id: 'foreign',
+    label: 'Foreign',
+    icon: 'language-outline',
+    patch: { excludeEnglish: true, languageCodes: [] },
+  },
+  {
+    id: 'anime',
+    label: 'Anime',
+    icon: 'sparkles-outline',
+    patch: { includeSmartTags: ['anime'] },
+  },
+  {
+    id: 'korean',
+    label: 'Korean',
+    icon: 'globe-outline',
+    patch: { languageCodes: ['ko'], excludeEnglish: false },
+  },
+  {
+    id: 'documentary',
+    label: 'Documentary',
+    icon: 'videocam-outline',
+    // TMDB genre 99 = Documentary (present in both movie and TV genre lists).
+    patch: { genreIds: [99], genreLogic: 'AND' },
+  },
+  {
+    id: 'bollywood',
+    label: 'Bollywood',
+    icon: 'musical-notes-outline',
+    patch: { languageCodes: ['hi'], excludeEnglish: false },
+  },
+  {
+    id: 'highlyRated',
+    label: 'Highly Rated',
+    icon: 'star-outline',
+    patch: { minRating: '7.5', sortBy: 'vote_average.desc' },
+  },
+];
+
+/** Order-insensitive equality for the scalar / array values a patch can hold. */
+function presetValuesEqual(a, b) {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    const bSet = new Set(b);
+    return a.every((item) => bSet.has(item));
+  }
+  return a === b;
+}
+
+/**
+ * True when the live `filters` already satisfy every key in the preset's patch —
+ * i.e. the preset is "on". Stateless: derived from the filters themselves.
+ */
+export function intentPresetActive(preset, filters) {
+  return Object.keys(preset.patch).every((key) =>
+    presetValuesEqual(filters[key], preset.patch[key]),
+  );
+}
+
 // ─── Special Presets ──────────────────────────────────────────────────────────
 
 /**

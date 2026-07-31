@@ -31,10 +31,8 @@ import {
   PickerListSkeleton,
   SkeletonBlock,
 } from './SkeletonLoaders';
-import { REGION_PRESETS, SPECIAL_PRESETS, findPreset } from '../lib/languagePresets';
-import { COUNTRY_PRESETS, findCountryPreset, filterCountriesByPreset } from '../lib/countryPresets';
+import { INTENT_PRESETS, intentPresetActive } from '../lib/languagePresets';
 import { sanitizeRatingInput } from '../lib/discoverRating';
-import { useBottomSheet } from './StackBottomSheet';
 import { scale } from '../utils/responsive';
 import {
   GOLD_ACCENT,
@@ -380,11 +378,8 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const { colors, typography, radii } = theme;
   const c = colors;
   const insets = useSafeAreaInsets();
-  const { show: showSheet, update: updateSheet, dismiss: dismissSheet } = useBottomSheet();
   const bottomNavScroll = useBottomNavScroll();
   const reduceMotion = useReduceMotion();
-  const moreFiltersSheetIdRef = useRef(null);
-  const genreSheetIdRef = useRef(null);
   const scrollRef = useRef(null);
   const yearRangeYRef = useRef(0);
   const runtimeRangeYRef = useRef(0);
@@ -431,13 +426,10 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     'countries',
   );
 
-  // Compute whether any advanced filter is active (for the More Filters badge)
-  const advancedFilterActive =
-    vm.filters.activePreset != null ||
-    (vm.filters.languageCodes || []).length > 0 ||
-    !!vm.filters.excludeEnglish ||
-    vm.filters.activeCountryPreset != null ||
-    (vm.filters.originCountries || []).length > 0;
+  // Language / country control state (inline, no nested sheet).
+  const languageActive = selectedLanguageCodes.length > 0 || !!vm.filters.excludeEnglish;
+  const languageLabel = vm.filters.excludeEnglish ? 'Non-English' : langLabel;
+  const countryActive = selectedOriginCountries.length > 0;
 
   const advancedCriteriaActive =
     !!vm.filters.fromYear ||
@@ -445,17 +437,6 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     !!vm.filters.minRuntime ||
     !!vm.filters.maxRuntime ||
     vm.filters.sortBy !== 'popularity.desc';
-
-  const advancedFilterSummary = [
-    vm.filters.activePreset ? findPreset(vm.filters.activePreset)?.label : null,
-    (vm.filters.languageCodes || []).length > 0 ? langLabel : null,
-    vm.filters.excludeEnglish ? 'Excl. English' : null,
-    vm.filters.activeCountryPreset
-      ? findCountryPreset(vm.filters.activeCountryPreset)?.label
-      : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
 
   // Load genres when mediaType changes; reset genre selections that might not apply
   useEffect(() => {
@@ -465,6 +446,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
       vm.updateFilter('genreIds', []);
       vm.updateFilter('excludeGenreIds', []);
       vm.updateFilter('excludeSmartTags', []);
+      vm.updateFilter('includeSmartTags', []);
       if (vm.filters.mediaType === 'movie') {
         vm.updateFilter('originCountries', []);
       }
@@ -510,94 +492,36 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     }).start();
   }, [navVisible, keyboardOpen, footerH, footerTranslate]);
 
-  const renderMoreFiltersSheetContent = () => (
-    <MoreFiltersSheetContent
-      vm={vm}
-      colors={c}
-      typography={typography}
-      radii={radii}
-      langLabel={langLabel}
-      countryLabel={countryLabel}
-      selectedLanguageCodes={selectedLanguageCodes}
-      selectedOriginCountries={selectedOriginCountries}
-      onOpenLangModal={() => setLangModalVisible(true)}
-      onOpenCountryModal={() => setCountryModalVisible(true)}
-    />
-  );
-
-  const renderGenreSheetContent = (sheetId) => (
-    <GenreBottomSheet
-      visible
-      embedded
-      onClose={() => dismissSheet(sheetId)}
-      genres={vm.genres}
-      genresLoading={vm.genresLoading}
-      genreIds={vm.filters.genreIds}
-      genreLogic={vm.filters.genreLogic}
-      excludeGenreIds={vm.filters.excludeGenreIds}
-      excludeSmartTags={vm.filters.excludeSmartTags}
-      onToggleInclude={vm.toggleGenre}
-      onToggleExclude={vm.toggleExcludeGenre}
-      onToggleSmartTag={vm.toggleSmartTag}
-      onUpdateGenreLogic={(v) => vm.updateFilter('genreLogic', v)}
-      onClearAll={() => {
-        vm.updateFilter('genreIds', []);
-        vm.updateFilter('excludeGenreIds', []);
-        vm.updateFilter('excludeSmartTags', []);
-      }}
-      colors={c}
-      typography={typography}
-      radii={radii}
-    />
-  );
-
-  useEffect(() => {
-    if (moreFiltersSheetIdRef.current) {
-      updateSheet(moreFiltersSheetIdRef.current, renderMoreFiltersSheetContent());
+  // Cycle a genre chip through neutral \u2192 include \u2192 exclude \u2192 neutral with one tap.
+  // The vm's toggle* helpers already move a genre between groups, so this is just
+  // a state machine over which helper to call for the chip's current state.
+  const cycleGenre = (id) => {
+    if (vm.filters.genreIds.includes(id)) {
+      vm.toggleExcludeGenre(id); // include \u2192 exclude (helper moves it across)
+    } else if (vm.filters.excludeGenreIds.includes(id)) {
+      vm.toggleExcludeGenre(id); // exclude \u2192 neutral
+    } else {
+      vm.toggleGenre(id); // neutral \u2192 include
     }
-    if (genreSheetIdRef.current) {
-      updateSheet(genreSheetIdRef.current, renderGenreSheetContent(genreSheetIdRef.current));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    vm.filters,
-    vm.genres,
-    vm.genresLoading,
-    vm.languages,
-    vm.countries,
-    vm.pendingCountryLink,
-    c,
-    typography,
-    radii,
-    langLabel,
-    countryLabel,
-    selectedLanguageCodes,
-    selectedOriginCountries,
-    updateSheet,
-  ]);
-
-  /** Open the "More Filters" panel as a stacked bottom sheet */
-  const handleOpenMoreFilters = () => {
-    const sheetId = showSheet(() => renderMoreFiltersSheetContent(), {
-      title: '\u2699\uFE0F More Filters',
-      size: 'full',
-      scrollable: false,
-      showCloseButton: true,
-      dismissOnBackdrop: true,
-    });
-    moreFiltersSheetIdRef.current = sheetId;
   };
 
-  /** Open genre picker as a stacked sheet */
-  const handleOpenGenreSheet = () => {
-    const sheetId = showSheet((id) => renderGenreSheetContent(id), {
-      title: '\uD83C\uDFAC Genres',
-      size: 'large',
-      scrollable: false,
-      showCloseButton: true,
-      dismissOnBackdrop: true,
-    });
-    genreSheetIdRef.current = sheetId;
+  // Same tri-state cycle for a smart tag (Anime), across the include/exclude
+  // smart-tag groups.
+  const cycleSmartTag = (key) => {
+    if (vm.filters.includeSmartTags.includes(key)) {
+      vm.toggleSmartTag(key); // include \u2192 exclude (toggleSmartTag drops it from include)
+    } else if (vm.filters.excludeSmartTags.includes(key)) {
+      vm.toggleSmartTag(key); // exclude \u2192 neutral
+    } else {
+      vm.toggleIncludeSmartTag(key); // neutral \u2192 include
+    }
+  };
+
+  const clearGenreFilters = () => {
+    vm.updateFilter('genreIds', []);
+    vm.updateFilter('excludeGenreIds', []);
+    vm.updateFilter('excludeSmartTags', []);
+    vm.updateFilter('includeSmartTags', []);
   };
 
   const scrollToYearRange = () => {
@@ -666,9 +590,9 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         {...bottomNavScroll}
       >
         <ProgrammeSectionHeader
-          eyebrow="FILTER"
-          title="Refine your programme"
-          subtitle="Set criteria, then search the catalogue"
+          eyebrow="DISCOVER"
+          title="Find something to watch"
+          subtitle="Start with a vibe, or fine-tune below"
         />
 
         <MediaTypeTabs
@@ -677,6 +601,17 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           colors={c}
           typography={typography}
         />
+
+        <View style={styles.filterBand}>
+          <SectionLabel label="Quick picks" colors={c} typography={typography} />
+          <IntentPresetRow
+            filters={vm.filters}
+            onApply={vm.applyIntentPreset}
+            colors={c}
+            typography={typography}
+            radii={radii}
+          />
+        </View>
 
         <FilterDivider />
 
@@ -699,29 +634,18 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         )}
 
         <View style={styles.filterBand}>
-          <View style={styles.sectionRow}>
-            <SectionLabel label="Genres" colors={c} typography={typography} />
-            {(vm.filters.genreIds.length > 0 ||
-              vm.filters.excludeGenreIds.length > 0 ||
-              vm.filters.excludeSmartTags.length > 0) && (
-              <TouchableOpacity
-                onPress={() => {
-                  vm.updateFilter('genreIds', []);
-                  vm.updateFilter('excludeGenreIds', []);
-                  vm.updateFilter('excludeSmartTags', []);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Clear all genre filters"
-              >
-                <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm }]}>Clear all</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          <HorizontalGenreScroll
+          <GenreFilterSection
             genres={vm.genres}
+            genresLoading={vm.genresLoading}
             genreIds={vm.filters.genreIds}
+            genreLogic={vm.filters.genreLogic}
             excludeGenreIds={vm.filters.excludeGenreIds}
-            onOpenSheet={handleOpenGenreSheet}
+            includeSmartTags={vm.filters.includeSmartTags}
+            excludeSmartTags={vm.filters.excludeSmartTags}
+            onCycleGenre={cycleGenre}
+            onCycleSmartTag={cycleSmartTag}
+            onUpdateGenreLogic={(v) => vm.updateFilter('genreLogic', v)}
+            onClearAll={clearGenreFilters}
             colors={c}
             typography={typography}
             radii={radii}
@@ -804,78 +728,43 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         <FilterDivider />
 
         <View style={styles.filterBand}>
-          <SectionLabel label="Region" colors={c} typography={typography} />
-          <TouchableOpacity
-            style={[
-              styles.moreFiltersBtn,
-              {
-                backgroundColor: advancedFilterActive ? GOLD_ACCENT + '12' : filterSurface,
-                borderRadius: radii.md,
-                borderColor: advancedFilterActive ? GOLD_ACCENT + '55' : GOLD_DIM,
-              },
-            ]}
-            onPress={handleOpenMoreFilters}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Open advanced filter options: language and country"
-          >
-            <Ionicons
-              name="globe-outline"
-              size={18}
-              color={advancedFilterActive ? GOLD_ACCENT : c.onSurfaceVariant}
-              style={{ marginRight: 10 }}
-            />
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[
-                  {
-                    color: advancedFilterActive ? c.onSurface : c.onSurfaceVariant,
-                    ...typography.bodyMd,
-                    fontWeight: '700',
-                  },
-                ]}
-              >
-                Language &amp; Country
-              </Text>
-              {advancedFilterSummary ? (
-                <Text
-                  style={[{ color: GOLD_ACCENT, ...typography.labelSm, marginTop: 2 }]}
-                  numberOfLines={1}
-                >
-                  {advancedFilterSummary}
-                </Text>
-              ) : (
-                <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>
-                  Tap to configure
-                </Text>
-              )}
-            </View>
-            {advancedFilterActive && (
-              <View
-                style={[
-                  {
-                    backgroundColor: GOLD_ACCENT,
-                    borderRadius: radii.sm,
-                    paddingHorizontal: 7,
-                    paddingVertical: 3,
-                    marginRight: 8,
-                  },
-                ]}
-              >
-                <Text
-                  style={{ color: '#141414', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}
-                >
-                  Active
-                </Text>
-              </View>
-            )}
-            <Ionicons
-              name="chevron-forward-outline"
-              size={16}
-              color={advancedFilterActive ? GOLD_ACCENT : c.onSurfaceVariant}
-            />
-          </TouchableOpacity>
+          <SectionLabel label="Language" colors={c} typography={typography} />
+          <InlinePickerButton
+            icon="language-outline"
+            label={languageLabel}
+            active={languageActive}
+            onOpen={() => setLangModalVisible(true)}
+            onClear={() => vm.clearPreset()}
+            accessibilityLabel={`Language, ${languageLabel}`}
+            clearAccessibilityLabel="Clear language filter"
+            surface={filterSurface}
+            colors={c}
+            typography={typography}
+            radii={radii}
+          />
         </View>
+
+        {vm.filters.mediaType === 'tv' && (
+          <>
+            <FilterDivider />
+            <View style={styles.filterBand}>
+              <SectionLabel label="Country" colors={c} typography={typography} />
+              <InlinePickerButton
+                icon="globe-outline"
+                label={countryLabel}
+                active={countryActive}
+                onOpen={() => setCountryModalVisible(true)}
+                onClear={() => vm.updateFilter('originCountries', [])}
+                accessibilityLabel={`Country, ${countryLabel}`}
+                clearAccessibilityLabel="Clear country filter"
+                surface={filterSurface}
+                colors={c}
+                typography={typography}
+                radii={radii}
+              />
+            </View>
+          </>
+        )}
 
         <FilterDivider />
 
@@ -905,23 +794,6 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
                 </Text>
               )}
             </View>
-            {advancedCriteriaActive && (
-              <View
-                style={{
-                  backgroundColor: GOLD_ACCENT,
-                  borderRadius: radii.sm,
-                  paddingHorizontal: 7,
-                  paddingVertical: 3,
-                  marginRight: 8,
-                }}
-              >
-                <Text
-                  style={{ color: '#141414', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}
-                >
-                  Active
-                </Text>
-              </View>
-            )}
             <Ionicons
               name={advancedExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
               size={16}
@@ -1141,12 +1013,8 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         <SearchablePickerModal
           visible={countryModalVisible}
           onClose={() => setCountryModalVisible(false)}
-          title={
-            vm.filters.activeCountryPreset
-              ? `${findCountryPreset(vm.filters.activeCountryPreset)?.label} Countries`
-              : 'Select Origin Country'
-          }
-          items={filterCountriesByPreset(vm.countries, vm.filters.activeCountryPreset)}
+          title="Select Country"
+          items={vm.countries}
           selectedCodes={selectedOriginCountries}
           onToggle={(code) => vm.toggleFilterValue('originCountries', code)}
           onClear={() => vm.updateFilter('originCountries', [])}
@@ -1255,248 +1123,124 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   );
 }
 
-// ─── Horizontal Genre Scroll ───────────────────────────────────────────────────
+// ─── Intent Preset Row ─────────────────────────────────────────────────────────
+// One-tap "quick picks" (Anime, Korean, Foreign, …). Each is a thin patch over the
+// filter primitives; activeness is derived from the live filters, so a chip lights
+// up whenever the filters already match it — no separate state to drift.
 
-function HorizontalGenreScroll({
-  genres,
-  genreIds,
-  excludeGenreIds,
-  onOpenSheet,
-  colors: c,
-  typography,
-  radii,
-}) {
-  const hasSelections = genreIds.length > 0 || excludeGenreIds.length > 0;
-  const totalActive = genreIds.length + excludeGenreIds.length;
-
-  const sorted = useMemo(() => {
-    const included = genres.filter((g) => genreIds.includes(g.id));
-    const excluded = genres.filter((g) => excludeGenreIds.includes(g.id));
-    const rest = genres.filter((g) => !genreIds.includes(g.id) && !excludeGenreIds.includes(g.id));
-    return [...included, ...excluded, ...rest];
-  }, [genres, genreIds, excludeGenreIds]);
-
+function IntentPresetRow({ filters, onApply, colors: c, typography, radii }) {
   return (
-    <View style={{ marginBottom: 4 }}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={genreScrollStyles.row}
-      >
-        <TouchableOpacity
-          style={[
-            genreScrollStyles.chip,
-            {
-              borderRadius: radii.md,
-              backgroundColor: hasSelections ? GOLD_ACCENT + '18' : c.surfaceContainerHigh,
-              borderWidth: 1,
-              borderColor: hasSelections ? GOLD_ACCENT : GOLD_DIM,
-            },
-          ]}
-          onPress={() => {
-            Haptics.selectionAsync();
-            onOpenSheet();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Open genre filter sheet"
-        >
-          <Ionicons
-            name="options-outline"
-            size={14}
-            color={hasSelections ? GOLD_ACCENT : c.onSurfaceVariant}
-            style={{ marginRight: 5 }}
-          />
-          <Text
-            style={[styles.chipTextUpper, { color: hasSelections ? GOLD_ACCENT : c.onSurface }]}
-          >
-            All Genres{totalActive > 0 ? ` (${totalActive})` : ''}
-          </Text>
-          <Ionicons
-            name="chevron-down-outline"
-            size={12}
-            color={hasSelections ? GOLD_ACCENT : c.onSurfaceVariant}
-            style={{ marginLeft: 4 }}
-          />
-        </TouchableOpacity>
-
-        {sorted.slice(0, 12).map((genre) => {
-          const included = genreIds.includes(genre.id);
-          const excluded = excludeGenreIds.includes(genre.id);
-          let bg = c.surfaceContainerHigh;
-          let border = GOLD_DIM;
-          let textColor = c.onSurfaceVariant;
-          if (included) {
-            bg = GOLD_ACCENT;
-            border = GOLD_ACCENT;
-            textColor = '#141414';
-          }
-          if (excluded) {
-            bg = c.error + '22';
-            border = c.error + '66';
-            textColor = c.error;
-          }
-          return (
-            <TouchableOpacity
-              key={genre.id}
-              style={[
-                genreScrollStyles.chip,
-                {
-                  borderRadius: radii.md,
-                  backgroundColor: bg,
-                  borderWidth: 1,
-                  borderColor: border,
-                },
-              ]}
-              onPress={() => {
-                Haptics.selectionAsync();
-                onOpenSheet();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`${included ? 'Included' : excluded ? 'Excluded' : ''} genre ${genre.name}`}
-            >
-              <Text style={[styles.chipTextUpper, { color: textColor }]}>{genre.name}</Text>
-              {included && (
-                <Ionicons name="checkmark" size={12} color="#141414" style={{ marginLeft: 3 }} />
-              )}
-              {excluded && (
-                <Ionicons name="close" size={12} color={c.error} style={{ marginLeft: 3 }} />
-              )}
-            </TouchableOpacity>
-          );
-        })}
-
-        {sorted.length > 12 && (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.presetRow}
+    >
+      {INTENT_PRESETS.map((preset) => {
+        const active = intentPresetActive(preset, filters);
+        return (
           <TouchableOpacity
+            key={preset.id}
             style={[
-              genreScrollStyles.chip,
-              {
-                borderRadius: radii.md,
-                backgroundColor: c.surfaceContainerHigh,
-                borderWidth: 1,
-                borderColor: GOLD_DIM,
-              },
+              styles.presetCard,
+              { borderRadius: radii.lg },
+              active
+                ? { backgroundColor: GOLD_ACCENT, borderColor: GOLD_ACCENT }
+                : { backgroundColor: c.surfaceContainerHigh, borderColor: GOLD_DIM },
             ]}
             onPress={() => {
               Haptics.selectionAsync();
-              onOpenSheet();
+              onApply(preset);
             }}
+            activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel="View all genres"
+            accessibilityLabel={`${preset.label} quick pick`}
+            accessibilityState={{ selected: active }}
           >
-            <Text style={[styles.chipTextUpper, { color: c.onSurfaceVariant }]}>
-              +{sorted.length - 12} more
+            <Ionicons
+              name={preset.icon}
+              size={16}
+              color={active ? '#141414' : GOLD_ACCENT}
+              style={{ marginRight: 7 }}
+            />
+            <Text
+              style={[
+                styles.presetLabel,
+                { color: active ? '#141414' : c.onSurface, ...typography.labelSm },
+              ]}
+            >
+              {preset.label}
             </Text>
           </TouchableOpacity>
-        )}
-      </ScrollView>
-    </View>
+        );
+      })}
+    </ScrollView>
   );
 }
 
-// ─── Genre Bottom Sheet ────────────────────────────────────────────────────────
+// ─── Inline Picker Button ──────────────────────────────────────────────────────
+// The Language / Country control: opens a searchable value picker, shows the
+// current selection, and offers an inline clear. Replaces the old nested
+// "Language & Country" sheet-that-opened-another-sheet.
 
-function GenreBottomSheet({
-  visible,
-  embedded,
-  onClose,
-  genres,
-  genresLoading,
-  genreIds,
-  genreLogic,
-  excludeGenreIds,
-  excludeSmartTags,
-  onToggleInclude,
-  onToggleExclude,
-  onToggleSmartTag,
-  onUpdateGenreLogic,
-  onClearAll,
+function InlinePickerButton({
+  icon,
+  label,
+  active,
+  onOpen,
+  onClear,
+  accessibilityLabel,
+  clearAccessibilityLabel,
+  surface,
   colors: c,
   typography,
   radii,
 }) {
-  const insets = useSafeAreaInsets();
-  const totalActive = genreIds.length + excludeGenreIds.length + excludeSmartTags.length;
-
-  const content = (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      style={embedded && { flex: 1 }}
-    >
-      <GenreFilterSection
-        genres={genres}
-        genresLoading={genresLoading}
-        genreIds={genreIds}
-        genreLogic={genreLogic}
-        excludeGenreIds={excludeGenreIds}
-        excludeSmartTags={excludeSmartTags}
-        onToggleInclude={onToggleInclude}
-        onToggleExclude={onToggleExclude}
-        onToggleSmartTag={onToggleSmartTag}
-        onUpdateGenreLogic={onUpdateGenreLogic}
-        onClearAll={onClearAll}
-        colors={c}
-        typography={typography}
-        radii={radii}
-      />
-    </ScrollView>
-  );
-
-  if (embedded) {
-    return content;
-  }
-
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={pickerStyles.overlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1, justifyContent: 'flex-end' }}
+    <TouchableOpacity
+      style={[
+        styles.pickerButton,
+        {
+          backgroundColor: surface,
+          borderRadius: radii.md,
+          borderColor: active ? GOLD_ACCENT + '55' : GOLD_DIM,
+        },
+      ]}
+      onPress={onOpen}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      <Ionicons
+        name={icon}
+        size={16}
+        color={active ? GOLD_ACCENT : c.onSurfaceVariant}
+        style={{ marginRight: 8 }}
+      />
+      <Text
+        style={[
+          { flex: 1, color: active ? c.onSurface : c.onSurfaceVariant, ...typography.bodyMd },
+        ]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+      {active && (
+        <TouchableOpacity
+          onPress={onClear}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={clearAccessibilityLabel}
         >
-          <View
-            style={[
-              pickerStyles.sheet,
-              {
-                backgroundColor: c.surface,
-                borderRadius: radii.xl,
-                paddingBottom: insets.bottom + 24,
-                maxHeight: '90%',
-              },
-            ]}
-          >
-            <View style={pickerStyles.sheetHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={[{ color: c.onSurface, ...typography.titleMd, fontWeight: '700' }]}>
-                  Genre Filters
-                </Text>
-                {totalActive > 0 && (
-                  <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, marginTop: 2 }]}>
-                    {genreIds.length > 0 ? `${genreIds.length} included` : ''}
-                    {genreIds.length > 0 && excludeGenreIds.length + excludeSmartTags.length > 0
-                      ? ' · '
-                      : ''}
-                    {excludeGenreIds.length + excludeSmartTags.length > 0
-                      ? `${excludeGenreIds.length + excludeSmartTags.length} excluded`
-                      : ''}
-                  </Text>
-                )}
-              </View>
-              <TouchableOpacity
-                onPress={onClose}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityRole="button"
-                accessibilityLabel="Close genre sheet"
-              >
-                <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '800' }]}>
-                  Done
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {content}
-          </View>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>
+          <Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} />
+        </TouchableOpacity>
+      )}
+      <Ionicons
+        name="chevron-down-outline"
+        size={16}
+        color={c.onSurfaceVariant}
+        style={{ marginLeft: 4 }}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -1551,455 +1295,25 @@ function SortByControl({ sortOptions, displayedSortBy, onChange, colors: c, typo
   );
 }
 
-function MoreFiltersSheetContent({
-  vm,
-  colors: c,
-  typography,
-  radii,
-  langLabel,
-  countryLabel,
-  selectedLanguageCodes,
-  selectedOriginCountries,
-  onOpenLangModal,
-  onOpenCountryModal,
-}) {
-  return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      style={{ flex: 1 }}
-    >
-      {/* Language Presets */}
-      <SectionLabel label="Language Presets" colors={c} typography={typography} />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={[styles.hScroll, { marginBottom: 12 }]}
-      >
-        <View style={styles.hChipRow}>
-          {SPECIAL_PRESETS.map((preset) => {
-            const active = vm.filters.activePreset === preset.id;
-            return (
-              <TouchableOpacity
-                key={preset.id}
-                style={[
-                  styles.chip,
-                  { borderRadius: radii.md },
-                  active
-                    ? {
-                        backgroundColor: GOLD_ACCENT + '22',
-                        borderWidth: 1,
-                        borderColor: GOLD_ACCENT,
-                      }
-                    : {
-                        backgroundColor: c.surfaceContainerHigh,
-                        borderWidth: 1,
-                        borderColor: GOLD_DIM,
-                      },
-                ]}
-                onPress={() => (active ? vm.clearPreset() : vm.applyPreset(preset.id))}
-              >
-                <Text
-                  style={[
-                    styles.chipTextUpper,
-                    { color: active ? GOLD_ACCENT : c.onSurfaceVariant, ...typography.labelSm },
-                  ]}
-                >
-                  {preset.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-          {REGION_PRESETS.map((preset) => {
-            const active = vm.filters.activePreset === preset.id;
-            return (
-              <TouchableOpacity
-                key={preset.id}
-                style={[
-                  styles.chip,
-                  { borderRadius: radii.md },
-                  active
-                    ? { backgroundColor: GOLD_ACCENT }
-                    : {
-                        backgroundColor: c.surfaceContainerHigh,
-                        borderWidth: 1,
-                        borderColor: GOLD_DIM,
-                      },
-                ]}
-                onPress={() => (active ? vm.clearPreset() : vm.applyPreset(preset.id))}
-              >
-                <Text
-                  style={[
-                    styles.chipTextUpper,
-                    { color: active ? '#141414' : c.onSurfaceVariant, ...typography.labelSm },
-                  ]}
-                >
-                  {preset.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
-
-      {vm.filters.activePreset && (
-        <View
-          style={[
-            genreStyles.infoBanner,
-            {
-              backgroundColor: c.surfaceContainerHigh,
-              borderRadius: radii.md,
-              borderLeftColor: GOLD_ACCENT,
-              marginBottom: 16,
-            },
-          ]}
-        >
-          <View style={{ flex: 1 }}>
-            <Text
-              style={[
-                { color: c.onSurface, ...typography.labelSm, fontWeight: '700', marginBottom: 2 },
-              ]}
-            >
-              {findPreset(vm.filters.activePreset)?.label}
-            </Text>
-            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
-              {findPreset(vm.filters.activePreset)?.description}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => vm.clearPreset()} style={{ marginLeft: 8 }}>
-            <Ionicons name="close-circle" size={20} color={c.onSurfaceVariant} />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {vm.pendingCountryLink && vm.filters.mediaType === 'tv' && (
-        <View
-          style={[
-            genreStyles.infoBanner,
-            {
-              backgroundColor: c.secondaryContainer,
-              borderRadius: radii.md,
-              borderLeftColor: c.secondary,
-              marginBottom: 16,
-              alignItems: 'center',
-            },
-          ]}
-        >
-          <Ionicons
-            name="link-outline"
-            size={16}
-            color={c.onSecondaryContainer}
-            style={{ marginRight: 10 }}
-          />
-          <View style={{ flex: 1 }}>
-            <Text
-              style={[
-                {
-                  color: c.onSecondaryContainer,
-                  ...typography.labelSm,
-                  fontWeight: '700',
-                  marginBottom: 2,
-                },
-              ]}
-            >
-              Also filter by origin country?
-            </Text>
-            <Text style={[{ color: c.onSecondaryContainer, ...typography.labelSm, opacity: 0.8 }]}>
-              Narrow TV results to shows from {vm.pendingCountryLink.label} countries.
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-              <TouchableOpacity
-                style={[
-                  {
-                    backgroundColor: c.secondary,
-                    borderRadius: radii.full,
-                    paddingHorizontal: 14,
-                    paddingVertical: 6,
-                  },
-                ]}
-                onPress={vm.acceptCountryLink}
-                accessibilityRole="button"
-                accessibilityLabel={`Yes, also filter by ${vm.pendingCountryLink.label} countries`}
-              >
-                <Text style={[{ color: c.onSecondary, ...typography.labelSm, fontWeight: '800' }]}>
-                  Yes, link it
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  {
-                    backgroundColor: c.secondaryContainer,
-                    borderRadius: radii.full,
-                    paddingHorizontal: 14,
-                    paddingVertical: 6,
-                    borderWidth: 1,
-                    borderColor: c.secondary + '60',
-                  },
-                ]}
-                onPress={vm.dismissCountryLink}
-                accessibilityRole="button"
-                accessibilityLabel="No, keep language filter only"
-              >
-                <Text
-                  style={[
-                    { color: c.onSecondaryContainer, ...typography.labelSm, fontWeight: '700' },
-                  ]}
-                >
-                  No thanks
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
-
-      <FilterDivider />
-
-      {/* Advanced Language Filter */}
-      <View style={styles.sectionRow}>
-        <SectionLabel label="Advanced Language Filter" colors={c} typography={typography} />
-        {vm.filters.activePreset && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Ionicons name="flash-outline" size={12} color={GOLD_ACCENT} />
-            <Text style={[{ color: GOLD_ACCENT, fontSize: 10, fontWeight: '800' }]}>
-              Preset Active
-            </Text>
-          </View>
-        )}
-      </View>
-      <TouchableOpacity
-        style={[
-          styles.pickerButton,
-          {
-            backgroundColor: c.surfaceContainerHigh,
-            borderRadius: radii.md,
-            borderColor: vm.filters.activePreset ? GOLD_ACCENT + '40' : GOLD_DIM,
-          },
-        ]}
-        onPress={onOpenLangModal}
-        activeOpacity={0.8}
-        accessibilityRole="button"
-        accessibilityLabel={`Original language, ${langLabel}`}
-      >
-        <Ionicons
-          name="language-outline"
-          size={16}
-          color={
-            selectedLanguageCodes.length || vm.filters.excludeEnglish
-              ? GOLD_ACCENT
-              : c.onSurfaceVariant
-          }
-          style={{ marginRight: 8 }}
-        />
-        <Text
-          style={[
-            {
-              flex: 1,
-              color:
-                selectedLanguageCodes.length || vm.filters.excludeEnglish
-                  ? c.onSurface
-                  : c.onSurfaceVariant,
-              ...typography.bodyMd,
-            },
-          ]}
-          numberOfLines={1}
-        >
-          {vm.filters.activePreset ? findPreset(vm.filters.activePreset).label : langLabel}
-        </Text>
-        {(selectedLanguageCodes.length > 0 || vm.filters.excludeEnglish) && (
-          <TouchableOpacity
-            onPress={() => vm.clearPreset()}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel="Clear selected languages"
-          >
-            <Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} />
-          </TouchableOpacity>
-        )}
-        <Ionicons
-          name="chevron-down-outline"
-          size={16}
-          color={c.onSurfaceVariant}
-          style={{ marginLeft: 4 }}
-        />
-      </TouchableOpacity>
-
-      {/* Origin Country — TV only */}
-      {vm.filters.mediaType === 'tv' && (
-        <>
-          <FilterDivider />
-          <View style={styles.sectionRow}>
-            <SectionLabel label="Country Presets" colors={c} typography={typography} />
-            {vm.filters.activeCountryPreset && (
-              <TouchableOpacity
-                onPress={() => vm.clearCountryPreset()}
-                accessibilityRole="button"
-                accessibilityLabel="Clear country preset"
-              >
-                <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm }]}>Clear</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={[styles.hScroll, { marginBottom: 12 }]}
-          >
-            <View style={styles.hChipRow}>
-              {COUNTRY_PRESETS.map((preset) => {
-                const active = vm.filters.activeCountryPreset === preset.id;
-                return (
-                  <TouchableOpacity
-                    key={preset.id}
-                    style={[
-                      styles.chip,
-                      { borderRadius: radii.md },
-                      active
-                        ? { backgroundColor: GOLD_ACCENT }
-                        : {
-                            backgroundColor: c.surfaceContainerHigh,
-                            borderWidth: 1,
-                            borderColor: GOLD_DIM,
-                          },
-                    ]}
-                    onPress={() =>
-                      active ? vm.clearCountryPreset() : vm.applyCountryPreset(preset.id)
-                    }
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Filter countries by ${preset.label}`}
-                    accessibilityState={{ selected: active }}
-                  >
-                    <Text
-                      style={[
-                        styles.chipTextUpper,
-                        { color: active ? '#141414' : c.onSurfaceVariant, ...typography.labelSm },
-                      ]}
-                    >
-                      {preset.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </ScrollView>
-          {vm.filters.activeCountryPreset && (
-            <View
-              style={[
-                genreStyles.infoBanner,
-                {
-                  backgroundColor: c.surfaceContainerHigh,
-                  borderRadius: radii.md,
-                  borderLeftColor: GOLD_ACCENT,
-                  marginBottom: 16,
-                },
-              ]}
-            >
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[
-                    {
-                      color: c.onSurface,
-                      ...typography.labelSm,
-                      fontWeight: '700',
-                      marginBottom: 2,
-                    },
-                  ]}
-                >
-                  {findCountryPreset(vm.filters.activeCountryPreset)?.label}
-                </Text>
-                <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
-                  {findCountryPreset(vm.filters.activeCountryPreset)?.description}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => vm.clearCountryPreset()} style={{ marginLeft: 8 }}>
-                <Ionicons name="close-circle" size={20} color={c.onSurfaceVariant} />
-              </TouchableOpacity>
-            </View>
-          )}
-          <View style={styles.sectionRow}>
-            <SectionLabel label="Origin Country (TV)" colors={c} typography={typography} />
-            {vm.filters.activeCountryPreset && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="flash-outline" size={12} color={GOLD_ACCENT} />
-                <Text style={[{ color: GOLD_ACCENT, fontSize: 10, fontWeight: '800' }]}>
-                  Preset Active
-                </Text>
-              </View>
-            )}
-          </View>
-          <TouchableOpacity
-            style={[
-              styles.pickerButton,
-              {
-                backgroundColor: c.surfaceContainerHigh,
-                borderRadius: radii.md,
-                borderColor: vm.filters.activeCountryPreset ? GOLD_ACCENT + '40' : GOLD_DIM,
-              },
-            ]}
-            onPress={onOpenCountryModal}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={`Origin country, ${countryLabel}`}
-          >
-            <Ionicons
-              name="globe-outline"
-              size={16}
-              color={selectedOriginCountries.length ? GOLD_ACCENT : c.onSurfaceVariant}
-              style={{ marginRight: 8 }}
-            />
-            <Text
-              style={[
-                {
-                  flex: 1,
-                  color: selectedOriginCountries.length ? c.onSurface : c.onSurfaceVariant,
-                  ...typography.bodyMd,
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {vm.filters.activeCountryPreset && !selectedOriginCountries.length
-                ? `All ${findCountryPreset(vm.filters.activeCountryPreset)?.label} countries`
-                : countryLabel}
-            </Text>
-            {selectedOriginCountries.length > 0 && (
-              <TouchableOpacity
-                onPress={() => vm.updateFilter('originCountries', [])}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel="Clear selected countries"
-              >
-                <Ionicons name="close-circle-outline" size={16} color={c.onSurfaceVariant} />
-              </TouchableOpacity>
-            )}
-            <Ionicons
-              name="chevron-down-outline"
-              size={16}
-              color={c.onSurfaceVariant}
-              style={{ marginLeft: 4 }}
-            />
-          </TouchableOpacity>
-        </>
-      )}
-    </ScrollView>
-  );
-}
-
 // ─── Smart Tags ────────────────────────────────────────────────────────────────
-// These are curated filters that don't map 1:1 to a TMDB genre.
+// Curated filters that don't map 1:1 to a TMDB genre. Each is bidirectional: it
+// can be required (include) or removed (exclude) — the include path uses a native
+// TMDB keyword, the exclude path a post-fetch heuristic.
 const SMART_TAGS = [
   {
     key: 'anime',
-    label: 'Anime ✦',
-    // Only meaningful in Exclude mode; no TMDB genre ID.
-    description:
-      'Anime is not an official TMDB genre. This smart-filter removes ' +
-      'titles where the original language is Japanese AND the Animation ' +
-      'genre is set, or where "anime" appears in the title/overview.',
+    label: 'Anime',
+    includeDescription: 'Shows only titles carrying the TMDB "anime" keyword.',
+    excludeDescription:
+      'Removes titles where the original language is Japanese AND the Animation ' +
+      'genre is set, or where "anime" appears in the title or overview.',
   },
 ];
 
 // ─── Genre Filter Section ─────────────────────────────────────────────────────
+// One tri-state grammar for the whole section: tapping a genre (or smart filter)
+// cycles it neutral → include → exclude → neutral. No tabs, no per-tab colour
+// remapping — a chip means exactly one thing at all times.
 
 function GenreFilterSection({
   genres,
@@ -2007,24 +1321,21 @@ function GenreFilterSection({
   genreIds,
   genreLogic,
   excludeGenreIds,
+  includeSmartTags,
   excludeSmartTags,
-  onToggleInclude,
-  onToggleExclude,
-  onToggleSmartTag,
+  onCycleGenre,
+  onCycleSmartTag,
   onUpdateGenreLogic,
   onClearAll,
   colors: c,
   typography,
   radii,
 }) {
-  // 'include' | 'exclude'
-  const [activeTab, setActiveTab] = useState('include');
-
   const hasAnySelection =
-    genreIds.length > 0 || excludeGenreIds.length > 0 || excludeSmartTags.length > 0;
-
-  const includeCount = genreIds.length;
-  const excludeCount = excludeGenreIds.length + excludeSmartTags.length;
+    genreIds.length > 0 ||
+    excludeGenreIds.length > 0 ||
+    includeSmartTags.length > 0 ||
+    excludeSmartTags.length > 0;
 
   return (
     <View>
@@ -2042,423 +1353,244 @@ function GenreFilterSection({
         )}
       </View>
 
-      {/* ── Include / Exclude tab switcher ── */}
-      <View
-        style={[
-          genreStyles.tabRow,
-          { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.lg },
-        ]}
-      >
-        {[
-          { key: 'include', label: 'Include', count: includeCount, activeColor: GOLD_ACCENT },
-          { key: 'exclude', label: 'Exclude', count: excludeCount, activeColor: c.error },
-        ].map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              style={[
-                genreStyles.tabBtn,
-                { borderRadius: radii.md },
-                isActive && { backgroundColor: tab.activeColor },
-              ]}
-              onPress={() => {
-                if (activeTab !== tab.key) {
-                  Haptics.selectionAsync();
-                }
-                setActiveTab(tab.key);
-              }}
-              activeOpacity={0.8}
-              accessibilityRole="tab"
-              accessibilityLabel={`${tab.label} genres tab`}
-              accessibilityState={{ selected: isActive }}
-            >
-              <Text
-                style={[
-                  {
-                    color: isActive
-                      ? tab.key === 'include'
-                        ? '#141414'
-                        : c.onPrimary
-                      : c.onSurfaceVariant,
-                    ...typography.labelSm,
-                    fontWeight: '700',
-                  },
-                ]}
-              >
-                {tab.label}
-                {tab.count > 0 ? ` (${tab.count})` : ''}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      {/* ── Tri-state legend ── */}
+      <View style={genreStyles.legendRow}>
+        <View style={[genreStyles.legendDot, { backgroundColor: GOLD_ACCENT }]} />
+        <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>Include</Text>
+        <View
+          style={[genreStyles.legendDot, { backgroundColor: c.error, marginLeft: 14 }]}
+        />
+        <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>Exclude</Text>
+        <Text
+          style={[
+            { color: c.onSurfaceVariant, ...typography.labelSm, marginLeft: 14, flex: 1 },
+          ]}
+          numberOfLines={1}
+        >
+          · tap to cycle
+        </Text>
       </View>
 
-      {/* ── Include tab content ── */}
-      {activeTab === 'include' && (
-        <>
-          {/* AND / OR logic toggle — only meaningful for include */}
-          <View style={[genreStyles.logicRow]}>
-            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginRight: 8 }]}>
-              Match:
-            </Text>
-            <View
-              style={[
-                styles.logicPill,
-                { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full },
-              ]}
-            >
-              {['AND', 'OR'].map((mode) => {
-                const active = genreLogic === mode;
-                return (
-                  <TouchableOpacity
-                    key={mode}
-                    style={[
-                      styles.logicOption,
-                      active && { backgroundColor: GOLD_ACCENT, borderRadius: radii.full },
-                    ]}
-                    onPress={() => {
-                      if (genreLogic !== mode) {
-                        Haptics.selectionAsync();
-                      }
-                      onUpdateGenreLogic(mode);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Use ${mode} genre matching`}
-                    accessibilityState={{ selected: active }}
-                  >
-                    <Text
-                      style={[
-                        {
-                          color: active ? '#141414' : c.onSurfaceVariant,
-                          ...typography.labelSm,
-                          fontWeight: '700',
-                        },
-                      ]}
-                    >
-                      {mode}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <Text
-              style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginLeft: 8, flex: 1 }]}
-              numberOfLines={1}
-            >
-              {genreLogic === 'AND' ? 'all selected genres' : 'any selected genre'}
-            </Text>
-          </View>
-
-          {genresLoading ? (
-            <GenreChipSkeleton count={10} />
-          ) : (
-            <View style={styles.chipWrap}>
-              {genres.map((genre) => {
-                const included = genreIds.includes(genre.id);
-                const excluded = excludeGenreIds.includes(genre.id);
-                // Chip state: included → primary, excluded → dimmed-error, else neutral
-                let chipBg = c.surfaceContainerHigh;
-                let chipBorder = { borderWidth: 1, borderColor: GOLD_DIM };
-                let textColor = c.onSurfaceVariant;
-                if (included) {
-                  chipBg = GOLD_ACCENT;
-                  chipBorder = {};
-                  textColor = '#141414';
-                }
-                if (excluded) {
-                  chipBg = c.error + '22';
-                  chipBorder = { borderWidth: 1, borderColor: c.error + '55' };
-                  textColor = c.error;
-                }
-
-                return (
-                  <TouchableOpacity
-                    key={genre.id}
-                    style={[
-                      styles.chip,
-                      { borderRadius: radii.full, backgroundColor: chipBg },
-                      chipBorder,
-                    ]}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      onToggleInclude(genre.id);
-                    }}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Include ${genre.name} genre`}
-                    accessibilityState={{ selected: included }}
-                  >
-                    {included && (
-                      <Ionicons
-                        name="checkmark"
-                        size={12}
-                        color="#141414"
-                        style={{ marginRight: 3 }}
-                      />
-                    )}
-                    {excluded && (
-                      <Ionicons
-                        name="remove-circle-outline"
-                        size={12}
-                        color={c.error}
-                        style={{ marginRight: 3 }}
-                      />
-                    )}
-                    <Text style={[styles.chipText, { color: textColor, ...typography.labelSm }]}>
-                      {genre.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-
-          {genreIds.length === 0 && !genresLoading && (
-            <Text
-              style={[
-                {
-                  color: c.onSurfaceVariant,
-                  ...typography.labelSm,
-                  marginTop: 8,
-                  fontStyle: 'italic',
-                },
-              ]}
-            >
-              Tap a genre to require it in results.
-            </Text>
-          )}
-        </>
-      )}
-
-      {/* ── Exclude tab content ── */}
-      {activeTab === 'exclude' && (
-        <>
-          {/* Info callout */}
+      {/* ── AND / OR logic — governs how included genres combine ── */}
+      {genreIds.length > 0 && (
+        <View style={[genreStyles.logicRow]}>
+          <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginRight: 8 }]}>
+            Match:
+          </Text>
           <View
             style={[
-              genreStyles.infoBanner,
-              {
-                backgroundColor: c.surfaceContainerHigh,
-                borderRadius: radii.md,
-                borderLeftColor: c.error,
-              },
+              styles.logicPill,
+              { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full },
             ]}
           >
-            <Ionicons
-              name="information-circle-outline"
-              size={16}
-              color={c.onSurfaceVariant}
-              style={{ marginRight: 8, marginTop: 1 }}
-            />
-            <Text style={[{ flex: 1, color: c.onSurfaceVariant, ...typography.labelSm }]}>
-              Excluded genres are removed from results even if other filters match.
-            </Text>
-          </View>
-
-          {genresLoading ? (
-            <GenreChipSkeleton count={10} />
-          ) : (
-            <View style={styles.chipWrap}>
-              {genres.map((genre) => {
-                const excluded = excludeGenreIds.includes(genre.id);
-                const included = genreIds.includes(genre.id);
-                let chipBg = c.surfaceContainerHigh;
-                let chipBorder = { borderWidth: 1, borderColor: c.outlineVariant + '40' };
-                let textColor = c.onSurfaceVariant;
-                if (excluded) {
-                  chipBg = c.error;
-                  chipBorder = {};
-                  textColor = c.onPrimary;
-                }
-                if (included) {
-                  chipBg = GOLD_ACCENT + '22';
-                  chipBorder = { borderWidth: 1, borderColor: GOLD_ACCENT + '55' };
-                  textColor = GOLD_ACCENT;
-                }
-
-                return (
-                  <TouchableOpacity
-                    key={genre.id}
-                    style={[
-                      styles.chip,
-                      { borderRadius: radii.full, backgroundColor: chipBg },
-                      chipBorder,
-                    ]}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      onToggleExclude(genre.id);
-                    }}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Exclude ${genre.name} genre`}
-                    accessibilityState={{ selected: excluded }}
-                  >
-                    {excluded && (
-                      <Ionicons
-                        name="close"
-                        size={12}
-                        color={c.onPrimary}
-                        style={{ marginRight: 3 }}
-                      />
-                    )}
-                    {included && (
-                      <Ionicons
-                        name="checkmark"
-                        size={12}
-                        color={GOLD_ACCENT}
-                        style={{ marginRight: 3 }}
-                      />
-                    )}
-                    <Text style={[styles.chipText, { color: textColor, ...typography.labelSm }]}>
-                      {genre.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-
-          {/* ── Smart Tags (Anime, etc.) ── */}
-          <View style={genreStyles.smartTagsHeader}>
-            <Ionicons
-              name="sparkles-outline"
-              size={13}
-              color={c.onSurfaceVariant}
-              style={{ marginRight: 6 }}
-            />
-            <Text
-              style={[
-                {
-                  color: c.onSurfaceVariant,
-                  ...typography.labelSm,
-                  fontWeight: '700',
-                  letterSpacing: 0.8,
-                },
-              ]}
-            >
-              SMART FILTERS
-            </Text>
-          </View>
-
-          {SMART_TAGS.map((tag) => {
-            const isActive = excludeSmartTags.includes(tag.key);
-            return (
-              <View key={tag.key}>
+            {['AND', 'OR'].map((mode) => {
+              const active = genreLogic === mode;
+              return (
                 <TouchableOpacity
+                  key={mode}
                   style={[
-                    genreStyles.smartTagChip,
-                    {
-                      borderRadius: radii.md,
-                      backgroundColor: isActive ? c.error + '18' : c.surfaceContainerHigh,
-                      borderColor: isActive ? c.error : c.outlineVariant + '40',
-                    },
+                    styles.logicOption,
+                    active && { backgroundColor: GOLD_ACCENT, borderRadius: radii.full },
                   ]}
                   onPress={() => {
-                    Haptics.selectionAsync();
-                    onToggleSmartTag(tag.key);
+                    if (genreLogic !== mode) {
+                      Haptics.selectionAsync();
+                    }
+                    onUpdateGenreLogic(mode);
                   }}
-                  activeOpacity={0.8}
                   accessibilityRole="button"
-                  accessibilityLabel={`Exclude ${tag.label}`}
-                  accessibilityState={{ selected: isActive }}
+                  accessibilityLabel={`Use ${mode} genre matching`}
+                  accessibilityState={{ selected: active }}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                    {isActive ? (
-                      <Ionicons
-                        name="close-circle"
-                        size={18}
-                        color={c.error}
-                        style={{ marginRight: 8 }}
-                      />
-                    ) : (
-                      <Ionicons
-                        name="close-circle-outline"
-                        size={18}
-                        color={c.onSurfaceVariant}
-                        style={{ marginRight: 8 }}
-                      />
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={[
-                          {
-                            color: isActive ? c.error : c.onSurface,
-                            ...typography.bodyMd,
-                            fontWeight: '700',
-                          },
-                        ]}
-                      >
-                        {tag.label}
-                      </Text>
-                      <Text
-                        style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}
-                        numberOfLines={2}
-                      >
-                        Smart filter · not a TMDB genre
-                      </Text>
-                    </View>
-                  </View>
-                  <View
+                  <Text
                     style={[
-                      genreStyles.smartTagBadge,
                       {
-                        backgroundColor: isActive ? c.error : c.surfaceContainerHigh,
-                        borderRadius: radii.sm,
+                        color: active ? '#141414' : c.onSurfaceVariant,
+                        ...typography.labelSm,
+                        fontWeight: '700',
                       },
                     ]}
                   >
-                    <Text
-                      style={[
-                        {
-                          color: isActive ? c.onPrimary : c.onSurfaceVariant,
-                          fontSize: 10,
-                          fontWeight: '800',
-                        },
-                      ]}
-                    >
-                      {isActive ? 'ON' : 'OFF'}
-                    </Text>
-                  </View>
+                    {mode}
+                  </Text>
                 </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text
+            style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginLeft: 8, flex: 1 }]}
+            numberOfLines={1}
+          >
+            {genreLogic === 'AND' ? 'all included genres' : 'any included genre'}
+          </Text>
+        </View>
+      )}
 
-                {/* Explanation callout shown when active */}
-                {isActive && (
-                  <View
-                    style={[
-                      genreStyles.smartTagInfo,
-                      {
-                        backgroundColor: c.error + '10',
-                        borderRadius: radii.sm,
-                        borderLeftColor: c.error,
-                      },
-                    ]}
-                  >
-                    <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
-                      {tag.description}
-                    </Text>
-                  </View>
+      {/* ── Genre chips (tri-state) ── */}
+      {genresLoading ? (
+        <GenreChipSkeleton count={10} />
+      ) : (
+        <View style={styles.chipWrap}>
+          {genres.map((genre) => {
+            const included = genreIds.includes(genre.id);
+            const excluded = excludeGenreIds.includes(genre.id);
+            let chipBg = c.surfaceContainerHigh;
+            let chipBorder = { borderWidth: 1, borderColor: GOLD_DIM };
+            let textColor = c.onSurfaceVariant;
+            let icon = null;
+            let iconColor = null;
+            if (included) {
+              chipBg = GOLD_ACCENT;
+              chipBorder = {};
+              textColor = '#141414';
+              icon = 'checkmark';
+              iconColor = '#141414';
+            } else if (excluded) {
+              chipBg = c.error;
+              chipBorder = {};
+              textColor = c.onPrimary;
+              icon = 'close';
+              iconColor = c.onPrimary;
+            }
+
+            return (
+              <TouchableOpacity
+                key={genre.id}
+                style={[
+                  styles.chip,
+                  { borderRadius: radii.full, backgroundColor: chipBg },
+                  chipBorder,
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  onCycleGenre(genre.id);
+                }}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={`${genre.name} genre${
+                  included ? ', included' : excluded ? ', excluded' : ''
+                }`}
+                accessibilityHint="Cycles include, exclude, off"
+                accessibilityState={{ selected: included || excluded }}
+              >
+                {icon && (
+                  <Ionicons name={icon} size={12} color={iconColor} style={{ marginRight: 3 }} />
                 )}
-              </View>
+                <Text style={[styles.chipText, { color: textColor, ...typography.labelSm }]}>
+                  {genre.name}
+                </Text>
+              </TouchableOpacity>
             );
           })}
-
-          {excludeGenreIds.length === 0 && excludeSmartTags.length === 0 && !genresLoading && (
-            <Text
-              style={[
-                {
-                  color: c.onSurfaceVariant,
-                  ...typography.labelSm,
-                  marginTop: 8,
-                  fontStyle: 'italic',
-                },
-              ]}
-            >
-              Tap a genre to exclude it from results.
-            </Text>
-          )}
-        </>
+        </View>
       )}
+
+      {genresLoading || hasAnySelection ? null : (
+        <Text
+          style={[
+            { color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 8, fontStyle: 'italic' },
+          ]}
+        >
+          Tap a genre to include it; tap again to exclude.
+        </Text>
+      )}
+
+      {/* ── Smart filters (Anime, …) — same tri-state grammar ── */}
+      <View style={genreStyles.smartTagsHeader}>
+        <Ionicons
+          name="sparkles-outline"
+          size={13}
+          color={c.onSurfaceVariant}
+          style={{ marginRight: 6 }}
+        />
+        <Text
+          style={[
+            { color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', letterSpacing: 0.8 },
+          ]}
+        >
+          SMART FILTERS
+        </Text>
+      </View>
+
+      {SMART_TAGS.map((tag) => {
+        const inc = includeSmartTags.includes(tag.key);
+        const exc = excludeSmartTags.includes(tag.key);
+        const stateColor = inc ? GOLD_ACCENT : exc ? c.error : c.onSurfaceVariant;
+        const stateLabel = inc ? 'INCLUDE' : exc ? 'EXCLUDE' : 'OFF';
+        const rowBg = inc ? GOLD_ACCENT + '18' : exc ? c.error + '18' : c.surfaceContainerHigh;
+        const rowBorder = inc ? GOLD_ACCENT : exc ? c.error : c.outlineVariant + '40';
+        const rowIcon = inc ? 'sparkles' : exc ? 'close-circle' : 'sparkles-outline';
+        return (
+          <View key={tag.key}>
+            <TouchableOpacity
+              style={[
+                genreStyles.smartTagChip,
+                { borderRadius: radii.md, backgroundColor: rowBg, borderColor: rowBorder },
+              ]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                onCycleSmartTag(tag.key);
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`${tag.label} smart filter, ${stateLabel.toLowerCase()}`}
+              accessibilityHint="Cycles include, exclude, off"
+              accessibilityState={{ selected: inc || exc }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Ionicons
+                  name={rowIcon}
+                  size={18}
+                  color={inc || exc ? stateColor : c.onSurfaceVariant}
+                  style={{ marginRight: 8 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      { color: inc || exc ? stateColor : c.onSurface, ...typography.bodyMd, fontWeight: '700' },
+                    ]}
+                  >
+                    {tag.label}
+                  </Text>
+                  <Text
+                    style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}
+                    numberOfLines={2}
+                  >
+                    Smart filter · not a TMDB genre
+                  </Text>
+                </View>
+              </View>
+              <View
+                style={[
+                  genreStyles.smartTagBadge,
+                  { backgroundColor: inc || exc ? stateColor : c.surfaceContainerHigh, borderRadius: radii.sm },
+                ]}
+              >
+                <Text
+                  style={[
+                    { color: inc || exc ? c.onPrimary : c.onSurfaceVariant, fontSize: 10, fontWeight: '800' },
+                  ]}
+                >
+                  {stateLabel}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {(inc || exc) && (
+              <View
+                style={[
+                  genreStyles.smartTagInfo,
+                  { backgroundColor: stateColor + '10', borderRadius: radii.sm, borderLeftColor: stateColor },
+                ]}
+              >
+                <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
+                  {inc ? tag.includeDescription : tag.excludeDescription}
+                </Text>
+              </View>
+            )}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -2921,25 +2053,6 @@ function SectionLabel({ label, colors, typography }) {
   );
 }
 
-// ─── Genre Scroll Styles ──────────────────────────────────────────────────────
-
-const genreScrollStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-    paddingRight: 8,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minHeight: 36,
-  },
-});
-
 // ─── Picker Sheet Styles ───────────────────────────────────────────────────────
 
 const pickerStyles = StyleSheet.create({
@@ -2993,6 +2106,18 @@ const genreStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     paddingHorizontal: 4,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    paddingHorizontal: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
   },
   infoBanner: {
     flexDirection: 'row',
@@ -3112,6 +2237,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  presetRow: { flexDirection: 'row', gap: 8, paddingVertical: 4, paddingRight: GRID_PAD },
+  presetCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    minHeight: 44,
+  },
+  presetLabel: {
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    fontSize: scale(12),
   },
 
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },

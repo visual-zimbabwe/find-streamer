@@ -1041,6 +1041,11 @@ export async function enrichDiscoverResults(items = []) {
 // TMDB genre id 16 = Animation.
 const ANIMATION_GENRE_ID = 16;
 
+// TMDB keyword id 210024 = "anime". Used for the *include* path ("find me anime")
+// because it is a native discover parameter — counts and pagination stay correct,
+// unlike the post-fetch heuristic we still use for the exclude path.
+const ANIME_KEYWORD_ID = '210024';
+
 function isLikelyAnime(rawItem) {
   const lang = (rawItem.original_language || '').toLowerCase();
   const genreIds = rawItem.genre_ids || [];
@@ -1062,7 +1067,8 @@ function isLikelyAnime(rawItem) {
  *   genreIds: number[],            // include genres (AND/OR)
  *   genreLogic: 'AND' | 'OR',
  *   excludeGenreIds: number[],     // official TMDB genres to exclude
- *   excludeSmartTags: string[],    // e.g. ['anime']
+ *   excludeSmartTags: string[],    // e.g. ['anime'] — removed post-fetch
+ *   includeSmartTags: string[],    // e.g. ['anime'] — required via with_keywords
  *   minRating: number | null,      // vote_average.gte
  *   maxRating: number | null,      // vote_average.lte
  *   languageCodes: string[],       // ISO 639-1, e.g. ['en', 'ja']
@@ -1084,6 +1090,7 @@ export async function discoverTitles(filters = {}) {
     genreLogic = 'AND',
     excludeGenreIds = [],
     excludeSmartTags = [],
+    includeSmartTags = [],
     minRating = null,
     maxRating = null,
     languageCodes = [],
@@ -1121,6 +1128,12 @@ export async function discoverTitles(filters = {}) {
   if (excludeGenreIds.length > 0) {
     // TMDB: without_genres accepts comma-separated IDs (always AND-exclusion)
     params.without_genres = excludeGenreIds.join(',');
+  }
+
+  // ── Include smart tags (native keyword filter) ─────────────────────────────
+  // Anime-include maps to the TMDB "anime" keyword so the count stays exact.
+  if (includeSmartTags.includes('anime')) {
+    params.with_keywords = ANIME_KEYWORD_ID;
   }
 
   if (minRating != null && minRating > 0) {
