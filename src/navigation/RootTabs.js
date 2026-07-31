@@ -4,7 +4,6 @@ import { useTheme } from '../theme/ThemeProvider';
 import { HomeStack } from './HomeStack';
 import { SearchStack } from './SearchStack';
 import { DiscoverStack } from './DiscoverStack';
-import { WatchlistStack } from './WatchlistStack';
 import { SettingsStack } from './SettingsStack';
 
 const Tab = createBottomTabNavigator();
@@ -25,7 +24,6 @@ export function RootTabs() {
       <Tab.Screen name="home" component={HomeStack} />
       <Tab.Screen name="search" component={SearchStack} />
       <Tab.Screen name="discover" component={DiscoverStack} />
-      <Tab.Screen name="watchlist" component={WatchlistStack} />
       <Tab.Screen name="settings" component={SettingsStack} />
     </Tab.Navigator>
   );

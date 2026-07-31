@@ -15,7 +15,7 @@ import { navigationTheme } from './navigationTheme';
 
 const IMMERSIVE_ROUTES = new Set(['Home', 'Collections', 'Detail', 'FullCast', 'Filmography']);
 /** Tool tabs use ProgrammeSectionHeader — no AppHeader wordmark on top. */
-const TOOL_TAB_ROUTES = new Set(['Search', 'Discover', 'Watchlist', 'Settings']);
+const TOOL_TAB_ROUTES = new Set(['Search', 'Discover', 'Settings']);
 
 function AppShellInner({ rootNavState }) {
   const { theme } = useTheme();
