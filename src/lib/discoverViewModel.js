@@ -22,6 +22,16 @@ import {
   sortByAirDateAsc,
 } from './tvAiringFilter';
 
+/**
+ * Structural equality over the filter object. Both sides are plain objects built
+ * by spreading DEFAULT_FILTERS, so key order is stable and stringify is reliable.
+ * Used to tell whether the live filters have drifted from the last committed
+ * search (the "results are stale" signal).
+ */
+function filtersEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 const DEFAULT_FILTERS = {
   mediaType: 'movie',
   // ── Include genres ─────────────────────────────────────────────────────────
@@ -71,6 +81,19 @@ export function useDiscoverViewModel() {
   const [totalResults, setTotalResults] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(0); // 0 = not yet searched
+
+  // ── Live preview count (fires before commit) ────────────────────────────────
+  // A debounced, count-only /discover call so the Search button can advertise
+  // how many titles the current filters return before the user commits. null =
+  // unknown (invalid range, in-flight, error, or the airing filter which has no
+  // cheap count).
+  const [previewCount, setPreviewCount] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const previewTokenRef = useRef(0);
+
+  // Snapshot of the filters that produced the currently-shown results. Compared
+  // against live `filters` to know whether the results on screen are stale.
+  const [searchedFilters, setSearchedFilters] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -314,20 +337,50 @@ export function useDiscoverViewModel() {
 
   // ── Trending Loader ────────────────────────────────────────────────────────
 
-  const loadTrending = useCallback(async (mediaType) => {
-    setTrendingLoading(true);
-    setTrendingError(null);
+  const trendingTokenRef = useRef(0);
+
+  // TMDb popularity for the current media type — the fallback when Trakt is
+  // unavailable (its /trending endpoint 403s on some networks). Keeps the
+  // pre-search rail populated instead of dropping to a blank prompt.
+  const loadTmdbPopularFallback = useCallback(async (mediaType, token) => {
     try {
-      const raw = await fetchTraktTrending(mediaType, 20);
-      const enriched = await enrichTraktItems(raw);
-      setTrendingResults(enriched.filter((item) => item.posterUrl)); // only show items with posters
-    } catch (e) {
-      setTrendingError(e?.message || 'Unable to load trending titles.');
+      const data = await discoverTitles({ mediaType, sortBy: 'popularity.desc', page: 1 });
+      if (token !== trendingTokenRef.current) return;
+      const withPosters = (data.results || []).filter((item) => item.posterUrl);
+      setTrendingResults(withPosters);
+      setTrendingError(withPosters.length === 0 ? 'Unable to load trending titles.' : null);
+    } catch (inner) {
+      if (token !== trendingTokenRef.current) return;
+      setTrendingError(inner?.message || 'Unable to load trending titles.');
       setTrendingResults([]);
-    } finally {
-      setTrendingLoading(false);
     }
   }, []);
+
+  const loadTrending = useCallback(
+    async (mediaType) => {
+      const token = ++trendingTokenRef.current;
+      setTrendingLoading(true);
+      setTrendingError(null);
+      try {
+        const raw = await fetchTraktTrending(mediaType, 20);
+        const enriched = await enrichTraktItems(raw);
+        if (token !== trendingTokenRef.current) return; // stale
+        const withPosters = enriched.filter((item) => item.posterUrl);
+        if (withPosters.length > 0) {
+          setTrendingResults(withPosters);
+        } else {
+          // Trakt returned nothing usable → fall back to TMDb popularity.
+          await loadTmdbPopularFallback(mediaType, token);
+        }
+      } catch {
+        // Trakt failed (commonly 403) → TMDb popularity keeps the rail alive.
+        await loadTmdbPopularFallback(mediaType, token);
+      } finally {
+        if (token === trendingTokenRef.current) setTrendingLoading(false);
+      }
+    },
+    [loadTmdbPopularFallback],
+  );
 
   // Auto-reload trending whenever mediaType changes
   useEffect(() => {
@@ -467,9 +520,14 @@ export function useDiscoverViewModel() {
     setLoadMoreError(null);
     setValidationError(null);
     setEnrichingResults(false);
-    setResults([]);
-    setTotalResults(0);
-    setCurrentPage(0);
+    // Snapshot the committed filters so `resultsStale` can tell when the live
+    // filters drift away from what's on screen.
+    setSearchedFilters(filters);
+    // NB: we deliberately do NOT clear results/totalResults/currentPage here.
+    // Blanking to an empty grid + skeleton on every re-search threw away the
+    // list the user was reading and flickered. Keeping the previous results in
+    // place lets the grid swap under a lightweight "updating" indicator; the
+    // skeleton now shows only on a first search (results.length === 0).
 
     try {
       const data = await discoverTitles({ ...buildDiscoverApiFilters(filters), page: 1 });
@@ -493,6 +551,40 @@ export function useDiscoverViewModel() {
     } finally {
       if (token === searchTokenRef.current) setLoading(false);
     }
+  }, [filters]);
+
+  // ── Live Preview Count ───────────────────────────────────────────────────────
+  // Debounced, count-only /discover call on every settled filter change so the
+  // Search button can say "Search · 1,240" before the user commits. Uses the same
+  // buildDiscoverApiFilters pipeline the real search uses, so the number matches.
+  useEffect(() => {
+    // Invalid ranges → no meaningful count. The airing-this-week filter has no
+    // cheap count (its true size needs paging + per-episode lookups), so skip it
+    // and let the button fall back to a plain label.
+    if (validate(filters) || (filters.airingThisWeek && filters.mediaType === 'tv')) {
+      previewTokenRef.current += 1; // cancel any in-flight preview
+      setPreviewLoading(false);
+      setPreviewCount(null);
+      return;
+    }
+
+    const token = ++previewTokenRef.current;
+    setPreviewLoading(true);
+    const handle = setTimeout(async () => {
+      try {
+        const data = await discoverTitles({ ...buildDiscoverApiFilters(filters), page: 1 });
+        if (token !== previewTokenRef.current) return;
+        setPreviewCount(data.totalResults);
+      } catch {
+        if (token !== previewTokenRef.current) return;
+        setPreviewCount(null); // best-effort; never blocks the real search
+      } finally {
+        if (token === previewTokenRef.current) setPreviewLoading(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   // ── Load More (Pagination) ─────────────────────────────────────────────────
@@ -529,6 +621,10 @@ export function useDiscoverViewModel() {
 
   const hasMore = currentPage > 0 && currentPage < totalPages;
   const hasSearched = currentPage > 0;
+  // Results on screen no longer match the live filters: the user has edited a
+  // filter since the last committed search.
+  const resultsStale =
+    hasSearched && searchedFilters != null && !filtersEqual(filters, searchedFilters);
 
   return {
     filters,
@@ -562,6 +658,10 @@ export function useDiscoverViewModel() {
     totalResults,
     hasMore,
     hasSearched,
+    resultsStale,
+
+    previewCount,
+    previewLoading,
 
     trendingResults,
     trendingLoading,

@@ -11,6 +11,7 @@ import {
   TextInput,
   FlatList,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { MediaArtwork } from './MediaArtwork';
-import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
+import { useBottomNavScroll, useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { EmptyState } from './EmptyState';
 import {
@@ -393,6 +394,13 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
   const previousMediaTypeRef = useRef(vm.filters.mediaType);
 
+  // Sticky footer (Search + live count). It rides the bottom-nav auto-hide and
+  // ducks away while the keyboard is up so it never covers the numeric inputs.
+  const { visible: navVisible } = useBottomNavVisibility();
+  const [footerH, setFooterH] = useState(scale(120));
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const footerTranslate = useRef(new Animated.Value(0)).current;
+
   // Sort options depend on mediaType and airing filter
   const sortOptions = useMemo(() => {
     const base = vm.filters.mediaType === 'movie' ? SORT_OPTIONS_MOVIE : SORT_OPTIONS_TV;
@@ -478,6 +486,29 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     vm.loadCountries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Track keyboard so the sticky footer can duck out of the way of text inputs.
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvt, () => setKeyboardOpen(true));
+    const hide = Keyboard.addListener(hideEvt, () => setKeyboardOpen(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  // Slide the footer down in concert with the bottom nav (and fully away when the
+  // keyboard is open). Mirrors BottomNav's own RN-Animated translateY, which is
+  // the one place native-driver translate is proven reliable here.
+  useEffect(() => {
+    Animated.timing(footerTranslate, {
+      toValue: navVisible && !keyboardOpen ? 0 : footerH + scale(24),
+      duration: FADE_MS,
+      useNativeDriver: true,
+    }).start();
+  }, [navVisible, keyboardOpen, footerH, footerTranslate]);
 
   const renderMoreFiltersSheetContent = () => (
     <MoreFiltersSheetContent
@@ -594,6 +625,27 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
     [colors.surfaceContainerHigh, colors.background],
   );
 
+  // ── Search button: live count + stale-aware label ──────────────────────────
+  const previewCount = vm.previewCount;
+  const hasPreview = previewCount != null;
+  const zeroMatches = hasPreview && previewCount === 0;
+  const searchDisabled = vm.loading || zeroMatches;
+  const countText = hasPreview ? previewCount.toLocaleString() : null;
+  const searchLabel = zeroMatches
+    ? 'No matches'
+    : vm.resultsStale
+      ? countText
+        ? `Update · ${countText}`
+        : 'Update'
+      : countText
+        ? `Search · ${countText}`
+        : 'Search';
+  const searchAccessibilityLabel = zeroMatches
+    ? 'No titles match these filters'
+    : `${vm.resultsStale ? 'Update results' : 'Search'}${
+        hasPreview ? `, ${previewCount} titles` : ''
+      }`;
+
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: c.background }]}
@@ -606,7 +658,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         style={styles.root}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + scale(12), paddingBottom: insets.bottom + 112 },
+          { paddingTop: insets.top + scale(12), paddingBottom: footerH + scale(16) },
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -1052,69 +1104,6 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           </>
         )}
 
-        <FilterDivider />
-
-        {vm.validationError && (
-          <View
-            style={[
-              styles.validationBanner,
-              { backgroundColor: colors.error + '18', borderRadius: radii.md },
-            ]}
-          >
-            <Ionicons name="warning-outline" size={16} color={colors.error} />
-            <Text style={[styles.validationText, { color: colors.error, ...typography.bodyMd }]}>
-              {vm.validationError}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.resetBtn, { borderRadius: radii.md, borderColor: GOLD_DIM }]}
-            onPress={vm.resetFilters}
-            accessibilityRole="button"
-            accessibilityLabel="Reset discover filters"
-          >
-            <Ionicons name="refresh-outline" size={16} color={c.onSurfaceVariant} />
-            <Text
-              style={[
-                {
-                  color: c.onSurfaceVariant,
-                  ...typography.labelSm,
-                  flex: 1,
-                  marginLeft: 6,
-                  textAlign: 'center',
-                },
-              ]}
-            >
-              Reset
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.searchBtn, { backgroundColor: GOLD_ACCENT, borderRadius: radii.md }]}
-            onPress={vm.search}
-            activeOpacity={0.85}
-            disabled={vm.loading}
-            accessibilityRole="button"
-            accessibilityLabel="Search with selected filters"
-            accessibilityState={{ disabled: vm.loading }}
-          >
-            {vm.loading ? (
-              <View style={styles.searchBtnLoader}>
-                <SkeletonBlock style={StyleSheet.absoluteFill} />
-              </View>
-            ) : (
-              <>
-                <Ionicons name="search-outline" size={16} color="#141414" />
-                <Text style={[styles.searchBtnText, { color: '#141414', ...typography.labelSm }]}>
-                  Search
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-
         <ProgrammeHairline style={styles.resultsHairline} />
 
         {/* ── Results Section ── */}
@@ -1167,6 +1156,101 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           radii={radii}
         />
       </ScrollView>
+
+      {/* ── Sticky action bar: Reset + Search (with live count) ── */}
+      <Animated.View
+        style={[
+          styles.stickyFooter,
+          {
+            backgroundColor: c.background,
+            paddingBottom: insets.bottom + scale(54) + scale(10),
+            transform: [{ translateY: footerTranslate }],
+          },
+        ]}
+        onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
+      >
+        {vm.validationError && (
+          <View
+            style={[
+              styles.validationBannerFooter,
+              { backgroundColor: colors.error + '18', borderRadius: radii.md },
+            ]}
+          >
+            <Ionicons name="warning-outline" size={16} color={colors.error} />
+            <Text style={[styles.validationText, { color: colors.error, ...typography.bodyMd }]}>
+              {vm.validationError}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.resetBtn, { borderRadius: radii.md, borderColor: GOLD_DIM }]}
+            onPress={vm.resetFilters}
+            accessibilityRole="button"
+            accessibilityLabel="Reset discover filters"
+          >
+            <Ionicons name="refresh-outline" size={16} color={c.onSurfaceVariant} />
+            <Text
+              style={[
+                {
+                  color: c.onSurfaceVariant,
+                  ...typography.labelSm,
+                  flex: 1,
+                  marginLeft: 6,
+                  textAlign: 'center',
+                },
+              ]}
+            >
+              Reset
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.searchBtn,
+              {
+                backgroundColor:
+                  zeroMatches && !vm.loading ? c.surfaceContainerHigh : GOLD_ACCENT,
+                borderRadius: radii.md,
+                borderWidth: zeroMatches && !vm.loading ? StyleSheet.hairlineWidth : 0,
+                borderColor: GOLD_DIM,
+              },
+            ]}
+            onPress={vm.search}
+            activeOpacity={0.85}
+            disabled={searchDisabled}
+            accessibilityRole="button"
+            accessibilityLabel={searchAccessibilityLabel}
+            accessibilityState={{ disabled: searchDisabled }}
+          >
+            {vm.loading ? (
+              <View style={styles.searchBtnLoader}>
+                <SkeletonBlock style={StyleSheet.absoluteFill} />
+              </View>
+            ) : (
+              <>
+                <Ionicons
+                  name={zeroMatches ? 'close-circle-outline' : 'search-outline'}
+                  size={16}
+                  color={zeroMatches ? c.onSurfaceVariant : '#141414'}
+                />
+                <Text
+                  style={[
+                    styles.searchBtnText,
+                    {
+                      color: zeroMatches ? c.onSurfaceVariant : '#141414',
+                      ...typography.labelSm,
+                    },
+                  ]}
+                >
+                  {searchLabel}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
     </KeyboardAvoidingView>
   );
 }
@@ -2407,7 +2491,10 @@ function ResultsSection({
     enrichingResults,
   } = vm;
 
-  if (loading) {
+  // Only skeleton on a first search. A refine keeps the previous grid on screen
+  // (see search() — it no longer blanks results) and swaps under an inline
+  // "updating" badge instead of flickering to a skeleton.
+  if (loading && results.length === 0) {
     return (
       <View style={styles.resultsSection}>
         <ProgrammeSectionHeader eyebrow="RESULTS" title="Searching" />
@@ -2439,6 +2526,47 @@ function ResultsSection({
   }
 
   if (!hasSearched) {
+    // Pre-search: show the Trakt trending rail already fetched on mount instead
+    // of a blank prompt — the screen gives value on arrival. Falls back to the
+    // prompt only if trending is genuinely unavailable.
+    if (vm.trendingLoading && vm.trendingResults.length === 0) {
+      return (
+        <View style={styles.resultsSection}>
+          <ProgrammeSectionHeader eyebrow="TRENDING" title="Trending now" />
+          <ResultsSkeleton count={4} />
+        </View>
+      );
+    }
+    if (vm.trendingResults.length > 0) {
+      return (
+        <View style={styles.resultsSection}>
+          <View style={styles.resultsHeader}>
+            <ProgrammeSectionHeader
+              eyebrow="TRENDING"
+              title="Trending now"
+              subtitle="Popular this week — or set your filters and search"
+            />
+          </View>
+          <PosterGrid
+            bodyStyle={styles.resultsGrid}
+            items={vm.trendingResults}
+            keyExtractor={(item) => `${item.tmdbId}-${item.mediaType}`}
+            renderItem={(item) => (
+              <DiscoverCard
+                item={item}
+                colors={c}
+                typography={typography}
+                radii={radii}
+                onPress={() => onSelectItem(item)}
+                onQuickSave={() => onToggleWatchlist?.(item)}
+                isSaved={watchlistIds.includes(watchlistEntryKey(item))}
+                reduceMotion={reduceMotion}
+              />
+            )}
+          />
+        </View>
+      );
+    }
     return (
       <View style={styles.stateBox}>
         <View style={[styles.stateIconCircle, { backgroundColor: GOLD_ACCENT + '15' }]}>
@@ -2500,6 +2628,39 @@ function ResultsSection({
       <View style={styles.resultsHeader}>
         <ProgrammeSectionHeader eyebrow="RESULTS" title="Programme" />
         <View style={styles.resultsHeaderBadges}>
+          {loading && (
+            <View
+              style={[
+                styles.enrichmentBadge,
+                {
+                  backgroundColor: c.surfaceContainerHigh,
+                  borderRadius: radii.full,
+                  borderColor: GOLD_DIM,
+                },
+              ]}
+            >
+              <SkeletonBlock style={styles.enrichmentDot} />
+              <Text
+                style={[
+                  { color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', marginLeft: 6 },
+                ]}
+              >
+                updating
+              </Text>
+            </View>
+          )}
+          {vm.resultsStale && !loading && (
+            <View
+              style={[
+                styles.countBadge,
+                { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full },
+              ]}
+            >
+              <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
+                Filters changed
+              </Text>
+            </View>
+          )}
           {enrichingResults && (
             <View
               style={[
@@ -2558,9 +2719,9 @@ function ResultsSection({
         )}
       />
 
-      {loadingMore && <LoadMoreSkeleton />}
+      {!loading && loadingMore && <LoadMoreSkeleton />}
 
-      {!loadingMore && loadMoreError ? (
+      {!loading && !loadingMore && loadMoreError ? (
         <TouchableOpacity
           style={[
             styles.loadMoreBtn,
@@ -2587,6 +2748,7 @@ function ResultsSection({
           </Text>
         </TouchableOpacity>
       ) : (
+        !loading &&
         !loadingMore &&
         hasMore && (
           <TouchableOpacity
@@ -2615,7 +2777,7 @@ function ResultsSection({
         )
       )}
 
-      {!hasMore && results.length > 0 && (
+      {!loading && !hasMore && results.length > 0 && (
         <Text style={[styles.endText, { color: c.onSurfaceVariant, ...typography.labelSm }]}>
           — End of results —
         </Text>
@@ -2987,16 +3149,27 @@ const styles = StyleSheet.create({
   yearRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   yearInput: { borderWidth: StyleSheet.hairlineWidth },
 
-  validationBanner: {
+  validationText: { flex: 1 },
+
+  stickyFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: GRID_PAD,
+    paddingTop: scale(12),
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    zIndex: 20,
+  },
+  validationBannerFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     padding: 12,
-    marginTop: 16,
+    marginBottom: 12,
   },
-  validationText: { flex: 1 },
-
-  actionRow: { flexDirection: 'row', gap: 12, marginTop: scale(20), marginBottom: scale(8) },
+  actionRow: { flexDirection: 'row', gap: 12 },
   resetBtn: {
     flex: 1,
     flexDirection: 'row',
