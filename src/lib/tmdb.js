@@ -12,6 +12,7 @@ import {
 } from './searchRanker';
 import {
   ABSOLUTE_MIN_RAIL_VOTES,
+  MIN_RAIL_VOTES,
   RAIL_SIZE,
   creditsForPerson,
   rankCompanyCatalog,
@@ -1108,7 +1109,11 @@ export async function discoverTitles(filters = {}) {
 
   const params = {
     sort_by: sortBy,
-    'vote_count.gte': 20,
+    // "Highest Rated" (vote_average.desc) with a trivial floor surfaces obscure
+    // 10-from-20-votes noise — the same defect the rails/company runs fixed. Reuse
+    // the rails' 200-vote floor for that sort; every other sort keeps the light
+    // discovery floor of 20 so counts stay generous.
+    'vote_count.gte': sortBy === 'vote_average.desc' ? MIN_RAIL_VOTES : 20,
     include_adult: false,
     page,
   };
