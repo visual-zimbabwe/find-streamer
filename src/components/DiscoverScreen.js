@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import {
   Animated,
   Modal,
-  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,7 +21,6 @@ import { useTheme } from '../theme/ThemeProvider';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { MediaArtwork } from './MediaArtwork';
 import { useBottomNavScroll, useBottomNavVisibility } from '../context/BottomNavVisibilityContext';
-import { useReduceMotion } from '../hooks/useReduceMotion';
 import { EmptyState } from './EmptyState';
 import {
   ResultsSkeleton,
@@ -41,7 +39,6 @@ import {
   GRID_GAP,
   FADE_MS,
   GRID_COL_W,
-  GRID_POSTER_H,
 } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
@@ -379,7 +376,6 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const c = colors;
   const insets = useSafeAreaInsets();
   const bottomNavScroll = useBottomNavScroll();
-  const reduceMotion = useReduceMotion();
   const scrollRef = useRef(null);
   const yearRangeYRef = useRef(0);
   const runtimeRangeYRef = useRef(0);
@@ -987,7 +983,6 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
           onSelectItem={onSelectItem}
           onToggleWatchlist={onToggleWatchlist}
           watchlistIds={watchlistIds}
-          reduceMotion={reduceMotion}
         />
 
         {/* ── Language Picker Modal (kept as Modal for keyboard support) ── */}
@@ -1605,7 +1600,6 @@ function ResultsSection({
   onSelectItem,
   onToggleWatchlist,
   watchlistIds = [],
-  reduceMotion = false,
 }) {
   const {
     loading,
@@ -1692,7 +1686,6 @@ function ResultsSection({
                 onPress={() => onSelectItem(item)}
                 onQuickSave={() => onToggleWatchlist?.(item)}
                 isSaved={watchlistIds.includes(watchlistEntryKey(item))}
-                reduceMotion={reduceMotion}
               />
             )}
           />
@@ -1845,7 +1838,6 @@ function ResultsSection({
             onPress={() => onSelectItem(item)}
             onQuickSave={() => onToggleWatchlist?.(item)}
             isSaved={watchlistIds.includes(watchlistEntryKey(item))}
-            reduceMotion={reduceMotion}
             showAirDay={airingFilterActive}
           />
         )}
@@ -1918,9 +1910,10 @@ function ResultsSection({
   );
 }
 
-// Swipe RIGHT → quick save to watchlist (gold bookmark hint)
-
-const SWIPE_THRESHOLD = 64;
+// A result tile: the poster (with its always-visible bookmark button) plus an
+// OMDb ratings footnote. Saving goes through the one visible bookmark control on
+// the poster — there is no hidden swipe gesture; a swipe-action is a list-row
+// idiom that only fought the grid's own vertical scroll here.
 
 function DiscoverCard({
   item,
@@ -1930,8 +1923,6 @@ function DiscoverCard({
   onPress,
   onQuickSave,
   isSaved,
-  watchers,
-  reduceMotion = false,
   showAirDay = false,
 }) {
   const omdb = item.omdbRatings || {};
@@ -1940,106 +1931,37 @@ function DiscoverCard({
   const contentRating = omdb.rated || null;
   const hasOmdbMetadata = Boolean(imdbRating || rottenTomatoes || contentRating);
 
-  const translateX = useRef(new Animated.Value(0)).current;
-  const hintOpacity = useRef(new Animated.Value(0)).current;
-  const isTriggered = useRef(false);
-
-  const resetSwipe = () => {
-    if (reduceMotion) {
-      translateX.setValue(0);
-      hintOpacity.setValue(0);
-      return;
-    }
-    Animated.parallel([
-      Animated.timing(translateX, { toValue: 0, duration: FADE_MS, useNativeDriver: true }),
-      Animated.timing(hintOpacity, { toValue: 0, duration: FADE_MS, useNativeDriver: true }),
-    ]).start();
-  };
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
-      onPanResponderGrant: () => {
-        isTriggered.current = false;
-      },
-      onPanResponderMove: (_, g) => {
-        const clamped = Math.max(0, Math.min(g.dx, SWIPE_THRESHOLD * 1.4));
-        translateX.setValue(clamped);
-        hintOpacity.setValue(Math.min(1, clamped / SWIPE_THRESHOLD));
-
-        if (!isTriggered.current && clamped >= SWIPE_THRESHOLD) {
-          isTriggered.current = true;
-          Haptics.selectionAsync();
-        }
-      },
-      onPanResponderRelease: (_, g) => {
-        const triggered = g.dx >= SWIPE_THRESHOLD;
-        resetSwipe();
-
-        if (triggered) {
-          Haptics.selectionAsync();
-          onQuickSave?.();
-        }
-      },
-    }),
-  ).current;
-
   return (
-    <View style={styles.gridCard}>
-      <Animated.View
-        style={[
-          styles.swipeHint,
-          {
-            opacity: hintOpacity,
-            backgroundColor: isSaved ? c.surfaceContainerHigh : GOLD_ACCENT + '28',
-            borderRadius: radii.xl,
-          },
-        ]}
-      >
-        <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={26} color={GOLD_ACCENT} />
-      </Animated.View>
-
-      <Animated.View style={{ transform: [{ translateX }] }}>
-        <TouchableOpacity
-          onPress={onPress}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel={`Open details for ${item.title}`}
-          {...panResponder.panHandlers}
+    <TouchableOpacity
+      style={styles.gridCard}
+      onPress={onPress}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={`Open details for ${item.title}`}
+    >
+      <GridPosterCard
+        item={item}
+        colors={c}
+        typography={typography}
+        radii={radii}
+        pressable={false}
+        saved={isSaved}
+        onToggleWatchlist={onQuickSave ? () => onQuickSave() : undefined}
+        metaText={showAirDay && item.airDay ? item.airDay : undefined}
+      />
+      {hasOmdbMetadata && (
+        <Text
+          style={[styles.omdbMetaLine, { color: c.onSurfaceVariant, ...typography.labelSm }]}
+          numberOfLines={1}
         >
-          <GridPosterCard
-            item={item}
-            colors={c}
-            typography={typography}
-            radii={radii}
-            pressable={false}
-            saved={isSaved}
-            onToggleWatchlist={onQuickSave ? () => onQuickSave() : undefined}
-            metaText={showAirDay && item.airDay ? item.airDay : undefined}
-            metaExtra={
-              watchers > 0 ? (
-                <Text style={[styles.watchersMeta, { color: GOLD_ACCENT }]}>
-                  · {watchers >= 1000 ? `${(watchers / 1000).toFixed(1)}k` : watchers} watching
-                </Text>
-              ) : null
-            }
-          />
-          {hasOmdbMetadata && (
-            <Text
-              style={[styles.omdbMetaLine, { color: c.onSurfaceVariant, ...typography.labelSm }]}
-              numberOfLines={1}
-            >
-              {imdbRating ? <>IMDb {imdbRating}</> : null}
-              {imdbRating && rottenTomatoes ? ' · ' : ''}
-              {rottenTomatoes ? <>RT {rottenTomatoes}</> : null}
-              {(imdbRating || rottenTomatoes) && contentRating ? ' · ' : ''}
-              {contentRating}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </Animated.View>
-    </View>
+          {imdbRating ? <>IMDb {imdbRating}</> : null}
+          {imdbRating && rottenTomatoes ? ' · ' : ''}
+          {rottenTomatoes ? <>RT {rottenTomatoes}</> : null}
+          {(imdbRating || rottenTomatoes) && contentRating ? ' · ' : ''}
+          {contentRating}
+        </Text>
+      )}
+    </TouchableOpacity>
   );
 }
 
@@ -2391,21 +2313,10 @@ const styles = StyleSheet.create({
     width: 14,
   },
 
-  gridCard: { width: GRID_COL_W, position: 'relative' },
-  swipeHint: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: GRID_COL_W,
-    height: GRID_POSTER_H,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 0,
-  },
+  gridCard: { width: GRID_COL_W },
   resultsGrid: {
     paddingHorizontal: 0,
   },
-  watchersMeta: { fontSize: 10, fontWeight: '700' },
   omdbMetaLine: { marginTop: 4, fontWeight: '600', letterSpacing: 0.2 },
 
   loadMoreBtn: {

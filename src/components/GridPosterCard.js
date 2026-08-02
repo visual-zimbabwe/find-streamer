@@ -130,7 +130,11 @@ export const GridPosterCard = memo(function GridPosterCard({
           <TouchableOpacity
             style={[
               styles.gridBookmark,
-              { borderColor: saved ? GOLD_ACCENT : 'rgba(255,255,255,0.2)' },
+              // Saved reads as a filled gold pill, not a subtle border+icon tint —
+              // it has to be legible at grid scale as the one Save affordance.
+              saved
+                ? { backgroundColor: GOLD_ACCENT, borderColor: GOLD_ACCENT }
+                : { borderColor: 'rgba(255,255,255,0.2)' },
             ]}
             onPress={(event) => {
               event.stopPropagation?.();
@@ -142,12 +146,12 @@ export const GridPosterCard = memo(function GridPosterCard({
               saved ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`
             }
             accessibilityState={{ selected: saved }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons
               name={saved ? 'bookmark' : 'bookmark-outline'}
               size={18}
-              color={saved ? GOLD_ACCENT : '#fff'}
+              color={saved ? '#141414' : '#fff'}
             />
           </TouchableOpacity>
         ) : null}
