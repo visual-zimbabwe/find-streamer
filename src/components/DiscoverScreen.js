@@ -29,6 +29,7 @@ import {
 } from './SkeletonLoaders';
 import { INTENT_PRESETS, intentPresetActive } from '../lib/languagePresets';
 import { SMART_FILTERS } from '../lib/smartFilters';
+import { GENRE_STATE, genreStateFor, smartTagStateFor, reduceTriState } from '../lib/genreTriState';
 import {
   RATING_MIN,
   RATING_MAX,
@@ -526,28 +527,40 @@ export function DiscoverScreen({
     }).start();
   }, [navVisible, footerH, footerTranslate]);
 
-  // Cycle a genre chip through neutral \u2192 include \u2192 exclude \u2192 neutral with one tap.
-  // The vm's toggle* helpers already move a genre between groups, so this is just
-  // a state machine over which helper to call for the chip's current state.
-  const cycleGenre = (id) => {
-    if (vm.filters.genreIds.includes(id)) {
-      vm.toggleExcludeGenre(id); // include \u2192 exclude (helper moves it across)
-    } else if (vm.filters.excludeGenreIds.includes(id)) {
-      vm.toggleExcludeGenre(id); // exclude \u2192 neutral
-    } else {
+  // Two-gesture genre grammar (see genreTriState): TAP toggles "want it"
+  // (neutral \u2194 include, and clears an exclude), HOLD toggles "don't want it"
+  // (any state \u2192 exclude, exclude \u2192 neutral). The vm's toggle* helpers are pure
+  // include / exclude toggles that also clear the opposite group, so driving the
+  // chip to the reducer's target is a direct call \u2014 exclude is never routed
+  // through a transient include of the genre being rejected.
+  const applyGenre = (id, gesture) => {
+    const current = genreStateFor(id, vm.filters);
+    const target = reduceTriState(current, gesture);
+    if (target === current) return;
+    if (target === GENRE_STATE.INCLUDE) {
       vm.toggleGenre(id); // neutral \u2192 include
+    } else if (target === GENRE_STATE.EXCLUDE) {
+      vm.toggleExcludeGenre(id); // neutral / include \u2192 exclude
+    } else if (current === GENRE_STATE.INCLUDE) {
+      vm.toggleGenre(id); // include \u2192 neutral
+    } else {
+      vm.toggleExcludeGenre(id); // exclude \u2192 neutral
     }
   };
 
-  // Same tri-state cycle for a smart tag (Anime), across the include/exclude
-  // smart-tag groups.
-  const cycleSmartTag = (key) => {
-    if (vm.filters.includeSmartTags.includes(key)) {
-      vm.toggleSmartTag(key); // include \u2192 exclude (toggleSmartTag drops it from include)
-    } else if (vm.filters.excludeSmartTags.includes(key)) {
-      vm.toggleSmartTag(key); // exclude \u2192 neutral
-    } else {
+  // Same two-gesture grammar for a smart filter, over its include / exclude groups.
+  const applySmartTag = (key, gesture) => {
+    const current = smartTagStateFor(key, vm.filters);
+    const target = reduceTriState(current, gesture);
+    if (target === current) return;
+    if (target === GENRE_STATE.INCLUDE) {
       vm.toggleIncludeSmartTag(key); // neutral \u2192 include
+    } else if (target === GENRE_STATE.EXCLUDE) {
+      vm.toggleSmartTag(key); // neutral / include \u2192 exclude
+    } else if (current === GENRE_STATE.INCLUDE) {
+      vm.toggleIncludeSmartTag(key); // include \u2192 neutral
+    } else {
+      vm.toggleSmartTag(key); // exclude \u2192 neutral
     }
   };
 
@@ -683,8 +696,8 @@ export function DiscoverScreen({
           excludeGenreIds={vm.filters.excludeGenreIds}
           includeSmartTags={vm.filters.includeSmartTags}
           excludeSmartTags={vm.filters.excludeSmartTags}
-          onCycleGenre={cycleGenre}
-          onCycleSmartTag={cycleSmartTag}
+          onApplyGenre={applyGenre}
+          onApplySmartTag={applySmartTag}
           onUpdateGenreLogic={(v) => vm.updateFilter('genreLogic', v)}
           onClearAll={clearGenreFilters}
           colors={c}
@@ -1195,9 +1208,11 @@ function SortByControl({ sortOptions, displayedSortBy, onChange, colors: c, typo
 }
 
 // ─── Genre Filter Section ─────────────────────────────────────────────────────
-// One tri-state grammar for the whole section: tapping a genre (or smart filter)
-// cycles it neutral → include → exclude → neutral. No tabs, no per-tab colour
-// remapping — a chip means exactly one thing at all times.
+// One two-gesture grammar for the whole section: TAP a genre (or smart filter)
+// to include it, LONG-PRESS to exclude it. Tap again clears an include; long-
+// press again (or tap) clears an exclude. No tabs, no per-tab colour remapping —
+// a chip means exactly one thing at all times, and exclude is always one gesture
+// away instead of routed through a transient include.
 
 function GenreFilterSection({
   genres,
@@ -1207,8 +1222,8 @@ function GenreFilterSection({
   excludeGenreIds,
   includeSmartTags,
   excludeSmartTags,
-  onCycleGenre,
-  onCycleSmartTag,
+  onApplyGenre,
+  onApplySmartTag,
   onUpdateGenreLogic,
   onClearAll,
   colors: c,
@@ -1237,26 +1252,42 @@ function GenreFilterSection({
         )}
       </View>
 
-      {/* ── Tri-state legend ── */}
+      {/* ── Legend: the single explainer for the section — maps each gesture to
+          the exact chip styling it produces (a struck grey chip = excluded). ── */}
       <View style={genreStyles.legendRow}>
-        <View style={[genreStyles.legendDot, { backgroundColor: GOLD_ACCENT }]} />
-        <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>Include</Text>
         <View
-          style={[genreStyles.legendDot, { backgroundColor: c.error, marginLeft: 14 }]}
-        />
-        <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>Exclude</Text>
-        <Text
           style={[
-            { color: c.onSurfaceVariant, ...typography.labelSm, marginLeft: 14, flex: 1 },
+            genreStyles.legendSwatch,
+            { backgroundColor: GOLD_ACCENT, borderRadius: radii.full },
           ]}
-          numberOfLines={1}
         >
-          · tap to cycle
+          <Ionicons name="checkmark" size={11} color="#141414" />
+        </View>
+        <Text style={[genreStyles.legendText, { color: c.onSurfaceVariant, ...typography.labelSm }]}>
+          Tap to include
+        </Text>
+        <View
+          style={[
+            genreStyles.legendSwatch,
+            {
+              backgroundColor: c.onSurfaceVariant + '22',
+              borderRadius: radii.full,
+              borderWidth: 1,
+              borderColor: c.onSurfaceVariant + '66',
+              marginLeft: 18,
+            },
+          ]}
+        >
+          <Ionicons name="close" size={11} color={c.onSurfaceVariant} />
+        </View>
+        <Text style={[genreStyles.legendText, { color: c.onSurfaceVariant, ...typography.labelSm }]}>
+          Hold to exclude
         </Text>
       </View>
 
-      {/* ── AND / OR logic — governs how included genres combine ── */}
-      {genreIds.length > 0 && (
+      {/* ── AND / OR logic — governs how included genres combine. Only shown with
+          2+ included genres, where the combinator actually changes results. ── */}
+      {genreIds.length > 1 && (
         <View style={[genreStyles.logicRow]}>
           <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginRight: 8 }]}>
             Match:
@@ -1330,11 +1361,14 @@ function GenreFilterSection({
               icon = 'checkmark';
               iconColor = '#141414';
             } else if (excluded) {
-              chipBg = c.error;
-              chipBorder = {};
-              textColor = c.onPrimary;
+              // Excluded reads as a struck-out grey chip, NOT an error-red one —
+              // it's a deliberate choice, not a fault (c.error is reserved for
+              // validation / offline states elsewhere on this screen).
+              chipBg = c.onSurfaceVariant + '22';
+              chipBorder = { borderWidth: 1, borderColor: c.onSurfaceVariant + '66' };
+              textColor = c.onSurfaceVariant;
               icon = 'close';
-              iconColor = c.onPrimary;
+              iconColor = c.onSurfaceVariant;
             }
 
             return (
@@ -1347,20 +1381,37 @@ function GenreFilterSection({
                 ]}
                 onPress={() => {
                   Haptics.selectionAsync();
-                  onCycleGenre(genre.id);
+                  onApplyGenre(genre.id, 'tap');
                 }}
+                onLongPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onApplyGenre(genre.id, 'hold');
+                }}
+                delayLongPress={220}
                 activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityLabel={`${genre.name} genre${
                   included ? ', included' : excluded ? ', excluded' : ''
                 }`}
-                accessibilityHint="Cycles include, exclude, off"
+                accessibilityHint="Tap to include, long-press to exclude"
                 accessibilityState={{ selected: included || excluded }}
+                accessibilityActions={[
+                  { name: 'longpress', label: excluded ? 'Clear' : 'Exclude' },
+                ]}
+                onAccessibilityAction={(e) => {
+                  if (e.nativeEvent.actionName === 'longpress') onApplyGenre(genre.id, 'hold');
+                }}
               >
                 {icon && (
                   <Ionicons name={icon} size={12} color={iconColor} style={{ marginRight: 3 }} />
                 )}
-                <Text style={[styles.chipText, { color: textColor, ...typography.labelSm }]}>
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: textColor, ...typography.labelSm },
+                    excluded && styles.chipTextExcluded,
+                  ]}
+                >
                   {genre.name}
                 </Text>
               </TouchableOpacity>
@@ -1369,17 +1420,7 @@ function GenreFilterSection({
         </View>
       )}
 
-      {genresLoading || hasAnySelection ? null : (
-        <Text
-          style={[
-            { color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 8, fontStyle: 'italic' },
-          ]}
-        >
-          Tap a genre to include it; tap again to exclude.
-        </Text>
-      )}
-
-      {/* ── Smart filters (Anime, …) — same tri-state grammar ── */}
+      {/* ── Smart filters (Anime, …) — same two-gesture grammar ── */}
       <View style={genreStyles.smartTagsHeader}>
         <Ionicons
           name="sparkles-outline"
@@ -1399,10 +1440,20 @@ function GenreFilterSection({
       {SMART_FILTERS.map((tag) => {
         const inc = includeSmartTags.includes(tag.key);
         const exc = excludeSmartTags.includes(tag.key);
-        const stateColor = inc ? GOLD_ACCENT : exc ? c.error : c.onSurfaceVariant;
+        // Exclude uses a neutral grey, never c.error — a chosen filter is not a
+        // fault. Include stays gold.
+        const stateColor = inc ? GOLD_ACCENT : c.onSurfaceVariant;
         const stateLabel = inc ? 'INCLUDE' : exc ? 'EXCLUDE' : 'OFF';
-        const rowBg = inc ? GOLD_ACCENT + '18' : exc ? c.error + '18' : c.surfaceContainerHigh;
-        const rowBorder = inc ? GOLD_ACCENT : exc ? c.error : c.outlineVariant + '40';
+        const rowBg = inc
+          ? GOLD_ACCENT + '18'
+          : exc
+            ? c.onSurfaceVariant + '18'
+            : c.surfaceContainerHigh;
+        const rowBorder = inc
+          ? GOLD_ACCENT
+          : exc
+            ? c.onSurfaceVariant + '66'
+            : c.outlineVariant + '40';
         const rowIcon = inc ? 'sparkles' : exc ? 'close-circle' : 'sparkles-outline';
         return (
           <View key={tag.key}>
@@ -1413,13 +1464,22 @@ function GenreFilterSection({
               ]}
               onPress={() => {
                 Haptics.selectionAsync();
-                onCycleSmartTag(tag.key);
+                onApplySmartTag(tag.key, 'tap');
               }}
+              onLongPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onApplySmartTag(tag.key, 'hold');
+              }}
+              delayLongPress={220}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel={`${tag.label} smart filter, ${stateLabel.toLowerCase()}`}
-              accessibilityHint="Cycles include, exclude, off"
+              accessibilityHint="Tap to include, long-press to exclude"
               accessibilityState={{ selected: inc || exc }}
+              accessibilityActions={[{ name: 'longpress', label: exc ? 'Clear' : 'Exclude' }]}
+              onAccessibilityAction={(e) => {
+                if (e.nativeEvent.actionName === 'longpress') onApplySmartTag(tag.key, 'hold');
+              }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 <Ionicons
@@ -1432,6 +1492,7 @@ function GenreFilterSection({
                   <Text
                     style={[
                       { color: inc || exc ? stateColor : c.onSurface, ...typography.bodyMd, fontWeight: '700' },
+                      exc && styles.chipTextExcluded,
                     ]}
                   >
                     {tag.label}
@@ -1940,11 +2001,15 @@ const genreStyles = StyleSheet.create({
     marginBottom: 14,
     paddingHorizontal: 4,
   },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  legendSwatch: {
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 6,
+  },
+  legendText: {
+    fontWeight: '600',
   },
   infoBanner: {
     flexDirection: 'row',
@@ -2084,6 +2149,7 @@ const styles = StyleSheet.create({
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   chip: { paddingHorizontal: 14, paddingVertical: 7, minHeight: 48, justifyContent: 'center' },
   chipText: { fontWeight: '700' },
+  chipTextExcluded: { textDecorationLine: 'line-through' },
   chipTextUpper: {
     fontWeight: '800',
     letterSpacing: 0.6,
