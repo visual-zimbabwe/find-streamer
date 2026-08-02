@@ -941,17 +941,8 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
             accessibilityRole="button"
             accessibilityLabel="Reset discover filters"
           >
-            <Ionicons name="refresh-outline" size={16} color={c.onSurfaceVariant} />
             <Text
-              style={[
-                {
-                  color: c.onSurfaceVariant,
-                  ...typography.labelSm,
-                  flex: 1,
-                  marginLeft: 6,
-                  textAlign: 'center',
-                },
-              ]}
+              style={[styles.actionBtnText, { color: c.onSurfaceVariant, ...typography.labelSm }]}
             >
               Reset
             </Text>
@@ -980,24 +971,17 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
                 <SkeletonBlock style={StyleSheet.absoluteFill} />
               </View>
             ) : (
-              <>
-                <Ionicons
-                  name={zeroMatches ? 'close-circle-outline' : 'search-outline'}
-                  size={16}
-                  color={zeroMatches ? c.onSurfaceVariant : '#141414'}
-                />
-                <Text
-                  style={[
-                    styles.searchBtnText,
-                    {
-                      color: zeroMatches ? c.onSurfaceVariant : '#141414',
-                      ...typography.labelSm,
-                    },
-                  ]}
-                >
-                  {searchLabel}
-                </Text>
-              </>
+              <Text
+                style={[
+                  styles.actionBtnText,
+                  {
+                    color: zeroMatches ? c.onSurfaceVariant : '#141414',
+                    ...typography.labelSm,
+                  },
+                ]}
+              >
+                {searchLabel}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -1804,8 +1788,20 @@ function DiscoverCard({
   const omdb = item.omdbRatings || {};
   const imdbRating = omdb.imdbRating ? omdb.imdbRating.replace('/10', '') : null;
   const rottenTomatoes = omdb.rottenTomatoes || null;
-  const contentRating = omdb.rated || null;
-  const hasOmdbMetadata = Boolean(imdbRating || rottenTomatoes || contentRating);
+
+  // The poster already letters the title (and MediaArtwork renders it in-frame for
+  // the posterless tail), so we drop GridPosterCard's caption entirely — no title,
+  // no media-type icon/label. All surviving metadata is one line we own here.
+  // Lead with the air day (only under the TV "airing this week" filter) or the
+  // release year; IMDb / Rotten Tomatoes follow. Content rating (PG-13/R/TV-MA) is
+  // intentionally gone.
+  const leadMeta =
+    showAirDay && item.airDay ? item.airDay : item.year ? String(item.year) : null;
+  const metaParts = [
+    leadMeta,
+    imdbRating ? `IMDb ${imdbRating}` : null,
+    rottenTomatoes ? `RT ${rottenTomatoes}` : null,
+  ].filter(Boolean);
 
   return (
     <TouchableOpacity
@@ -1821,20 +1817,16 @@ function DiscoverCard({
         typography={typography}
         radii={radii}
         pressable={false}
+        showCaption={false}
         saved={isSaved}
         onToggleWatchlist={onQuickSave ? () => onQuickSave() : undefined}
-        metaText={showAirDay && item.airDay ? item.airDay : undefined}
       />
-      {hasOmdbMetadata && (
+      {metaParts.length > 0 && (
         <Text
           style={[styles.omdbMetaLine, { color: c.onSurfaceVariant, ...typography.labelSm }]}
           numberOfLines={1}
         >
-          {imdbRating ? <>IMDb {imdbRating}</> : null}
-          {imdbRating && rottenTomatoes ? ' · ' : ''}
-          {rottenTomatoes ? <>RT {rottenTomatoes}</> : null}
-          {(imdbRating || rottenTomatoes) && contentRating ? ' · ' : ''}
-          {contentRating}
+          {metaParts.join(' · ')}
         </Text>
       )}
     </TouchableOpacity>
@@ -2153,15 +2145,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    gap: 8,
     minHeight: 48,
   },
-  // flex:1 + textAlign gives the label a definite width instead of its (short)
-  // intrinsic measurement — see the fullBleed note in ProgrammeSectionHeader.
-  // The button centres icon+label as a group, and the label's centre lands at
-  // the same x either way, so this is not a visual change.
-  searchBtnText: {
-    flex: 1,
+  // Shared label styling for the two footer actions (Reset / Search). Now that
+  // both are text-only, the button's own justifyContent centres the label — no
+  // flex:1 width hack needed to balance a vanished icon.
+  actionBtnText: {
     fontWeight: '800',
     letterSpacing: 0.8,
     textAlign: 'center',
