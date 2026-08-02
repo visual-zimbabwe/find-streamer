@@ -53,17 +53,19 @@ import {
   YEAR_DISTRIBUTION,
 } from '../lib/discoverRanges';
 import { RangeSlider } from './RangeSlider';
+import { shouldPrefetchNextPage } from '../lib/discoverPagination';
 import { scale } from '../utils/responsive';
 import {
   GOLD_ACCENT,
   GOLD_DIM,
   GRID_PAD,
+  GRID_GAP,
   FADE_MS,
   GRID_COL_W,
 } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
-import { GridPosterCard, PosterGrid } from './GridPosterCard';
+import { GridPosterCard } from './GridPosterCard';
 
 // ─── Sort Options (media-type-aware) ──────────────────────────────────────────
 const SORT_OPTIONS_MOVIE = [
@@ -555,311 +557,356 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
         hasPreview ? `, ${previewCount} titles` : ''
       }`;
 
+  // Rec #1(a): the whole screen is now a single virtualized FlatList — the filter
+  // stack rides in ListHeaderComponent, the poster grid is the list data, and
+  // `onEndReached` prefetches the next page so a browse session never stops under
+  // the thumb. The old manual "Load More" button survives as a fast-flick fallback
+  // and the retry affordance (see buildResultsView). Virtualization is what makes
+  // auto-prefetch safe: without recycling, auto-loading would grow an unbounded
+  // tree of mounted poster cards — the very tree the tap-friction used to bound.
+  const handleEndReached = useCallback(() => {
+    if (
+      !shouldPrefetchNextPage({
+        hasSearched: vm.hasSearched,
+        loading: vm.loading,
+        loadingMore: vm.loadingMore,
+        loadMoreError: vm.loadMoreError,
+        hasMore: vm.hasMore,
+      })
+    ) {
+      return;
+    }
+    vm.loadMore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vm.hasSearched, vm.loading, vm.loadingMore, vm.loadMoreError, vm.hasMore, vm.loadMore]);
+
+  const rv = buildResultsView({ vm, colors: c, typography, radii });
+
+  const renderGridItem = ({ item }) => (
+    <DiscoverCard
+      item={item}
+      colors={c}
+      typography={typography}
+      radii={radii}
+      onPress={() => onSelectItem(item)}
+      onQuickSave={() => onToggleWatchlist?.(item)}
+      isSaved={watchlistIds.includes(watchlistEntryKey(item))}
+      showAirDay={rv.showAirDay}
+    />
+  );
+
+  // The filter stack + the results/trending section header. Built as an element
+  // (not an inline component) so React reconciles it in place across renders —
+  // remounting it would tear down an in-progress RangeSlider drag.
+  const listHeader = (
+    <>
+      <ProgrammeSectionHeader
+        eyebrow="DISCOVER"
+        title="Find something to watch"
+        subtitle="Start with a vibe, or fine-tune below"
+      />
+
+      <MediaTypeTabs
+        mediaType={vm.filters.mediaType}
+        onChange={(type) => vm.updateFilter('mediaType', type)}
+        colors={c}
+        typography={typography}
+      />
+
+      <View style={styles.filterBand}>
+        <SectionLabel label="Quick picks" colors={c} typography={typography} />
+        <IntentPresetRow
+          filters={vm.filters}
+          onApply={vm.applyIntentPreset}
+          colors={c}
+          typography={typography}
+          radii={radii}
+        />
+      </View>
+
+      <FilterDivider />
+
+      {vm.filters.mediaType === 'tv' && (
+        <>
+          <View style={styles.filterBand}>
+            <SectionLabel label="Schedule" colors={c} typography={typography} />
+            <View style={styles.hChipRow}>
+              <AiringThisWeekChip
+                active={vm.filters.airingThisWeek}
+                onToggle={() => vm.updateFilter('airingThisWeek', !vm.filters.airingThisWeek)}
+                colors={c}
+                typography={typography}
+                radii={radii}
+              />
+            </View>
+          </View>
+          <FilterDivider />
+        </>
+      )}
+
+      <View style={styles.filterBand}>
+        <GenreFilterSection
+          genres={vm.genres}
+          genresLoading={vm.genresLoading}
+          genreIds={vm.filters.genreIds}
+          genreLogic={vm.filters.genreLogic}
+          excludeGenreIds={vm.filters.excludeGenreIds}
+          includeSmartTags={vm.filters.includeSmartTags}
+          excludeSmartTags={vm.filters.excludeSmartTags}
+          onCycleGenre={cycleGenre}
+          onCycleSmartTag={cycleSmartTag}
+          onUpdateGenreLogic={(v) => vm.updateFilter('genreLogic', v)}
+          onClearAll={clearGenreFilters}
+          colors={c}
+          typography={typography}
+          radii={radii}
+        />
+      </View>
+
+      <FilterDivider />
+
+      <View style={styles.filterBand}>
+        <SectionLabel
+          label="Rating"
+          value={formatRatingRange(vm.filters.minRating, vm.filters.maxRating)}
+          colors={c}
+          typography={typography}
+        />
+        <RangeSlider
+          min={RATING_MIN}
+          max={RATING_MAX}
+          step={RATING_STEP}
+          low={ratingLowFromFilters(vm.filters.minRating)}
+          high={ratingHighFromFilters(vm.filters.maxRating)}
+          onChange={(lo, hi) => {
+            const { minRating, maxRating } = ratingFiltersFromRange(lo, hi);
+            vm.updateFilter('minRating', minRating);
+            vm.updateFilter('maxRating', maxRating);
+          }}
+          distribution={RATING_DISTRIBUTION}
+          colors={c}
+          labelLow="Minimum rating"
+          labelHigh="Maximum rating"
+          formatValue={(n) => `${n} out of 10`}
+        />
+      </View>
+
+      <FilterDivider />
+
+      <View style={styles.filterBand}>
+        <SectionLabel label="Language" colors={c} typography={typography} />
+        <InlinePickerButton
+          icon="language-outline"
+          label={languageLabel}
+          active={languageActive}
+          onOpen={() => setLangModalVisible(true)}
+          onClear={() => vm.clearPreset()}
+          accessibilityLabel={`Language, ${languageLabel}`}
+          clearAccessibilityLabel="Clear language filter"
+          surface={filterSurface}
+          colors={c}
+          typography={typography}
+          radii={radii}
+        />
+      </View>
+
+      {vm.filters.mediaType === 'tv' && (
+        <>
+          <FilterDivider />
+          <View style={styles.filterBand}>
+            <SectionLabel label="Country" colors={c} typography={typography} />
+            <InlinePickerButton
+              icon="globe-outline"
+              label={countryLabel}
+              active={countryActive}
+              onOpen={() => setCountryModalVisible(true)}
+              onClear={() => vm.updateFilter('originCountries', [])}
+              accessibilityLabel={`Country, ${countryLabel}`}
+              clearAccessibilityLabel="Clear country filter"
+              surface={filterSurface}
+              colors={c}
+              typography={typography}
+              radii={radii}
+            />
+          </View>
+        </>
+      )}
+
+      <FilterDivider />
+
+      <View style={styles.filterBand}>
+        <TouchableOpacity
+          style={styles.advancedToggle}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setAdvancedExpanded((open) => !open);
+          }}
+          activeOpacity={0.78}
+          accessibilityRole="button"
+          accessibilityLabel={`${advancedExpanded ? 'Collapse' : 'Expand'} advanced filters`}
+          accessibilityState={{ expanded: advancedExpanded }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sectionLabel, { color: c.onSurface, ...typography.labelSm }]}>
+              Advanced
+            </Text>
+            {advancedCriteriaActive ? (
+              <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, marginTop: 2 }]}>
+                Year, runtime, or sort customized
+              </Text>
+            ) : (
+              <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>
+                Release year, runtime, sort order
+              </Text>
+            )}
+          </View>
+          <Ionicons
+            name={advancedExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+            size={16}
+            color={advancedCriteriaActive ? GOLD_ACCENT : c.onSurfaceVariant}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {advancedExpanded && (
+        <>
+          <View style={styles.filterBand}>
+            <SectionLabel
+              label="Release Year"
+              value={formatYearRange(vm.filters.fromYear, vm.filters.toYear)}
+              colors={c}
+              typography={typography}
+            />
+            <RangeSlider
+              min={YEAR_MIN}
+              max={yearMax()}
+              step={1}
+              low={yearLowFromFilters(vm.filters.fromYear)}
+              high={yearHighFromFilters(vm.filters.toYear)}
+              onChange={(lo, hi) => {
+                const { fromYear, toYear } = yearFiltersFromRange(lo, hi);
+                vm.updateFilter('fromYear', fromYear);
+                vm.updateFilter('toYear', toYear);
+              }}
+              distribution={YEAR_DISTRIBUTION}
+              colors={c}
+              labelLow="Earliest year"
+              labelHigh="Latest year"
+              formatValue={(n) => String(n)}
+            />
+          </View>
+
+          {vm.filters.mediaType === 'movie' && (
+            <>
+              <FilterDivider />
+
+              <View style={styles.filterBand}>
+                <SectionLabel
+                  label="Runtime"
+                  value={formatRuntimeRange(vm.filters.minRuntime, vm.filters.maxRuntime)}
+                  colors={c}
+                  typography={typography}
+                />
+                <RangeSlider
+                  min={RUNTIME_MIN}
+                  max={RUNTIME_MAX}
+                  step={RUNTIME_STEP}
+                  low={runtimeLowFromFilters(vm.filters.minRuntime)}
+                  high={runtimeHighFromFilters(vm.filters.maxRuntime)}
+                  onChange={(lo, hi) => {
+                    const { minRuntime, maxRuntime } = runtimeFiltersFromRange(lo, hi);
+                    vm.updateFilter('minRuntime', minRuntime);
+                    vm.updateFilter('maxRuntime', maxRuntime);
+                  }}
+                  colors={c}
+                  labelLow="Minimum runtime"
+                  labelHigh="Maximum runtime"
+                  formatValue={(n) => `${n} minutes`}
+                />
+              </View>
+            </>
+          )}
+
+          <FilterDivider />
+
+          <View style={styles.filterBand}>
+            <SectionLabel label="Sort" colors={c} typography={typography} />
+            <SortByControl
+              sortOptions={sortOptions}
+              displayedSortBy={displayedSortBy}
+              onChange={(value) => vm.updateFilter('sortBy', value)}
+              colors={c}
+              typography={typography}
+              radii={radii}
+            />
+          </View>
+        </>
+      )}
+
+      <ProgrammeHairline style={styles.resultsHairline} />
+
+      {rv.headerNode}
+    </>
+  );
+
   return (
     <View style={[styles.root, { backgroundColor: c.background }]}>
       <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
-      <ScrollView
+      <FlatList
         ref={scrollRef}
         style={styles.root}
+        data={rv.gridData}
+        numColumns={2}
+        columnWrapperStyle={rv.gridData.length ? styles.gridColumnWrapper : undefined}
+        keyExtractor={(item) => `${item.tmdbId}-${item.mediaType}`}
+        renderItem={renderGridItem}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={rv.emptyNode}
+        ListFooterComponent={rv.footerNode}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={1}
         contentContainerStyle={[
           styles.content,
           { paddingTop: insets.top + scale(12), paddingBottom: footerH + scale(16) },
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-        removeClippedSubviews={Platform.OS === 'android'}
         {...bottomNavScroll}
-      >
-        <ProgrammeSectionHeader
-          eyebrow="DISCOVER"
-          title="Find something to watch"
-          subtitle="Start with a vibe, or fine-tune below"
-        />
+      />
 
-        <MediaTypeTabs
-          mediaType={vm.filters.mediaType}
-          onChange={(type) => vm.updateFilter('mediaType', type)}
-          colors={c}
-          typography={typography}
-        />
+      {/* ── Language Picker Modal (kept as Modal for keyboard support) ── */}
+      <SearchablePickerModal
+        visible={langModalVisible}
+        onClose={() => setLangModalVisible(false)}
+        title="Select Language"
+        items={vm.languages}
+        selectedCodes={selectedLanguageCodes}
+        onToggle={(code) => {
+          vm.toggleFilterValue('languageCodes', code);
+          vm.updateFilter('activePreset', null);
+          vm.updateFilter('excludeEnglish', false);
+        }}
+        onClear={() => vm.clearPreset()}
+        loading={vm.languagesLoading}
+        colors={c}
+        typography={typography}
+        radii={radii}
+      />
 
-        <View style={styles.filterBand}>
-          <SectionLabel label="Quick picks" colors={c} typography={typography} />
-          <IntentPresetRow
-            filters={vm.filters}
-            onApply={vm.applyIntentPreset}
-            colors={c}
-            typography={typography}
-            radii={radii}
-          />
-        </View>
-
-        <FilterDivider />
-
-        {vm.filters.mediaType === 'tv' && (
-          <>
-            <View style={styles.filterBand}>
-              <SectionLabel label="Schedule" colors={c} typography={typography} />
-              <View style={styles.hChipRow}>
-                <AiringThisWeekChip
-                  active={vm.filters.airingThisWeek}
-                  onToggle={() => vm.updateFilter('airingThisWeek', !vm.filters.airingThisWeek)}
-                  colors={c}
-                  typography={typography}
-                  radii={radii}
-                />
-              </View>
-            </View>
-            <FilterDivider />
-          </>
-        )}
-
-        <View style={styles.filterBand}>
-          <GenreFilterSection
-            genres={vm.genres}
-            genresLoading={vm.genresLoading}
-            genreIds={vm.filters.genreIds}
-            genreLogic={vm.filters.genreLogic}
-            excludeGenreIds={vm.filters.excludeGenreIds}
-            includeSmartTags={vm.filters.includeSmartTags}
-            excludeSmartTags={vm.filters.excludeSmartTags}
-            onCycleGenre={cycleGenre}
-            onCycleSmartTag={cycleSmartTag}
-            onUpdateGenreLogic={(v) => vm.updateFilter('genreLogic', v)}
-            onClearAll={clearGenreFilters}
-            colors={c}
-            typography={typography}
-            radii={radii}
-          />
-        </View>
-
-        <FilterDivider />
-
-        <View style={styles.filterBand}>
-          <SectionLabel
-            label="Rating"
-            value={formatRatingRange(vm.filters.minRating, vm.filters.maxRating)}
-            colors={c}
-            typography={typography}
-          />
-          <RangeSlider
-            min={RATING_MIN}
-            max={RATING_MAX}
-            step={RATING_STEP}
-            low={ratingLowFromFilters(vm.filters.minRating)}
-            high={ratingHighFromFilters(vm.filters.maxRating)}
-            onChange={(lo, hi) => {
-              const { minRating, maxRating } = ratingFiltersFromRange(lo, hi);
-              vm.updateFilter('minRating', minRating);
-              vm.updateFilter('maxRating', maxRating);
-            }}
-            distribution={RATING_DISTRIBUTION}
-            colors={c}
-            labelLow="Minimum rating"
-            labelHigh="Maximum rating"
-            formatValue={(n) => `${n} out of 10`}
-          />
-        </View>
-
-        <FilterDivider />
-
-        <View style={styles.filterBand}>
-          <SectionLabel label="Language" colors={c} typography={typography} />
-          <InlinePickerButton
-            icon="language-outline"
-            label={languageLabel}
-            active={languageActive}
-            onOpen={() => setLangModalVisible(true)}
-            onClear={() => vm.clearPreset()}
-            accessibilityLabel={`Language, ${languageLabel}`}
-            clearAccessibilityLabel="Clear language filter"
-            surface={filterSurface}
-            colors={c}
-            typography={typography}
-            radii={radii}
-          />
-        </View>
-
-        {vm.filters.mediaType === 'tv' && (
-          <>
-            <FilterDivider />
-            <View style={styles.filterBand}>
-              <SectionLabel label="Country" colors={c} typography={typography} />
-              <InlinePickerButton
-                icon="globe-outline"
-                label={countryLabel}
-                active={countryActive}
-                onOpen={() => setCountryModalVisible(true)}
-                onClear={() => vm.updateFilter('originCountries', [])}
-                accessibilityLabel={`Country, ${countryLabel}`}
-                clearAccessibilityLabel="Clear country filter"
-                surface={filterSurface}
-                colors={c}
-                typography={typography}
-                radii={radii}
-              />
-            </View>
-          </>
-        )}
-
-        <FilterDivider />
-
-        <View style={styles.filterBand}>
-          <TouchableOpacity
-            style={styles.advancedToggle}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setAdvancedExpanded((open) => !open);
-            }}
-            activeOpacity={0.78}
-            accessibilityRole="button"
-            accessibilityLabel={`${advancedExpanded ? 'Collapse' : 'Expand'} advanced filters`}
-            accessibilityState={{ expanded: advancedExpanded }}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.sectionLabel, { color: c.onSurface, ...typography.labelSm }]}>
-                Advanced
-              </Text>
-              {advancedCriteriaActive ? (
-                <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, marginTop: 2 }]}>
-                  Year, runtime, or sort customized
-                </Text>
-              ) : (
-                <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}>
-                  Release year, runtime, sort order
-                </Text>
-              )}
-            </View>
-            <Ionicons
-              name={advancedExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
-              size={16}
-              color={advancedCriteriaActive ? GOLD_ACCENT : c.onSurfaceVariant}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {advancedExpanded && (
-          <>
-            <View style={styles.filterBand}>
-              <SectionLabel
-                label="Release Year"
-                value={formatYearRange(vm.filters.fromYear, vm.filters.toYear)}
-                colors={c}
-                typography={typography}
-              />
-              <RangeSlider
-                min={YEAR_MIN}
-                max={yearMax()}
-                step={1}
-                low={yearLowFromFilters(vm.filters.fromYear)}
-                high={yearHighFromFilters(vm.filters.toYear)}
-                onChange={(lo, hi) => {
-                  const { fromYear, toYear } = yearFiltersFromRange(lo, hi);
-                  vm.updateFilter('fromYear', fromYear);
-                  vm.updateFilter('toYear', toYear);
-                }}
-                distribution={YEAR_DISTRIBUTION}
-                colors={c}
-                labelLow="Earliest year"
-                labelHigh="Latest year"
-                formatValue={(n) => String(n)}
-              />
-            </View>
-
-            {vm.filters.mediaType === 'movie' && (
-              <>
-                <FilterDivider />
-
-                <View style={styles.filterBand}>
-                  <SectionLabel
-                    label="Runtime"
-                    value={formatRuntimeRange(vm.filters.minRuntime, vm.filters.maxRuntime)}
-                    colors={c}
-                    typography={typography}
-                  />
-                  <RangeSlider
-                    min={RUNTIME_MIN}
-                    max={RUNTIME_MAX}
-                    step={RUNTIME_STEP}
-                    low={runtimeLowFromFilters(vm.filters.minRuntime)}
-                    high={runtimeHighFromFilters(vm.filters.maxRuntime)}
-                    onChange={(lo, hi) => {
-                      const { minRuntime, maxRuntime } = runtimeFiltersFromRange(lo, hi);
-                      vm.updateFilter('minRuntime', minRuntime);
-                      vm.updateFilter('maxRuntime', maxRuntime);
-                    }}
-                    colors={c}
-                    labelLow="Minimum runtime"
-                    labelHigh="Maximum runtime"
-                    formatValue={(n) => `${n} minutes`}
-                  />
-                </View>
-              </>
-            )}
-
-            <FilterDivider />
-
-            <View style={styles.filterBand}>
-              <SectionLabel label="Sort" colors={c} typography={typography} />
-              <SortByControl
-                sortOptions={sortOptions}
-                displayedSortBy={displayedSortBy}
-                onChange={(value) => vm.updateFilter('sortBy', value)}
-                colors={c}
-                typography={typography}
-                radii={radii}
-              />
-            </View>
-          </>
-        )}
-
-        <ProgrammeHairline style={styles.resultsHairline} />
-
-        {/* ── Results Section ── */}
-        <ResultsSection
-          vm={vm}
-          colors={c}
-          typography={typography}
-          radii={radii}
-          onSelectItem={onSelectItem}
-          onToggleWatchlist={onToggleWatchlist}
-          watchlistIds={watchlistIds}
-        />
-
-        {/* ── Language Picker Modal (kept as Modal for keyboard support) ── */}
-        <SearchablePickerModal
-          visible={langModalVisible}
-          onClose={() => setLangModalVisible(false)}
-          title="Select Language"
-          items={vm.languages}
-          selectedCodes={selectedLanguageCodes}
-          onToggle={(code) => {
-            vm.toggleFilterValue('languageCodes', code);
-            vm.updateFilter('activePreset', null);
-            vm.updateFilter('excludeEnglish', false);
-          }}
-          onClear={() => vm.clearPreset()}
-          loading={vm.languagesLoading}
-          colors={c}
-          typography={typography}
-          radii={radii}
-        />
-
-        {/* ── Country Picker Modal (kept as Modal for keyboard support) ── */}
-        <SearchablePickerModal
-          visible={countryModalVisible}
-          onClose={() => setCountryModalVisible(false)}
-          title="Select Country"
-          items={vm.countries}
-          selectedCodes={selectedOriginCountries}
-          onToggle={(code) => vm.toggleFilterValue('originCountries', code)}
-          onClear={() => vm.updateFilter('originCountries', [])}
-          loading={vm.countriesLoading}
-          colors={c}
-          typography={typography}
-          radii={radii}
-        />
-      </ScrollView>
+      {/* ── Country Picker Modal (kept as Modal for keyboard support) ── */}
+      <SearchablePickerModal
+        visible={countryModalVisible}
+        onClose={() => setCountryModalVisible(false)}
+        title="Select Country"
+        items={vm.countries}
+        selectedCodes={selectedOriginCountries}
+        onToggle={(code) => vm.toggleFilterValue('originCountries', code)}
+        onClear={() => vm.updateFilter('originCountries', [])}
+        loading={vm.countriesLoading}
+        colors={c}
+        typography={typography}
+        radii={radii}
+      />
 
       {/* ── Sticky action bar: Reset + Search (with live count) ── */}
       <Animated.View
@@ -1431,17 +1478,13 @@ function GenreFilterSection({
   );
 }
 
-// ─── Results Section ──────────────────────────────────────────────────────────
-
-function ResultsSection({
-  vm,
-  colors: c,
-  typography,
-  radii,
-  onSelectItem,
-  onToggleWatchlist,
-  watchlistIds = [],
-}) {
+// ─── Results View ─────────────────────────────────────────────────────────────
+// Computes the four FlatList slots — the grid data, the section header (rides in
+// ListHeaderComponent under the filters), the empty/placeholder node, and the
+// footer (load-more / retry / end-of-results) — for whichever state Discover is
+// in. Pure: it builds elements but mounts nothing, so the parent FlatList owns
+// scrolling and virtualization.
+function buildResultsView({ vm, colors: c, typography, radii }) {
   const {
     loading,
     error,
@@ -1458,38 +1501,42 @@ function ResultsSection({
     enrichingResults,
   } = vm;
 
+  const empty = { gridData: [], headerNode: null, emptyNode: null, footerNode: null, showAirDay: false };
+
   // Only skeleton on a first search. A refine keeps the previous grid on screen
   // (see search() — it no longer blanks results) and swaps under an inline
   // "updating" badge instead of flickering to a skeleton.
   if (loading && results.length === 0) {
-    return (
-      <View style={styles.resultsSection}>
-        <ProgrammeSectionHeader eyebrow="RESULTS" title="Searching" />
-        <ResultsSkeleton count={4} />
-      </View>
-    );
+    return {
+      ...empty,
+      headerNode: <ProgrammeSectionHeader eyebrow="RESULTS" title="Searching" />,
+      emptyNode: <ResultsSkeleton count={4} />,
+    };
   }
 
   if (error) {
-    return (
-      <View style={styles.stateBox}>
-        <EmptyState
-          variant={errorInfo?.severity === 'offline' ? 'offline' : 'service'}
-          title={errorInfo?.title || 'Something went wrong'}
-          description={error}
-          primaryAction={{
-            label: 'Refresh',
-            icon: 'refresh-outline',
-            onPress: () => {
-              clearError();
-              vm.search();
-            },
-            accessibilityLabel: 'Refresh discover results',
-          }}
-          compact
-        />
-      </View>
-    );
+    return {
+      ...empty,
+      emptyNode: (
+        <View style={styles.stateBox}>
+          <EmptyState
+            variant={errorInfo?.severity === 'offline' ? 'offline' : 'service'}
+            title={errorInfo?.title || 'Something went wrong'}
+            description={error}
+            primaryAction={{
+              label: 'Refresh',
+              icon: 'refresh-outline',
+              onPress: () => {
+                clearError();
+                vm.search();
+              },
+              accessibilityLabel: 'Refresh discover results',
+            }}
+            compact
+          />
+        </View>
+      ),
+    };
   }
 
   if (!hasSearched) {
@@ -1497,16 +1544,19 @@ function ResultsSection({
     // of a blank prompt — the screen gives value on arrival. Falls back to the
     // prompt only if trending is genuinely unavailable.
     if (vm.trendingLoading && vm.trendingResults.length === 0) {
-      return (
-        <View style={styles.resultsSection}>
-          <ProgrammeSectionHeader eyebrow="TRENDING" title="Trending now" />
-          <ResultsSkeleton count={4} />
-        </View>
-      );
+      return {
+        ...empty,
+        headerNode: <ProgrammeSectionHeader eyebrow="TRENDING" title="Trending now" />,
+        emptyNode: <ResultsSkeleton count={4} />,
+      };
     }
     if (vm.trendingResults.length > 0) {
-      return (
-        <View style={styles.resultsSection}>
+      // The trending rail is a single fixed page, so it has no footer and
+      // onEndReached is inert here (handleEndReached bails when !hasSearched).
+      return {
+        ...empty,
+        gridData: vm.trendingResults,
+        headerNode: (
           <View style={styles.resultsHeader}>
             <ProgrammeSectionHeader
               eyebrow="TRENDING"
@@ -1514,176 +1564,153 @@ function ResultsSection({
               subtitle="Popular this week — or set your filters and search"
             />
           </View>
-          <PosterGrid
-            bodyStyle={styles.resultsGrid}
-            items={vm.trendingResults}
-            keyExtractor={(item) => `${item.tmdbId}-${item.mediaType}`}
-            renderItem={(item) => (
-              <DiscoverCard
-                item={item}
-                colors={c}
-                typography={typography}
-                radii={radii}
-                onPress={() => onSelectItem(item)}
-                onQuickSave={() => onToggleWatchlist?.(item)}
-                isSaved={watchlistIds.includes(watchlistEntryKey(item))}
-              />
-            )}
-          />
-        </View>
-      );
+        ),
+      };
     }
-    return (
-      <View style={styles.stateBox}>
-        <View style={[styles.stateIconCircle, { backgroundColor: GOLD_ACCENT + '15' }]}>
-          <Ionicons name="telescope-outline" size={48} color={GOLD_ACCENT} />
+    return {
+      ...empty,
+      emptyNode: (
+        <View style={styles.stateBox}>
+          <View style={[styles.stateIconCircle, { backgroundColor: GOLD_ACCENT + '15' }]}>
+            <Ionicons name="telescope-outline" size={48} color={GOLD_ACCENT} />
+          </View>
+          <Text style={[styles.stateEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+            PROGRAMME
+          </Text>
+          <Text
+            style={[
+              { color: c.onSurface, ...typography.titleLg, textAlign: 'center', marginBottom: 8 },
+            ]}
+          >
+            Set your filters
+          </Text>
+          <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center' }]}>
+            Adjust the filters above and tap "Search" to explore.
+          </Text>
         </View>
-        <Text style={[styles.stateEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-          PROGRAMME
-        </Text>
-        <Text
-          style={[
-            { color: c.onSurface, ...typography.titleLg, textAlign: 'center', marginBottom: 8 },
-          ]}
-        >
-          Set your filters
-        </Text>
-        <Text style={[{ color: c.onSurfaceVariant, ...typography.bodyMd, textAlign: 'center' }]}>
-          Adjust the filters above and tap "Search" to explore.
-        </Text>
-      </View>
-    );
+      ),
+    };
   }
 
   if (results.length === 0) {
-    const airingFilterActive =
-      vm.filters.airingThisWeek && vm.filters.mediaType === 'tv';
+    const airingFilterActive = vm.filters.airingThisWeek && vm.filters.mediaType === 'tv';
 
-    return (
-      <View style={styles.stateBox}>
-        <EmptyState
-          variant="empty"
-          title={airingFilterActive ? 'Nothing airing today–Sunday with these filters' : 'No matches found'}
-          description={
-            airingFilterActive
-              ? 'Try clearing a few filters or load more results to scan additional pages.'
-              : "We couldn't find anything with those filters. Clear a few choices and search again."
-          }
-          primaryAction={{
-            label: 'Clear Filters',
-            icon: 'close-circle-outline',
-            onPress: vm.resetFilters,
-            accessibilityLabel: 'Clear discover filters',
-          }}
-          secondaryAction={{
-            label: 'Search Again',
-            onPress: vm.search,
-            accessibilityLabel: 'Search again with current filters',
-          }}
-          compact
-        />
-      </View>
-    );
+    return {
+      ...empty,
+      emptyNode: (
+        <View style={styles.stateBox}>
+          <EmptyState
+            variant="empty"
+            title={airingFilterActive ? 'Nothing airing today–Sunday with these filters' : 'No matches found'}
+            description={
+              airingFilterActive
+                ? 'Try clearing a few filters or load more results to scan additional pages.'
+                : "We couldn't find anything with those filters. Clear a few choices and search again."
+            }
+            primaryAction={{
+              label: 'Clear Filters',
+              icon: 'close-circle-outline',
+              onPress: vm.resetFilters,
+              accessibilityLabel: 'Clear discover filters',
+            }}
+            secondaryAction={{
+              label: 'Search Again',
+              onPress: vm.search,
+              accessibilityLabel: 'Search again with current filters',
+            }}
+            compact
+          />
+        </View>
+      ),
+    };
   }
 
   const airingFilterActive = vm.filters.airingThisWeek && vm.filters.mediaType === 'tv';
   const resultCount = airingFilterActive ? results.length : totalResults;
 
-  return (
-    <View style={styles.resultsSection}>
-      <View style={styles.resultsHeader}>
-        <ProgrammeSectionHeader eyebrow="RESULTS" title="Programme" />
-        <View style={styles.resultsHeaderBadges}>
-          {loading && (
-            <View
+  const headerNode = (
+    <View style={styles.resultsHeader}>
+      <ProgrammeSectionHeader eyebrow="RESULTS" title="Programme" />
+      <View style={styles.resultsHeaderBadges}>
+        {loading && (
+          <View
+            style={[
+              styles.enrichmentBadge,
+              {
+                backgroundColor: c.surfaceContainerHigh,
+                borderRadius: radii.full,
+                borderColor: GOLD_DIM,
+              },
+            ]}
+          >
+            <SkeletonBlock style={styles.enrichmentDot} />
+            <Text
               style={[
-                styles.enrichmentBadge,
-                {
-                  backgroundColor: c.surfaceContainerHigh,
-                  borderRadius: radii.full,
-                  borderColor: GOLD_DIM,
-                },
+                { color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', marginLeft: 6 },
               ]}
             >
-              <SkeletonBlock style={styles.enrichmentDot} />
-              <Text
-                style={[
-                  { color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', marginLeft: 6 },
-                ]}
-              >
-                updating
-              </Text>
-            </View>
-          )}
-          {vm.resultsStale && !loading && (
-            <View
-              style={[
-                styles.countBadge,
-                { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full },
-              ]}
-            >
-              <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
-                Filters changed
-              </Text>
-            </View>
-          )}
-          {enrichingResults && (
-            <View
-              style={[
-                styles.enrichmentBadge,
-                {
-                  backgroundColor: c.surfaceContainerHigh,
-                  borderRadius: radii.full,
-                  borderColor: GOLD_DIM,
-                },
-              ]}
-            >
-              <SkeletonBlock style={styles.enrichmentDot} />
-              <Text
-                style={[
-                  {
-                    color: c.onSurfaceVariant,
-                    ...typography.labelSm,
-                    fontWeight: '700',
-                    marginLeft: 6,
-                  },
-                ]}
-              >
-                ratings
-              </Text>
-            </View>
-          )}
+              updating
+            </Text>
+          </View>
+        )}
+        {vm.resultsStale && !loading && (
           <View
             style={[
               styles.countBadge,
-              { backgroundColor: GOLD_ACCENT + '18', borderRadius: radii.full },
+              { backgroundColor: c.surfaceContainerHigh, borderRadius: radii.full },
             ]}
           >
-            <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '700' }]}>
-              {resultCount.toLocaleString()} found
+            <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
+              Filters changed
             </Text>
           </View>
+        )}
+        {enrichingResults && (
+          <View
+            style={[
+              styles.enrichmentBadge,
+              {
+                backgroundColor: c.surfaceContainerHigh,
+                borderRadius: radii.full,
+                borderColor: GOLD_DIM,
+              },
+            ]}
+          >
+            <SkeletonBlock style={styles.enrichmentDot} />
+            <Text
+              style={[
+                {
+                  color: c.onSurfaceVariant,
+                  ...typography.labelSm,
+                  fontWeight: '700',
+                  marginLeft: 6,
+                },
+              ]}
+            >
+              ratings
+            </Text>
+          </View>
+        )}
+        <View
+          style={[
+            styles.countBadge,
+            { backgroundColor: GOLD_ACCENT + '18', borderRadius: radii.full },
+          ]}
+        >
+          <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm, fontWeight: '700' }]}>
+            {resultCount.toLocaleString()} found
+          </Text>
         </View>
       </View>
+    </View>
+  );
 
-      <PosterGrid
-        bodyStyle={styles.resultsGrid}
-        items={results}
-        keyExtractor={(item) => `${item.tmdbId}-${item.mediaType}`}
-        renderItem={(item) => (
-          <DiscoverCard
-            item={item}
-            colors={c}
-            typography={typography}
-            radii={radii}
-            onPress={() => onSelectItem(item)}
-            onQuickSave={() => onToggleWatchlist?.(item)}
-            isSaved={watchlistIds.includes(watchlistEntryKey(item))}
-            showAirDay={airingFilterActive}
-          />
-        )}
-      />
-
+  // Footer: the load-more skeleton while a page is in flight (auto or manual),
+  // then either the inline retry (on a failed page) or the manual "Load More"
+  // fallback (Rec #1 keeps it for a fast flick past the prefetch trigger), then
+  // the honest end-of-results line.
+  const footerNode = (
+    <View>
       {!loading && loadingMore && <LoadMoreSkeleton />}
 
       {!loading && !loadingMore && loadMoreError ? (
@@ -1749,6 +1776,14 @@ function ResultsSection({
       )}
     </View>
   );
+
+  return {
+    gridData: results,
+    headerNode,
+    emptyNode: null,
+    footerNode,
+    showAirDay: airingFilterActive,
+  };
 }
 
 // A result tile: the poster (with its always-visible bookmark button) plus an
@@ -2187,6 +2222,13 @@ const styles = StyleSheet.create({
   gridCard: { width: GRID_COL_W },
   resultsGrid: {
     paddingHorizontal: 0,
+  },
+  // 2-up poster rows in the FlatList: one GRID_GAP between the columns and one
+  // below each row, matching the old PosterGrid `gap`. Each card is a fixed
+  // GRID_COL_W, so a lone trailing item stays left-aligned (no spacer needed).
+  gridColumnWrapper: {
+    gap: GRID_GAP,
+    marginBottom: GRID_GAP,
   },
   omdbMetaLine: { marginTop: 4, fontWeight: '600', letterSpacing: 0.2 },
 
