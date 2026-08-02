@@ -154,43 +154,19 @@ export const REGION_PRESETS = [
  * language preset sets both `languageCodes` and `excludeEnglish`) so applying one
  * never leaves a contradictory half-state behind.
  */
+// Quick Picks is now personalized: the language chips are derived at runtime from
+// the languages in the user's Highly Recommend list (see
+// `topWatchlistLanguages` + DiscoverScreen). The only STATIC intent preset left is
+// Documentary — a genre shortcut with no personalized equivalent. Language buckets
+// (Korean/Bollywood/Anime) moved to Smart Filters; "Foreign" is the Language
+// control's Non-English state; "Highly Rated" is the Rating + Sort controls.
 export const INTENT_PRESETS = [
-  {
-    id: 'foreign',
-    label: 'Foreign',
-    icon: 'language-outline',
-    patch: { excludeEnglish: true, languageCodes: [] },
-  },
-  {
-    id: 'anime',
-    label: 'Anime',
-    icon: 'sparkles-outline',
-    patch: { includeSmartTags: ['anime'] },
-  },
-  {
-    id: 'korean',
-    label: 'Korean',
-    icon: 'globe-outline',
-    patch: { languageCodes: ['ko'], excludeEnglish: false },
-  },
   {
     id: 'documentary',
     label: 'Documentary',
     icon: 'videocam-outline',
     // TMDB genre 99 = Documentary (present in both movie and TV genre lists).
     patch: { genreIds: [99], genreLogic: 'AND' },
-  },
-  {
-    id: 'bollywood',
-    label: 'Bollywood',
-    icon: 'musical-notes-outline',
-    patch: { languageCodes: ['hi'], excludeEnglish: false },
-  },
-  {
-    id: 'highlyRated',
-    label: 'Highly Rated',
-    icon: 'star-outline',
-    patch: { minRating: '7.5', sortBy: 'vote_average.desc' },
   },
 ];
 

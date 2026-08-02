@@ -13,6 +13,7 @@ export const WATCHLIST_SCHEMA_VERSION = 2;
 
 export const IMDB_TOP_100_MOVIES_COLLECTION_ID = 'imdb_top_100_movies';
 export const IMDB_TOP_100_TV_COLLECTION_ID = 'imdb_top_100_tv_series';
+export const HIGHLY_RECOMMEND_COLLECTION_ID = 'highly_recommend';
 
 export const IMDB_TOP_100_COLLECTION_IDS = new Set([
   IMDB_TOP_100_MOVIES_COLLECTION_ID,
@@ -154,6 +155,14 @@ export function normalizeWatchlistItem(item) {
     }
   }
 
+  // ISO 639-1 original-language code (powers Discover's personalized Quick
+  // Picks). Normalize a present value; leave a truly absent field absent so the
+  // backfill can tell "never checked" (undefined) from "checked, none" ('').
+  const normalizedLanguageCode =
+    item.originalLanguageCode === undefined
+      ? undefined
+      : String(item.originalLanguageCode).toLowerCase().trim();
+
   return {
     ...item,
     mediaType: item.mediaType,
@@ -163,6 +172,9 @@ export function normalizeWatchlistItem(item) {
       item.watchlistCategoryLabel || getWatchlistCategory(watchlistCategoryId).label,
     status,
     collectionIds,
+    ...(normalizedLanguageCode !== undefined
+      ? { originalLanguageCode: normalizedLanguageCode }
+      : {}),
     schemaVersion: WATCHLIST_SCHEMA_VERSION,
   };
 }
@@ -226,4 +238,51 @@ export function normalizeWatchlistCollections(collections) {
 
 export function isInUserLibrary(item) {
   return item?.status !== 'dropped';
+}
+
+/**
+ * True when a watchlist row belongs to a given built-in category/collection.
+ * A built-in category is recorded both as `watchlistCategoryId` and (for most)
+ * pushed into `collectionIds`, so check both.
+ * @param {WatchlistItem} item
+ * @param {string} collectionId
+ * @returns {boolean}
+ */
+export function itemInCollection(item, collectionId) {
+  if (!item) return false;
+  if (item.watchlistCategoryId === collectionId) return true;
+  return Array.isArray(item.collectionIds) && item.collectionIds.includes(collectionId);
+}
+
+/**
+ * The most common original languages among the titles in a given collection
+ * (default: Highly Recommend), most-frequent first. Powers Discover's
+ * personalized language Quick Picks. Rows without a captured
+ * `originalLanguageCode` are skipped (the backfill fills those in over time).
+ *
+ * @param {WatchlistItem[]} watchlist
+ * @param {{ collectionId?: string, limit?: number }} [options]
+ * @returns {string[]} ISO 639-1 codes, e.g. ['en', 'fr', 'ko']
+ */
+export function topWatchlistLanguages(
+  watchlist,
+  { collectionId = HIGHLY_RECOMMEND_COLLECTION_ID, limit = 8 } = {},
+) {
+  if (!Array.isArray(watchlist)) return [];
+
+  const counts = new Map();
+  for (const item of watchlist) {
+    if (!itemInCollection(item, collectionId)) continue;
+    const code =
+      typeof item.originalLanguageCode === 'string'
+        ? item.originalLanguageCode.toLowerCase().trim()
+        : '';
+    if (!code) continue;
+    counts.set(code, (counts.get(code) || 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, Math.max(0, limit))
+    .map(([code]) => code);
 }

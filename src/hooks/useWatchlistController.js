@@ -6,10 +6,13 @@ import {
   getUserWatchlistCollections,
   getStatusLabel,
   isInUserLibrary,
+  itemInCollection,
   normalizeWatchlistCollections,
   normalizeWatchlistItem,
   watchlistEntryKey,
+  HIGHLY_RECOMMEND_COLLECTION_ID,
 } from '../lib/watchlistModel';
+import { fetchOriginalLanguageCode } from '../lib/tmdb';
 import {
   mergeResolvedSynopsisIntoWatchlistRow,
   applyCreateCollection,
@@ -69,6 +72,61 @@ export function useWatchlistController({ showToast }) {
     }
     init();
   }, []);
+
+  // ── One-time language backfill ─────────────────────────────────────────────
+  // Titles saved before the app captured `originalLanguageCode` at save time have
+  // no language data, so Discover's personalized Quick Picks would ignore them.
+  // Once, after the list loads, fetch the code for any Highly Recommend row that
+  // is missing it (undefined = never checked) and persist. Rate-limited and
+  // capped so a large list doesn't hammer TMDB on launch. Rows that come back
+  // with no language are stored as '' so they aren't retried every launch.
+  const languageBackfillRanRef = useRef(false);
+  useEffect(() => {
+    if (languageBackfillRanRef.current) return;
+    if (!watchlist.length) return; // wait until the saved list has loaded
+
+    const pending = watchlist.filter(
+      (row) =>
+        row &&
+        row.originalLanguageCode === undefined &&
+        itemInCollection(row, HIGHLY_RECOMMEND_COLLECTION_ID),
+    );
+
+    languageBackfillRanRef.current = true;
+    if (!pending.length) return;
+
+    let cancelled = false;
+    (async () => {
+      const codeByKey = new Map();
+      for (const row of pending.slice(0, 50)) {
+        if (cancelled) return;
+        const code = await fetchOriginalLanguageCode(row.mediaType, row.tmdbId);
+        codeByKey.set(watchlistEntryKey(row), code || '');
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+      if (cancelled || codeByKey.size === 0) return;
+
+      setWatchlist((prev) => {
+        let changed = false;
+        const next = prev.map((row) => {
+          const key = watchlistEntryKey(row);
+          if (codeByKey.has(key) && row.originalLanguageCode === undefined) {
+            changed = true;
+            return normalizeWatchlistItem({ ...row, originalLanguageCode: codeByKey.get(key) });
+          }
+          return row;
+        });
+        if (!changed) return prev;
+        watchlistRef.current = next;
+        saveWatchlist(next).catch(() => {});
+        return next;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [watchlist]);
 
   const recordRecentDestinationId = useCallback((collectionId) => {
     if (!collectionId) return;
