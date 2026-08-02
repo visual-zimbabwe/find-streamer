@@ -6,7 +6,6 @@ export const TAB_ROOT_SCREEN = {
   home: 'Home',
   search: 'Search',
   discover: 'Discover',
-  watchlist: 'Watchlist',
   settings: 'Settings',
 };
 

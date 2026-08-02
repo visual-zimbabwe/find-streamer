@@ -70,7 +70,6 @@ test('core interactive surfaces expose accessibility roles and labels', () => {
     'src/components/SearchResultRow.js',
     'src/components/ResultView.js',
     'src/components/SettingsView.js',
-    'src/components/WatchlistView.js',
   ];
 
   files.forEach((file) => {
