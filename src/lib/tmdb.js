@@ -1,6 +1,12 @@
 import { recordRateQuota429, recordRateQuotaFromResponse } from './apiRateQuota';
 import { fetchOmdbRatings } from './omdb';
 import { NON_ENGLISH_CODES } from './languagePresets';
+import {
+  SMART_FILTER_KEYS,
+  smartFilterKeywordIds,
+  smartFilterLanguageCodes,
+  isExcludedBySmartFilters,
+} from './smartFilters';
 import { createAppError, isRetryableStatus, retryWithBackoff } from './errors';
 import { rankTrailerCandidates } from './trailerPicker';
 import { hasAdaptationKeyword, hasSourceMaterialCredit } from './basedOn';
@@ -304,6 +310,11 @@ function mapSearchMediaItem(item) {
     // Carried so `rankSearchCandidates` can order titles and people in one pool
     // without re-reading the raw payload.
     popularity: item.popularity || 0,
+    // ISO 639-1 original language (see discoverTitles) — so saving a search
+    // result also feeds the personalized language Quick Picks. Omitted when absent.
+    ...(item.original_language
+      ? { originalLanguageCode: String(item.original_language).toLowerCase() }
+      : {}),
   };
 }
 
@@ -537,6 +548,12 @@ async function getTitleMetadata(mediaType, tmdbId) {
     rating,
     runtimeMinutes,
     imdbId,
+    // ISO 639-1 original language — so saving from the detail screen captures the
+    // code for Discover's personalized language Quick Picks (mirrors the discover
+    // and search mappers). Distinct from the Wikidata `originalLanguage` NAMES.
+    originalLanguageCode: data.original_language
+      ? String(data.original_language).toLowerCase()
+      : null,
     collectionSeed,
     numberOfSeasons: mediaType === 'tv' ? data.number_of_seasons || seasons.length : null,
     numberOfEpisodes:
@@ -1035,30 +1052,11 @@ export async function enrichDiscoverResults(items = []) {
   });
 }
 
-// ─── Anime Smart-Filter ─────────────────────────────────────────────────────
-// Anime is not an official TMDB genre. We approximate it by flagging items
-// that (a) have Japanese as their original language AND carry the Animation
-// genre (id 16), OR (b) have 'anime' in their title/overview (rough heuristic).
-// TMDB genre id 16 = Animation.
-const ANIMATION_GENRE_ID = 16;
-
-// TMDB keyword id 210024 = "anime". Used for the *include* path ("find me anime")
-// because it is a native discover parameter — counts and pagination stay correct,
-// unlike the post-fetch heuristic we still use for the exclude path.
-const ANIME_KEYWORD_ID = '210024';
-
-function isLikelyAnime(rawItem) {
-  const lang = (rawItem.original_language || '').toLowerCase();
-  const genreIds = rawItem.genre_ids || [];
-  if (lang === 'ja' && genreIds.includes(ANIMATION_GENRE_ID)) return true;
-
-  // Secondary heuristic: title or overview contains 'anime'
-  const titleLower = (rawItem.title || rawItem.name || '').toLowerCase();
-  const overviewLower = (rawItem.overview || '').toLowerCase();
-  if (titleLower.includes('anime') || overviewLower.includes('anime')) return true;
-
-  return false;
-}
+// ─── Smart Filters ──────────────────────────────────────────────────────────
+// Anime, Korean, Japanese, Chinese and Bollywood are curated buckets that don't
+// map 1:1 to a TMDB genre. Their definitions (include codes/keywords + exclude
+// predicates) live in ./smartFilters so the include and exclude paths can never
+// drift apart. This file just wires those definitions into the /discover query.
 
 /**
  * Call /3/discover/movie or /3/discover/tv with a filter object.
@@ -1135,10 +1133,13 @@ export async function discoverTitles(filters = {}) {
     params.without_genres = excludeGenreIds.join(',');
   }
 
-  // ── Include smart tags (native keyword filter) ─────────────────────────────
-  // Anime-include maps to the TMDB "anime" keyword so the count stays exact.
-  if (includeSmartTags.includes('anime')) {
-    params.with_keywords = ANIME_KEYWORD_ID;
+  // ── Include smart tags (native filters) ────────────────────────────────────
+  // Keyword-kind smart filters (Anime) map to `with_keywords`; language-kind
+  // ones (Korean/Japanese/Chinese/Bollywood) fold into `with_original_language`
+  // below, alongside the manual Language picker. All native, so counts stay exact.
+  const keywordIds = smartFilterKeywordIds(includeSmartTags);
+  if (keywordIds.length > 0) {
+    params.with_keywords = keywordIds.join(',');
   }
 
   if (minRating != null && minRating > 0) {
@@ -1149,8 +1150,13 @@ export async function discoverTitles(filters = {}) {
     params['vote_average.lte'] = maxRating;
   }
 
-  if (languageCodes.length > 0) {
-    params.with_original_language = languageCodes.join('|');
+  // Manual Language picker ∪ any included language-kind smart filters, so a
+  // Smart Filter and a picked language never silently overwrite one another.
+  const mergedLanguageCodes = Array.from(
+    new Set([...languageCodes, ...smartFilterLanguageCodes(includeSmartTags)]),
+  );
+  if (mergedLanguageCodes.length > 0) {
+    params.with_original_language = mergedLanguageCodes.join('|');
   } else if (excludeEnglish) {
     // TMDB has no native `without_original_language` parameter.
     // We use NON_ENGLISH_CODES — a curated, stable union of all major
@@ -1183,10 +1189,16 @@ export async function discoverTitles(filters = {}) {
 
   const data = await tmdbGet(`/discover/${mediaType}`, params);
 
-  const excludeAnime = excludeSmartTags.includes('anime');
+  // Exclude-kind smart filters are applied post-fetch (TMDB has no native
+  // "without_original_language"/"without_keyword-that-we-want" for these), the
+  // same shape the Anime exclude always used — now generalized to every filter.
+  const excludeKeys = excludeSmartTags.filter((key) => SMART_FILTER_KEYS.includes(key));
 
   const rawItems = data.results || [];
-  const filtered = excludeAnime ? rawItems.filter((item) => !isLikelyAnime(item)) : rawItems;
+  const filtered =
+    excludeKeys.length > 0
+      ? rawItems.filter((item) => !isExcludedBySmartFilters(item, excludeKeys))
+      : rawItems;
 
   const results = filtered.map((item) => {
     const dateValue = item.release_date || item.first_air_date || '';
@@ -1202,11 +1214,17 @@ export async function discoverTitles(filters = {}) {
         : null,
       ratingValue: item.vote_average || 0,
       rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+      // ISO 639-1 original language, captured so a saved title carries the code
+      // that powers Discover's personalized language Quick Picks. Absent → the
+      // field is omitted (not null) so the watchlist backfill can spot the gap.
+      ...(item.original_language
+        ? { originalLanguageCode: String(item.original_language).toLowerCase() }
+        : {}),
     };
   });
 
-  // When Anime is excluded we may have removed some items from the page,
-  // so adjust the reported count to avoid misleading the user.
+  // Post-fetch exclusion may have removed items from the page, so adjust the
+  // reported count to avoid misleading the user.
   const removedCount = rawItems.length - filtered.length;
   const adjustedTotal = Math.max(0, (data.total_results || 0) - removedCount);
 
@@ -1216,6 +1234,24 @@ export async function discoverTitles(filters = {}) {
     totalPages: data.total_pages || 1,
     page: data.page || 1,
   };
+}
+
+/**
+ * The ISO 639-1 original-language code for a single title, or null. Used by the
+ * watchlist backfill to fill in language data for titles saved before the app
+ * started capturing `originalLanguageCode` at save time. Best-effort: never throws.
+ * @param {'movie'|'tv'} mediaType
+ * @param {number|string} tmdbId
+ * @returns {Promise<string|null>}
+ */
+export async function fetchOriginalLanguageCode(mediaType, tmdbId) {
+  try {
+    const data = await tmdbGet(`/${mediaType}/${tmdbId}`, { language: 'en-US' });
+    const code = (data.original_language || '').toLowerCase().trim();
+    return code || null;
+  } catch {
+    return null;
+  }
 }
 
 /** Next scheduled episode for a TV series (`next_episode_to_air`), if present. */

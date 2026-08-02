@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { DiscoverScreen } from '../components/DiscoverScreen';
 import { FilmographyScreen } from '../components/FilmographyScreen';
 import { FullCastScreen } from '../components/FullCastScreen';
 import { useSearch, useDiscover, useWatchlist, usePeople } from '../context/domainContexts';
+import { topWatchlistLanguages } from '../lib/watchlistModel';
 import { useStackScreenOptions } from './useStackScreenOptions';
 import { DetailScreenRoute } from './DetailScreenRoute';
 
@@ -14,7 +15,15 @@ function DiscoverMainScreen() {
   const navigation = useNavigation();
   const { handleSelectDiscoverItem } = useSearch();
   const { discoverVm } = useDiscover();
-  const { handleToggleWatchlist, savedWatchlistKeys } = useWatchlist();
+  const { handleToggleWatchlist, savedWatchlistKeys, watchlist } = useWatchlist();
+
+  // Personalized Quick Picks: the top languages among the user's Highly
+  // Recommend titles. Memoized on the list so Discover only re-derives when the
+  // library actually changes.
+  const recommendedLanguageCodes = useMemo(
+    () => topWatchlistLanguages(watchlist),
+    [watchlist],
+  );
 
   return (
     <DiscoverScreen
@@ -22,6 +31,7 @@ function DiscoverMainScreen() {
       vm={discoverVm}
       onToggleWatchlist={handleToggleWatchlist}
       watchlistIds={savedWatchlistKeys}
+      recommendedLanguageCodes={recommendedLanguageCodes}
     />
   );
 }

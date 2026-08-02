@@ -28,6 +28,7 @@ import {
   SkeletonBlock,
 } from './SkeletonLoaders';
 import { INTENT_PRESETS, intentPresetActive } from '../lib/languagePresets';
+import { SMART_FILTERS } from '../lib/smartFilters';
 import {
   RATING_MIN,
   RATING_MAX,
@@ -84,6 +85,13 @@ const SORT_OPTIONS_TV = [
 ];
 
 const AIR_DATE_SORT_OPTION = { value: 'air_date.asc', label: 'Air Date' };
+
+// Resolve an ISO 639-1 code to a human label using the TMDB language list the vm
+// already loads; falls back to the upper-cased code before that list arrives.
+function labelForLanguageCode(code, languages) {
+  const match = Array.isArray(languages) ? languages.find((l) => l.code === code) : null;
+  return match?.label || String(code || '').toUpperCase();
+}
 
 function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {
   if (!selectedCodes.length) return emptyLabel;
@@ -393,7 +401,13 @@ function SearchablePickerModal({
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistIds = [] }) {
+export function DiscoverScreen({
+  onSelectItem,
+  vm,
+  onToggleWatchlist,
+  watchlistIds = [],
+  recommendedLanguageCodes = [],
+}) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const c = colors;
@@ -427,6 +441,21 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
   const displayedSortBy = validSortValues.includes(vm.filters.sortBy)
     ? vm.filters.sortBy
     : 'popularity.desc';
+
+  // Quick Picks: one language chip per top language in the Highly Recommend list
+  // (personalized), then the static Documentary shortcut. Each is a stateless
+  // patch, so it flows through the same applyIntentPreset/intentPresetActive
+  // engine the old curated presets used. When the recommend list has no language
+  // data yet, the row degrades to just Documentary — never blank.
+  const quickPickPresets = useMemo(() => {
+    const languagePresets = recommendedLanguageCodes.map((code) => ({
+      id: `lang:${code}`,
+      label: labelForLanguageCode(code, vm.languages),
+      icon: 'language-outline',
+      patch: { languageCodes: [code], excludeEnglish: false },
+    }));
+    return [...languagePresets, ...INTENT_PRESETS];
+  }, [recommendedLanguageCodes, vm.languages]);
 
   const selectedLanguageCodes = vm.filters.languageCodes || [];
   const selectedOriginCountries = vm.filters.originCountries || [];
@@ -616,6 +645,7 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
       <View style={styles.filterBand}>
         <SectionLabel label="Quick picks" colors={c} typography={typography} />
         <IntentPresetRow
+          presets={quickPickPresets}
           filters={vm.filters}
           onApply={vm.applyIntentPreset}
           colors={c}
@@ -991,18 +1021,20 @@ export function DiscoverScreen({ onSelectItem, vm, onToggleWatchlist, watchlistI
 }
 
 // ─── Intent Preset Row ─────────────────────────────────────────────────────────
-// One-tap "quick picks" (Anime, Korean, Foreign, …). Each is a thin patch over the
-// filter primitives; activeness is derived from the live filters, so a chip lights
-// up whenever the filters already match it — no separate state to drift.
+// One-tap "quick picks". The chips are now personalized: a language chip per
+// top language in the user's Highly Recommend list, followed by the static
+// Documentary shortcut. Each chip is still a thin patch over the filter
+// primitives; activeness is derived from the live filters, so a chip lights up
+// whenever the filters already match it — no separate state to drift.
 
-function IntentPresetRow({ filters, onApply, colors: c, typography, radii }) {
+function IntentPresetRow({ presets, filters, onApply, colors: c, typography, radii }) {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.presetRow}
     >
-      {INTENT_PRESETS.map((preset) => {
+      {presets.map((preset) => {
         const active = intentPresetActive(preset, filters);
         return (
           <TouchableOpacity
@@ -1161,21 +1193,6 @@ function SortByControl({ sortOptions, displayedSortBy, onChange, colors: c, typo
     </ScrollView>
   );
 }
-
-// ─── Smart Tags ────────────────────────────────────────────────────────────────
-// Curated filters that don't map 1:1 to a TMDB genre. Each is bidirectional: it
-// can be required (include) or removed (exclude) — the include path uses a native
-// TMDB keyword, the exclude path a post-fetch heuristic.
-const SMART_TAGS = [
-  {
-    key: 'anime',
-    label: 'Anime',
-    includeDescription: 'Shows only titles carrying the TMDB "anime" keyword.',
-    excludeDescription:
-      'Removes titles where the original language is Japanese AND the Animation ' +
-      'genre is set, or where "anime" appears in the title or overview.',
-  },
-];
 
 // ─── Genre Filter Section ─────────────────────────────────────────────────────
 // One tri-state grammar for the whole section: tapping a genre (or smart filter)
@@ -1379,7 +1396,7 @@ function GenreFilterSection({
         </Text>
       </View>
 
-      {SMART_TAGS.map((tag) => {
+      {SMART_FILTERS.map((tag) => {
         const inc = includeSmartTags.includes(tag.key);
         const exc = excludeSmartTags.includes(tag.key);
         const stateColor = inc ? GOLD_ACCENT : exc ? c.error : c.onSurfaceVariant;
