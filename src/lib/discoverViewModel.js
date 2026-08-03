@@ -492,9 +492,13 @@ export function useDiscoverViewModel() {
   }
 
   function effectiveOriginCountries(f) {
-    if (f.mediaType !== 'tv') return [];
+    // Manually-picked origin countries now apply to BOTH movies and TV (TMDb's
+    // with_origin_country supports /discover/movie too). The continent-preset
+    // expansion stays TV-only — those presets are only offered on the TV view.
     if (f.originCountries.length > 0) return f.originCountries;
-    if (f.activeCountryPreset) return codesForCountryPreset(f.activeCountryPreset);
+    if (f.mediaType === 'tv' && f.activeCountryPreset) {
+      return codesForCountryPreset(f.activeCountryPreset);
+    }
     return [];
   }
 
