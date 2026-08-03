@@ -9,7 +9,7 @@ import {
   View,
   TextInput,
   FlatList,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,6 +29,19 @@ import {
 } from './SkeletonLoaders';
 import { INTENT_PRESETS, intentPresetActive } from '../lib/languagePresets';
 import { SMART_FILTERS } from '../lib/smartFilters';
+import {
+  buildPickerSections,
+  pushRecent,
+  POPULAR_LANGUAGE_CODES,
+  POPULAR_COUNTRY_CODES,
+  ITEM_HEIGHT as PICKER_ITEM_HEIGHT,
+} from '../lib/discoverPickerSections';
+import {
+  loadRecentLanguageCodes,
+  saveRecentLanguageCodes,
+  loadRecentCountryCodes,
+  saveRecentCountryCodes,
+} from '../lib/discoverRecentsStorage';
 import { GENRE_STATE, genreStateFor, smartTagStateFor, reduceTriState } from '../lib/genreTriState';
 import {
   RATING_MIN,
@@ -215,6 +228,7 @@ const PickerItem = React.memo(({ item, active, onPress, colors, typography }) =>
       accessibilityState={{ selected: active }}
     >
       <Text
+        numberOfLines={1}
         style={[
           {
             flex: 1,
@@ -231,12 +245,47 @@ const PickerItem = React.memo(({ item, active, onPress, colors, typography }) =>
   );
 });
 
+// The pinned-section header row (RECENT / SUGGESTED / ALL …). A fixed height so
+// the layout table's getItemLayout stays exact against the taller item rows.
+const PickerSectionHeader = React.memo(({ label, colors, typography }) => (
+  <View style={pickerStyles.sectionHeader}>
+    <Text
+      style={[
+        { color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '800', letterSpacing: 1 },
+      ]}
+    >
+      {label}
+    </Text>
+  </View>
+));
+
+// A removable chip for one current selection — the sheet's live, always-visible
+// answer to "what have I picked?", so the selection is never a scavenger hunt for
+// checkmarks down the list. Tapping the × drops it.
+const SelectedChip = React.memo(({ label, onRemove, colors, typography, radii }) => (
+  <TouchableOpacity
+    style={[pickerStyles.selectedChip, { backgroundColor: GOLD_ACCENT, borderRadius: radii.full }]}
+    onPress={onRemove}
+    activeOpacity={0.8}
+    accessibilityRole="button"
+    accessibilityLabel={`Remove ${label}`}
+  >
+    <Text style={[{ color: '#141414', ...typography.labelSm, fontWeight: '800' }]} numberOfLines={1}>
+      {label}
+    </Text>
+    <Ionicons name="close" size={13} color="#141414" style={{ marginLeft: 5 }} />
+  </TouchableOpacity>
+));
+
 function SearchablePickerModal({
   visible,
   onClose,
   title,
-  items, // [{ code, label }]
+  items, // [{ code, label }] — a leading { code: null } "Any" sentinel is ignored
   selectedCodes = [],
+  recentCodes = [],
+  suggestedCodes = [],
+  allLabel = 'ALL',
   onToggle,
   onClear,
   loading,
@@ -245,41 +294,82 @@ function SearchablePickerModal({
   radii,
 }) {
   const [query, setQuery] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const insets = useSafeAreaInsets();
 
-  const filtered = useMemo(() => {
-    const q = query.toLowerCase().trim();
-    if (!q) return items;
-    return items.filter((i) => i.label.toLowerCase().includes(q));
-  }, [items, query]);
+  // Lift the bottom-anchored sheet above the soft keyboard. A React Native Modal
+  // runs in its own window that does NOT resize with the keyboard (adjustResize
+  // on the activity doesn't reach it), so KeyboardAvoidingView is unreliable
+  // here — as the filtered list shrinks the sheet collapses to a short bar that
+  // the keyboard then covers. Tracking the keyboard height and reserving that
+  // much space below the sheet keeps the search box and results on screen.
+  useEffect(() => {
+    if (!visible) return undefined;
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, (e) =>
+      setKeyboardHeight(e.endCoordinates?.height ?? 0),
+    );
+    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
+
+  // Typed rows (Recent → Suggested → All, or flat matches while searching) plus
+  // the per-index layout table for getItemLayout. See discoverPickerSections.
+  const { rows, layout } = useMemo(
+    () =>
+      buildPickerSections({
+        items,
+        selectedCodes,
+        recentCodes,
+        suggestedCodes,
+        query,
+        allLabel,
+      }),
+    [items, selectedCodes, recentCodes, suggestedCodes, query, allLabel],
+  );
+
+  // Selected options, in selection order, for the chip strip. Resolved against
+  // the full item list so a code always renders with its human label.
+  const selectedItems = useMemo(() => {
+    const byCode = new Map((items || []).map((it) => [it.code, it]));
+    return selectedCodes.map((code) => ({ code, label: byCode.get(code)?.label || code }));
+  }, [items, selectedCodes]);
 
   const handleClose = () => {
     setQuery('');
+    setKeyboardHeight(0);
     onClose();
   };
 
+  const handleClear = () => {
+    Haptics.selectionAsync();
+    onClear();
+    setQuery('');
+  };
+
   const handleSelect = useCallback(
-    (item) => {
+    (code) => {
       Haptics.selectionAsync();
-      if (item.code == null) {
-        onClear();
-        setQuery('');
-        return;
-      }
-      onToggle(item.code);
+      onToggle(code);
     },
-    [onClear, onToggle],
+    [onToggle],
   );
 
-  const renderItem = useCallback(
+  const renderRow = useCallback(
     ({ item }) => {
-      const active =
-        item.code == null ? selectedCodes.length === 0 : selectedCodes.includes(item.code);
+      if (item.type === 'header') {
+        return <PickerSectionHeader label={item.label} colors={colors} typography={typography} />;
+      }
+      const active = selectedCodes.includes(item.code);
       return (
         <PickerItem
           item={item}
           active={active}
-          onPress={() => handleSelect(item)}
+          onPress={() => handleSelect(item.code)}
           colors={colors}
           typography={typography}
         />
@@ -289,36 +379,61 @@ function SearchablePickerModal({
   );
 
   const getItemLayout = useCallback(
-    (_, index) => ({
-      length: 48,
-      offset: 48 * index,
-      index,
-    }),
+    (_, index) => layout[index] || { length: PICKER_ITEM_HEIGHT, offset: PICKER_ITEM_HEIGHT * index, index },
+    [layout],
+  );
+
+  const keyExtractor = useCallback(
+    (item, index) => (item.type === 'header' ? `h:${item.label}:${index}` : `i:${item.code}`),
     [],
   );
+
+  const hasSelection = selectedCodes.length > 0;
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={pickerStyles.overlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1, justifyContent: 'flex-end' }}
-        >
+        {/* Reserve the keyboard's height below the sheet so it rides just above
+            the keyboard instead of being covered when the list shrinks. */}
+        <View style={[{ flex: 1, justifyContent: 'flex-end' }, { paddingBottom: keyboardHeight }]}>
           <View
             style={[
               pickerStyles.sheet,
               {
                 backgroundColor: colors.surface,
                 borderRadius: radii.xl,
-                paddingBottom: insets.bottom + 16,
+                // The safe-area inset only matters when the keyboard is down; when
+                // it's up the reserved keyboardHeight already clears the nav bar.
+                paddingBottom: keyboardHeight > 0 ? 16 : insets.bottom + 16,
               },
             ]}
           >
-            {/* Header */}
+            {/* Header: title (with a live selection count) + Clear (when any) + Done */}
             <View style={pickerStyles.sheetHeader}>
-              <Text style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '700' }]}>
+              <Text
+                style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '700', flex: 1 }]}
+                numberOfLines={1}
+              >
                 {title}
+                {hasSelection ? (
+                  <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+                    {`  ·  ${selectedCodes.length}`}
+                  </Text>
+                ) : null}
               </Text>
+              {hasSelection && (
+                <TouchableOpacity
+                  onPress={handleClear}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={{ marginRight: 20 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Clear ${title.toLowerCase()} selection`}
+                >
+                  <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
+                    Clear
+                  </Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 onPress={handleClose}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -330,6 +445,28 @@ function SearchablePickerModal({
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Selected chips — the always-visible summary of the current picks */}
+            {hasSelection && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={pickerStyles.selectedRow}
+                style={pickerStyles.selectedScroll}
+              >
+                {selectedItems.map((it) => (
+                  <SelectedChip
+                    key={it.code}
+                    label={it.label}
+                    onRemove={() => handleSelect(it.code)}
+                    colors={colors}
+                    typography={typography}
+                    radii={radii}
+                  />
+                ))}
+              </ScrollView>
+            )}
 
             {/* Search input */}
             <View
@@ -368,11 +505,11 @@ function SearchablePickerModal({
               <PickerListSkeleton count={8} />
             ) : (
               <FlatList
-                data={filtered}
-                keyExtractor={(item) => String(item.code ?? '__any__')}
-                style={{ maxHeight: 380 }}
+                data={rows}
+                keyExtractor={keyExtractor}
+                style={{ maxHeight: keyboardHeight > 0 ? 260 : 380 }}
                 keyboardShouldPersistTaps="handled"
-                renderItem={renderItem}
+                renderItem={renderRow}
                 initialNumToRender={20}
                 maxToRenderPerBatch={20}
                 windowSize={11}
@@ -394,7 +531,7 @@ function SearchablePickerModal({
               />
             )}
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   );
@@ -420,6 +557,12 @@ export function DiscoverScreen({
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
   const previousMediaTypeRef = useRef(vm.filters.mediaType);
+
+  // Recent language / country picks, persisted so a returning user sees what they
+  // chose last time instead of a cold alphabetical scroll (see
+  // discoverRecentsStorage). Loaded once on mount; pushed on each add.
+  const [recentLanguageCodes, setRecentLanguageCodes] = useState([]);
+  const [recentCountryCodes, setRecentCountryCodes] = useState([]);
 
   // Sticky footer (Search + live count). It rides the bottom-nav auto-hide.
   // (It used to also duck for the keyboard raised by the year/rating/runtime text
@@ -458,6 +601,16 @@ export function DiscoverScreen({
     return [...languagePresets, ...INTENT_PRESETS];
   }, [recommendedLanguageCodes, vm.languages]);
 
+  // Suggested languages for the picker's pinned group: the user's own top
+  // languages first (the same signal Quick Picks runs on), then the static
+  // popular set as a fallback so a thin recommend list still yields a useful
+  // short list. Country has no per-user signal, so its Suggested group is just
+  // the popular set.
+  const suggestedLanguageCodes = useMemo(
+    () => [...recommendedLanguageCodes, ...POPULAR_LANGUAGE_CODES],
+    [recommendedLanguageCodes],
+  );
+
   const selectedLanguageCodes = vm.filters.languageCodes || [];
   const selectedOriginCountries = vm.filters.originCountries || [];
   const langLabel = buildMultiLabel(
@@ -494,9 +647,9 @@ export function DiscoverScreen({
       vm.updateFilter('excludeGenreIds', []);
       vm.updateFilter('excludeSmartTags', []);
       vm.updateFilter('includeSmartTags', []);
-      if (vm.filters.mediaType === 'movie') {
-        vm.updateFilter('originCountries', []);
-      }
+      // Origin countries are universal ISO codes valid for both media types, so a
+      // country selection now survives a movie⇄TV switch (the filter applies to
+      // both). Genres, by contrast, use disjoint id sets and must reset.
       if (vm.filters.mediaType === 'tv') {
         vm.updateFilter('minRuntime', '');
         vm.updateFilter('maxRuntime', '');
@@ -514,6 +667,38 @@ export function DiscoverScreen({
     vm.loadLanguages();
     vm.loadCountries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load persisted recent picks once on mount.
+  useEffect(() => {
+    let alive = true;
+    loadRecentLanguageCodes().then((codes) => {
+      if (alive) setRecentLanguageCodes(codes);
+    });
+    loadRecentCountryCodes().then((codes) => {
+      if (alive) setRecentCountryCodes(codes);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Record a picked code into the persisted recents (add-only: removing a
+  // selection leaves history intact). Fire-and-forget the write.
+  const rememberRecentLanguage = useCallback((code) => {
+    setRecentLanguageCodes((prev) => {
+      const next = pushRecent(prev, code);
+      saveRecentLanguageCodes(next);
+      return next;
+    });
+  }, []);
+
+  const rememberRecentCountry = useCallback((code) => {
+    setRecentCountryCodes((prev) => {
+      const next = pushRecent(prev, code);
+      saveRecentCountryCodes(next);
+      return next;
+    });
   }, []);
 
   // Slide the footer down in concert with the bottom nav. Mirrors BottomNav's own
@@ -753,27 +938,24 @@ export function DiscoverScreen({
         />
       </View>
 
-      {vm.filters.mediaType === 'tv' && (
-        <>
-          <FilterDivider />
-          <View style={styles.filterBand}>
-            <SectionLabel label="Country" colors={c} typography={typography} />
-            <InlinePickerButton
-              icon="globe-outline"
-              label={countryLabel}
-              active={countryActive}
-              onOpen={() => setCountryModalVisible(true)}
-              onClear={() => vm.updateFilter('originCountries', [])}
-              accessibilityLabel={`Country, ${countryLabel}`}
-              clearAccessibilityLabel="Clear country filter"
-              surface={filterSurface}
-              colors={c}
-              typography={typography}
-              radii={radii}
-            />
-          </View>
-        </>
-      )}
+      {/* Country (origin) — now offered for movies and TV alike. */}
+      <FilterDivider />
+      <View style={styles.filterBand}>
+        <SectionLabel label="Country" colors={c} typography={typography} />
+        <InlinePickerButton
+          icon="globe-outline"
+          label={countryLabel}
+          active={countryActive}
+          onOpen={() => setCountryModalVisible(true)}
+          onClear={() => vm.updateFilter('originCountries', [])}
+          accessibilityLabel={`Country, ${countryLabel}`}
+          clearAccessibilityLabel="Clear country filter"
+          surface={filterSurface}
+          colors={c}
+          typography={typography}
+          radii={radii}
+        />
+      </View>
 
       <FilterDivider />
 
@@ -924,7 +1106,11 @@ export function DiscoverScreen({
         title="Select Language"
         items={vm.languages}
         selectedCodes={selectedLanguageCodes}
+        recentCodes={recentLanguageCodes}
+        suggestedCodes={suggestedLanguageCodes}
+        allLabel="ALL LANGUAGES"
         onToggle={(code) => {
+          if (!selectedLanguageCodes.includes(code)) rememberRecentLanguage(code);
           vm.toggleFilterValue('languageCodes', code);
           vm.updateFilter('activePreset', null);
           vm.updateFilter('excludeEnglish', false);
@@ -943,7 +1129,13 @@ export function DiscoverScreen({
         title="Select Country"
         items={vm.countries}
         selectedCodes={selectedOriginCountries}
-        onToggle={(code) => vm.toggleFilterValue('originCountries', code)}
+        recentCodes={recentCountryCodes}
+        suggestedCodes={POPULAR_COUNTRY_CODES}
+        allLabel="ALL COUNTRIES"
+        onToggle={(code) => {
+          if (!selectedOriginCountries.includes(code)) rememberRecentCountry(code);
+          vm.toggleFilterValue('originCountries', code);
+        }}
         onClear={() => vm.updateFilter('originCountries', [])}
         loading={vm.countriesLoading}
         colors={c}
@@ -1966,14 +2158,39 @@ const pickerStyles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 8,
   },
+  // Fixed height (not minHeight) so the getItemLayout offset table stays exact;
+  // labels are numberOfLines={1} so a long name can't grow the row.
   pickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 4,
-    paddingVertical: 14,
-    minHeight: 48,
+    height: 48,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(128,128,128,0.2)',
+  },
+  sectionHeader: {
+    height: 40,
+    justifyContent: 'flex-end',
+    paddingBottom: 8,
+    paddingHorizontal: 4,
+  },
+  selectedScroll: {
+    maxHeight: 44,
+    marginBottom: 8,
+  },
+  selectedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+    paddingRight: 8,
+  },
+  selectedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 36,
   },
 });
 

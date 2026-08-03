@@ -1071,7 +1071,7 @@ export async function enrichDiscoverResults(items = []) {
  *   minRating: number | null,      // vote_average.gte
  *   maxRating: number | null,      // vote_average.lte
  *   languageCodes: string[],       // ISO 639-1, e.g. ['en', 'ja']
- *   originCountries: string[],     // ISO 3166-1, TV only, e.g. ['US', 'KR']
+ *   originCountries: string[],     // ISO 3166-1, movie + TV, e.g. ['US', 'KR']
  *   fromYear: string | null,       // '2010'
  *   toYear: string | null,         // '2024'
  *   minRuntime: string | null,     // movie only, minutes, e.g. '90'
@@ -1166,7 +1166,9 @@ export async function discoverTitles(filters = {}) {
     params.with_original_language = NON_ENGLISH_CODES.join('|');
   }
 
-  if (mediaType === 'tv' && originCountries.length > 0) {
+  // Origin country applies to movies and TV alike — TMDb's with_origin_country
+  // is supported on both /discover endpoints.
+  if (originCountries.length > 0) {
     params.with_origin_country = originCountries.join('|');
   }
 
