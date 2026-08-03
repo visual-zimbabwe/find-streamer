@@ -63,21 +63,26 @@ export function SearchPanel({
   // used to make "offline", "rate-limited" and "still loading" render as the
   // same thing — nothing — so the only conclusion available to the user was
   // that the section didn't exist.
-  const [traktTrending, setTraktTrending] = useState({ status: 'loading', items: [] });
-  const [nowPlaying, setNowPlaying] = useState({ status: 'loading', items: [] });
+  const [traktTrending, setTraktTrending] = useState({ status: 'loading', items: [], source: null });
+  const [nowPlaying, setNowPlaying] = useState({ status: 'loading', items: [], source: null });
   const railRunRef = useRef(0);
 
+  // Fetchers resolve either a bare array (Now Playing) or `{ items, source }`
+  // (Trending, which cascades Trakt → TMDb). Normalise both so the state always
+  // carries a `source` the header can key off.
   const loadRail = useCallback((fetcher, setState) => {
     const run = railRunRef.current;
-    setState((prev) => ({ status: 'loading', items: prev.items }));
+    setState((prev) => ({ status: 'loading', items: prev.items, source: prev.source }));
     fetcher()
-      .then((items) => {
+      .then((result) => {
         if (railRunRef.current !== run) return;
-        setState({ status: 'ready', items: items || [] });
+        const items = Array.isArray(result) ? result : result?.items || [];
+        const source = Array.isArray(result) ? null : result?.source || null;
+        setState({ status: 'ready', items, source });
       })
       .catch(() => {
         if (railRunRef.current !== run) return;
-        setState({ status: 'error', items: [] });
+        setState({ status: 'error', items: [], source: null });
       });
   }, []);
 
@@ -98,6 +103,10 @@ export function SearchPanel({
       railRunRef.current += 1;
     };
   }, [loadTrending, loadNowPlaying]);
+
+  // Trakt was unreachable and the rail is showing TMDb popularity instead — the
+  // header and the rank/watcher chrome both key off this.
+  const trendingFromFallback = traktTrending.source === 'tmdb';
 
   return (
     <View style={styles.container}>
@@ -197,18 +206,20 @@ export function SearchPanel({
       )}
 
       {/*
-        Numbered, because the rail is now in Trakt's order rather than in TMDb
-        rating order — the number is the content, and it would have been a lie
-        before.
+        Numbered, because the rail is normally in Trakt's order rather than in
+        TMDb rating order — the number is the content, and it would have been a
+        lie before. When Trakt is unreachable the rail silently falls back to
+        TMDb popularity: the header drops the Trakt claim, and the rank/watcher
+        chrome comes off with it, because neither describes the fallback data.
       */}
       {!hideHistory && (
         <ContentRail
-          title="Trending on Trakt"
+          title={trendingFromFallback ? 'Trending now' : 'Trending on Trakt'}
           icon="trending-up-outline"
           data={traktTrending.items}
           status={traktTrending.status}
           onRetry={loadTrending}
-          showRank
+          showRank={!trendingFromFallback}
           colors={colors}
           typography={typography}
           radii={radii}
@@ -218,7 +229,11 @@ export function SearchPanel({
           savedKeys={savedWatchlistKeys}
           onSeeAll={
             onSeeAllRail
-              ? () => onSeeAllRail({ railId: 'trakt-trending', title: 'Trending on Trakt' })
+              ? () =>
+                  onSeeAllRail({
+                    railId: 'trakt-trending',
+                    title: trendingFromFallback ? 'Trending now' : 'Trending on Trakt',
+                  })
               : null
           }
         />

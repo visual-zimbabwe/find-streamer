@@ -16,6 +16,7 @@ import {
   RAIL_FULL_LIMIT,
   RAIL_LIMIT,
   dedupeRailItems,
+  interleaveByPopularity,
   interleaveByTrendingRank,
   selectNowPlaying,
 } from './searchRails.js';
@@ -197,24 +198,64 @@ export async function buildHomeSpotlight(watchlist = [], scope = 'all') {
 }
 
 /**
- * Trakt movie + TV trending, interleaved by Trakt's own rank and enriched.
+ * TMDb popularity for both media types, interleaved and poster-filtered — the
+ * fallback that keeps the trending rail populated when Trakt is unavailable (it
+ * 403s on some networks). Carries no watchers/rank, so the caller renders it
+ * under a source-neutral header rather than claiming it came from Trakt.
+ */
+async function fetchTmdbPopularRail(limit) {
+  const perSide = Math.ceil(limit / 2) + 2;
+  const [movies, shows] = await Promise.all([
+    discoverTitles({ mediaType: 'movie', sortBy: 'popularity.desc', page: 1 }),
+    discoverTitles({ mediaType: 'tv', sortBy: 'popularity.desc', page: 1 }),
+  ]);
+
+  const ordered = dedupeRailItems(
+    interleaveByPopularity(
+      (movies.results || []).slice(0, perSide),
+      (shows.results || []).slice(0, perSide),
+    ),
+  );
+  return ordered.filter((item) => item.posterUrl).slice(0, limit);
+}
+
+/**
+ * The trending rail, resolved to `{ items, source }`.
  *
- * The enrichment is deliberately the *last* step and runs over a small buffer
- * rather than the whole pool: ordering no longer depends on anything TMDb
- * knows, so there is no reason to spend a detail request on an item that was
- * never going to make the cut. This used to enrich 32 items to render 10.
+ * Trakt is tried first — its movie + TV lists interleaved by Trakt's own rank
+ * and enriched (the enrichment is deliberately the *last* step and runs over a
+ * small buffer, so a poster-less item never costs a detail request). But Trakt
+ * 403s on some networks, and an empty Trakt rail used to mean an empty section;
+ * so on a Trakt failure *or* an empty Trakt result we cascade to TMDb
+ * popularity, mirroring what Discover already does. The `source` lets the caller
+ * drop the Trakt-only chrome (rank, live-watcher badge) when the data isn't
+ * actually Trakt's. Only a double outage resolves empty — and that throws, so
+ * the rail shows its honest error/retry state instead of silently vanishing.
  */
 export async function fetchHomeTraktTrendingRail(limit = HOME_RAIL_LIMIT) {
   // A couple spare per side absorbs the items that turn out to have no poster.
   const perSide = Math.ceil(limit / 2) + 2;
-  const [moviesRaw, tvRaw] = await Promise.all([
-    fetchTraktTrending('movie', perSide),
-    fetchTraktTrending('tv', perSide),
-  ]);
+  try {
+    const [moviesRaw, tvRaw] = await Promise.all([
+      fetchTraktTrending('movie', perSide),
+      fetchTraktTrending('tv', perSide),
+    ]);
+    const ordered = dedupeRailItems(interleaveByTrendingRank(moviesRaw || [], tvRaw || []));
+    const enriched = await enrichTraktItems(ordered.slice(0, limit + 4));
+    const items = enriched.filter((item) => item.posterUrl).slice(0, limit);
+    if (items.length > 0) return { items, source: 'trakt' };
+    // Trakt answered but nothing was usable → fall through to TMDb popularity.
+  } catch {
+    // Trakt failed (commonly 403) → TMDb popularity keeps the rail alive.
+  }
 
-  const ordered = dedupeRailItems(interleaveByTrendingRank(moviesRaw || [], tvRaw || []));
-  const enriched = await enrichTraktItems(ordered.slice(0, limit + 4));
-  return enriched.filter((item) => item.posterUrl).slice(0, limit);
+  const items = await fetchTmdbPopularRail(limit);
+  if (items.length === 0) {
+    // Both sources dry (TMDb is the app's primary API, so this is a hard
+    // outage): surface the error/retry state rather than a silent empty rail.
+    throw new Error('Trending is unavailable right now.');
+  }
+  return { items, source: 'tmdb' };
 }
 
 export async function fetchHomeTmdbRail(def) {
