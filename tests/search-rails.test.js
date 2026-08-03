@@ -5,6 +5,7 @@ import {
   RAIL_LIMIT,
   dedupeRailItems,
   formatWatchers,
+  interleaveByPopularity,
   interleaveByTrendingRank,
   selectNowPlaying,
 } from '../src/lib/searchRails.js';
@@ -61,6 +62,43 @@ test('interleave puts rank-less items last rather than first', () => {
 
   assert.equal(out[0].tmdbId, 'movie-1');
   assert.equal(out[1].tmdbId, 'no-rank');
+});
+
+const popular = (mediaType, id, popularity) => ({ mediaType, tmdbId: id, popularity });
+
+test('interleave by popularity alternates movie/show, highest first on each side', () => {
+  const movies = [popular('movie', 'm-lo', 10), popular('movie', 'm-hi', 90)];
+  const shows = [popular('tv', 's-hi', 80), popular('tv', 's-lo', 5)];
+
+  const out = interleaveByPopularity(movies, shows);
+
+  assert.deepEqual(
+    out.map((i) => i.tmdbId),
+    ['m-hi', 's-hi', 'm-lo', 's-lo'],
+  );
+});
+
+test('interleave by popularity preserves given order when the field is absent', () => {
+  // discoverTitles returns items already popularity-sorted but without a
+  // `popularity` field — the stable sort must not reshuffle them.
+  const movies = [
+    { mediaType: 'movie', tmdbId: 'm1' },
+    { mediaType: 'movie', tmdbId: 'm2' },
+  ];
+  const shows = [{ mediaType: 'tv', tmdbId: 's1' }];
+
+  const out = interleaveByPopularity(movies, shows);
+
+  assert.deepEqual(
+    out.map((i) => i.tmdbId),
+    ['m1', 's1', 'm2'],
+  );
+});
+
+test('interleave by popularity tolerates an empty or failed side', () => {
+  assert.deepEqual(interleaveByPopularity([], []), []);
+  assert.equal(interleaveByPopularity([popular('movie', 'm', 1)], []).length, 1);
+  assert.equal(interleaveByPopularity([], [popular('tv', 's', 1)]).length, 1);
 });
 
 test('dedupe keeps first occurrence and drops items with no tmdb id', () => {

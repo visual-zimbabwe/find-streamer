@@ -31,17 +31,23 @@ export function RailListScreen({
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
-  const [state, setState] = useState({ status: 'loading', items: [] });
+  const [state, setState] = useState({ status: 'loading', items: [], source: null });
 
   const load = useCallback(() => {
     let cancelled = false;
-    setState((prev) => ({ status: 'loading', items: prev.items }));
+    setState((prev) => ({ status: 'loading', items: prev.items, source: prev.source }));
     fetchSearchRailFull(railId)
-      .then((items) => {
-        if (!cancelled) setState({ status: 'ready', items: items || [] });
+      .then((result) => {
+        if (cancelled) return;
+        // Now Playing resolves an array; Trending resolves `{ items, source }`
+        // where source is 'tmdb' when Trakt was unreachable and the list fell
+        // back to popularity.
+        const items = Array.isArray(result) ? result : result?.items || [];
+        const source = Array.isArray(result) ? null : result?.source || null;
+        setState({ status: 'ready', items, source });
       })
       .catch(() => {
-        if (!cancelled) setState({ status: 'error', items: [] });
+        if (!cancelled) setState({ status: 'error', items: [], source: null });
       });
     return () => {
       cancelled = true;
@@ -51,7 +57,11 @@ export function RailListScreen({
   useEffect(() => load(), [load]);
 
   const savedSet = new Set(savedKeys || []);
-  const showRank = railId === 'trakt-trending';
+  // The rank/watcher chrome belongs to Trakt's ordering only — a TMDb-popularity
+  // fallback carries neither, so it renders as a plain grid under a plain header.
+  const fromFallback = railId === 'trakt-trending' && state.source === 'tmdb';
+  const showRank = railId === 'trakt-trending' && !fromFallback;
+  const displayTitle = fromFallback ? 'Trending now' : title;
   const atmosphereColors = [colors.surfaceContainerHigh, colors.background];
 
   return (
@@ -65,7 +75,7 @@ export function RailListScreen({
         showsVerticalScrollIndicator={false}
         overScrollMode="never"
       >
-        <ProgrammeSectionHeader eyebrow={eyebrow} title={title} titleVariant="titleMd" />
+        <ProgrammeSectionHeader eyebrow={eyebrow} title={displayTitle} titleVariant="titleMd" />
 
         {state.status === 'loading' && !state.items.length ? (
           <ResultsSkeleton count={8} captions={false} />
@@ -78,7 +88,7 @@ export function RailListScreen({
               label: 'Try Again',
               icon: 'refresh-outline',
               onPress: load,
-              accessibilityLabel: `Retry loading ${title}`,
+              accessibilityLabel: `Retry loading ${displayTitle}`,
             }}
             compact
           />

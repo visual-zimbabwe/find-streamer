@@ -73,6 +73,31 @@ export function interleaveByTrendingRank(movies = [], shows = []) {
 }
 
 /**
+ * Interleave two popularity-ranked lists — the fallback ordering when Trakt is
+ * down and the rail is served from TMDb popularity instead, which carries no
+ * `trendingRank`. Same movie-then-show cadence as {@link interleaveByTrendingRank}
+ * so the rail reads the same whichever source filled it.
+ *
+ * TMDb already returns each list in `popularity.desc` order, so when the items
+ * carry no `popularity` field the stable sort is a no-op that preserves that
+ * order; the explicit sort only matters if a caller passes the field through.
+ */
+export function interleaveByPopularity(movies = [], shows = []) {
+  const byPop = (list) => [...list].sort((a, b) => (b?.popularity || 0) - (a?.popularity || 0));
+
+  const rankedMovies = byPop(movies);
+  const rankedShows = byPop(shows);
+  const out = [];
+
+  for (let i = 0; i < Math.max(rankedMovies.length, rankedShows.length); i += 1) {
+    if (rankedMovies[i]) out.push(rankedMovies[i]);
+    if (rankedShows[i]) out.push(rankedShows[i]);
+  }
+
+  return out;
+}
+
+/**
  * Order the theatrical rail: drop the long tail of thinly-voted limited
  * releases, then sort by popularity — "what is drawing an audience right now"
  * is the question a Now Playing rail answers, not "what has the highest mean".

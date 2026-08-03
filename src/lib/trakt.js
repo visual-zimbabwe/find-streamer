@@ -13,7 +13,19 @@ const _cache = {};
 const _cacheAt = {};
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
+// A 403 from Trakt is network-wide and sticky — some ISPs, VPNs and corp
+// networks block the host outright — so a retry seconds later hits the same
+// wall. Once we see one, skip the doomed round-trip for a short window and let
+// callers fall back (to TMDb) immediately instead of waiting on a request that
+// cannot succeed. A later success clears the block.
+let _blockedUntil = 0;
+const BLOCK_TTL = 10 * 60 * 1000; // 10 minutes
+
 async function traktGet(pathname, params = {}) {
+  if (Date.now() < _blockedUntil) {
+    throw new Error('Trakt temporarily unavailable.');
+  }
+
   const url = new URL(`${TRAKT_BASE}${pathname}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
 
@@ -33,9 +45,14 @@ async function traktGet(pathname, params = {}) {
       recordRateQuota429('trakt', response);
       throw new Error('Trakt rate limit reached. Try again in a few minutes.');
     }
+    if (response.status === 403) {
+      _blockedUntil = Date.now() + BLOCK_TTL;
+    }
     throw new Error(`Trakt API error: ${response.status}`);
   }
 
+  // Reachable again — drop any stale block so Trakt is preferred once it heals.
+  _blockedUntil = 0;
   recordRateQuotaFromResponse('trakt', response);
   return response.json();
 }
