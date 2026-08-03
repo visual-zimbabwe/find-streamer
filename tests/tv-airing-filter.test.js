@@ -4,6 +4,7 @@ import {
   AIR_DATE_SORT,
   effectiveDiscoverSortBy,
   formatAirDayLabel,
+  formatLocalYmd,
   getAiringWindow,
   isInAiringWindow,
   sortByAirDateAsc,
@@ -11,20 +12,26 @@ import {
 
 const wednesday = new Date(2026, 5, 24, 15, 30, 0);
 
-test('getAiringWindow spans today through Sunday in local time', () => {
+test('getAiringWindow spans a rolling 7 days from today in local time', () => {
   const { start, end } = getAiringWindow(wednesday);
   assert.equal(start.getFullYear(), 2026);
   assert.equal(start.getMonth(), 5);
   assert.equal(start.getDate(), 24);
-  assert.equal(end.getDay(), 0);
-  assert.equal(end.getDate(), 28);
+  // today + 6 → June 30 (a stable week that never shrinks to a single day).
+  assert.equal(end.getMonth(), 5);
+  assert.equal(end.getDate(), 30);
 });
 
-test('isInAiringWindow accepts today through Sunday and rejects outside range', () => {
+test('formatLocalYmd renders the local calendar day without a UTC shift', () => {
+  assert.equal(formatLocalYmd(new Date(2026, 5, 24)), '2026-06-24');
+  assert.equal(formatLocalYmd(new Date(2026, 0, 5)), '2026-01-05');
+});
+
+test('isInAiringWindow accepts the 7-day window and rejects outside it', () => {
   assert.equal(isInAiringWindow('2026-06-24', wednesday), true);
-  assert.equal(isInAiringWindow('2026-06-28', wednesday), true);
+  assert.equal(isInAiringWindow('2026-06-30', wednesday), true);
   assert.equal(isInAiringWindow('2026-06-23', wednesday), false);
-  assert.equal(isInAiringWindow('2026-06-29', wednesday), false);
+  assert.equal(isInAiringWindow('2026-07-01', wednesday), false);
   assert.equal(isInAiringWindow('', wednesday), false);
 });
 
@@ -52,9 +59,10 @@ test('effectiveDiscoverSortBy maps client air-date sort to TMDB popularity', () 
   assert.equal(effectiveDiscoverSortBy('vote_average.desc'), 'vote_average.desc');
 });
 
-test('isInAiringWindow on Sunday only includes Sunday', () => {
+test('isInAiringWindow on Sunday spans the whole following week', () => {
   const sunday = new Date(2026, 5, 28, 10, 0, 0);
   assert.equal(isInAiringWindow('2026-06-28', sunday), true);
+  assert.equal(isInAiringWindow('2026-07-04', sunday), true);
   assert.equal(isInAiringWindow('2026-06-27', sunday), false);
-  assert.equal(isInAiringWindow('2026-06-29', sunday), false);
+  assert.equal(isInAiringWindow('2026-07-05', sunday), false);
 });
