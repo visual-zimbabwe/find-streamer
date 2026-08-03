@@ -28,6 +28,7 @@ import {
   SkeletonBlock,
 } from './SkeletonLoaders';
 import { INTENT_PRESETS, intentPresetActive } from '../lib/languagePresets';
+import { AIR_DATE_SORT } from '../lib/tvAiringFilter';
 import { SMART_FILTERS } from '../lib/smartFilters';
 import {
   buildPickerSections,
@@ -100,6 +101,17 @@ const SORT_OPTIONS_TV = [
 
 const AIR_DATE_SORT_OPTION = { value: 'air_date.asc', label: 'Air Date' };
 
+// A front-door Quick Pick for "what's on this week" — one tap flips to TV,
+// enables the airing filter, and defaults the sort to chronological. Like every
+// Quick Pick it's a stateless patch, so tapping it again clears all three keys
+// back to their defaults and its highlight is derived by intentPresetActive.
+const AIRING_QUICK_PICK = {
+  id: 'airing-this-week',
+  label: 'Airing this week',
+  icon: 'calendar-outline',
+  patch: { mediaType: 'tv', airingThisWeek: true, sortBy: AIR_DATE_SORT },
+};
+
 // Resolve an ISO 639-1 code to a human label using the TMDB language list the vm
 // already loads; falls back to the upper-cased code before that list arrives.
 function labelForLanguageCode(code, languages) {
@@ -143,7 +155,7 @@ function AiringThisWeekChip({ active, onToggle, colors, typography, radii }) {
       activeOpacity={0.8}
       accessibilityRole="switch"
       accessibilityLabel="Airing this week"
-      accessibilityHint="Shows only TV titles with an episode airing between today and Sunday"
+      accessibilityHint="Shows only TV titles with an episode airing in the next 7 days"
       accessibilityState={{ selected: active }}
     >
       <Ionicons
@@ -598,7 +610,10 @@ export function DiscoverScreen({
       icon: 'language-outline',
       patch: { languageCodes: [code], excludeEnglish: false },
     }));
-    return [...languagePresets, ...INTENT_PRESETS];
+    // "Airing this week" leads the row as a first-class browse entry point (it's
+    // the marquee "what's on now" intent), then the personalized language chips,
+    // then the static Documentary shortcut.
+    return [AIRING_QUICK_PICK, ...languagePresets, ...INTENT_PRESETS];
   }, [recommendedLanguageCodes, vm.languages]);
 
   // Suggested languages for the picker's pinned group: the user's own top
@@ -861,7 +876,7 @@ export function DiscoverScreen({
             <View style={styles.hChipRow}>
               <AiringThisWeekChip
                 active={vm.filters.airingThisWeek}
-                onToggle={() => vm.updateFilter('airingThisWeek', !vm.filters.airingThisWeek)}
+                onToggle={() => vm.setAiringThisWeek(!vm.filters.airingThisWeek)}
                 colors={c}
                 typography={typography}
                 radii={radii}
@@ -1855,10 +1870,14 @@ function buildResultsView({ vm, colors: c, typography, radii }) {
         <View style={styles.stateBox}>
           <EmptyState
             variant="empty"
-            title={airingFilterActive ? 'Nothing airing today–Sunday with these filters' : 'No matches found'}
+            title={
+              airingFilterActive
+                ? 'Nothing airing in the next 7 days with these filters'
+                : 'No matches found'
+            }
             description={
               airingFilterActive
-                ? 'Try clearing a few filters or load more results to scan additional pages.'
+                ? 'Nothing is scheduled this week under these filters. Try clearing a few, or check back as new episodes are announced.'
                 : "We couldn't find anything with those filters. Clear a few choices and search again."
             }
             primaryAction={{
@@ -1880,7 +1899,10 @@ function buildResultsView({ vm, colors: c, typography, radii }) {
   }
 
   const airingFilterActive = vm.filters.airingThisWeek && vm.filters.mediaType === 'tv';
-  const resultCount = airingFilterActive ? results.length : totalResults;
+  // The airing count is now server-truthful (air_date window returns a real
+  // total_results), so it's the same honest `totalResults` every other query uses
+  // — no more "however many of page 1 survived the client sieve".
+  const resultCount = totalResults;
 
   const headerNode = (
     <View style={styles.resultsHeader}>
@@ -2065,10 +2087,12 @@ function DiscoverCard({
   // Lead with the air day (only under the TV "airing this week" filter) or the
   // release year; IMDb / Rotten Tomatoes follow. Content rating (PG-13/R/TV-MA) is
   // intentionally gone.
-  const leadMeta =
-    showAirDay && item.airDay ? item.airDay : item.year ? String(item.year) : null;
-  const metaParts = [
-    leadMeta,
+  const isAirDay = showAirDay && !!item.airDay;
+  const leadMeta = isAirDay ? item.airDay : item.year ? String(item.year) : null;
+  // Ratings trail the lead; under the airing filter the lead is the air day,
+  // rendered gold + bold so the grid reads as a chronological agenda rather than
+  // a poster wall with a date buried in grey.
+  const restParts = [
     imdbRating ? `IMDb ${imdbRating}` : null,
     rottenTomatoes ? `RT ${rottenTomatoes}` : null,
   ].filter(Boolean);
@@ -2091,12 +2115,20 @@ function DiscoverCard({
         saved={isSaved}
         onToggleWatchlist={onQuickSave ? () => onQuickSave() : undefined}
       />
-      {metaParts.length > 0 && (
+      {(leadMeta || restParts.length > 0) && (
         <Text
           style={[styles.omdbMetaLine, { color: c.onSurfaceVariant, ...typography.labelSm }]}
           numberOfLines={1}
         >
-          {metaParts.join(' · ')}
+          {leadMeta ? (
+            isAirDay ? (
+              <Text style={{ color: GOLD_ACCENT, fontWeight: '700' }}>{leadMeta}</Text>
+            ) : (
+              leadMeta
+            )
+          ) : null}
+          {leadMeta && restParts.length > 0 ? ' · ' : ''}
+          {restParts.join(' · ')}
         </Text>
       )}
     </TouchableOpacity>

@@ -18,7 +18,7 @@ import {
 import {
   AIR_DATE_SORT,
   effectiveDiscoverSortBy,
-  filterDiscoverResultsByAiring,
+  enrichResultsWithAirDay,
   sortByAirDateAsc,
 } from './tvAiringFilter';
 
@@ -65,7 +65,8 @@ const DEFAULT_FILTERS = {
   // Stores the active continent id ('africa', 'asia', 'europe', …).
   // Filters the country picker to only show countries in that continent.
   activeCountryPreset: null,
-  // TV only: keep only shows whose next episode airs today through Sunday.
+  // TV only: keep only shows with an episode airing in the next 7 days. Applied
+  // server-side via TMDb's air_date.gte/lte on /discover/tv (see discoverTitles).
   airingThisWeek: false,
 };
 
@@ -166,6 +167,23 @@ export function useDiscoverViewModel() {
 
   const updateFilter = useCallback((key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+    setValidationError(null);
+  }, []);
+
+  // Toggle the TV "Airing this week" filter. Turning it on defaults the sort to
+  // chronological (Air Date) so the grid reads like a schedule — but only if the
+  // user is still on the popularity default, so an explicit sort choice is never
+  // stomped. Turning it off reverts that implicit Air-Date default.
+  const setAiringThisWeek = useCallback((next) => {
+    setFilters((prev) => {
+      const patch = { ...prev, airingThisWeek: next };
+      if (next && prev.sortBy === 'popularity.desc') {
+        patch.sortBy = AIR_DATE_SORT;
+      } else if (!next && prev.sortBy === AIR_DATE_SORT) {
+        patch.sortBy = DEFAULT_FILTERS.sortBy;
+      }
+      return patch;
+    });
     setValidationError(null);
   }, []);
 
@@ -512,31 +530,43 @@ export function useDiscoverViewModel() {
     };
   }
 
-  async function applyAiringFilter(items, f) {
-    if (!f.airingThisWeek || f.mediaType !== 'tv') return items;
-
-    let filtered = await filterDiscoverResultsByAiring(items);
-    if (f.sortBy === AIR_DATE_SORT) {
-      filtered = sortByAirDateAsc(filtered);
-    }
-    return filtered;
-  }
-
-  function mergeAiringResults(previous, incoming, f) {
+  function dedupeAppend(previous, incoming) {
     const seen = new Set(previous.map((item) => resultKey(item)));
-    const dedupedIncoming = incoming.filter((item) => {
+    const add = incoming.filter((item) => {
       const key = resultKey(item);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
-
-    let merged = [...previous, ...dedupedIncoming];
-    if (f.airingThisWeek && f.mediaType === 'tv' && f.sortBy === AIR_DATE_SORT) {
-      merged = sortByAirDateAsc(merged);
-    }
-    return merged;
+    return [...previous, ...add];
   }
+
+  // Non-blocking day-label pass for the airing-this-week grid. The SET is already
+  // correct (server-side air_date window), so this only stamps `airDay` for the
+  // schedule read and — when the user is sorting by Air Date — re-sorts the grid
+  // chronologically once the labels land. Fire-and-forget, like OMDb enrichment.
+  const enrichAirDays = useCallback((items, token, f) => {
+    if (!f.airingThisWeek || f.mediaType !== 'tv' || !items.length) return;
+    enrichResultsWithAirDay(items)
+      .then((enriched) => {
+        if (token !== searchTokenRef.current) return;
+        const byKey = new Map(enriched.map((item) => [resultKey(item), item]));
+        setResults((prev) => {
+          // Field-merge (not replace): the OMDb ratings pass runs concurrently
+          // over the same items, so overwriting whole items would clobber the
+          // omdbRatings it just stamped (and vice-versa). Overlaying only the
+          // fields each pass adds keeps both.
+          const merged = prev.map((item) => {
+            const e = byKey.get(resultKey(item));
+            return e ? { ...item, ...e } : item;
+          });
+          return f.sortBy === AIR_DATE_SORT ? sortByAirDateAsc(merged) : merged;
+        });
+      })
+      .catch(() => {
+        // Best-effort labels — a failure just leaves the year fallback in place.
+      });
+  }, []);
 
   const enrichVisibleResults = useCallback((items, token) => {
     if (!items.length) return;
@@ -546,7 +576,13 @@ export function useDiscoverViewModel() {
       .then((enrichedItems) => {
         if (token !== searchTokenRef.current) return;
         const enrichedByKey = new Map(enrichedItems.map((item) => [resultKey(item), item]));
-        setResults((prev) => prev.map((item) => enrichedByKey.get(resultKey(item)) || item));
+        // Field-merge (not replace) so a concurrent air-day pass isn't clobbered.
+        setResults((prev) =>
+          prev.map((item) => {
+            const e = enrichedByKey.get(resultKey(item));
+            return e ? { ...item, ...e } : item;
+          }),
+        );
       })
       .catch(() => {
         // OMDb enrichment is best-effort and should never block or fail Discover.
@@ -584,17 +620,12 @@ export function useDiscoverViewModel() {
     try {
       const data = await discoverTitles({ ...buildDiscoverApiFilters(filters), page: 1 });
       if (token !== searchTokenRef.current) return; // stale
-      const filteredResults = await applyAiringFilter(data.results, filters);
-      if (token !== searchTokenRef.current) return;
-      setResults(filteredResults);
-      setTotalResults(
-        filters.airingThisWeek && filters.mediaType === 'tv'
-          ? filteredResults.length
-          : data.totalResults,
-      );
+      setResults(data.results);
+      setTotalResults(data.totalResults);
       setTotalPages(data.totalPages);
       setCurrentPage(1);
-      enrichVisibleResults(filteredResults, token);
+      enrichVisibleResults(data.results, token);
+      enrichAirDays(data.results, token, filters);
     } catch (e) {
       if (token !== searchTokenRef.current) return;
       const classified = classifyAppError(e);
@@ -610,10 +641,10 @@ export function useDiscoverViewModel() {
   // Search button can say "Search · 1,240" before the user commits. Uses the same
   // buildDiscoverApiFilters pipeline the real search uses, so the number matches.
   useEffect(() => {
-    // Invalid ranges → no meaningful count. The airing-this-week filter has no
-    // cheap count (its true size needs paging + per-episode lookups), so skip it
-    // and let the button fall back to a plain label.
-    if (validate(filters) || (filters.airingThisWeek && filters.mediaType === 'tv')) {
+    // Invalid ranges → no meaningful count. The airing-this-week filter now has a
+    // real, cheap count: its server-side air_date window returns a truthful
+    // total_results like any other /discover query, so it no longer bails here.
+    if (validate(filters)) {
       previewTokenRef.current += 1; // cancel any in-flight preview
       setPreviewLoading(false);
       setPreviewCount(null);
@@ -652,17 +683,10 @@ export function useDiscoverViewModel() {
     setLoadMoreError(null);
     try {
       const data = await discoverTitles({ ...buildDiscoverApiFilters(filters), page: nextPage });
-      const filteredPage = await applyAiringFilter(data.results, filters);
-      let mergedResults = [];
-      setResults((prev) => {
-        mergedResults = mergeAiringResults(prev, filteredPage, filters);
-        return mergedResults;
-      });
-      if (filters.airingThisWeek && filters.mediaType === 'tv') {
-        setTotalResults(mergedResults.length);
-      }
+      setResults((prev) => dedupeAppend(prev, data.results));
       setCurrentPage(nextPage);
-      enrichVisibleResults(filteredPage, searchTokenRef.current);
+      enrichVisibleResults(data.results, searchTokenRef.current);
+      enrichAirDays(data.results, searchTokenRef.current, filters);
     } catch (e) {
       setLoadMoreError(classifyAppError(e).message || "Couldn't load more. Tap to retry.");
     } finally {
@@ -681,6 +705,7 @@ export function useDiscoverViewModel() {
   return {
     filters,
     updateFilter,
+    setAiringThisWeek,
     toggleGenre,
     toggleExcludeGenre,
     toggleSmartTag,

@@ -8,6 +8,7 @@ import {
   isExcludedBySmartFilters,
 } from './smartFilters';
 import { createAppError, isRetryableStatus, retryWithBackoff } from './errors';
+import { getAiringWindow, formatLocalYmd } from './tvAiringFilter';
 import { rankTrailerCandidates } from './trailerPicker';
 import { hasAdaptationKeyword, hasSourceMaterialCredit } from './basedOn';
 import {
@@ -1100,6 +1101,7 @@ export async function discoverTitles(filters = {}) {
     maxRuntime = null,
     sortBy = 'popularity.desc',
     excludeEnglish = false,
+    airingThisWeek = false,
     watchRegion = null,
     watchProviders = [],
     page = 1,
@@ -1187,6 +1189,18 @@ export async function discoverTitles(filters = {}) {
   } else {
     if (fromYear) params['first_air_date.gte'] = `${fromYear}-01-01`;
     if (toYear) params['first_air_date.lte'] = `${toYear}-12-31`;
+
+    // "Airing this week" is a server-side episode-air-date window, not a
+    // client-side sieve over a popularity page. TMDb's air_date.gte/lte on
+    // /discover/tv match series with an EPISODE airing in the range, so the
+    // result set is catalog-complete, the total_results count is truthful, and
+    // pagination is native. (A best-effort per-show pass stamps the day label
+    // afterwards — see enrichResultsWithAirDay.)
+    if (airingThisWeek) {
+      const { start, end } = getAiringWindow();
+      params['air_date.gte'] = formatLocalYmd(start);
+      params['air_date.lte'] = formatLocalYmd(end);
+    }
   }
 
   const data = await tmdbGet(`/discover/${mediaType}`, params);
