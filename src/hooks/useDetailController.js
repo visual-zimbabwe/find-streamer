@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { resolveMatch } from '../lib/tmdb';
+import { fetchTvmazeNextEpisode } from '../lib/tvmaze';
 import { createAppError } from '../lib/errors';
 import { pushOnCurrentTab } from '../navigation/navigationRef';
 import { loadRecentViewed, saveRecentViewed } from '../lib/storage';
@@ -148,6 +149,24 @@ export function useDetailController({
     }
   }, []);
 
+  /**
+   * View-only enrichment: TMDb's `next_episode_to_air` is often null and never
+   * carries an air time, so for a resolved TV title we ask TVmaze (free, keyed
+   * off the IMDb id we already have) for the next scheduled episode and merge it
+   * into the live result. Fire-and-forget and idempotent — it never blocks the
+   * open, is never written to the watchlist store, and no-ops if the screen was
+   * popped or the field is already set.
+   */
+  const enrichNextEpisode = useCallback(async (detailId, imdbId) => {
+    const nextEpisode = await fetchTvmazeNextEpisode(imdbId);
+    if (!nextEpisode) return;
+    setDetails((prev) => {
+      const entry = prev[detailId];
+      if (!entry?.result || entry.result.nextEpisode) return prev;
+      return { ...prev, [detailId]: { ...entry, result: { ...entry.result, nextEpisode } } };
+    });
+  }, []);
+
   const runResolve = useCallback(
     async (detailId, queryTitle, match, fallbackMessage) => {
       try {
@@ -164,6 +183,9 @@ export function useDetailController({
         // The screen was popped mid-flight — don't touch history or the
         // watchlist for a title the user has already walked away from.
         if (!stillMounted) return;
+        if (fullResult?.mediaType === 'tv' && fullResult?.imdbId) {
+          enrichNextEpisode(detailId, fullResult.imdbId);
+        }
         await rememberViewed(fullResult);
         await syncWatchlistFromResolvedDetail(fullResult);
         setOfflineBanner(null);
@@ -180,6 +202,7 @@ export function useDetailController({
     },
     [
       resolveWithDeadline,
+      enrichNextEpisode,
       rememberViewed,
       syncWatchlistFromResolvedDetail,
       handleRequestError,

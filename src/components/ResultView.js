@@ -88,6 +88,7 @@ import { useBottomSheet } from './StackBottomSheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SkeletonBlock, DetailSkeleton } from './SkeletonLoaders';
 import { watchlistEntryKey } from '../lib/watchlistModel';
+import { formatNextEpisodeLabel } from '../lib/tvmaze';
 import {
   GOLD_ACCENT,
   GOLD_DIM,
@@ -129,8 +130,14 @@ function formatRuntime(minutes, mediaType) {
  * "Is it over?" in one phrase. A dated next episode beats the status string —
  * "Returning Series" is true of a show whose next episode is 18 months out and
  * of one airing on Thursday, and only the second is worth acting on.
+ *
+ * TVmaze enrichment (`nextEpisode`) is preferred when present: it carries the
+ * local air time and is populated for airing shows TMDb leaves blank. TMDb's
+ * `next_episode_to_air` date is the fallback, then the raw status string.
  */
-function formatSeriesStatus(status, nextEpisodeAirDate) {
+function formatSeriesStatus(status, nextEpisodeAirDate, nextEpisode) {
+  const preciseLabel = formatNextEpisodeLabel(nextEpisode);
+  if (preciseLabel) return preciseLabel;
   if (nextEpisodeAirDate) {
     const parsed = new Date(`${nextEpisodeAirDate}T00:00:00`);
     if (!Number.isNaN(parsed.getTime())) {
@@ -1442,7 +1449,7 @@ export function ResultView({
         pluralize(seasonCount, 'season'),
         result.numberOfEpisodes ? pluralize(result.numberOfEpisodes, 'episode') : null,
         runtimeLabel,
-        formatSeriesStatus(result.seriesStatus, result.nextEpisodeAirDate),
+        formatSeriesStatus(result.seriesStatus, result.nextEpisodeAirDate, result.nextEpisode),
       ]
         .filter(Boolean)
         .join(' · ')
