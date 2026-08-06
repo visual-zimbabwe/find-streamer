@@ -23,9 +23,14 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 export function LaunchGate({ shellReady, contentReady, children }) {
   const [introVisible, setIntroVisible] = useState(true);
   const [sequenceComplete, setSequenceComplete] = useState(false);
+  const [skipRequested, setSkipRequested] = useState(false);
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
 
-  const canDismiss = sequenceComplete && shellReady;
+  // The intro is dismissible as soon as the shell is ready AND either the brand
+  // build-in has finished (the floor) or the user tapped to skip. It is NOT
+  // gated on the full build running to completion regardless of load — a fast
+  // cold start exits at roughly the floor instead of a fixed multi-second wait.
+  const canDismiss = (sequenceComplete || skipRequested) && shellReady;
   // The intro used to also wait on the theme resolving a stored preference, so
   // it couldn't paint the wrong palette for a frame. The app is dark-only now,
   // so the palette is known before the first render.
@@ -39,6 +44,10 @@ export function LaunchGate({ shellReady, contentReady, children }) {
 
   const handleSequenceComplete = useCallback(() => {
     setSequenceComplete(true);
+  }, []);
+
+  const handleSkip = useCallback(() => {
+    setSkipRequested(true);
   }, []);
 
   const handleDismiss = useCallback(() => {
@@ -64,6 +73,7 @@ export function LaunchGate({ shellReady, contentReady, children }) {
           canDismiss={canDismiss}
           onLayout={handleIntroLayout}
           onSequenceComplete={handleSequenceComplete}
+          onSkip={handleSkip}
           onDismiss={handleDismiss}
         />
       ) : null}

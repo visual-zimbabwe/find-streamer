@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeProvider';
 import { scale } from '../utils/responsive';
 import { GOLD_ACCENT } from '../theme/programme';
+import { fonts } from '../theme/tokens';
 
 const NAV_SETS = {
   home: [
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
   },
   homeWordmark: {
     color: '#fff',
-    fontFamily: Platform.select({ android: 'serif', ios: 'Georgia', default: 'serif' }),
+    fontFamily: fonts.wordmark,
     fontSize: 30,
     lineHeight: 36,
     fontWeight: '700',
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
     paddingBottom: scale(12),
   },
   programmeWordmark: {
-    fontFamily: Platform.select({ android: 'serif', ios: 'Georgia', default: 'serif' }),
+    fontFamily: fonts.wordmark,
     fontSize: scale(28),
     lineHeight: scale(34),
     fontWeight: '700',

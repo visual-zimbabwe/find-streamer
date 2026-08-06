@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo } from 'react';
-import { Image, Platform, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
@@ -8,51 +8,96 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { useTheme } from '../theme/ThemeProvider';
 import { scale } from '../utils/responsive';
+import { TROVA_WORDMARK_URI, TROVA_WORDMARK_ASPECT } from '../assets/trovaWordmark';
 
 const GOLD = '#D4A853';
 const GOLD_DIM = 'rgba(212, 168, 83, 0.42)';
-const SEQUENCE_MS = 3000;
-const EXIT_MS = 450;
+
+// Ambient choreography (mist / sweep / arc / icon) — plays immediately on mount
+// and overlaps the shell load, so nothing is serialized behind it.
+const BUILD_MS = 900;
+// The "Trova" wordmark reveal. Fires `onSequenceComplete` on finish, which is
+// the dismissal floor.
+const REVEAL_MS = 480;
+// The wordmark follows the icon rather than racing it.
+const REVEAL_LEAD_MS = 340;
+const EXIT_MS = 420;
+// A tap dismisses early, but only after this grace window so an accidental
+// double-tap on launch can't cut the brand moment to a single flashed frame.
+const SKIP_GRACE_MS = 450;
+// One breathe cycle of the underline glow. Loops for the whole hold, so a slow
+// (> floor) launch keeps a visible "still working" pulse instead of freezing on
+// a dead final frame.
+const BREATHE_MS = 1600;
 
 const SWEEP_OFFSET = scale(120);
-const ICON_RISE = scale(8);
 const WORDMARK_RISE = scale(18);
 const EXIT_LIFT = scale(6);
 
 const EASE_CINEMATIC = Easing.bezier(0.22, 1, 0.36, 1);
 const EASE_OUT = Easing.out(Easing.cubic);
+const EASE_BREATHE = Easing.inOut(Easing.sin);
 
-export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismiss }) {
-  const { theme } = useTheme();
+// Pre-rendered from the Playfair Display Bold-Italic face (the same TTF that
+// backs `fonts.wordmark`). Baked to an image on purpose: the intro is too
+// short-lived for a runtime custom-font <Text> to reliably pick up the freshly
+// registered typeface — it paints in the system fallback and is gone before a
+// relayout applies the real face (the transient case of the shell's
+// font-metrics trap). Delivered as a base64 data URI (see the module) so the
+// release aapt2 optimizer can't strip its alpha. Pixel-identical to the in-app
+// wordmark and immune to font-load timing.
+const WORDMARK_SOURCE = { uri: TROVA_WORDMARK_URI };
+const WORDMARK_ASPECT = TROVA_WORDMARK_ASPECT;
+
+export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismiss, onSkip }) {
   const palette = useMemo(
     () => ({
       background: '#000000',
-      wordmark: theme.colors.onSurface,
-      icon: require('../../icon.png'),
       mist: ['rgba(212, 168, 83, 0)', 'rgba(212, 168, 83, 0.14)', 'rgba(212, 168, 83, 0)'],
       vignette: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)'],
     }),
-    [theme.colors.onSurface],
+    [],
   );
 
-  const progress = useSharedValue(0);
+  // `build` drives the ambient reveal; `reveal` drives the wordmark; `breathe`
+  // loops for liveness; `exit` cross-fades the whole overlay out and can
+  // interrupt an unfinished sequence (e.g. a skip tap while the shell is ready).
+  const build = useSharedValue(0);
+  const reveal = useSharedValue(0);
+  const breathe = useSharedValue(0);
   const exit = useSharedValue(0);
 
+  const [skipArmed, setSkipArmed] = useState(false);
+
   useEffect(() => {
-    progress.value = withTiming(
-      1,
-      { duration: SEQUENCE_MS, easing: EASE_CINEMATIC },
-      (finished) => {
+    build.value = withTiming(1, { duration: BUILD_MS, easing: EASE_CINEMATIC });
+    breathe.value = withRepeat(
+      withTiming(1, { duration: BREATHE_MS, easing: EASE_BREATHE }),
+      -1,
+      true,
+    );
+  }, [build, breathe]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      reveal.value = withTiming(1, { duration: REVEAL_MS, easing: EASE_CINEMATIC }, (finished) => {
         if (finished && onSequenceComplete) {
           runOnJS(onSequenceComplete)();
         }
-      },
-    );
-  }, [onSequenceComplete, progress]);
+      });
+    }, REVEAL_LEAD_MS);
+
+    return () => clearTimeout(timer);
+  }, [reveal, onSequenceComplete]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSkipArmed(true), SKIP_GRACE_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!canDismiss) return undefined;
@@ -66,89 +111,66 @@ export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismis
     return undefined;
   }, [canDismiss, exit, onDismiss]);
 
+  const handleSkip = () => {
+    if (skipArmed && onSkip) onSkip();
+  };
+
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: 1 - exit.value,
   }));
 
   const mistStyle = useAnimatedStyle(() => ({
     opacity:
-      interpolate(progress.value, [0, 0.22], [0, 1], Extrapolation.CLAMP) * (1 - exit.value * 0.35),
-    transform: [
-      { scale: interpolate(progress.value, [0, 0.35], [0.88, 1.08], Extrapolation.CLAMP) },
-    ],
+      interpolate(build.value, [0, 0.22], [0, 1], Extrapolation.CLAMP) * (1 - exit.value * 0.35),
+    transform: [{ scale: interpolate(build.value, [0, 0.38], [0.88, 1.08], Extrapolation.CLAMP) }],
   }));
 
   const sweepLineStyle = useAnimatedStyle(() => ({
     opacity:
-      interpolate(progress.value, [0.12, 0.32], [0, 0.85], Extrapolation.CLAMP) * (1 - exit.value),
+      interpolate(build.value, [0.08, 0.28], [0, 0.85], Extrapolation.CLAMP) * (1 - exit.value),
     transform: [
       {
         translateX: interpolate(
-          progress.value,
-          [0.12, 0.55],
+          build.value,
+          [0.08, 0.5],
           [-SWEEP_OFFSET, SWEEP_OFFSET],
           Extrapolation.CLAMP,
         ),
       },
-      { scaleX: interpolate(progress.value, [0.12, 0.38], [0.15, 1], Extrapolation.CLAMP) },
+      { scaleX: interpolate(build.value, [0.08, 0.34], [0.15, 1], Extrapolation.CLAMP) },
     ],
   }));
 
   const arcLineStyle = useAnimatedStyle(() => ({
     opacity:
-      interpolate(progress.value, [0.2, 0.42], [0, 0.55], Extrapolation.CLAMP) * (1 - exit.value),
+      interpolate(build.value, [0.15, 0.36], [0, 0.55], Extrapolation.CLAMP) * (1 - exit.value),
     transform: [
       { rotate: '-8deg' },
-      { scaleX: interpolate(progress.value, [0.2, 0.5], [0, 1], Extrapolation.CLAMP) },
+      { scaleX: interpolate(build.value, [0.15, 0.46], [0, 1], Extrapolation.CLAMP) },
     ],
   }));
 
-  const iconStyle = useAnimatedStyle(() => {
-    const inOpacity = interpolate(progress.value, [0.24, 0.38], [0, 0.72], Extrapolation.CLAMP);
-    const outOpacity = 1 - interpolate(progress.value, [0.42, 0.58], [0, 1], Extrapolation.CLAMP);
-    return {
-      opacity: inOpacity * outOpacity * (1 - exit.value),
-      transform: [
-        {
-          translateY: interpolate(
-            progress.value,
-            [0.24, 0.42],
-            [ICON_RISE, 0],
-            Extrapolation.CLAMP,
-          ),
-        },
-        { scale: interpolate(progress.value, [0.24, 0.42], [0.86, 1], Extrapolation.CLAMP) },
-      ],
-    };
-  });
-
   const wordmarkStyle = useAnimatedStyle(() => ({
-    opacity:
-      interpolate(progress.value, [0.34, 0.58], [0, 1], Extrapolation.CLAMP) *
-      (1 - exit.value * 0.2),
+    opacity: interpolate(reveal.value, [0, 0.7], [0, 1], Extrapolation.CLAMP) * (1 - exit.value * 0.2),
     transform: [
       {
-        translateY: interpolate(
-          progress.value,
-          [0.34, 0.62],
-          [WORDMARK_RISE, 0],
-          Extrapolation.CLAMP,
-        ),
+        translateY: interpolate(reveal.value, [0, 0.85], [WORDMARK_RISE, 0], Extrapolation.CLAMP),
       },
-      { scale: interpolate(progress.value, [0.34, 0.68], [0.96, 1], Extrapolation.CLAMP) },
+      { scale: interpolate(reveal.value, [0, 1], [0.96, 1], Extrapolation.CLAMP) },
     ],
   }));
 
   const underlineStyle = useAnimatedStyle(() => ({
-    opacity:
-      interpolate(progress.value, [0.48, 0.66], [0, 1], Extrapolation.CLAMP) * (1 - exit.value),
-    transform: [{ scaleX: interpolate(progress.value, [0.48, 0.72], [0, 1], Extrapolation.CLAMP) }],
+    opacity: interpolate(reveal.value, [0.4, 0.9], [0, 1], Extrapolation.CLAMP) * (1 - exit.value),
+    transform: [{ scaleX: interpolate(reveal.value, [0.4, 1], [0, 1], Extrapolation.CLAMP) }],
   }));
 
+  // Appears once the lockup lands, then pulses on the looping `breathe` value —
+  // this is the liveness cue for launches that outlast the reveal.
   const breatheStyle = useAnimatedStyle(() => ({
     opacity:
-      interpolate(progress.value, [0.68, 0.92], [0.35, 0.75], Extrapolation.CLAMP) *
-      (0.82 + interpolate(progress.value, [0.72, 1], [0, 0.18], Extrapolation.CLAMP)) *
+      interpolate(reveal.value, [0.6, 1], [0, 1], Extrapolation.CLAMP) *
+      interpolate(breathe.value, [0, 1], [0.32, 0.8], Extrapolation.CLAMP) *
       (1 - exit.value),
   }));
 
@@ -167,7 +189,7 @@ export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismis
         overlayStyle,
       ]}
     >
-      <Animated.View style={[StyleSheet.absoluteFillObject, mistStyle]}>
+      <Animated.View style={[StyleSheet.absoluteFillObject, mistStyle]} pointerEvents="none">
         <LinearGradient
           colors={palette.mist}
           start={{ x: 0.5, y: 0 }}
@@ -184,7 +206,7 @@ export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismis
         pointerEvents="none"
       />
 
-      <Animated.View style={[styles.stage, contentLiftStyle]}>
+      <Animated.View style={[styles.stage, contentLiftStyle]} pointerEvents="none">
         <Animated.View style={[styles.sweepLine, sweepLineStyle]}>
           <LinearGradient
             colors={['rgba(212,168,83,0)', GOLD, 'rgba(212,168,83,0)']}
@@ -198,26 +220,14 @@ export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismis
           <View style={[StyleSheet.absoluteFillObject, { backgroundColor: GOLD_DIM }]} />
         </Animated.View>
 
-        <Animated.View style={[styles.iconWrap, iconStyle]}>
+        <Animated.View style={[styles.wordmarkWrap, wordmarkStyle]}>
           <Image
-            source={palette.icon}
-            style={styles.icon}
+            source={WORDMARK_SOURCE}
+            style={styles.wordmark}
             resizeMode="contain"
-            accessibilityIgnoresInvertColors
-          />
-        </Animated.View>
-
-        <Animated.View style={wordmarkStyle}>
-          <Text
-            style={[
-              styles.wordmark,
-              styles.wordmarkDark,
-              { color: palette.wordmark },
-            ]}
             accessibilityRole="header"
-          >
-            Trova
-          </Text>
+            accessibilityLabel="Trova"
+          />
           <Animated.View style={[styles.underline, underlineStyle]}>
             <LinearGradient
               colors={['rgba(212,168,83,0)', GOLD, 'rgba(212,168,83,0)']}
@@ -236,6 +246,16 @@ export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismis
           </Animated.View>
         </Animated.View>
       </Animated.View>
+
+      {/* Full-screen tap target: skips the remaining hold once armed and the
+          shell is ready. Sits above the decorative layers (which are all
+          pointerEvents="none") so it reliably receives the tap. */}
+      <Pressable
+        style={StyleSheet.absoluteFillObject}
+        onPress={handleSkip}
+        accessibilityRole="button"
+        accessibilityLabel="Skip intro"
+      />
     </Animated.View>
   );
 }
@@ -267,37 +287,18 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     overflow: 'hidden',
   },
-  iconWrap: {
-    marginBottom: scale(14),
-    width: scale(44),
-    height: scale(44),
-    borderRadius: scale(12),
-    overflow: 'hidden',
-    opacity: 0.92,
-  },
-  icon: {
-    width: '100%',
-    height: '100%',
+  wordmarkWrap: {
+    alignItems: 'center',
   },
   wordmark: {
-    fontFamily: Platform.select({ android: 'serif', ios: 'Georgia', default: 'serif' }),
-    fontSize: scale(42),
-    lineHeight: scale(50),
-    fontWeight: '700',
-    fontStyle: 'italic',
-    letterSpacing: -0.4,
-    textAlign: 'center',
-  },
-  wordmarkDark: {
-    textShadowColor: 'rgba(212, 168, 83, 0.22)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 18,
+    width: scale(170),
+    height: scale(170) / WORDMARK_ASPECT,
   },
   underline: {
     alignSelf: 'center',
     width: scale(112),
     height: 2,
-    marginTop: scale(10),
+    marginTop: scale(8),
     borderRadius: 1,
     overflow: 'hidden',
   },
