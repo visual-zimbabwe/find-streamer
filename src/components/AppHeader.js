@@ -1,7 +1,8 @@
 import React from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
+import { fonts } from '../theme/tokens';
 
 const TAGLINE = 'What are you watching tonight?';
 
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   centeredWordmark: {
-    fontFamily: Platform.select({ android: 'serif', ios: 'Georgia', default: 'serif' }),
+    fontFamily: fonts.wordmark,
     fontSize: 30,
     lineHeight: 36,
     fontWeight: '700',

@@ -12,6 +12,13 @@ export const fonts = {
   heading: 'Manrope_700Bold', // Headlines, titles, section headers
   body: 'Inter_400Regular', // Body copy, metadata
   label: 'Inter_600SemiBold', // Eyebrows, labels, chips
+  // The "Trova" logotype. Was the device system serif (Android `serif` /
+  // iOS `Georgia`), which rendered a different, uncontrolled face per device on
+  // the one screen where type IS the brand. A single bundled Bold-Italic serif
+  // keeps the launch intro and every in-app wordmark pixel-identical. On Android
+  // the weighted family carries the weight+italic, so `fontWeight`/`fontStyle`
+  // alongside it are graceful fallbacks only (see note above).
+  wordmark: 'PlayfairDisplay_700Bold_Italic',
 };
 
 export const spacing = {

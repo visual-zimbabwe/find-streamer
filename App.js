@@ -19,6 +19,7 @@ import { AppNavigationRoot } from './src/navigation/AppShell';
 import { useFonts } from 'expo-font';
 import { Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import { Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
+import { PlayfairDisplay_700Bold_Italic } from '@expo-google-fonts/playfair-display';
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
 import { ToastivaProvider } from 'toastiva';
 import { BottomNavVisibilityProvider } from './src/context/BottomNavVisibilityContext';
@@ -61,6 +62,11 @@ const FONT_MAP = {
   Manrope_800ExtraBold,
   Inter_400Regular,
   Inter_600SemiBold,
+  // The "Trova" logotype face (theme `fonts.wordmark`). Bundled so the launch
+  // intro and in-app wordmarks stop rendering the device system serif. Included
+  // in the gate's `fontsReady` so the shell's wordmarks measure with real
+  // metrics on first layout.
+  PlayfairDisplay_700Bold_Italic,
 };
 
 function MobileApp() {
