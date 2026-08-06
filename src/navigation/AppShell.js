@@ -8,6 +8,7 @@ import { BottomNav } from '../components/BottomNav';
 import { StatePanel } from '../components/StatePanel';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { BottomSheetPortal } from '../components/StackBottomSheet';
+import { HeroTransitionProvider } from '../components/HeroTransition';
 import { useStatus, useSearch, useNav } from '../context/domainContexts';
 import { RootTabs } from './RootTabs';
 import { navigationRef, getFocusedRouteName, getCurrentTabId, canStackPop } from './navigationRef';
@@ -55,43 +56,45 @@ function AppShellInner({ rootNavState }) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {showAppHeader && (
-        <View style={{ paddingTop: insets.top }}>
-          <AppHeader showBack={showBack} onBack={goBack} centeredTitleOnly />
-        </View>
-      )}
-
-      <View style={styles.mainContent}>
-        <RootTabs />
-        {error && (
-          <View style={[styles.mainOverlay, { backgroundColor: colors.background }]}>
-            <StatePanel
-              type={
-                errorInfo?.severity === 'offline'
-                  ? 'offline'
-                  : errorInfo?.severity === 'service'
-                    ? 'service'
-                    : 'error'
-              }
-              title={errorInfo?.title || 'Search Error'}
-              description={error}
-              onRetry={() => handleSearch(query)}
-              actionLabel="Refresh"
-            />
+      <HeroTransitionProvider>
+        {showAppHeader && (
+          <View style={{ paddingTop: insets.top }}>
+            <AppHeader showBack={showBack} onBack={goBack} centeredTitleOnly />
           </View>
         )}
-      </View>
 
-      <ErrorBanner
-        placement="top"
-        title={offlineBanner?.title}
-        message={offlineBanner?.message}
-        icon="cloud-offline-outline"
-        onDismiss={() => setOfflineBanner(null)}
-      />
+        <View style={styles.mainContent}>
+          <RootTabs />
+          {error && (
+            <View style={[styles.mainOverlay, { backgroundColor: colors.background }]}>
+              <StatePanel
+                type={
+                  errorInfo?.severity === 'offline'
+                    ? 'offline'
+                    : errorInfo?.severity === 'service'
+                      ? 'service'
+                      : 'error'
+                }
+                title={errorInfo?.title || 'Search Error'}
+                description={error}
+                onRetry={() => handleSearch(query)}
+                actionLabel="Refresh"
+              />
+            </View>
+          )}
+        </View>
 
-      <BottomNav activeTab={activeTab} onTabPress={onTabPress} fixed={bottomNavFixed} />
-      <BottomSheetPortal />
+        <ErrorBanner
+          placement="top"
+          title={offlineBanner?.title}
+          message={offlineBanner?.message}
+          icon="cloud-offline-outline"
+          onDismiss={() => setOfflineBanner(null)}
+        />
+
+        <BottomNav activeTab={activeTab} onTabPress={onTabPress} fixed={bottomNavFixed} />
+        <BottomSheetPortal />
+      </HeroTransitionProvider>
     </View>
   );
 }

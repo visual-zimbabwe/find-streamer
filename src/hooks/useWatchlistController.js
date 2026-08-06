@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import * as Haptics from 'expo-haptics';
 import { toastiva } from 'toastiva';
 import { useBottomSheet } from '../components/StackBottomSheet';
 import { WatchlistCollectionsSheet } from '../components/WatchlistCollectionsSheet';
@@ -205,7 +206,14 @@ export function useWatchlistController({ showToast }) {
         watchlistRef.current = next;
         try {
           await saveWatchlist(next);
-          if (successMessage) toastiva.success(successMessage);
+          if (successMessage) {
+            toastiva.success(successMessage);
+            // A committed save earns a firmer confirmation than the selection
+            // tick the bookmark already fired; removals/status flips do not.
+            if (/^Saved/.test(successMessage)) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            }
+          }
           return normalized;
         } catch {
           setWatchlist(previous);

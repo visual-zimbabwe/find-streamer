@@ -1,8 +1,9 @@
-import React, { memo } from 'react';
+import React, { memo, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { MediaArtwork } from './MediaArtwork';
+import { useHeroTransition } from './HeroTransition';
 import {
   GOLD_ACCENT,
   GRID_GAP,
@@ -71,17 +72,39 @@ export const GridPosterCard = memo(function GridPosterCard({
   pressable = true,
   touchableProps = {},
   activeOpacity = 0.85,
+  /** Fly this poster into the Detail hero on tap. Off for cards that don't open a Detail. */
+  enableHeroTransition = true,
 }) {
+  const { beginHero } = useHeroTransition();
+  const posterWrapRef = useRef(null);
+
   if (!item) return null;
 
   const ratingValue = ratingValueProp != null ? ratingValueProp : resolveRatingValue(item);
   const mediaType = item?.mediaType;
   const defaultMediaLabel = mediaType === 'tv' ? 'Series' : 'Movie';
   const label = mediaLabel ?? defaultMediaLabel;
+  const posterUri = tmdbImageAtSize(item.posterUrl, posterSize);
+
+  // Measure the tile in window coordinates and hand it to the hero overlay, then
+  // let the normal onPress push the Detail screen. Measurement is async, so the
+  // fly-up may begin a frame after the (animation-less) push — invisible, since
+  // the overlay simply covers the swap.
+  const launchHero = () => {
+    const node = posterWrapRef.current;
+    if (!enableHeroTransition || !posterUri || !node?.measureInWindow) return;
+    node.measureInWindow((x, y, w, h) => {
+      if (w && h) {
+        beginHero({ uri: posterUri, sourceRect: { x, y, w, h }, radius: radii.xl });
+      }
+    });
+  };
 
   const cardBody = (
     <>
       <View
+        ref={posterWrapRef}
+        collapsable={false}
         style={[
           styles.gridPosterWrap,
           { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
@@ -89,7 +112,8 @@ export const GridPosterCard = memo(function GridPosterCard({
         ]}
       >
         <MediaArtwork
-          uri={tmdbImageAtSize(item.posterUrl, posterSize)}
+          uri={posterUri}
+          placeholder={tmdbImageAtSize(item.posterUrl, 'w92')}
           style={styles.gridPosterImg}
           resizeMode="cover"
           accessibilityLabel={`${item.title} poster`}
@@ -212,6 +236,7 @@ export const GridPosterCard = memo(function GridPosterCard({
       // in the app — was the one that didn't.
       onPress={(event) => {
         Haptics.selectionAsync();
+        launchHero();
         onPress(event);
       }}
       activeOpacity={activeOpacity}
