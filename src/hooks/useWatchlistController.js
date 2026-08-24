@@ -2,7 +2,10 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import * as Haptics from 'expo-haptics';
 import { toastiva } from 'toastiva';
 import { useBottomSheet } from '../components/StackBottomSheet';
-import { WatchlistCollectionsSheet } from '../components/WatchlistCollectionsSheet';
+import {
+  WatchlistCollectionsSheet,
+  EditCollectionSheet,
+} from '../components/WatchlistCollectionsSheet';
 import {
   getUserWatchlistCollections,
   getStatusLabel,
@@ -18,6 +21,9 @@ import {
   mergeResolvedSynopsisIntoWatchlistRow,
   applyCreateCollection,
   applyToggleCollection,
+  applyRenameCollection,
+  applyDeleteCollection,
+  removeCollectionFromWatchlist,
   applySetStatus,
   upsertItem,
   recordRecentDestination,
@@ -176,6 +182,64 @@ export function useWatchlistController({ showToast }) {
     });
   }, []);
 
+  const handleRenameCollection = useCallback(
+    async (collectionId, newName) => {
+      const clean = (newName || '').trim();
+      if (!clean || !collectionId) return;
+      const previousCollections = watchlistCollectionsRef.current;
+      const nextCollections = applyRenameCollection(previousCollections, collectionId, clean);
+      if (nextCollections === previousCollections) return;
+
+      setWatchlistCollections(nextCollections);
+      watchlistCollectionsRef.current = nextCollections;
+      try {
+        await saveWatchlistCollections(nextCollections);
+        showToast(`Renamed to ${clean}`, {
+          title: 'Watchlist',
+          icon: 'create-outline',
+        });
+      } catch {
+        setWatchlistCollections(previousCollections);
+        watchlistCollectionsRef.current = previousCollections;
+        toastiva.error('Failed to rename list');
+      }
+    },
+    [showToast],
+  );
+
+  const handleDeleteCollection = useCallback(
+    async (collectionId) => {
+      if (!collectionId) return;
+      const previousCollections = watchlistCollectionsRef.current;
+      const nextCollections = applyDeleteCollection(previousCollections, collectionId);
+      const previousWatchlist = watchlistRef.current;
+      const nextWatchlist = removeCollectionFromWatchlist(previousWatchlist, collectionId);
+
+      setWatchlistCollections(nextCollections);
+      watchlistCollectionsRef.current = nextCollections;
+      setWatchlist(nextWatchlist);
+      watchlistRef.current = nextWatchlist;
+
+      try {
+        await Promise.all([
+          saveWatchlistCollections(nextCollections),
+          saveWatchlist(nextWatchlist),
+        ]);
+        showToast('List deleted', {
+          title: 'Watchlist',
+          icon: 'trash-outline',
+        });
+      } catch {
+        setWatchlistCollections(previousCollections);
+        watchlistCollectionsRef.current = previousCollections;
+        setWatchlist(previousWatchlist);
+        watchlistRef.current = previousWatchlist;
+        toastiva.error('Failed to delete list');
+      }
+    },
+    [showToast],
+  );
+
   const openWatchlistSheet = useCallback(
     (sheetItem) => {
       const itemKey = watchlistEntryKey(sheetItem);
@@ -283,6 +347,57 @@ export function useWatchlistController({ showToast }) {
                 renderContent(saved || nextItem, currentCollections),
               );
             }}
+            onEditCollection={(collection) => {
+              if (!collection || collection.immutable) return;
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              const editSheetId = showSheet(
+                (sheetId) => (
+                  <EditCollectionSheet
+                    collection={collection}
+                    onSave={async (newName) => {
+                      await handleRenameCollection(collection.id, newName);
+                      dismissSheet(sheetId);
+                      if (watchlistSheetIdRef.current) {
+                        const nextCols = getUserWatchlistCollections(
+                          watchlistCollectionsRef.current,
+                        );
+                        const liveExisting = watchlistRef.current.find(
+                          (item) => watchlistEntryKey(item) === itemKey,
+                        );
+                        updateSheet(
+                          watchlistSheetIdRef.current,
+                          renderContent(liveExisting || currentItem, nextCols),
+                        );
+                      }
+                    }}
+                    onDelete={async () => {
+                      await handleDeleteCollection(collection.id);
+                      dismissSheet(sheetId);
+                      if (watchlistSheetIdRef.current) {
+                        const nextCols = getUserWatchlistCollections(
+                          watchlistCollectionsRef.current,
+                        );
+                        const liveExisting = watchlistRef.current.find(
+                          (item) => watchlistEntryKey(item) === itemKey,
+                        );
+                        updateSheet(
+                          watchlistSheetIdRef.current,
+                          renderContent(liveExisting || currentItem, nextCols),
+                        );
+                      }
+                    }}
+                    onClose={() => dismissSheet(sheetId)}
+                  />
+                ),
+                {
+                  eyebrow: 'Watchlist',
+                  title: 'Edit List',
+                  subtitle: collection.name,
+                  size: 'small',
+                  scrollable: false,
+                },
+              );
+            }}
             onSetStatus={async (status) => {
               const wasCommitted = committed;
               const nextItem = applySetStatus(currentItem, status);
@@ -330,7 +445,15 @@ export function useWatchlistController({ showToast }) {
       });
       watchlistSheetIdRef.current = id;
     },
-    [userWatchlistCollections, dismissSheet, showSheet, updateSheet, recordRecentDestinationId],
+    [
+      userWatchlistCollections,
+      dismissSheet,
+      showSheet,
+      updateSheet,
+      recordRecentDestinationId,
+      handleRenameCollection,
+      handleDeleteCollection,
+    ],
   );
 
   // Bookmark tap: always open the destination picker — never an instant save.
@@ -485,6 +608,8 @@ export function useWatchlistController({ showToast }) {
     handleEnrichWatchlistItem,
     handleRemoveWatchlistItem,
     handleMarkWatched,
+    handleRenameCollection,
+    handleDeleteCollection,
     persistWatchlistChange,
     persistCollectionsChange,
   };

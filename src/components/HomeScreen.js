@@ -16,7 +16,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 import { HomeFilterBar } from './HomeFilterBar';
-import { getUserWatchlistCollections, watchlistEntryKey } from '../lib/watchlistModel';
+import {
+  getUserWatchlistCollections,
+  isDefaultCollectionId,
+  watchlistEntryKey,
+} from '../lib/watchlistModel';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import {
   HOME_HERO_RESUME_DELAY_MS,
@@ -94,6 +98,7 @@ const sortByRatingDesc = (arr) =>
 
 export function HomeScreen({
   watchlist = [],
+  collections = [],
   spotlight = [],
   onSelectItem,
   onOpenCollections,
@@ -149,7 +154,23 @@ export function HomeScreen({
 
   const watchlistRows = useMemo(() => {
     const matchedKeys = whereMatches?.keys || null;
-    return getUserWatchlistCollections()
+    const allCollections =
+      Array.isArray(collections) && collections.length > 0
+        ? collections
+        : getUserWatchlistCollections();
+
+    // Built-in legacy categories render at the top in fixed sequence;
+    // custom user watchlists render at the bottom, sorted newest-first.
+    const systemCollections = allCollections.filter(
+      (c) => c.source === 'legacy' || !c.source || isDefaultCollectionId(c.id),
+    );
+    const customCollections = allCollections
+      .filter((c) => c.source === 'custom' && !isDefaultCollectionId(c.id))
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    const orderedCollections = [...systemCollections, ...customCollections];
+
+    return orderedCollections
       .map((collection) => {
         const items = (watchlist || []).filter((w) => {
           if (mediaFilter && w.mediaType !== mediaFilter) return false;
@@ -167,7 +188,7 @@ export function HomeScreen({
         };
       })
       .filter((row) => row.items.length > 0);
-  }, [watchlist, mediaFilter, whereMatches]);
+  }, [collections, watchlist, mediaFilter, whereMatches]);
 
   // The hero pool: the curated rotating spotlight when unfiltered; the matched
   // library titles themselves when a filter is on (so the hero can never feature

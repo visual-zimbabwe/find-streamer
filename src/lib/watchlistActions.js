@@ -196,3 +196,60 @@ export function markItemWatched(watchlist, key) {
   );
   return changed ? next : watchlist;
 }
+
+/**
+ * Rename an existing custom collection by id. Pure: returns a new collection list.
+ * @param {WatchlistCollection[]} collections
+ * @param {string} collectionId
+ * @param {string} newName
+ * @returns {WatchlistCollection[]}
+ */
+export function applyRenameCollection(collections, collectionId, newName) {
+  if (!Array.isArray(collections) || !collectionId || typeof newName !== 'string') {
+    return collections;
+  }
+  const cleanName = newName.trim();
+  if (!cleanName) return collections;
+
+  let changed = false;
+  const next = collections.map((col) => {
+    if (col && col.id === collectionId && col.name !== cleanName) {
+      changed = true;
+      return { ...col, name: cleanName };
+    }
+    return col;
+  });
+  return changed ? next : collections;
+}
+
+/**
+ * Delete a custom collection by id from collections list. Pure.
+ * @param {WatchlistCollection[]} collections
+ * @param {string} collectionId
+ * @returns {WatchlistCollection[]}
+ */
+export function applyDeleteCollection(collections, collectionId) {
+  if (!Array.isArray(collections) || !collectionId) return collections;
+  const next = collections.filter((col) => col?.id !== collectionId);
+  return next.length === collections.length ? collections : next;
+}
+
+/**
+ * Remove a collection id from all items in a watchlist without dropping or deleting the items. Pure.
+ * @param {WatchlistItem[]} watchlist
+ * @param {string} collectionId
+ * @returns {WatchlistItem[]}
+ */
+export function removeCollectionFromWatchlist(watchlist, collectionId) {
+  if (!Array.isArray(watchlist) || !collectionId) return watchlist;
+  let changed = false;
+  const next = watchlist.map((item) => {
+    if (item && Array.isArray(item.collectionIds) && item.collectionIds.includes(collectionId)) {
+      changed = true;
+      const filteredIds = item.collectionIds.filter((id) => id !== collectionId);
+      return normalizeWatchlistItem({ ...item, collectionIds: filteredIds });
+    }
+    return item;
+  });
+  return changed ? next : watchlist;
+}

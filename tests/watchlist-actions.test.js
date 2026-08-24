@@ -5,6 +5,9 @@ import {
   applyCreateCollection,
   applyToggleCollection,
   applySetStatus,
+  applyRenameCollection,
+  applyDeleteCollection,
+  removeCollectionFromWatchlist,
   addOrRestoreItem,
   upsertItem,
   recordRecentDestination,
@@ -203,4 +206,55 @@ test('markItemWatched is a no-op when already watched (same reference)', () => {
   const watchlist = [makeItem({ tmdbId: 1, status: 'watched' })];
   assert.equal(markItemWatched(watchlist, 'movie:1'), watchlist);
   assert.equal(markItemWatched(watchlist, null), watchlist);
+});
+
+test('applyRenameCollection renames target collection and returns new array', () => {
+  const collections = [
+    { id: 'custom_1', name: 'Old Name' },
+    { id: 'custom_2', name: 'Other List' },
+  ];
+  const next = applyRenameCollection(collections, 'custom_1', 'New Name');
+  assert.notEqual(next, collections);
+  assert.equal(next[0].name, 'New Name');
+  assert.equal(next[1].name, 'Other List');
+});
+
+test('applyRenameCollection is a no-op when name is unchanged or invalid', () => {
+  const collections = [{ id: 'custom_1', name: 'Old Name' }];
+  assert.equal(applyRenameCollection(collections, 'custom_1', 'Old Name'), collections);
+  assert.equal(applyRenameCollection(collections, 'custom_1', '   '), collections);
+  assert.equal(applyRenameCollection(collections, 'non_existent', 'New Name'), collections);
+});
+
+test('applyDeleteCollection removes the target collection', () => {
+  const collections = [
+    { id: 'custom_1', name: 'List 1' },
+    { id: 'custom_2', name: 'List 2' },
+  ];
+  const next = applyDeleteCollection(collections, 'custom_1');
+  assert.equal(next.length, 1);
+  assert.equal(next[0].id, 'custom_2');
+});
+
+test('applyDeleteCollection returns same reference when collection id is not found', () => {
+  const collections = [{ id: 'custom_1', name: 'List 1' }];
+  assert.equal(applyDeleteCollection(collections, 'custom_999'), collections);
+  assert.equal(applyDeleteCollection(collections, null), collections);
+});
+
+test('removeCollectionFromWatchlist strips target collectionId from all matching items', () => {
+  const watchlist = [
+    makeItem({ tmdbId: 1, collectionIds: ['custom_1', 'watch_next'] }),
+    makeItem({ tmdbId: 2, collectionIds: ['custom_2'] }),
+  ];
+  const next = removeCollectionFromWatchlist(watchlist, 'custom_1');
+  assert.notEqual(next, watchlist);
+  assert.deepEqual(next[0].collectionIds, ['watch_next']);
+  assert.deepEqual(next[1].collectionIds, ['custom_2']);
+});
+
+test('removeCollectionFromWatchlist returns same array reference when no items belong to collection', () => {
+  const watchlist = [makeItem({ tmdbId: 1, collectionIds: ['other'] })];
+  assert.equal(removeCollectionFromWatchlist(watchlist, 'custom_1'), watchlist);
+  assert.equal(removeCollectionFromWatchlist(watchlist, null), watchlist);
 });
