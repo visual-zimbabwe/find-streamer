@@ -17,13 +17,14 @@ const Stack = createNativeStackNavigator();
 
 function HomeScreenRoute() {
   const navigation = useNavigation();
-  const { watchlist, handleToggleWatchlist } = useWatchlist();
+  const { watchlist, userWatchlistCollections, handleToggleWatchlist } = useWatchlist();
   const { handleSelectDiscoverItem } = useSearch();
   const { homeMediaFilter, setHomeMediaFilter, openCollections, homeSpotlightItems } = useNav();
 
   return (
     <HomeScreen
       watchlist={watchlist}
+      collections={userWatchlistCollections}
       spotlight={homeSpotlightItems}
       onSelectItem={(item) => handleSelectDiscoverItem(item, navigation)}
       onToggleWatchlist={handleToggleWatchlist}

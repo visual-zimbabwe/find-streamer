@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeProvider';
 import { WATCHLIST_STATUSES } from '../lib/watchlistModel';
 
@@ -21,6 +22,7 @@ export function WatchlistCollectionsSheet({
   recentCollectionIds = [],
   onCreateCollection,
   onToggleCollection,
+  onEditCollection,
   onSetStatus,
   onSave,
   onRemove,
@@ -181,8 +183,15 @@ export function WatchlistCollectionsSheet({
                   onPress={() => {
                     if (!locked) onToggleCollection(collection.id);
                   }}
+                  onLongPress={() => {
+                    if (!collection.immutable && onEditCollection) {
+                      Haptics.selectionAsync();
+                      onEditCollection(collection);
+                    }
+                  }}
+                  delayLongPress={380}
                   accessibilityRole="checkbox"
-                  accessibilityLabel={`${isSelected ? 'Remove from' : 'Add to'} ${collection.name}`}
+                  accessibilityLabel={`${isSelected ? 'Remove from' : 'Add to'} ${collection.name}${!collection.immutable ? ', long-press to edit' : ''}`}
                   accessibilityState={{ checked: isSelected, disabled: locked }}
                 >
                   <View
@@ -552,4 +561,185 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.6,
   },
+  editSheetRoot: {
+    gap: 16,
+    paddingTop: 4,
+  },
+  editActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  deleteButton: {
+    alignItems: 'center',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'center',
+    minHeight: 46,
+    paddingHorizontal: 16,
+    flex: 1,
+  },
+  deleteButtonText: {
+    fontWeight: '800',
+  },
+  saveButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 46,
+    paddingHorizontal: 22,
+    flex: 1,
+  },
+  saveButtonText: {
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
 });
+
+/**
+ * Minimalist sheet to rename or delete an existing custom watchlist.
+ */
+export function EditCollectionSheet({
+  collection,
+  onSave,
+  onDelete,
+  onClose,
+}) {
+  const { theme } = useTheme();
+  const { colors, typography, radii } = theme;
+  const [name, setName] = useState(collection?.name || '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleSave = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onSave?.(trimmed);
+  };
+
+  return (
+    <View style={styles.editSheetRoot}>
+      <Text style={[styles.hint, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+        Rename this watchlist or delete it. Saved titles will stay in your library.
+      </Text>
+
+      <View style={styles.block}>
+        <Text style={[styles.groupLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
+          Watchlist Name
+        </Text>
+        <View
+          style={[
+            styles.createCollectionBox,
+            {
+              backgroundColor: colors.surfaceContainerHigh,
+              borderColor: colors.outlineVariant + '44',
+              borderRadius: radii.lg,
+            },
+          ]}
+        >
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="Watchlist name"
+            placeholderTextColor={colors.onSurfaceVariant}
+            style={[styles.collectionInput, { color: colors.onSurface, ...typography.bodyLg }]}
+            returnKeyType="done"
+            onSubmitEditing={handleSave}
+            autoFocus
+          />
+        </View>
+      </View>
+
+      <View style={styles.editActionsRow}>
+        {!confirmDelete ? (
+          <TouchableOpacity
+            style={[
+              styles.deleteButton,
+              {
+                borderColor: (colors.error || '#CF6679') + '55',
+                backgroundColor: (colors.error || '#CF6679') + '12',
+                borderRadius: radii.lg,
+              },
+            ]}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setConfirmDelete(true);
+            }}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Delete ${collection?.name} watchlist`}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.error || '#CF6679'} />
+            <Text
+              style={[
+                styles.deleteButtonText,
+                { color: colors.error || '#CF6679', ...typography.labelSm },
+              ]}
+            >
+              Delete
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.deleteButton,
+              {
+                backgroundColor: colors.error || '#CF6679',
+                borderColor: colors.error || '#CF6679',
+                borderRadius: radii.lg,
+              },
+            ]}
+            onPress={() => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              onDelete?.();
+            }}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Confirm delete ${collection?.name} watchlist`}
+          >
+            <Ionicons name="alert-circle" size={18} color={colors.onError || '#FFFFFF'} />
+            <Text
+              style={[
+                styles.deleteButtonText,
+                { color: colors.onError || '#FFFFFF', ...typography.labelSm },
+              ]}
+            >
+              Confirm Delete
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={[
+            styles.saveButton,
+            {
+              backgroundColor: name.trim() ? colors.primary : colors.surfaceContainerHigh,
+              borderRadius: radii.lg,
+              opacity: name.trim() ? 1 : 0.6,
+            },
+          ]}
+          disabled={!name.trim()}
+          onPress={() => {
+            Haptics.selectionAsync();
+            handleSave();
+          }}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Save watchlist name"
+        >
+          <Text
+            style={[
+              styles.saveButtonText,
+              {
+                color: name.trim() ? colors.onPrimary : colors.onSurfaceVariant,
+                ...typography.labelSm,
+              },
+            ]}
+          >
+            Save
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
