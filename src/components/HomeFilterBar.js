@@ -76,6 +76,8 @@ export const HomeFilterBar = memo(function HomeFilterBar({
   mediaFilter = null,
   onMediaFilterChange,
   onOpenCollections,
+  language = null,
+  onOpenLanguage,
   country = null,
   serviceKey = null,
   serviceLogoUrl = null,
@@ -86,6 +88,7 @@ export const HomeFilterBar = memo(function HomeFilterBar({
   const { theme } = useTheme();
   const { colors } = theme;
 
+  const languageActive = Boolean(language?.code);
   const countryActive = Boolean(country?.code);
   const serviceActive = Boolean(serviceKey);
 
@@ -150,6 +153,13 @@ export const HomeFilterBar = memo(function HomeFilterBar({
           trailingIcon="chevron-forward"
           onPress={onOpenCollections}
           accessibilityLabel="Open Collections"
+        />
+        <Chip
+          label={languageActive ? language.label : 'All languages'}
+          trailingIcon="chevron-down"
+          active={languageActive}
+          onPress={onOpenLanguage}
+          accessibilityLabel={`Language: ${languageActive ? language.label : 'All languages'}. Change language filter`}
         />
         <Chip
           flag={countryActive ? flagForCountryCode(country.code) : null}

@@ -286,3 +286,97 @@ export function topWatchlistLanguages(
     .slice(0, Math.max(0, limit))
     .map(([code]) => code);
 }
+
+/**
+ * Maps an ISO 639-1 code to a human-readable English label.
+ * @param {string} code
+ * @returns {string}
+ */
+export function resolveLanguageLabel(code) {
+  if (!code) return 'Other';
+  const clean = String(code).toLowerCase().trim();
+  if (clean === 'other') return 'Other';
+  try {
+    if (typeof Intl !== 'undefined' && Intl.DisplayNames) {
+      const dn = new Intl.DisplayNames(['en'], { type: 'language' });
+      const name = dn.of(clean);
+      if (name && name.toLowerCase() !== clean) {
+        return name;
+      }
+    }
+  } catch {}
+  return clean.toUpperCase();
+}
+
+/**
+ * Derives all distinct original languages for titles in the user's active watchlist/collections,
+ * aggregated with title counts and ordered by frequency (most titles first).
+ * Titles without a language code are aggregated under `code: 'other'`, `label: 'Other'`.
+ *
+ * @param {WatchlistItem[]} watchlist
+ * @param {WatchlistCollection[]} [collections]
+ * @returns {{ code: string, label: string, count: number, isOther?: boolean }[]}
+ */
+export function getAvailableWatchlistLanguages(watchlist, collections = []) {
+  if (!Array.isArray(watchlist)) return [];
+
+  const allCollections =
+    Array.isArray(collections) && collections.length > 0
+      ? collections
+      : getUserWatchlistCollections();
+
+  const activeCollectionIds = new Set(allCollections.map((c) => c.id));
+  const counts = new Map();
+  let otherCount = 0;
+  const seenKeys = new Set();
+
+  for (const item of watchlist) {
+    if (!item) continue;
+    const key = watchlistEntryKey(item);
+    if (!key || seenKeys.has(key)) continue;
+
+    // Check if item belongs to at least one collection
+    const inActiveCollection =
+      (Array.isArray(item.collectionIds) &&
+        item.collectionIds.some((id) => activeCollectionIds.has(id))) ||
+      activeCollectionIds.has(item.watchlistCategoryId);
+
+    if (!inActiveCollection) continue;
+    seenKeys.add(key);
+
+    const code =
+      typeof item.originalLanguageCode === 'string'
+        ? item.originalLanguageCode.toLowerCase().trim()
+        : '';
+
+    if (!code) {
+      otherCount += 1;
+    } else {
+      counts.set(code, (counts.get(code) || 0) + 1);
+    }
+  }
+
+  const results = [];
+  for (const [code, count] of counts.entries()) {
+    results.push({
+      code,
+      label: resolveLanguageLabel(code),
+      count,
+    });
+  }
+
+  // Sort by count desc, then label asc
+  results.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+  if (otherCount > 0) {
+    results.push({
+      code: 'other',
+      label: 'Other',
+      count: otherCount,
+      isOther: true,
+    });
+  }
+
+  return results;
+}
+
