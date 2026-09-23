@@ -85,6 +85,14 @@ test('runtime: interior writes concrete minutes', () => {
   assert.deepEqual(runtimeFiltersFromRange(90, 180), { minRuntime: '90', maxRuntime: '180' });
 });
 
+test('runtime: low thumb at 0 writes empty min and concrete max', () => {
+  assert.deepEqual(runtimeFiltersFromRange(0, 90), { minRuntime: '', maxRuntime: '90' });
+});
+
+test('runtime: high thumb at ceiling writes concrete min and empty max', () => {
+  assert.deepEqual(runtimeFiltersFromRange(90, RUNTIME_MAX), { minRuntime: '90', maxRuntime: '' });
+});
+
 test('readout: the default rating floor announces itself', () => {
   assert.equal(formatRatingRange('7', '10.0'), '7+');
 });

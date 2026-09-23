@@ -568,7 +568,7 @@ export function useDiscoverViewModel() {
       });
   }, []);
 
-  const enrichVisibleResults = useCallback((items, token) => {
+  const enrichVisibleResults = useCallback((items, token, f) => {
     if (!items.length) return;
 
     setEnrichingResults(true);
@@ -577,12 +577,21 @@ export function useDiscoverViewModel() {
         if (token !== searchTokenRef.current) return;
         const enrichedByKey = new Map(enrichedItems.map((item) => [resultKey(item), item]));
         // Field-merge (not replace) so a concurrent air-day pass isn't clobbered.
-        setResults((prev) =>
-          prev.map((item) => {
+        setResults((prev) => {
+          const merged = prev.map((item) => {
             const e = enrichedByKey.get(resultKey(item));
             return e ? { ...item, ...e } : item;
-          }),
-        );
+          });
+          const minRt = appliedRuntime(f?.minRuntime);
+          const maxRt = appliedRuntime(f?.maxRuntime);
+          if (minRt == null && maxRt == null) return merged;
+          return merged.filter((item) => {
+            if (item.mediaType !== 'movie' || item.runtimeMinutes == null) return true;
+            if (minRt != null && item.runtimeMinutes < minRt) return false;
+            if (maxRt != null && item.runtimeMinutes > maxRt) return false;
+            return true;
+          });
+        });
       })
       .catch(() => {
         // OMDb enrichment is best-effort and should never block or fail Discover.
@@ -624,7 +633,7 @@ export function useDiscoverViewModel() {
       setTotalResults(data.totalResults);
       setTotalPages(data.totalPages);
       setCurrentPage(1);
-      enrichVisibleResults(data.results, token);
+      enrichVisibleResults(data.results, token, filters);
       enrichAirDays(data.results, token, filters);
     } catch (e) {
       if (token !== searchTokenRef.current) return;
@@ -685,7 +694,7 @@ export function useDiscoverViewModel() {
       const data = await discoverTitles({ ...buildDiscoverApiFilters(filters), page: nextPage });
       setResults((prev) => dedupeAppend(prev, data.results));
       setCurrentPage(nextPage);
-      enrichVisibleResults(data.results, searchTokenRef.current);
+      enrichVisibleResults(data.results, searchTokenRef.current, filters);
       enrichAirDays(data.results, searchTokenRef.current, filters);
     } catch (e) {
       setLoadMoreError(classifyAppError(e).message || "Couldn't load more. Tap to retry.");

@@ -995,7 +995,7 @@ export async function fetchGenres(mediaType) {
 // In-memory language/country cache
 let _languageCache = null;
 let _countryDiscoverCache = null;
-const _discoverImdbIdCache = new Map();
+const _discoverDetailsCache = new Map();
 
 export async function fetchLanguages() {
   if (_languageCache) return _languageCache;
@@ -1019,9 +1019,9 @@ export async function fetchDiscoverCountries() {
   return _countryDiscoverCache;
 }
 
-async function getDiscoverImdbId(mediaType, tmdbId) {
+async function getDiscoverDetails(mediaType, tmdbId) {
   const cacheKey = `${mediaType}:${tmdbId}`;
-  if (_discoverImdbIdCache.has(cacheKey)) return _discoverImdbIdCache.get(cacheKey);
+  if (_discoverDetailsCache.has(cacheKey)) return _discoverDetailsCache.get(cacheKey);
 
   try {
     const data =
@@ -1029,11 +1029,15 @@ async function getDiscoverImdbId(mediaType, tmdbId) {
         ? await tmdbGet(`/tv/${tmdbId}/external_ids`)
         : await tmdbGet(`/movie/${tmdbId}`, { language: 'en-US' });
     const imdbId = data.imdb_id || null;
-    _discoverImdbIdCache.set(cacheKey, imdbId);
-    return imdbId;
+    const runtimeMinutes =
+      typeof data.runtime === 'number' && data.runtime > 0 ? data.runtime : null;
+    const details = { imdbId, runtimeMinutes };
+    _discoverDetailsCache.set(cacheKey, details);
+    return details;
   } catch {
-    _discoverImdbIdCache.set(cacheKey, null);
-    return null;
+    const fallback = { imdbId: null, runtimeMinutes: null };
+    _discoverDetailsCache.set(cacheKey, fallback);
+    return fallback;
   }
 }
 
@@ -1041,12 +1045,15 @@ export async function enrichDiscoverResults(items = []) {
   if (!items.length) return [];
 
   return mapWithConcurrency(items, 4, async (item) => {
-    const imdbId = item.imdbId || (await getDiscoverImdbId(item.mediaType, item.tmdbId));
+    const details = await getDiscoverDetails(item.mediaType, item.tmdbId);
+    const imdbId = item.imdbId || details.imdbId;
+    const runtimeMinutes = item.runtimeMinutes ?? details.runtimeMinutes;
     const omdbRatings = await fetchOmdbRatings(imdbId);
 
     return {
       ...item,
       imdbId,
+      runtimeMinutes,
       omdbRatings,
       omdbEnriched: true,
     };
@@ -1182,6 +1189,10 @@ export async function discoverTitles(filters = {}) {
     const maxRuntimeMinutes = parseInt(maxRuntime, 10);
     if (minRuntime && !isNaN(minRuntimeMinutes) && minRuntimeMinutes > 0) {
       params['with_runtime.gte'] = minRuntimeMinutes;
+    } else if (maxRuntime && !isNaN(maxRuntimeMinutes) && maxRuntimeMinutes > 0) {
+      // TMDb's with_runtime.lte alone matches items with 0/null runtimes in its index.
+      // Setting a floor of 1 minute prevents matching zero-runtime placeholders.
+      params['with_runtime.gte'] = 1;
     }
     if (maxRuntime && !isNaN(maxRuntimeMinutes) && maxRuntimeMinutes > 0) {
       params['with_runtime.lte'] = maxRuntimeMinutes;
