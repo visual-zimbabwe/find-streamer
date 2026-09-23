@@ -17,6 +17,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 import { HomeFilterBar } from './HomeFilterBar';
 import {
+  getAvailableWatchlistLanguages,
   getUserWatchlistCollections,
   isDefaultCollectionId,
   watchlistEntryKey,
@@ -29,7 +30,11 @@ import {
 import { useWhereToWatchFilter } from '../hooks/useWhereToWatchFilter';
 import { getServiceLabel, isWhereFilterNarrowing } from '../lib/whereToWatch';
 import { useBottomSheet } from './StackBottomSheet';
-import { WhereToWatchCountrySheet, WhereToWatchServiceSheet } from './WhereToWatchSheets';
+import {
+  WhereToWatchCountrySheet,
+  WhereToWatchLanguageSheet,
+  WhereToWatchServiceSheet,
+} from './WhereToWatchSheets';
 import { ContentRail } from './ContentRail';
 import { scale, verticalScale } from '../utils/responsive';
 import { resolveRatingValue } from '../lib/ratings';
@@ -121,12 +126,28 @@ export function HomeScreen({
   });
   const headerOffset = insets.top + HEADER_BODY_H;
 
-  // ─── Where-to-watch filter (Home owns the facets; the shared engine does the
+  // ─── Where-to-watch and Language filters (Home owns the facets; the shared engine does the
   // scan). Rests at All / All = off, so first paint shows the whole library and
   // nothing is fetched until the user narrows.
   const [homeCountry, setHomeCountry] = useState(null); // { code, label } | null = all
   const [homeServiceKey, setHomeServiceKey] = useState(null); // null = all services
+  const [homeLanguage, setHomeLanguage] = useState(null); // { code, label } | null = all
   const whereActive = isWhereFilterNarrowing(homeCountry, homeServiceKey);
+  const isFiltered = whereActive || Boolean(homeLanguage);
+
+  const availableLanguages = useMemo(
+    () => getAvailableWatchlistLanguages(watchlist, collections),
+    [watchlist, collections],
+  );
+
+  const totalLibraryTitlesCount = useMemo(() => {
+    const seen = new Set();
+    (watchlist || []).forEach((w) => {
+      const key = watchlistEntryKey(w);
+      if (key && !seen.has(key)) seen.add(key);
+    });
+    return seen.size;
+  }, [watchlist]);
 
   // Real provider logos for the service chip (the flag's counterpart), keyed by
   // service. Fetched once, cached; the chip falls back to no icon until present.
@@ -175,6 +196,17 @@ export function HomeScreen({
         const items = (watchlist || []).filter((w) => {
           if (mediaFilter && w.mediaType !== mediaFilter) return false;
           if (matchedKeys && !matchedKeys.has(watchlistEntryKey(w))) return false;
+          if (homeLanguage) {
+            const langCode =
+              typeof w.originalLanguageCode === 'string'
+                ? w.originalLanguageCode.toLowerCase().trim()
+                : '';
+            if (homeLanguage.code === 'other') {
+              if (langCode) return false;
+            } else {
+              if (langCode !== homeLanguage.code) return false;
+            }
+          }
           return w.collectionIds?.includes(collection.id);
         });
         const sorted = [...items].sort((a, b) => resolveRatingValue(b) - resolveRatingValue(a));
@@ -188,13 +220,13 @@ export function HomeScreen({
         };
       })
       .filter((row) => row.items.length > 0);
-  }, [collections, watchlist, mediaFilter, whereMatches]);
+  }, [collections, watchlist, mediaFilter, whereMatches, homeLanguage]);
 
   // The hero pool: the curated rotating spotlight when unfiltered; the matched
   // library titles themselves when a filter is on (so the hero can never feature
   // something the rails below it just filtered out).
   const heroPool = useMemo(() => {
-    if (!whereActive) return spotlight;
+    if (!isFiltered) return spotlight;
     const seen = new Set();
     const pool = [];
     watchlistRows.forEach((row) =>
@@ -207,7 +239,7 @@ export function HomeScreen({
       }),
     );
     return sortByRatingDesc(pool).slice(0, FILTERED_HERO_MAX);
-  }, [whereActive, spotlight, watchlistRows]);
+  }, [isFiltered, spotlight, watchlistRows]);
 
   const featuredItem = heroPool[displayIndex] || heroPool[0] || null;
 
@@ -284,11 +316,15 @@ export function HomeScreen({
     [],
   );
 
-  // Android back: peel the filter off before leaving Home — first the
-  // availability filter, then the media-type filter.
+  // Android back: peel the filter off before leaving Home — first the language,
+  // then the availability filter, then the media-type filter.
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (homeLanguage) {
+        setHomeLanguage(null);
+        return true;
+      }
       if (whereActive) {
         setHomeCountry(null);
         setHomeServiceKey(null);
@@ -301,7 +337,31 @@ export function HomeScreen({
       return false;
     });
     return () => sub.remove();
-  }, [whereActive, mediaFilter, onMediaFilterChange]);
+  }, [homeLanguage, whereActive, mediaFilter, onMediaFilterChange]);
+
+  const openLanguageSheet = useCallback(() => {
+    Haptics.selectionAsync();
+    bottomSheet.show(
+      (sheetId) => (
+        <WhereToWatchLanguageSheet
+          languages={availableLanguages}
+          selectedCode={homeLanguage?.code || null}
+          totalCount={totalLibraryTitlesCount}
+          onSelect={(lang) => {
+            setHomeLanguage(lang?.code ? { code: lang.code, label: lang.label } : null);
+            bottomSheet.dismiss(sheetId);
+          }}
+        />
+      ),
+      {
+        eyebrow: 'Language',
+        title: 'Original Language',
+        subtitle: 'Show titles in your library spoken in…',
+        size: 'large',
+        scrollable: true,
+      },
+    );
+  }, [bottomSheet, availableLanguages, homeLanguage, totalLibraryTitlesCount]);
 
   const openCountrySheet = useCallback(() => {
     Haptics.selectionAsync();
@@ -378,17 +438,24 @@ export function HomeScreen({
 
   const railKeyExtractor = useCallback(({ category }) => category.id, []);
 
-  const filterContext = homeServiceKey
-    ? `on ${getServiceLabel(homeServiceKey)}${homeCountry?.code ? ` in ${homeCountry.label}` : ''}`
-    : homeCountry?.code
-      ? `in ${homeCountry.label}`
-      : '';
+  const filterParts = [];
+  if (homeLanguage?.label) {
+    filterParts.push(`in ${homeLanguage.label}`);
+  }
+  if (homeServiceKey) {
+    filterParts.push(
+      `on ${getServiceLabel(homeServiceKey)}${homeCountry?.code ? ` in ${homeCountry.label}` : ''}`,
+    );
+  } else if (homeCountry?.code) {
+    filterParts.push(`in ${homeCountry.label}`);
+  }
+  const filterContext = filterParts.join(' ');
 
   // While a filter is crawling, the whole feed drops to skeleton and swaps to
   // the fully-filtered result in one paint — no half-populated intermediate and,
   // deliberately, no "121 of 796" progress readout. The scan stays in the
   // background; the skeleton is the only thing that says "working".
-  const showFeedSkeleton = whereChecking || (!featuredItem && !whereActive);
+  const showFeedSkeleton = whereChecking || (!featuredItem && !isFiltered);
   const listHeader = (
     <View style={styles.spotlightSection}>
       {showFeedSkeleton ? (
@@ -407,7 +474,7 @@ export function HomeScreen({
   );
 
   const renderWhereEmpty = () => {
-    if (!whereActive || whereChecking || !whereMatches) return null;
+    if (!isFiltered || whereChecking) return null;
     return (
       <View
         style={[
@@ -415,13 +482,16 @@ export function HomeScreen({
           { backgroundColor: colors.glass, borderColor: GOLD_DIM, borderRadius: radii.lg },
         ]}
       >
-        <Ionicons name="eye-off-outline" size={22} color={GOLD_ACCENT} />
+        <Ionicons
+          name={homeLanguage && !whereActive ? 'language-outline' : 'eye-off-outline'}
+          size={22}
+          color={GOLD_ACCENT}
+        />
         <Text style={[styles.whereEmptyTitle, { color: colors.onSurface, ...typography.titleMd }]}>
-          Nothing to stream yet
+          {homeLanguage && !whereActive ? 'No titles in this language' : 'Nothing to stream yet'}
         </Text>
         <Text style={[styles.whereEmptyText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
-          None of your {scopeCount} saved {scopeCount === 1 ? 'title streams' : 'titles stream'}{' '}
-          {filterContext || 'right now'}. Try another service or country.
+          None of your {scopeCount || totalLibraryTitlesCount} saved titles match your current filters{filterContext ? ` (${filterContext})` : ''}. Try another language or streaming filter.
         </Text>
       </View>
     );
@@ -436,6 +506,8 @@ export function HomeScreen({
         mediaFilter={mediaFilter}
         onMediaFilterChange={onMediaFilterChange}
         onOpenCollections={onOpenCollections}
+        language={homeLanguage}
+        onOpenLanguage={openLanguageSheet}
         country={homeCountry}
         serviceKey={homeServiceKey}
         serviceLogoUrl={serviceLogoUrl}

@@ -210,6 +210,130 @@ export function WhereToWatchServiceSheet({ selectedKey, onSelect }) {
   );
 }
 
+export function WhereToWatchLanguageSheet({
+  languages = [],
+  selectedCode = null,
+  onSelect,
+  totalCount = 0,
+}) {
+  const { theme } = useTheme();
+  const { colors, typography, radii } = theme;
+  const [query, setQuery] = useState('');
+
+  const visibleLanguages = useMemo(() => {
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) return languages;
+    return languages.filter(
+      (lang) =>
+        lang.label.toLowerCase().includes(trimmed) ||
+        lang.code.toLowerCase().includes(trimmed),
+    );
+  }, [languages, query]);
+
+  return (
+    <View style={styles.sheetContent}>
+      {languages.length > 5 && (
+        <View
+          style={[
+            styles.searchBox,
+            {
+              backgroundColor: colors.surfaceContainerHigh,
+              borderColor: colors.outlineVariant + '35',
+              borderRadius: radii.lg,
+            },
+          ]}
+        >
+          <Ionicons name="search-outline" size={18} color={colors.onSurfaceVariant} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search languages"
+            placeholderTextColor={colors.onSurfaceVariant}
+            style={[styles.searchInput, { color: colors.onSurface, ...typography.bodyLg }]}
+            autoCorrect={false}
+            accessibilityLabel="Search languages"
+          />
+          {query.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setQuery('')}
+              accessibilityRole="button"
+              accessibilityLabel="Clear language search"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color={colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {!query.trim() && (
+        <OptionRow
+          label="All Languages"
+          sublabel={
+            totalCount > 0
+              ? `Show all ${totalCount} saved ${totalCount === 1 ? 'title' : 'titles'}`
+              : 'Show everything in your library'
+          }
+          selected={!selectedCode}
+          onPress={() => onSelect(null)}
+          accessibilityLabel="Show titles in all languages"
+          leading={
+            <View style={[styles.leadingBadge, { borderColor: GOLD_DIM }]}>
+              <Ionicons name="globe-outline" size={16} color={GOLD_ACCENT} />
+            </View>
+          }
+        />
+      )}
+
+      {visibleLanguages.map((lang) => {
+        const isSelected = selectedCode === lang.code;
+        const sublabel = lang.isOther
+          ? `${lang.count} ${lang.count === 1 ? 'title' : 'titles'} with no language`
+          : `${lang.count} ${lang.count === 1 ? 'title' : 'titles'} in library`;
+
+        return (
+          <OptionRow
+            key={lang.code}
+            label={lang.label}
+            sublabel={sublabel}
+            selected={isSelected}
+            onPress={() => onSelect(lang)}
+            accessibilityLabel={`Filter to ${lang.label} titles (${lang.count})`}
+            leading={
+              <View style={[styles.leadingBadge, { borderColor: GOLD_DIM }]}>
+                {lang.isOther ? (
+                  <Ionicons name="help-outline" size={16} color={GOLD_ACCENT} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.leadingBadgeText,
+                      { color: GOLD_ACCENT, ...typography.labelSm },
+                    ]}
+                  >
+                    {lang.code.toUpperCase()}
+                  </Text>
+                )}
+              </View>
+            }
+          />
+        );
+      })}
+
+      {visibleLanguages.length === 0 && languages.length > 0 && (
+        <Text style={[styles.emptyText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+          No languages match that search.
+        </Text>
+      )}
+
+      {languages.length === 0 && (
+        <Text style={[styles.emptyText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}>
+          No saved titles in your library yet.
+        </Text>
+      )}
+    </View>
+  );
+}
+
 export function WhereToWatchCollectionsSheet({ collections, selectedIds, onApply }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;

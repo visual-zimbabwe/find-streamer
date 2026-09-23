@@ -93,10 +93,7 @@ export function useWatchlistController({ showToast }) {
     if (!watchlist.length) return; // wait until the saved list has loaded
 
     const pending = watchlist.filter(
-      (row) =>
-        row &&
-        row.originalLanguageCode === undefined &&
-        itemInCollection(row, HIGHLY_RECOMMEND_COLLECTION_ID),
+      (row) => row && row.originalLanguageCode === undefined,
     );
 
     languageBackfillRanRef.current = true;
