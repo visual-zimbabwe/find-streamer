@@ -19,8 +19,8 @@
 export const COUNTRY_PRESETS = [
   {
     id: 'africa',
-    label: 'Africa 🌍',
-    emoji: '🌍',
+    label: 'Africa',
+    emoji: '',
     description:
       'Algeria, Egypt, Ethiopia, Ghana, Kenya, Morocco, Nigeria, Senegal, South Africa, Tanzania, Tunisia, Uganda, Zimbabwe, and more.',
     codes: [
@@ -82,8 +82,8 @@ export const COUNTRY_PRESETS = [
   },
   {
     id: 'asia',
-    label: 'Asia 🌏',
-    emoji: '🌏',
+    label: 'Asia',
+    emoji: '',
     description:
       'China, India, Indonesia, Japan, South Korea, Thailand, Vietnam, Pakistan, Philippines, and more.',
     codes: [
@@ -141,8 +141,8 @@ export const COUNTRY_PRESETS = [
   },
   {
     id: 'europe',
-    label: 'Europe 🌍',
-    emoji: '🌍',
+    label: 'Europe',
+    emoji: '',
     description: 'France, Germany, Italy, Spain, UK, Scandinavia, Eastern Europe, and more.',
     codes: [
       'AL', // Albania
@@ -194,8 +194,8 @@ export const COUNTRY_PRESETS = [
   },
   {
     id: 'north_america',
-    label: 'North America 🌎',
-    emoji: '🌎',
+    label: 'North America',
+    emoji: '',
     description: 'USA, Canada, Mexico, Central America, and the Caribbean.',
     codes: [
       'AG', // Antigua and Barbuda
@@ -225,8 +225,8 @@ export const COUNTRY_PRESETS = [
   },
   {
     id: 'latin_america',
-    label: 'Latin America 🌎',
-    emoji: '🌎',
+    label: 'Latin America',
+    emoji: '',
     description:
       'Mexico, Central America, the Caribbean, Brazil, Argentina, Colombia, Chile, Peru, Venezuela, and more.',
     codes: [
@@ -260,8 +260,8 @@ export const COUNTRY_PRESETS = [
   },
   {
     id: 'south_america',
-    label: 'South America 🌎',
-    emoji: '🌎',
+    label: 'South America',
+    emoji: '',
     description: 'Brazil, Argentina, Colombia, Chile, Peru, Venezuela, and more.',
     codes: [
       'AR', // Argentina
@@ -280,8 +280,8 @@ export const COUNTRY_PRESETS = [
   },
   {
     id: 'oceania',
-    label: 'Oceania 🌏',
-    emoji: '🌏',
+    label: 'Oceania',
+    emoji: '',
     description: 'Australia, New Zealand, Papua New Guinea, Pacific Island nations.',
     codes: [
       'AU', // Australia
@@ -302,8 +302,8 @@ export const COUNTRY_PRESETS = [
   },
   {
     id: 'middle_east',
-    label: 'Middle East 🕌',
-    emoji: '🕌',
+    label: 'Middle East',
+    emoji: '',
     description:
       'Saudi Arabia, UAE, Turkey, Iran, Iraq, Israel, Jordan, Kuwait, Lebanon, Qatar, and more.',
     codes: [

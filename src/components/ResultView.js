@@ -1327,7 +1327,7 @@ export function ResultView({
         onDraftChange={handleShareDraftChange}
       />,
       {
-        title: '🎴 Share Card',
+        title: 'Share Card',
         size: 'large',
         scrollable: false,
         showCloseButton: true,
@@ -1833,9 +1833,7 @@ export function ResultView({
                     }. Opens Rotten Tomatoes.`}
                   >
                     <View style={styles.badgeRt}>
-                      <Text style={styles.badgeRtText}>
-                        {rottenTomatoesEmoji(result.omdbRatings.rottenTomatoes)}
-                      </Text>
+                      <Text style={[styles.badgeRtText, { fontWeight: '900' }]}>RT</Text>
                     </View>
                     <ScoreValue
                       value={result.omdbRatings.rottenTomatoes.replace('%', '')}

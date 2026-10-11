@@ -38,7 +38,7 @@ function HomeScreenRoute() {
 function CollectionsScreenRoute() {
   const navigation = useNavigation();
   const { handleSelectDiscoverItem } = useSearch();
-  const { handleToggleWatchlist, savedWatchlistKeys } = useWatchlist();
+  const { handleToggleWatchlist, handleSaveWholeCollection, savedWatchlistKeys } = useWatchlist();
   const {
     collectionsSubView,
     setCollectionsSubView,
@@ -51,6 +51,7 @@ function CollectionsScreenRoute() {
     <CollectionsScreen
       onSelectItem={(item) => handleSelectDiscoverItem(item, navigation)}
       onToggleWatchlist={handleToggleWatchlist}
+      onSaveCollection={handleSaveWholeCollection}
       watchlistIds={savedWatchlistKeys}
       subView={collectionsSubView}
       onSubViewChange={setCollectionsSubView}

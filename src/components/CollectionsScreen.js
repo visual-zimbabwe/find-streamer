@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeProvider';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
-import { fetchStaticCollectionRows } from '../lib/collectionMovieRows';
+import { fetchStaticCollectionRows, getStaticCollectionRows } from '../lib/collectionMovieRows';
 import { getImdbTop100Movies, getImdbTop100Tv } from '../lib/imdbTop100Catalog';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { scale } from '../utils/responsive';
@@ -38,7 +38,7 @@ function ImdbRankedRow({
 
   return (
     <TouchableOpacity
-      style={[styles.imdbRow, { borderBottomColor: GOLD_DIM }]}
+      style={styles.imdbRow}
       activeOpacity={0.78}
       onPress={() => onSelectItem?.(item)}
       accessibilityRole="button"
@@ -66,7 +66,7 @@ function ImdbRankedRow({
       </View>
       {onToggleWatchlist && (
         <TouchableOpacity
-          style={[styles.imdbBookmark, { borderColor: inLibrary ? GOLD_ACCENT : GOLD_DIM }]}
+          style={styles.imdbBookmark}
           onPress={(e) => {
             e?.stopPropagation?.();
             Haptics.selectionAsync();
@@ -112,6 +112,7 @@ export function CollectionsScreen({
   onSelectItem,
   onOpenHomeFilter,
   onToggleWatchlist,
+  onSaveCollection,
   watchlistIds = [],
   subView = 'franchises',
   onSubViewChange,
@@ -124,8 +125,14 @@ export function CollectionsScreen({
   const headerScrolledRef = useRef(false);
   const [headerScrolled, setHeaderScrolled] = useState(false);
 
-  const [allRows, setAllRows] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [allRows, setAllRows] = useState(() => {
+    try {
+      return getStaticCollectionRows();
+    } catch {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const savedKeys = useMemo(() => new Set(watchlistIds), [watchlistIds]);
@@ -138,12 +145,18 @@ export function CollectionsScreen({
   const atmosphereColors = [colors.surfaceContainerHigh, colors.background];
 
   const loadCollectionRows = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
+      const staticRows = getStaticCollectionRows();
+      if (staticRows && staticRows.length > 0) {
+        setAllRows(staticRows);
+        return;
+      }
+      setLoading(true);
+      setError(null);
       const rows = await fetchStaticCollectionRows();
       setAllRows(rows);
     } catch (err) {
+      console.error('[CollectionsScreen] failed to load rows:', err);
       setError(err);
       setAllRows([]);
     } finally {
@@ -152,10 +165,10 @@ export function CollectionsScreen({
   }, []);
 
   useEffect(() => {
-    if (subView === 'franchises') {
+    if (subView === 'franchises' && allRows.length === 0) {
       loadCollectionRows();
     }
-  }, [loadCollectionRows, subView]);
+  }, [loadCollectionRows, subView, allRows.length]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
@@ -280,6 +293,8 @@ export function CollectionsScreen({
         typography={typography}
         radii={radii}
         onSelectItem={onSelectItem}
+        onToggleWatchlist={onToggleWatchlist}
+        onSaveCollection={onSaveCollection}
         onHeaderScroll={handleHeaderScroll}
       />
     </View>
@@ -335,7 +350,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   imdbRank: {
     width: 28,
@@ -363,7 +377,6 @@ const styles = StyleSheet.create({
   },
   imdbBookmark: {
     padding: 8,
-    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 999,
   },
 });

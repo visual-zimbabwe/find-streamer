@@ -23,8 +23,8 @@
 export const REGION_PRESETS = [
   {
     id: 'europe',
-    label: 'Europe 🌍',
-    emoji: '🌍',
+    label: 'Europe',
+    emoji: '',
     description:
       'French, Spanish, German, Italian, Portuguese, Russian, Polish, Dutch, Swedish, Norwegian, Danish, Finnish, Czech, Romanian, Greek, Hungarian, Ukrainian',
     // Note: Catalan (ca), Basque (eu), Galician (gl), Welsh (cy) omitted — minimal
@@ -60,8 +60,8 @@ export const REGION_PRESETS = [
   },
   {
     id: 'asia',
-    label: 'Asia 🌏',
-    emoji: '🌏',
+    label: 'Asia',
+    emoji: '',
     description:
       'Korean, Japanese, Mandarin Chinese, Cantonese, Hindi, Tamil, Telugu, Malayalam, Kannada, Bengali, Marathi, Punjabi, Sinhala, Nepali, Urdu, Thai, Vietnamese, Indonesian, Malay, Tagalog/Filipino',
     // Combines East Asia, South Asia, and Southeast Asia.
@@ -96,8 +96,8 @@ export const REGION_PRESETS = [
   },
   {
     id: 'middle_east',
-    label: 'Middle East 🕌',
-    emoji: '🕌',
+    label: 'Middle East',
+    emoji: '',
     description: 'Arabic, Persian/Farsi, Turkish, Hebrew',
     // Note: Arabic ('ar') covers a broad dialectal space. TMDB's 'ar' maps to MSA
     // and is imperfect for regional dialect content (Egyptian, Levantine, Gulf).
@@ -109,8 +109,8 @@ export const REGION_PRESETS = [
   },
   {
     id: 'africa',
-    label: 'Africa 🌍',
-    emoji: '🌍',
+    label: 'Africa',
+    emoji: '',
     description: 'Afrikaans, Swahili, Amharic, Somali, Wolof, Yoruba, Igbo, Hausa, Zulu, Xhosa',
     // Note: Many Sub-Saharan African languages have very limited TMDB coverage.
     // This preset is a best-effort approximation and is marked as a smart filter.
@@ -120,8 +120,8 @@ export const REGION_PRESETS = [
   },
   {
     id: 'latin_america',
-    label: 'Latin America 🌎',
-    emoji: '🌎',
+    label: 'Latin America',
+    emoji: '',
     description: 'Spanish (Latin American), Portuguese (Brazilian)',
     // Note: TMDB does not differentiate between Spanish variants (es covers both
     // Spain and Latin America). Use Origin Country filter for precision.
@@ -132,8 +132,8 @@ export const REGION_PRESETS = [
   },
   {
     id: 'north_america',
-    label: 'North America 🇺🇸',
-    emoji: '🇺🇸',
+    label: 'North America',
+    emoji: '',
     description: 'English, French (Canadian)',
     codes: ['en', 'fr'],
     smartFilter: false,
@@ -200,15 +200,15 @@ export function intentPresetActive(preset, filters) {
 export const SPECIAL_PRESETS = [
   {
     id: 'exclude_english',
-    label: 'Exclude English 🚫🇬🇧',
-    emoji: '🚫',
+    label: 'Exclude English',
+    emoji: '',
     description: 'Show results from any language except English.',
     isSpecial: true,
   },
   {
     id: 'non_english_only',
-    label: 'Non-English Only 🌐',
-    emoji: '🌐',
+    label: 'Non-English Only',
+    emoji: '',
     description:
       'Equivalent to Exclude English — ensures all results have a non-English original language.',
     isSpecial: true,
