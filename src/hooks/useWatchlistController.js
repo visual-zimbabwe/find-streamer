@@ -582,6 +582,102 @@ export function useWatchlistController({ showToast }) {
     [watchlist, persistWatchlistChange],
   );
 
+  const handleSaveWholeCollection = useCallback(
+    async (collectionRow, targetCollectionId = null) => {
+      if (!collectionRow || !Array.isArray(collectionRow.items) || !collectionRow.items.length) {
+        return;
+      }
+
+      const previousWatchlist = watchlistRef.current;
+      const previousCollections = watchlistCollectionsRef.current;
+
+      let nextCollections = [...previousCollections];
+      let assignedCollectionId = targetCollectionId;
+
+      if (!assignedCollectionId) {
+        const existingColl = nextCollections.find(
+          (c) => c.name?.toLowerCase() === collectionRow.title?.toLowerCase(),
+        );
+        if (existingColl) {
+          assignedCollectionId = existingColl.id;
+        } else {
+          const newColl = {
+            id: `custom_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+            name: collectionRow.title,
+            icon: 'albums-outline',
+            source: 'custom',
+            createdAt: new Date().toISOString(),
+          };
+          nextCollections = normalizeWatchlistCollections([...nextCollections, newColl]);
+          assignedCollectionId = newColl.id;
+        }
+      }
+
+      let updatedWatchlist = [...previousWatchlist];
+      let addedCount = 0;
+
+      for (const movieItem of collectionRow.items) {
+        const itemKey = watchlistEntryKey(movieItem);
+        if (!itemKey) continue;
+
+        const existingItem = updatedWatchlist.find(
+          (item) => watchlistEntryKey(item) === itemKey,
+        );
+
+        if (existingItem) {
+          const existingCollIds = existingItem.collectionIds || [];
+          if (!existingCollIds.includes(assignedCollectionId)) {
+            const nextItem = {
+              ...existingItem,
+              status: existingItem.status || 'saved',
+              collectionIds: [...existingCollIds, assignedCollectionId],
+            };
+            const { watchlist: nextW } = upsertItem(updatedWatchlist, nextItem);
+            updatedWatchlist = nextW;
+            addedCount++;
+          }
+        } else {
+          const normalized = normalizeWatchlistItem({
+            ...movieItem,
+            mediaType: 'movie',
+            status: 'saved',
+            collectionIds: [assignedCollectionId],
+            addedAt: new Date().toISOString(),
+          });
+          if (normalized) {
+            const { watchlist: nextW } = upsertItem(updatedWatchlist, normalized);
+            updatedWatchlist = nextW;
+            addedCount++;
+          }
+        }
+      }
+
+      setWatchlistCollections(nextCollections);
+      watchlistCollectionsRef.current = nextCollections;
+      setWatchlist(updatedWatchlist);
+      watchlistRef.current = updatedWatchlist;
+
+      try {
+        await Promise.all([
+          saveWatchlistCollections(nextCollections),
+          saveWatchlist(updatedWatchlist),
+        ]);
+        recordRecentDestinationId(assignedCollectionId);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        toastiva.success(
+          `Saved ${collectionRow.items.length} films from ${collectionRow.title} to Library!`,
+        );
+      } catch (_err) {
+        setWatchlistCollections(previousCollections);
+        watchlistCollectionsRef.current = previousCollections;
+        setWatchlist(previousWatchlist);
+        watchlistRef.current = previousWatchlist;
+        toastiva.error('Failed to save collection to Library');
+      }
+    },
+    [recordRecentDestinationId],
+  );
+
   const persistCollectionsChange = useCallback(async (nextCollections, rollbackCollections) => {
     setWatchlistCollections(nextCollections);
     watchlistCollectionsRef.current = nextCollections;
@@ -602,6 +698,7 @@ export function useWatchlistController({ showToast }) {
     syncWatchlistFromResolvedDetail,
     openWatchlistSheet,
     handleToggleWatchlist,
+    handleSaveWholeCollection,
     handleEnrichWatchlistItem,
     handleRemoveWatchlistItem,
     handleMarkWatched,
@@ -611,3 +708,4 @@ export function useWatchlistController({ showToast }) {
     persistCollectionsChange,
   };
 }
+

@@ -27,6 +27,7 @@ export { GRID_COL_W, GRID_POSTER_H } from '../theme/programme';
  */
 export function ContentRail({
   title,
+  subtitle = null,
   icon = null,
   data,
   colors,
@@ -49,6 +50,7 @@ export function ContentRail({
   // as editorial shelves; Search/Franchise keep the original chrome.
   showHairline = true,
   titleCase = false,
+  titleStyle = null,
 }) {
   const savedSet = useMemo(() => new Set(savedKeys || []), [savedKeys]);
 
@@ -122,17 +124,31 @@ export function ContentRail({
           {icon ? (
             <Ionicons name={icon} size={16} color={GOLD_ACCENT} style={styles.railIcon} />
           ) : null}
-          <Text
-            style={[
-              styles.railTitle,
-              { color: colors.onSurface, ...typography.titleMd },
-              titleCase && styles.railTitleCase,
-            ]}
-            accessibilityRole="header"
-            numberOfLines={2}
-          >
-            {title}
-          </Text>
+          <View style={styles.railTitleGroup}>
+            <Text
+              style={[
+                { color: colors.onSurface, ...typography.titleMd },
+                styles.railTitle,
+                titleStyle,
+                titleCase && styles.railTitleCase,
+              ]}
+              accessibilityRole="header"
+              numberOfLines={2}
+            >
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text
+                style={[
+                  styles.railSubtitle,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+                numberOfLines={1}
+              >
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
         </View>
         {trailing}
       </View>
@@ -209,12 +225,21 @@ const styles = StyleSheet.create({
   railIcon: {
     marginTop: 1,
   },
-  railTitle: {
+  railTitleGroup: {
     flex: 1,
+    gap: 2,
+  },
+  railTitle: {
     fontWeight: '800',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     fontSize: scale(13),
+  },
+  railSubtitle: {
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    fontSize: scale(11),
+    opacity: 0.85,
   },
   // Editorial voice for Home: Title Case, no tracking, at the fuller titleMd size.
   railTitleCase: {
