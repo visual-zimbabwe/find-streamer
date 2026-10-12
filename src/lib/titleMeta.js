@@ -83,3 +83,21 @@ export function buildTitleDetailRows(wikiData) {
   }
   return rows;
 }
+
+/**
+ * Tab configuration for ResultView.
+ * 'Where to Watch' is always present as the primary tab.
+ * 'Seasons' is conditionally present for TV series with season details.
+ * 'Cast', 'More Like This', and 'Details' provide focused, Netflix-grade content sections.
+ */
+export function buildDetailTabs({ hasSeasonDetails = false } = {}) {
+  const tabs = [{ id: 'watch', label: 'Where to Watch' }];
+  if (hasSeasonDetails) {
+    tabs.push({ id: 'seasons', label: 'Seasons' });
+  }
+  tabs.push({ id: 'cast', label: 'Cast' });
+  tabs.push({ id: 'similar', label: 'More Like This' });
+  tabs.push({ id: 'details', label: 'Details' });
+  return tabs;
+}
+

@@ -38,6 +38,7 @@ export function WhereToWatchSection({
   isTv,
   colors,
   typography,
+  showHeader = false,
 }) {
   const [serviceFilter, setServiceFilter] = useState(null);
   const [showAllCountries, setShowAllCountries] = useState(false);
@@ -110,10 +111,10 @@ export function WhereToWatchSection({
 
   return (
     <View style={styles.section}>
-      <ProgrammeEyebrowLabel eyebrow="Where To Watch" />
+      {showHeader ? <ProgrammeEyebrowLabel eyebrow="Where To Watch" /> : null}
 
       {isTv && confidence === 'episode' ? (
-        <View style={styles.confidenceRow}>
+        <View style={[styles.confidenceRow, !showHeader && { marginTop: 0 }]}>
           <Ionicons name="shield-checkmark-outline" size={14} color={GOLD_ACCENT} />
           <Text
             style={[styles.confidenceText, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
