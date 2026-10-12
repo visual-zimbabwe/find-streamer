@@ -34,7 +34,7 @@ test('unknown country preset ids resolve to an empty code list', () => {
 });
 
 test('country preset metadata carries its display label', () => {
-  assert.equal(findCountryPreset('middle_east').label, 'Middle East 🕌');
+  assert.equal(findCountryPreset('middle_east').label, 'Middle East');
   assert.equal(findCountryPreset('latin_america').id, 'latin_america');
   assert.equal(findCountryPreset('atlantis'), null);
 });
@@ -95,5 +95,5 @@ test('the curated non-English fallback list never contains English', () => {
 test('language presets link to their matching country preset', () => {
   assert.equal(LANGUAGE_TO_COUNTRY_PRESET.latin_america, 'latin_america');
   assert.equal(LANGUAGE_TO_COUNTRY_PRESET.middle_east, 'middle_east');
-  assert.equal(findPreset('middle_east').label, 'Middle East 🕌');
+  assert.equal(findPreset('middle_east').label, 'Middle East');
 });

@@ -48,6 +48,14 @@ export const GRID_COL_W = gridColWidth(WINDOW_W);
 export const GRID_POSTER_H = gridPosterHeight(GRID_COL_W);
 
 /**
+ * 2.5-card viewport density for horizontal focal rails (Watch Next, lists, shelves).
+ * Calibrated to display ~2.5 cards across the screen width with breathing room.
+ */
+export const FOCAL_CARD_W = Math.min(Math.round(WINDOW_W * 0.38), scale(150));
+export const FOCAL_CARD_H = Math.round(FOCAL_CARD_W * GRID_POSTER_ASPECT);
+export const FOCAL_STEP = FOCAL_CARD_W + GRID_GAP;
+
+/**
  * Home spotlight: a full-bleed 2:3 portrait poster (title lettered into the art
  * by TMDb, same as the rails). Shared with the loading skeleton so the hero band
  * it reserves is exactly the height the poster lands at — no jump on swap.

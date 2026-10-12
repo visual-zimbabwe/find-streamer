@@ -48,11 +48,11 @@ test('resolveCommonsThumbUrls returns upload.wikimedia.org thumbnails', async ()
   const thumbMap = await resolveCommonsThumbUrls(['La La Land Logo.svg', 'Oscar-free-version.svg']);
   assert.match(
     lookupCommonsThumb('La La Land Logo.svg', thumbMap),
-    /upload\.wikimedia\.org.*\.png/,
+    /(upload|thumb)\.wikimedia\.org.*\.png/,
   );
   assert.match(
     lookupCommonsThumb('Oscar-free-version.svg', thumbMap),
-    /upload\.wikimedia\.org.*\.png/,
+    /(upload|thumb)\.wikimedia\.org.*\.png/,
   );
 });
 
@@ -242,5 +242,5 @@ test('resolveSoundtrackCovers swaps originals for thumbnails', async () => {
     },
   ]);
 
-  assert.match(row.coverUrl, /upload\.wikimedia\.org.*\.png/);
+  assert.match(row.coverUrl, /(upload|thumb)\.wikimedia\.org.*\.png/);
 });

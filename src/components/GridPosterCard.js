@@ -1,5 +1,5 @@
 import React, { memo, useRef } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { MediaArtwork } from './MediaArtwork';
@@ -74,13 +74,14 @@ export const GridPosterCard = memo(function GridPosterCard({
   activeOpacity = 0.85,
   /** Fly this poster into the Detail hero on tap. Off for cards that don't open a Detail. */
   enableHeroTransition = true,
+  posterScale = null,
+  depthScrimOpacity = null,
 }) {
   const { beginHero } = useHeroTransition();
   const posterWrapRef = useRef(null);
 
   if (!item) return null;
 
-  const ratingValue = ratingValueProp != null ? ratingValueProp : resolveRatingValue(item);
   const mediaType = item?.mediaType;
   const defaultMediaLabel = mediaType === 'tv' ? 'Series' : 'Movie';
   const label = mediaLabel ?? defaultMediaLabel;
@@ -102,13 +103,14 @@ export const GridPosterCard = memo(function GridPosterCard({
 
   const cardBody = (
     <>
-      <View
+      <Animated.View
         ref={posterWrapRef}
         collapsable={false}
         style={[
           styles.gridPosterWrap,
           { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl },
           posterStyle,
+          posterScale != null ? { transform: [{ scale: posterScale }] } : null,
         ]}
       >
         <MediaArtwork
@@ -118,14 +120,21 @@ export const GridPosterCard = memo(function GridPosterCard({
           resizeMode="cover"
           accessibilityLabel={`${item.title} poster`}
           title={item.title}
+          instant={true}
         />
+        {depthScrimOpacity != null ? (
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFillObject,
+              styles.depthScrim,
+              { opacity: depthScrimOpacity },
+            ]}
+            pointerEvents="none"
+          />
+        ) : null}
         {rankBadge != null ? (
           <View style={[styles.rankBadge, { borderRadius: radii.sm }]}>
             <Text style={styles.rankBadgeText}>{rankBadge}</Text>
-          </View>
-        ) : showRating && ratingValue > 0 ? (
-          <View style={[styles.ratingBadge, { borderRadius: radii.sm }]}>
-            <Text style={styles.ratingBadgeText}>★ {ratingValue.toFixed(1)}</Text>
           </View>
         ) : null}
         {yearBadge || footnoteBadge ? (
@@ -180,7 +189,7 @@ export const GridPosterCard = memo(function GridPosterCard({
           </TouchableOpacity>
         ) : null}
         {posterOverlay}
-      </View>
+      </Animated.View>
       {!showCaption ? null : (
         <>
           <Text
@@ -290,18 +299,10 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   gridPosterImg: { width: '100%', height: '100%' },
-  ratingBadge: {
-    position: 'absolute',
-    left: 8,
-    top: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+  depthScrim: {
+    backgroundColor: '#000',
   },
-  ratingBadgeText: { color: '#FFD700', fontSize: 10, fontWeight: '800' },
-  // Takes the ★'s corner rather than sitting beside it: on a ranked rail the
-  // position is the headline number, and two numerals in one corner reads as
-  // noise.
+  // Takes the top corner: on a ranked rail the position is the headline number.
   rankBadge: {
     position: 'absolute',
     left: 8,
