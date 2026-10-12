@@ -369,7 +369,11 @@ export function HomeScreen({
   // background; the skeleton is the only thing that says "working".
   const showFeedSkeleton = whereChecking || (!hasHeroItems && !isFiltered);
   const listHeader = (
-    <View style={styles.spotlightSection}>
+    <View
+      style={styles.spotlightSection}
+      accessibilityRole="region"
+      accessibilityLabel="Spotlight titles"
+    >
       {showFeedSkeleton ? (
         <View style={styles.skeletonWrap}>
           <HomeFeedSkeleton />

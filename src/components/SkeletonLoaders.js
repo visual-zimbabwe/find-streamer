@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import {
+  FOCAL_CARD_W,
+  FOCAL_CARD_H,
   GRID_GAP,
   GRID_COL_W,
   GRID_POSTER_H,
@@ -15,8 +17,8 @@ import {
 import { scale, verticalScale } from '../utils/responsive';
 const CHIP_W = scale(248);
 const CHIP_H = CHIP_W * (9 / 16);
-const RAIL_POSTER_W = GRID_COL_W;
-const RAIL_POSTER_H = GRID_POSTER_H;
+const RAIL_POSTER_W = FOCAL_CARD_W;
+const RAIL_POSTER_H = FOCAL_CARD_H;
 
 /**
  * A single skeleton block with a horizontal shimmer sweep animation.

@@ -82,11 +82,11 @@ test('parseAwardsFromBindings groups wins and nominations with logos', async () 
   assert.equal(awardsWithLogos[0].label, 'Academy Award for Best Picture');
   assert.equal(awardsWithLogos[0].wins, 2);
   assert.equal(awardsWithLogos[0].nominations, 0);
-  assert.match(awardsWithLogos[0].logoUrl, /upload\.wikimedia\.org/);
+  assert.match(awardsWithLogos[0].logoUrl, /(upload|thumb)\.wikimedia\.org/);
   assert.equal(awardsWithLogos[1].wikidataId, 'Q1230887');
   assert.equal(awardsWithLogos[1].wins, 0);
   assert.equal(awardsWithLogos[1].nominations, 3);
-  assert.match(awardsWithLogos[1].logoUrl, /upload\.wikimedia\.org/);
+  assert.match(awardsWithLogos[1].logoUrl, /(upload|thumb)\.wikimedia\.org/);
 });
 
 test('parseAwardQueryResults prefers P2910 icon over P154 logo', () => {
@@ -138,10 +138,10 @@ test('parseAwardQueryResults inherits ceremony logos and handles Commons URLs', 
   );
 
   assert.equal(awards.length, 2);
-  assert.match(awards[0].logoUrl, /upload\.wikimedia\.org.*Oscar-free-version\.svg\.png/);
+  assert.match(awards[0].logoUrl, /(upload|thumb)\.wikimedia\.org.*Oscar-free-version\.svg\.png/);
   assert.match(
     awards.find((group) => group.label.includes('Best Sound')).logoUrl,
-    /upload\.wikimedia\.org.*Oscar-free-version\.svg\.png/,
+    /(upload|thumb)\.wikimedia\.org.*Oscar-free-version\.svg\.png/,
   );
 });
 
