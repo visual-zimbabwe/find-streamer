@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTitleDetailRows, spokenRuntime, stickyTitleFontSize } from '../src/lib/titleMeta.js';
+import { buildDetailTabs, buildTitleDetailRows, spokenRuntime, stickyTitleFontSize } from '../src/lib/titleMeta.js';
 
 test('spokenRuntime says hours and minutes as words', () => {
   assert.equal(spokenRuntime(148), '2 hours 28 minutes');
@@ -83,4 +83,26 @@ test('stickyTitleFontSize tolerates a missing title', () => {
   assert.equal(stickyTitleFontSize(null), 18);
   assert.equal(stickyTitleFontSize(undefined), 18);
   assert.equal(stickyTitleFontSize(''), 18);
+});
+
+test('buildDetailTabs includes Seasons tab only when hasSeasonDetails is true', () => {
+  const movieTabs = buildDetailTabs({ hasSeasonDetails: false });
+  assert.deepEqual(movieTabs, [
+    { id: 'watch', label: 'Where to Watch' },
+    { id: 'cast', label: 'Cast' },
+    { id: 'similar', label: 'More Like This' },
+    { id: 'details', label: 'Details' },
+  ]);
+
+  const tvTabs = buildDetailTabs({ hasSeasonDetails: true });
+  assert.deepEqual(tvTabs, [
+    { id: 'watch', label: 'Where to Watch' },
+    { id: 'seasons', label: 'Seasons' },
+    { id: 'cast', label: 'Cast' },
+    { id: 'similar', label: 'More Like This' },
+    { id: 'details', label: 'Details' },
+  ]);
+
+  const defaultTabs = buildDetailTabs();
+  assert.deepEqual(defaultTabs, movieTabs);
 });
