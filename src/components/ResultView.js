@@ -38,7 +38,7 @@ import { WhereToWatchSection } from './WhereToWatchSection';
 import { SeasonDetailSheetContent } from './SeasonDetailSheet';
 import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { PersonCard } from './PersonCard';
-import { TitleRailCard } from './TitleRailCard';
+import { ContentRail } from './ContentRail';
 import { fetchTitleCollection, fetchTitleRails, searchPersonByName } from '../lib/tmdb';
 import { buildDetailTabs, buildTitleDetailRows, spokenRuntime, stickyTitleFontSize } from '../lib/titleMeta';
 import {
@@ -451,6 +451,7 @@ export function ResultView({
   onToggleWatchlist,
   onEnrichWatchlistItem,
   isInWatchlist,
+  savedWatchlistKeys = [],
   onSelectSimilar,
   onPersonPress,
   onCompanyPress,
@@ -581,7 +582,6 @@ export function ResultView({
   const [collectionLoading, setCollectionLoading] = useState(false);
   const [collectionError, setCollectionError] = useState(false);
   const [collectionRetryToken, setCollectionRetryToken] = useState(0);
-  const franchiseRailRef = useRef(null);
 
   // ── Dynamic poster palette ───────────────────────────────────────────────
   const { palette } = usePosterTheme(result?.posterUrl);
@@ -846,43 +846,6 @@ export function ResultView({
     Haptics.selectionAsync();
     onCollectionPress(franchiseCollection, result?.tmdbId);
   }, [onCollectionPress, franchiseCollection, result?.tmdbId]);
-
-  /**
-   * Land the rail on the current title instead of on entry #1. Fires from
-   * `onContentSizeChange` because the tiles' width is not known at mount, and
-   * only once per title (the ref) so a later re-layout can't yank the rail back
-   * after the user has scrolled it themselves.
-   */
-  const franchiseScrolledForRef = useRef(null);
-  const handleFranchiseRailSized = useCallback(
-    (contentWidth) => {
-      const tmdbId = result?.tmdbId;
-      const count = franchiseWindow.items.length;
-      // The skeleton lays out first and fires this too. Claiming the one-shot
-      // then would spend it before the real tiles exist.
-      if (!count) return;
-      if (franchiseScrolledForRef.current === tmdbId) return;
-      // This also fires mid-layout, while the content is still narrower than its
-      // final width — and a scrollTo past the current maximum is silently
-      // clamped, not queued. Waiting for the full width is what separates
-      // "landed on Skyfall" from "nudged one tile off GoldenEye".
-      if (contentWidth < count * FRANCHISE_TILE_PITCH - FRANCHISE_TILE_PITCH / 2) return;
-
-      const index = franchiseWindow.currentWindowIndex;
-      franchiseScrolledForRef.current = tmdbId;
-      if (index <= 0) return;
-      // Leave the previous tile peeking so the rail reads as scrolled, not truncated.
-      const offset = Math.max(0, index * FRANCHISE_TILE_PITCH - FRANCHISE_SCROLL_PEEK);
-      // Deferred a frame on purpose: scrolling synchronously from inside
-      // `onContentSizeChange` is overwritten by the layout pass that follows it.
-      // Device-proven — the synchronous call asked for x=741 and the rail settled
-      // at x=82.
-      requestAnimationFrame(() => {
-        franchiseRailRef.current?.scrollTo({ x: offset, y: 0, animated: false });
-      });
-    },
-    [result?.tmdbId, franchiseWindow.currentWindowIndex, franchiseWindow.items.length],
-  );
 
   /**
    * The first paint renders the synopsis unclamped, so this layout pass sees the
@@ -2192,76 +2155,43 @@ export function ResultView({
                   </Text>
                 ) : null}
 
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.seasonsScroll}
-                >
-                  {result.seasons.map((season, index) => {
-                    const isLatest = season.seasonNumber === latestSeasonNumber;
-                    return (
-                      <TouchableOpacity
-                        key={season.id || season.seasonNumber}
-                        style={styles.seasonCard}
-                        onPress={() => handleSeasonPress(season)}
-                        activeOpacity={0.78}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${season.name}, ${season.year}, ${pluralize(
-                          season.episodeCount,
-                          'episode',
-                        )}${isLatest ? ', latest season' : ''}`}
-                      >
-                        <View
-                          style={[
-                            styles.seasonPosterFrame,
-                            { borderRadius: radii.md },
-                            isLatest && { borderColor: GOLD_ACCENT, borderWidth: 2 },
-                          ]}
-                        >
-                          <MediaArtwork
-                            uri={season.posterUrl}
-                            style={styles.seasonPoster}
-                            accessibilityLabel={`${season.name} poster`}
-                            title={season.name}
-                            icon="tv-outline"
-                            instant
-                          />
-                          <View style={[styles.seasonOrderBadge, { backgroundColor: GOLD_ACCENT }]}>
-                            <Text style={[styles.seasonOrderText, { color: '#141414' }]}>
-                              {season.seasonNumber || index + 1}
-                            </Text>
-                          </View>
-                          {isLatest ? (
-                            <View style={[styles.seasonLatestPill, { backgroundColor: GOLD_ACCENT }]}>
-                              <Text style={[styles.seasonLatestText, { color: '#141414' }]}>
-                                LATEST
-                              </Text>
-                            </View>
-                          ) : null}
-                        </View>
-                        <View style={styles.seasonBody}>
-                          <Text
-                            style={[
-                              styles.seasonName,
-                              { color: colors.onSurface, ...typography.bodyMd },
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {season.name}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.seasonMeta,
-                              { color: colors.onSurfaceVariant, ...typography.labelSm },
-                            ]}
-                          >
-                            {`${season.year} • ${pluralize(season.episodeCount, 'episode')}`}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                <ContentRail
+                  data={result.seasons}
+                  colors={colors}
+                  typography={typography}
+                  radii={radii}
+                  bleed
+                  variant="inline"
+                  showHairline={false}
+                  showMediaType={false}
+                  keyExtractor={(item, index) => String(item.id || item.seasonNumber || index)}
+                  onSelectItem={handleSeasonPress}
+                  getItemRankBadge={(item, index) => item.seasonNumber || index + 1}
+                  getItemMetaText={(item) =>
+                    `${item.year} • ${pluralize(item.episodeCount, 'episode')}`
+                  }
+                  getItemPosterStyle={(item) =>
+                    item.seasonNumber === latestSeasonNumber
+                      ? { borderColor: GOLD_ACCENT, borderWidth: 2 }
+                      : null
+                  }
+                  getItemPosterOverlay={(item) =>
+                    item.seasonNumber === latestSeasonNumber ? (
+                      <View style={[styles.seasonLatestPill, { backgroundColor: GOLD_ACCENT }]}>
+                        <Text style={[styles.seasonLatestText, { color: '#141414' }]}>
+                          LATEST
+                        </Text>
+                      </View>
+                    ) : null
+                  }
+                  getItemAccessibilityLabel={(item) => {
+                    const isLatest = item.seasonNumber === latestSeasonNumber;
+                    return `${item.name}, ${item.year}, ${pluralize(
+                      item.episodeCount,
+                      'episode',
+                    )}${isLatest ? ', latest season' : ''}`;
+                  }}
+                />
               </View>
             </View>
           )}
@@ -2351,252 +2281,119 @@ export function ResultView({
               {/* ─── Franchise ─── */}
               {showFranchiseSection && (
                 <View key={`franchise-${result.tmdbId}`} style={styles.section}>
-                  <View style={styles.sectionHeaderRow}>
-                    <ProgrammeEyebrowLabel eyebrow="Franchise" />
-                    {franchiseWindow.hasMore && onCollectionPress ? (
-                      <TouchableOpacity
-                        onPress={handleSeeAllFranchise}
-                        accessibilityRole="button"
-                        accessibilityLabel={`See all ${franchiseWindow.total} films in ${franchiseName}`}
-                        style={styles.seeAllButton}
-                      >
-                        <Text style={[typography.labelSm, styles.seeAllText, { color: GOLD_ACCENT }]}>
-                          {`See All ${franchiseWindow.total}`}
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-
-                  <View
-                    style={styles.franchiseHeading}
-                    accessible
-                    accessibilityLabel={
-                      franchiseCountText ? `${franchiseName}. ${franchiseCountText}.` : franchiseName
+                  <ContentRail
+                    title={franchiseName}
+                    subtitle={franchiseCountText}
+                    data={franchiseWindow.items}
+                    status={
+                      collectionLoading && franchiseParts.length === 0
+                        ? 'loading'
+                        : collectionError
+                          ? 'error'
+                          : 'ready'
                     }
-                  >
-                    <Text
-                      style={[typography.titleMd, styles.franchiseTitle, { color: colors.onSurface }]}
-                      numberOfLines={2}
-                    >
-                      {franchiseName}
-                    </Text>
-                    {franchiseCountText ? (
-                      <Text
-                        style={[
-                          typography.labelSm,
-                          styles.franchiseCountText,
-                          { color: colors.onSurfaceVariant },
-                        ]}
-                      >
-                        {franchiseCountText}
-                      </Text>
-                    ) : null}
-                  </View>
-
-                  {collectionError ? (
-                    <TouchableOpacity
-                      onPress={handleCollectionRetry}
-                      style={[styles.basedOnRetry, { borderColor: colors.outlineVariant }]}
-                      accessibilityRole="button"
-                      accessibilityLabel="Retry loading this franchise"
-                    >
-                      <Ionicons name="refresh-outline" size={16} color={colors.onSurfaceVariant} />
-                      <Text
-                        style={[
-                          styles.basedOnRetryText,
-                          { color: colors.onSurfaceVariant, ...typography.bodyMd },
-                        ]}
-                      >
-                        Couldn&apos;t load this franchise. Tap to retry.
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <ScrollView
-                      ref={franchiseRailRef}
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.franchiseScroll}
-                      onContentSizeChange={handleFranchiseRailSized}
-                    >
-                      {collectionLoading && franchiseParts.length === 0
-                        ? [0, 1, 2].map((index) => (
-                            <View key={`franchise-skeleton-${index}`} style={styles.railSkeletonItem}>
-                              <SkeletonBlock style={styles.railSkeletonPoster} />
-                              <SkeletonBlock style={{ width: 96, height: 12, borderRadius: 6 }} />
-                            </View>
-                          ))
-                        : franchiseWindow.items.map((item) => {
-                            const isCurrentMovie = item.tmdbId === result.tmdbId;
-                            const state = releaseStateFor(item);
-                            const isReleased = state === RELEASED;
-                            return (
-                              <TouchableOpacity
-                                key={`${result.tmdbId}-${item.tmdbId}`}
-                                style={styles.franchiseItem}
-                                onPress={() => !isCurrentMovie && onSelectSimilar(item)}
-                                disabled={isCurrentMovie}
-                                accessibilityRole="button"
-                                accessibilityLabel={franchiseTileA11yLabel({
-                                  title: item.title,
-                                  order: item.order,
-                                  total: franchiseWindow.total,
-                                  year: item.year,
-                                  state,
-                                  isCurrent: isCurrentMovie,
-                                })}
-                                accessibilityState={{ selected: isCurrentMovie }}
-                                activeOpacity={0.78}
-                              >
-                                <View
-                                  style={[
-                                    styles.similarPoster,
-                                    styles.franchisePoster,
-                                    { borderRadius: radii.md },
-                                    !isReleased && styles.franchisePosterPending,
-                                    isCurrentMovie && { borderColor: GOLD_ACCENT, borderWidth: 2 },
-                                  ]}
-                                >
-                                  <MediaArtwork
-                                    uri={item.posterUrl}
-                                    style={styles.poster}
-                                    accessibilityLabel={`${item.title} poster`}
-                                    title={item.title}
-                                    instant
-                                  />
-                                  <View
-                                    style={[
-                                      styles.franchiseOrderBadge,
-                                      {
-                                        backgroundColor: isReleased
-                                          ? GOLD_ACCENT
-                                          : colors.surfaceContainerHighest,
-                                        borderColor: isReleased ? GOLD_ACCENT : colors.outlineVariant,
-                                      },
-                                    ]}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.franchiseOrderText,
-                                        { color: isReleased ? '#141414' : colors.onSurfaceVariant },
-                                      ]}
-                                    >
-                                      {item.order}
-                                    </Text>
-                                  </View>
-                                </View>
-                                <Text
-                                  style={[
-                                    typography.bodyMd,
-                                    styles.similarTitle,
-                                    { color: colors.onSurface, minHeight: franchiseTitleMinHeight },
-                                  ]}
-                                  numberOfLines={2}
-                                >
-                                  {item.title}
-                                </Text>
-                                <Text
-                                  style={[
-                                    typography.labelSm,
-                                    styles.franchiseYear,
-                                    { color: colors.onSurfaceVariant },
-                                  ]}
-                                >
-                                  {franchiseTileMeta({
-                                    year: item.year,
-                                    state,
-                                    isCurrent: isCurrentMovie,
-                                  })}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                    </ScrollView>
-                  )}
+                    onRetry={handleCollectionRetry}
+                    colors={colors}
+                    typography={typography}
+                    radii={radii}
+                    bleed
+                    variant="inline"
+                    showHairline={false}
+                    showMediaType={false}
+                    titleCase
+                    onSeeAll={
+                      franchiseWindow.hasMore && onCollectionPress
+                        ? handleSeeAllFranchise
+                        : null
+                    }
+                    seeAllLabel={`See All ${franchiseWindow.total}`}
+                    onSelectItem={onSelectSimilar}
+                    initialScrollIndex={
+                      franchiseWindow.currentWindowIndex > 0
+                        ? franchiseWindow.currentWindowIndex
+                        : null
+                    }
+                    getItemRankBadge={(item) => item.order}
+                    getItemMetaText={(item) => {
+                      const isCurrentMovie = item.tmdbId === result.tmdbId;
+                      const state = releaseStateFor(item);
+                      return franchiseTileMeta({ year: item.year, state, isCurrent: isCurrentMovie });
+                    }}
+                    getItemPosterStyle={(item) => {
+                      const isCurrentMovie = item.tmdbId === result.tmdbId;
+                      const state = releaseStateFor(item);
+                      return [
+                        state !== RELEASED && styles.franchisePosterPending,
+                        isCurrentMovie && { borderColor: GOLD_ACCENT, borderWidth: 2 },
+                      ];
+                    }}
+                    isItemDisabled={(item) => item.tmdbId === result.tmdbId}
+                    getItemAccessibilityLabel={(item) => {
+                      const isCurrentMovie = item.tmdbId === result.tmdbId;
+                      const state = releaseStateFor(item);
+                      return franchiseTileA11yLabel({
+                        title: item.title,
+                        order: item.order,
+                        total: franchiseWindow.total,
+                        year: item.year,
+                        state,
+                        isCurrent: isCurrentMovie,
+                      });
+                    }}
+                    onToggleWatchlist={onToggleWatchlist}
+                    savedKeys={savedWatchlistKeys}
+                  />
                 </View>
               )}
 
               {/* ─── Rails ─── */}
-              {railsError ? (
+              {(railsLoading || rails.similar.length > 0 || railsError) && (
                 <View style={styles.section}>
-                  <TouchableOpacity
-                    onPress={handleRailsRetry}
-                    style={[styles.basedOnRetry, { borderColor: colors.outlineVariant }]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Retry loading recommendations"
-                  >
-                    <Ionicons name="refresh-outline" size={16} color={colors.onSurfaceVariant} />
-                    <Text
-                      style={[
-                        styles.basedOnRetryText,
-                        { color: colors.onSurfaceVariant, ...typography.bodyMd },
-                      ]}
-                    >
-                      Couldn&apos;t load recommendations. Tap to retry.
-                    </Text>
-                  </TouchableOpacity>
+                  <ContentRail
+                    title={showFranchiseSection ? 'Similar Titles' : null}
+                    data={rails.similar}
+                    status={
+                      railsLoading && rails.similar.length === 0
+                        ? 'loading'
+                        : railsError
+                          ? 'error'
+                          : 'ready'
+                    }
+                    onRetry={handleRailsRetry}
+                    colors={colors}
+                    typography={typography}
+                    radii={radii}
+                    bleed
+                    variant="inline"
+                    showHairline={false}
+                    onSelectItem={onSelectSimilar}
+                    onToggleWatchlist={onToggleWatchlist}
+                    savedKeys={savedWatchlistKeys}
+                  />
                 </View>
-              ) : (
-                <>
-                  {(railsLoading || rails.similar.length > 0) && (
-                    <View style={styles.section}>
-                      {showFranchiseSection ? (
-                        <ProgrammeEyebrowLabel eyebrow="Similar Titles" />
-                      ) : null}
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.similarScroll}
-                      >
-                        {railsLoading && rails.similar.length === 0
-                          ? [0, 1, 2, 3].map((index) => (
-                              <View key={`similar-skeleton-${index}`} style={styles.railSkeletonItem}>
-                                <SkeletonBlock style={styles.railSkeletonPoster} />
-                                <SkeletonBlock style={{ width: 96, height: 12, borderRadius: 6 }} />
-                              </View>
-                            ))
-                          : rails.similar.map((item) => (
-                              <TitleRailCard
-                                key={`${item.mediaType}-${item.tmdbId}`}
-                                item={item}
-                                colors={colors}
-                                typography={typography}
-                                radii={radii}
-                                onPress={() => onSelectSimilar(item)}
-                              />
-                            ))}
-                      </ScrollView>
-                    </View>
-                  )}
+              )}
 
-                  {(railsLoading || rails.fromPeople.length > 0) && (
-                    <View style={styles.section}>
-                      <ProgrammeEyebrowLabel eyebrow="More From Cast & Crew" />
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.similarScroll}
-                      >
-                        {railsLoading && rails.fromPeople.length === 0
-                          ? [0, 1, 2, 3].map((index) => (
-                              <View key={`people-skeleton-${index}`} style={styles.railSkeletonItem}>
-                                <SkeletonBlock style={styles.railSkeletonPoster} />
-                                <SkeletonBlock style={{ width: 96, height: 12, borderRadius: 6 }} />
-                              </View>
-                            ))
-                          : rails.fromPeople.map((item) => (
-                              <TitleRailCard
-                                key={`${item.mediaType}-${item.tmdbId}`}
-                                item={item}
-                                colors={colors}
-                                typography={typography}
-                                radii={radii}
-                                onPress={() => onSelectSimilar(item)}
-                              />
-                            ))}
-                      </ScrollView>
-                    </View>
-                  )}
-                </>
+              {(railsLoading || rails.fromPeople.length > 0) && !railsError && (
+                <View style={styles.section}>
+                  <ContentRail
+                    title="More From Cast & Crew"
+                    data={rails.fromPeople}
+                    status={
+                      railsLoading && rails.fromPeople.length === 0
+                        ? 'loading'
+                        : 'ready'
+                    }
+                    colors={colors}
+                    typography={typography}
+                    radii={radii}
+                    bleed
+                    variant="inline"
+                    showHairline={false}
+                    onSelectItem={onSelectSimilar}
+                    onToggleWatchlist={onToggleWatchlist}
+                    savedKeys={savedWatchlistKeys}
+                  />
+                </View>
               )}
 
               {!railsLoading &&

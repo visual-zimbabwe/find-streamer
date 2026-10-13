@@ -45,6 +45,12 @@ const FocalRailItem = memo(function FocalRailItem({
   onToggleWatchlist,
   saved,
   onSelectItem,
+  getItemMetaText,
+  getItemRankBadge,
+  getItemPosterOverlay,
+  getItemPosterStyle,
+  isItemDisabled,
+  getItemAccessibilityLabel,
 }) {
   const { posterScale, depthScrimOpacity } = useMemo(() => {
     const inputRange = [(index - 1) * step, index * step, (index + 1) * step];
@@ -62,6 +68,41 @@ const FocalRailItem = memo(function FocalRailItem({
     };
   }, [scrollX, index, step]);
 
+  const displayItem = useMemo(() => {
+    if (!item) return item;
+    if (item.title) return item;
+    if (item.name) return { ...item, title: item.name };
+    return item;
+  }, [item]);
+
+  const rankBadge = getItemRankBadge
+    ? getItemRankBadge(item, index)
+    : showRank
+      ? index + 1
+      : null;
+
+  const metaText = getItemMetaText
+    ? getItemMetaText(item, index)
+    : (item.metaText ?? (
+        item.viaPersonName
+          ? `${item.year && item.year !== 'N/A' ? `${item.year} · ` : ''}with ${item.viaPersonName}${item.viaRole ? `, ${item.viaRole}` : ''}`
+          : null
+      ));
+
+  const posterOverlay = getItemPosterOverlay
+    ? getItemPosterOverlay(item, index)
+    : (item.posterOverlay ?? null);
+
+  const customPosterStyle = getItemPosterStyle
+    ? getItemPosterStyle(item, index)
+    : null;
+
+  const disabled = isItemDisabled ? Boolean(isItemDisabled(item, index)) : false;
+
+  const a11yLabel = getItemAccessibilityLabel
+    ? getItemAccessibilityLabel(item, index)
+    : undefined;
+
   return (
     <View
       style={[
@@ -71,23 +112,30 @@ const FocalRailItem = memo(function FocalRailItem({
       ]}
     >
       <GridPosterCard
-        item={item}
+        item={displayItem}
         colors={colors}
         typography={typography}
         radii={radii}
         showMediaType={showMediaType}
         showCaption={showCaption}
         showRating={false}
-        rankBadge={showRank ? index + 1 : null}
+        rankBadge={rankBadge}
         footnoteBadge={showRank ? formatWatchers(item.watchers) : null}
         onRemove={onRemoveItem}
         onToggleWatchlist={onRemoveItem ? null : onToggleWatchlist}
         saved={saved}
-        onPress={() => onSelectItem(item)}
+        onPress={onSelectItem && !disabled ? () => onSelectItem(item) : undefined}
+        pressable={!disabled && Boolean(onSelectItem)}
+        accessibilityLabel={a11yLabel}
+        metaText={metaText}
+        posterOverlay={posterOverlay}
         posterScale={posterScale}
         depthScrimOpacity={depthScrimOpacity}
         style={{ width: cardWidth }}
-        posterStyle={{ width: cardWidth, height: cardHeight }}
+        posterStyle={[
+          { width: cardWidth, height: cardHeight },
+          customPosterStyle,
+        ]}
       />
     </View>
   );
@@ -104,7 +152,7 @@ const FocalRailItem = memo(function FocalRailItem({
  * - Instant image decode handoff to prevent blank flashes
  */
 export function ContentRail({
-  title,
+  title = null,
   subtitle = null,
   icon = null,
   data,
@@ -127,6 +175,19 @@ export function ContentRail({
   showHairline = true,
   titleCase = false,
   titleStyle = null,
+  seeAllLabel = 'See all',
+  keyExtractor: customKeyExtractor = null,
+  getItemMetaText = null,
+  getItemRankBadge = null,
+  getItemPosterOverlay = null,
+  getItemPosterStyle = null,
+  isItemDisabled = null,
+  getItemAccessibilityLabel = null,
+  bleed = false,
+  style = null,
+  contentContainerStyle = null,
+  listRef = null,
+  initialScrollIndex = null,
 }) {
   const savedSet = useMemo(() => new Set(savedKeys || []), [savedKeys]);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -150,6 +211,12 @@ export function ContentRail({
         onToggleWatchlist={onRemoveItem ? null : onToggleWatchlist}
         saved={savedSet.has(watchlistEntryKey(item))}
         onSelectItem={onSelectItem}
+        getItemMetaText={getItemMetaText}
+        getItemRankBadge={getItemRankBadge}
+        getItemPosterOverlay={getItemPosterOverlay}
+        getItemPosterStyle={getItemPosterStyle}
+        isItemDisabled={isItemDisabled}
+        getItemAccessibilityLabel={getItemAccessibilityLabel}
       />
     ),
     [
@@ -164,10 +231,31 @@ export function ContentRail({
       onToggleWatchlist,
       savedSet,
       onSelectItem,
+      getItemMetaText,
+      getItemRankBadge,
+      getItemPosterOverlay,
+      getItemPosterStyle,
+      isItemDisabled,
+      getItemAccessibilityLabel,
     ],
   );
 
-  const keyExtractor = useCallback((item) => `${item.mediaType || 'movie'}-${item.tmdbId}`, []);
+  const keyExtractor = useCallback(
+    (item, index) => {
+      if (customKeyExtractor) return customKeyExtractor(item, index);
+      return `${item?.mediaType || 'movie'}-${item?.tmdbId ?? item?.id ?? index}`;
+    },
+    [customKeyExtractor],
+  );
+
+  const getItemLayout = useCallback(
+    (_data, index) => ({
+      length: FOCAL_STEP,
+      offset: FOCAL_STEP * index,
+      index,
+    }),
+    [],
+  );
 
   const isLoading = status === 'loading';
   const isError = status === 'error';
@@ -182,56 +270,73 @@ export function ContentRail({
       <TouchableOpacity
         onPress={onSeeAll}
         accessibilityRole="button"
-        accessibilityLabel={`See all ${title}`}
+        accessibilityLabel={`See all ${title || ''}`}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
         <Text style={[styles.seeAll, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-          {hugLabel('See all')}
+          {hugLabel(seeAllLabel)}
         </Text>
       </TouchableOpacity>
     ) : null);
 
+  const hasHeader = Boolean(title || subtitle || icon || trailing);
+
   return (
-    <View style={[styles.railBlock, variant === 'inline' && styles.railBlockInline]}>
-      {showHairline ? <ProgrammeHairline style={styles.railHairline} /> : null}
-      <View style={styles.railHeaderRow}>
-        <View style={styles.railHeaderLeft}>
-          {icon ? (
-            <Ionicons name={icon} size={16} color={GOLD_ACCENT} style={styles.railIcon} />
-          ) : null}
-          <View style={styles.railTitleGroup}>
-            <Text
-              style={[
-                { color: colors.onSurface, ...typography.titleMd },
-                styles.railTitle,
-                titleStyle,
-                titleCase && styles.railTitleCase,
-              ]}
-              accessibilityRole="header"
-              numberOfLines={2}
-            >
-              {title}
-            </Text>
-            {subtitle ? (
-              <Text
-                style={[
-                  styles.railSubtitle,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-                numberOfLines={1}
-              >
-                {subtitle}
-              </Text>
+    <View
+      style={[
+        styles.railBlock,
+        variant === 'inline' && styles.railBlockInline,
+        bleed && styles.railBleed,
+        style,
+      ]}
+    >
+      {showHairline ? (
+        <ProgrammeHairline style={[styles.railHairline, bleed && styles.railHairlineBleed]} />
+      ) : null}
+      {hasHeader ? (
+        <View style={[styles.railHeaderRow, bleed && styles.railHeaderRowBleed]}>
+          <View style={styles.railHeaderLeft}>
+            {icon ? (
+              <Ionicons name={icon} size={16} color={GOLD_ACCENT} style={styles.railIcon} />
             ) : null}
+            <View style={styles.railTitleGroup}>
+              {title ? (
+                <Text
+                  style={[
+                    { color: colors.onSurface, ...typography.titleMd },
+                    styles.railTitle,
+                    titleStyle,
+                    titleCase && styles.railTitleCase,
+                  ]}
+                  accessibilityRole="header"
+                  numberOfLines={2}
+                >
+                  {title}
+                </Text>
+              ) : null}
+              {subtitle ? (
+                <Text
+                  style={[
+                    styles.railSubtitle,
+                    { color: colors.onSurfaceVariant, ...typography.labelSm },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
           </View>
+          {trailing}
         </View>
-        {trailing}
-      </View>
+      ) : null}
 
       {isLoading && !hasData ? (
-        <ContentRailSkeleton posterCount={skeletonCount} />
+        <View style={[bleed && styles.railSkeletonBleed]}>
+          <ContentRailSkeleton posterCount={skeletonCount} />
+        </View>
       ) : isError && !hasData ? (
-        <View style={styles.railErrorRow} accessibilityLiveRegion="polite">
+        <View style={[styles.railErrorRow, bleed && styles.railErrorRowBleed]} accessibilityLiveRegion="polite">
           <Ionicons name="cloud-offline-outline" size={16} color={colors.onSurfaceVariant} />
           <Text
             style={[styles.railErrorText, { color: colors.onSurfaceVariant, ...typography.bodyMd }]}
@@ -243,7 +348,7 @@ export function ContentRail({
             <TouchableOpacity
               onPress={onRetry}
               accessibilityRole="button"
-              accessibilityLabel={`Retry loading ${title}`}
+              accessibilityLabel={`Retry loading ${title || 'rail'}`}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Text style={[styles.railRetry, { color: GOLD_ACCENT, ...typography.labelSm }]}>
@@ -254,12 +359,24 @@ export function ContentRail({
         </View>
       ) : (
         <Animated.FlatList
+          ref={listRef}
           data={data}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
+          getItemLayout={getItemLayout}
+          initialScrollIndex={initialScrollIndex}
+          onScrollToIndexFailed={(info) => {
+            setTimeout(() => {
+              listRef?.current?.scrollToIndex?.({ index: info.index, animated: false });
+            }, 100);
+          }}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.railList}
+          contentContainerStyle={[
+            styles.railList,
+            bleed && styles.railListBleed,
+            contentContainerStyle,
+          ]}
           nestedScrollEnabled
           overScrollMode="never"
           decelerationRate="fast"
@@ -363,5 +480,24 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
+  },
+  railBleed: {
+    marginHorizontal: -24,
+  },
+  railHairlineBleed: {
+    marginHorizontal: 24,
+  },
+  railHeaderRowBleed: {
+    paddingHorizontal: 24,
+  },
+  railErrorRowBleed: {
+    paddingHorizontal: 24,
+  },
+  railSkeletonBleed: {
+    paddingHorizontal: 24,
+  },
+  railListBleed: {
+    paddingLeft: 24,
+    paddingRight: 24 + scale(18),
   },
 });

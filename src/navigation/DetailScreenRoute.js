@@ -41,6 +41,7 @@ export function DetailScreenRoute() {
       onToggleWatchlist={handleToggleWatchlist}
       onEnrichWatchlistItem={handleEnrichWatchlistItem}
       isInWatchlist={savedWatchlistKeys.includes(watchlistEntryKey(entry?.result))}
+      savedWatchlistKeys={savedWatchlistKeys}
       onSelectSimilar={(match) => handleSelectMatch(match, navigation)}
       onPersonPress={(personId, personName, role) =>
         handlePersonPress(personId, personName, role, navigation)
