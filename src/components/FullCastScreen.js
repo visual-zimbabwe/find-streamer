@@ -1,18 +1,17 @@
 import React, { useCallback, useMemo } from 'react';
-import { Platform, SectionList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Platform, SectionList, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeProvider';
-import { MediaArtwork } from './MediaArtwork';
+import { MediaListRow } from './MediaListRow';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { EmptyState } from './EmptyState';
 import { useBottomSheet } from './StackBottomSheet';
 import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { initialsForName } from './PersonCard';
 import { ProgrammeHairline } from './ProgrammeHairline';
-import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, SCROLL_BOTTOM_PAD } from '../theme/programme';
+import { GOLD_ACCENT, GRID_PAD, SCROLL_BOTTOM_PAD } from '../theme/programme';
 import { scale } from '../utils/responsive';
 
 const ROW_HEIGHT = scale(76);
@@ -21,60 +20,32 @@ function PersonRow({ person, colors, typography, onPress, onLongPress }) {
   const canPeek = Boolean(person.id);
 
   return (
-    <TouchableOpacity
-      style={styles.row}
+    <MediaListRow
+      item={person}
+      title={person.name}
+      titleStyle={{ fontWeight: '800', ...typography.bodyLg }}
+      meta={person.roleLabel}
+      metaStyle={{ fontWeight: '600', marginTop: 3 }}
+      imageUri={person.profileUrl}
+      imageVariant="avatar-lg"
+      fallbackInitials={!person.profileUrl ? initialsForName(person.name) : undefined}
+      fallbackIcon="person-outline"
+      colors={colors}
+      typography={typography}
       onPress={onPress}
       onLongPress={canPeek ? onLongPress : undefined}
       delayLongPress={canPeek ? 400 : undefined}
-      activeOpacity={0.78}
+      showPeekHint={canPeek}
+      chevronSize={16}
+      chevronColor={colors.onSurfaceVariant}
+      chevronOpacity={1}
+      minHeight={ROW_HEIGHT}
+      paddingHorizontal={0}
       accessibilityRole="button"
       accessibilityLabel={`${person.name}, ${person.roleLabel}. View filmography${
         canPeek ? '. Hold for a quick filmography preview' : ''
       }`}
-    >
-      <View
-        style={[
-          styles.avatarRing,
-          !person.profileUrl && { backgroundColor: colors.surfaceContainerHigh },
-        ]}
-      >
-        {person.profileUrl ? (
-          <MediaArtwork
-            uri={person.profileUrl}
-            style={styles.avatar}
-            accessibilityLabel={`${person.name} profile photo`}
-            title={person.name}
-            icon="person-outline"
-            compactFallback
-            instant
-          />
-        ) : (
-          <Text style={[styles.avatarInitials, { color: colors.onSurface, ...typography.labelSm }]}>
-            {initialsForName(person.name)}
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.rowBody}>
-        <Text
-          style={[styles.rowName, { color: colors.onSurface, ...typography.bodyLg }]}
-          numberOfLines={1}
-        >
-          {person.name}
-        </Text>
-        <Text
-          style={[styles.rowRole, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
-          numberOfLines={1}
-        >
-          {person.roleLabel}
-        </Text>
-      </View>
-
-      {canPeek ? (
-        <Ionicons name="ellipsis-horizontal" size={16} color={GOLD_DIM} style={styles.rowPeekHint} />
-      ) : null}
-      <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceVariant} />
-    </TouchableOpacity>
+    />
   );
 }
 
@@ -242,40 +213,5 @@ const styles = StyleSheet.create({
   },
   sectionHairline: {
     marginBottom: 0,
-  },
-  row: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    height: ROW_HEIGHT,
-  },
-  avatarRing: {
-    alignItems: 'center',
-    borderRadius: scale(26),
-    height: scale(52),
-    justifyContent: 'center',
-    marginRight: scale(14),
-    overflow: 'hidden',
-    width: scale(52),
-  },
-  avatar: {
-    height: '100%',
-    width: '100%',
-  },
-  avatarInitials: {
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  rowBody: {
-    flex: 1,
-  },
-  rowName: {
-    fontWeight: '800',
-  },
-  rowRole: {
-    fontWeight: '600',
-    marginTop: 3,
-  },
-  rowPeekHint: {
-    marginRight: scale(8),
   },
 });

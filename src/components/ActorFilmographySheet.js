@@ -1,8 +1,8 @@
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { SkeletonBlock } from './SkeletonLoaders';
+import { MediaListRow } from './MediaListRow';
 import { fetchPersonFilmography } from '../lib/tmdb';
 import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
 
@@ -117,7 +117,11 @@ export function ActorFilmographySheetContent({ person, role, onPersonPress, onDi
           }}
           style={[
             styles.fullButton,
-            { backgroundColor: GOLD_ACCENT + '18', borderColor: GOLD_DIM, borderRadius: radii.full },
+            {
+              backgroundColor: GOLD_ACCENT + '18',
+              borderColor: GOLD_DIM,
+              borderRadius: radii.full,
+            },
           ]}
           accessibilityRole="button"
           accessibilityLabel={`See full filmography for ${person.name}`}
@@ -142,44 +146,26 @@ export function ActorFilmographySheetContent({ person, role, onPersonPress, onDi
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} style={styles.creditScroll}>
           {credits.map((item, i) => (
-            <View
+            <MediaListRow
               key={`${item.tmdbId}-${item.mediaType}-${i}`}
-              style={[
-                styles.creditRow,
-                i < credits.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth },
-                { borderBottomColor: colors.outlineVariant },
-              ]}
-            >
-              <Image
-                source={{ uri: item.posterUrl }}
-                style={[
-                  styles.creditPoster,
-                  { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.md },
-                ]}
-                resizeMode="cover"
-              />
-              <View style={styles.creditBody}>
-                <Text
-                  style={[styles.creditTitle, { color: colors.onSurface, ...typography.bodyMd }]}
-                  numberOfLines={1}
-                >
-                  {item.title}
-                </Text>
-                <Text
-                  style={[
-                    styles.creditMeta,
-                    { color: colors.onSurfaceVariant, ...typography.labelSm },
-                  ]}
-                >
-                  {[item.year, item.character && `as ${item.character}`].filter(Boolean).join(' · ')}
-                </Text>
-              </View>
-              <Ionicons
-                name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
-                size={14}
-                color={colors.onSurfaceVariant}
-              />
-            </View>
+              showDivider={i < credits.length - 1}
+              dividerColor={colors.outlineVariant}
+              colors={colors}
+              typography={typography}
+              radii={radii}
+              imageUri={item.posterUrl}
+              imageVariant="poster"
+              title={item.title}
+              titleStyle={{ fontWeight: '700' }}
+              meta={[item.year, item.character && `as ${item.character}`]
+                .filter(Boolean)
+                .join(' · ')}
+              trailingIcon={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
+              trailingIconSize={14}
+              trailingIconColor={colors.onSurfaceVariant}
+              paddingHorizontal={0}
+              paddingVertical={8}
+            />
           ))}
         </ScrollView>
       )}

@@ -1,11 +1,17 @@
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../theme/ThemeProvider';
 import { SkeletonBlock } from './SkeletonLoaders';
-import { buildSourceMetaLine, capitalize, fetchOtherAdaptations, pickSourceType } from '../lib/basedOn';
+import { MediaListRow } from './MediaListRow';
+import {
+  buildSourceMetaLine,
+  capitalize,
+  fetchOtherAdaptations,
+  pickSourceType,
+} from '../lib/basedOn';
 import { getTitleMatchById } from '../lib/tmdb';
 import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
 
@@ -82,7 +88,13 @@ function AdaptationSkeleton({ colors }) {
  * made from the same book, opening inside Trova — which already knows where
  * each of them streams.
  */
-export function BasedOnSheetContent({ work, currentTitle, onOpenWikidata, onSelectTitle, onDismiss }) {
+export function BasedOnSheetContent({
+  work,
+  currentTitle,
+  onOpenWikidata,
+  onSelectTitle,
+  onDismiss,
+}) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const [adaptations, setAdaptations] = React.useState([]);
@@ -136,7 +148,11 @@ export function BasedOnSheetContent({ work, currentTitle, onOpenWikidata, onSele
         <SourceCoverImage
           uri={work?.coverUrl}
           style={[styles.cover, { backgroundColor: colors.surfaceContainerHigh }]}
-          fallbackStyle={[styles.cover, styles.coverFallback, { backgroundColor: GOLD_ACCENT + '18' }]}
+          fallbackStyle={[
+            styles.cover,
+            styles.coverFallback,
+            { backgroundColor: GOLD_ACCENT + '18' },
+          ]}
           iconSize={22}
           iconColor={GOLD_ACCENT}
         />
@@ -178,53 +194,34 @@ export function BasedOnSheetContent({ work, currentTitle, onOpenWikidata, onSele
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} style={styles.adaptationScroll}>
           {adaptations.map((item, index) => (
-            <TouchableOpacity
+            <MediaListRow
               key={`${item.mediaType}-${item.tmdbId}`}
-              style={[
-                styles.adaptationRow,
-                index < adaptations.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth },
-                { borderBottomColor: colors.outlineVariant },
-              ]}
-              activeOpacity={0.78}
+              showDivider={index < adaptations.length - 1}
+              dividerColor={colors.outlineVariant}
+              colors={colors}
+              typography={typography}
+              radii={radii}
               onPress={() => {
                 onDismiss();
                 if (onSelectTitle) onSelectTitle(item);
               }}
-              accessibilityRole="button"
               accessibilityLabel={`Open ${item.title}${item.year && item.year !== 'N/A' ? `, ${item.year}` : ''}`}
-            >
-              <Image
-                source={{ uri: item.posterUrl }}
-                style={[
-                  styles.adaptationPoster,
-                  { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.md },
-                ]}
-                resizeMode="cover"
-              />
-              <View style={styles.adaptationBody}>
-                <Text
-                  style={[styles.adaptationTitle, { color: colors.onSurface, ...typography.bodyMd }]}
-                  numberOfLines={1}
-                >
-                  {item.title}
-                </Text>
-                <Text
-                  style={[
-                    styles.adaptationMeta,
-                    { color: colors.onSurfaceVariant, ...typography.labelSm },
-                  ]}
-                >
-                  {[item.year !== 'N/A' ? item.year : null, item.mediaType === 'tv' ? 'Series' : 'Film']
-                    .filter(Boolean)
-                    .join(' · ')}
-                </Text>
-              </View>
-              <Ionicons
-                name={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
-                size={14}
-                color={colors.onSurfaceVariant}
-              />
-            </TouchableOpacity>
+              imageUri={item.posterUrl}
+              imageVariant="poster"
+              title={item.title}
+              titleStyle={{ fontWeight: '700' }}
+              meta={[
+                item.year !== 'N/A' ? item.year : null,
+                item.mediaType === 'tv' ? 'Series' : 'Film',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              trailingIcon={item.mediaType === 'tv' ? 'tv-outline' : 'film-outline'}
+              trailingIconSize={14}
+              trailingIconColor={colors.onSurfaceVariant}
+              paddingHorizontal={0}
+              paddingVertical={9}
+            />
           ))}
         </ScrollView>
       )}
