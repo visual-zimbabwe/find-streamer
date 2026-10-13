@@ -1,27 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  BackHandler,
-  FlatList,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { BackHandler, FlatList, Platform, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeProvider';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { fetchStaticCollectionRows, getStaticCollectionRows } from '../lib/collectionMovieRows';
 import { getImdbTop100Movies, getImdbTop100Tv } from '../lib/imdbTop100Catalog';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { scale } from '../utils/responsive';
-import { MediaArtwork } from './MediaArtwork';
+import { MediaListRow } from './MediaListRow';
 import { FranchiseRailsView } from './FranchiseRailsView';
 import { HomeTopNav } from './HomeTopNav';
-import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
+import { GOLD_ACCENT, GRID_PAD } from '../theme/programme';
 
 function ImdbRankedRow({
   item,
@@ -37,55 +27,33 @@ function ImdbRankedRow({
   const inLibrary = saved && key && saved.has(key);
 
   return (
-    <TouchableOpacity
-      style={styles.imdbRow}
-      activeOpacity={0.78}
+    <MediaListRow
+      item={item}
+      rank={rank}
+      title={item.title}
+      titleStyle={{ fontWeight: '700' }}
+      meta={`${item.year} · ${item.mediaType === 'tv' ? 'TV Show' : 'Movie'}`}
+      metaStyle={{ fontWeight: '600' }}
+      imageUri={item.posterUrl}
+      imageVariant="poster"
+      colors={colors}
+      typography={typography}
+      radii={radii}
       onPress={() => onSelectItem?.(item)}
+      showBookmark={Boolean(onToggleWatchlist)}
+      isBookmarked={inLibrary}
+      onToggleBookmark={() => onToggleWatchlist?.(item)}
+      bookmarkAccessibilityLabel={
+        inLibrary ? `Manage library entry for ${item.title}` : `Save ${item.title} to library`
+      }
       accessibilityRole="button"
       accessibilityLabel={`Open details for ${item.title}, ranked ${rank}`}
-    >
-      <Text style={[styles.imdbRank, { color: GOLD_ACCENT, ...typography.labelSm }]}>{rank}</Text>
-      <View
-        style={[
-          styles.imdbPosterWrap,
-          { backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.md },
-        ]}
-      >
-        <MediaArtwork uri={item.posterUrl} style={styles.imdbPoster} title={item.title} instant />
-      </View>
-      <View style={styles.imdbCopy}>
-        <Text
-          style={[styles.imdbTitle, { color: colors.onSurface, ...typography.bodyMd }]}
-          numberOfLines={1}
-        >
-          {item.title}
-        </Text>
-        <Text style={[styles.imdbMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
-          {item.year} · {item.mediaType === 'tv' ? 'TV Show' : 'Movie'}
-        </Text>
-      </View>
-      {onToggleWatchlist && (
-        <TouchableOpacity
-          style={styles.imdbBookmark}
-          onPress={(e) => {
-            e?.stopPropagation?.();
-            Haptics.selectionAsync();
-            onToggleWatchlist(item);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={
-            inLibrary ? `Manage library entry for ${item.title}` : `Save ${item.title} to library`
-          }
-        >
-          <Ionicons
-            name={inLibrary ? 'bookmark' : 'bookmark-outline'}
-            size={20}
-            color={inLibrary ? GOLD_ACCENT : colors.onSurfaceVariant}
-          />
-        </TouchableOpacity>
-      )}
-      <Ionicons name="chevron-forward" size={16} color={GOLD_ACCENT} style={{ opacity: 0.72 }} />
-    </TouchableOpacity>
+      chevronSize={16}
+      chevronColor={GOLD_ACCENT}
+      chevronOpacity={0.72}
+      paddingHorizontal={0}
+      paddingVertical={12}
+    />
   );
 }
 
@@ -344,39 +312,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.4,
     textAlign: 'center',
-  },
-  imdbRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-  },
-  imdbRank: {
-    width: 28,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  imdbPosterWrap: {
-    width: 36,
-    height: 52,
-    overflow: 'hidden',
-  },
-  imdbPoster: {
-    width: 36,
-    height: 52,
-  },
-  imdbCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  imdbTitle: {
-    fontWeight: '700',
-  },
-  imdbMeta: {
-    fontWeight: '600',
-  },
-  imdbBookmark: {
-    padding: 8,
-    borderRadius: 999,
   },
 });

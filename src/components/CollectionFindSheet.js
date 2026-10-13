@@ -22,6 +22,7 @@ import {
 } from '../lib/collectionFilters';
 import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
 import { scale } from '../utils/responsive';
+import { MediaListRow } from './MediaListRow';
 
 const SHEET_HEADER_HEIGHT = 52;
 
@@ -190,17 +191,21 @@ export function CollectionFindSheet({
 
   const renderJumpItem = useCallback(
     ({ item }) => (
-      <TouchableOpacity
-        style={[styles.jumpRow, { borderBottomColor: GOLD_DIM }]}
+      <MediaListRow
+        title={item.title}
+        colors={colors}
+        typography={typography}
         onPress={() => handleJump(item.id)}
         accessibilityRole="button"
         accessibilityLabel={`Jump to ${item.title}`}
-      >
-        <Text style={[{ color: colors.onSurface, ...typography.bodyMd }]} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Ionicons name="chevron-forward" size={16} color={GOLD_ACCENT} />
-      </TouchableOpacity>
+        showDivider
+        dividerColor={GOLD_DIM}
+        chevronSize={16}
+        chevronColor={GOLD_ACCENT}
+        paddingHorizontal={0}
+        paddingVertical={12}
+        imageVariant="none"
+      />
     ),
     [colors, typography, handleJump],
   );
@@ -565,13 +570,5 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 12,
     marginTop: 8,
-  },
-  jumpRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
 });
