@@ -16,6 +16,7 @@ import { pushOnCurrentTab } from '../navigation/navigationRef';
 export function usePeopleController({ openResolvedDetail, handleRequestError, setOfflineBanner }) {
   const [filmographyPerson, setFilmographyPerson] = useState(null); // { id, name, role }
   const [filmographyResults, setFilmographyResults] = useState([]);
+  const [filmographyRails, setFilmographyRails] = useState([]);
   const [filmographyLoading, setFilmographyLoading] = useState(false);
 
   const openFilmography = useCallback((navigation) => {
@@ -31,11 +32,17 @@ export function usePeopleController({ openResolvedDetail, handleRequestError, se
       setFilmographyLoading(true);
       setFilmographyPerson({ id: personId, name: personName, role, profileUrl: null });
       setFilmographyResults([]);
+      setFilmographyRails([]);
       openFilmography(navigation);
       try {
-        const { results, profileUrl } = await fetchPersonFilmography(personId, personName, role);
+        const { results, rails, profileUrl, total } = await fetchPersonFilmography(personId, personName, role);
         setFilmographyResults(results);
-        setFilmographyPerson((prev) => ({ ...prev, profileUrl }));
+        setFilmographyRails(rails || []);
+        setFilmographyPerson((prev) => ({
+          ...prev,
+          profileUrl: profileUrl ?? prev?.profileUrl,
+          total: total ?? (results ? results.length : null),
+        }));
         setOfflineBanner(null);
       } catch (err) {
         handleRequestError(err, 'Unable to fetch filmography.');
@@ -57,6 +64,7 @@ export function usePeopleController({ openResolvedDetail, handleRequestError, se
         total: null,
       });
       setFilmographyResults([]);
+      setFilmographyRails([]);
       openFilmography(navigation);
       try {
         const { results, profileUrl, total } = await fetchProductionCompanyCatalog(
@@ -65,6 +73,7 @@ export function usePeopleController({ openResolvedDetail, handleRequestError, se
           logoUrl,
         );
         setFilmographyResults(results);
+        setFilmographyRails([]);
         setFilmographyPerson((prev) => ({
           ...prev,
           profileUrl: profileUrl ?? prev.profileUrl,
@@ -100,6 +109,7 @@ export function usePeopleController({ openResolvedDetail, handleRequestError, se
         currentTmdbId: currentTmdbId ?? null,
       });
       setFilmographyResults(collection.parts);
+      setFilmographyRails([]);
       openFilmography(navigation);
     },
     [openFilmography],
@@ -115,6 +125,7 @@ export function usePeopleController({ openResolvedDetail, handleRequestError, se
   return {
     filmographyPerson,
     filmographyResults,
+    filmographyRails,
     filmographyLoading,
     openFilmography,
     handlePersonPress,

@@ -35,6 +35,7 @@ import {
   intersectSeasonAvailability,
   serviceKey,
 } from './providerAvailability';
+import { partitionFilmographyCredits } from './actorFilmographyModel';
 
 export { SERVICE_LABELS };
 
@@ -1602,191 +1603,68 @@ export async function resolveMatch(query, match) {
  * @param {'movie'|'tv'|'cast'|'writer'|'composer'} role  Director (movie), TV creator, actor, writer, or composer credits
  */
 export async function fetchPersonFilmography(personId, personName, role) {
-  // role: 'movie' (director), 'tv' (creator), 'cast' (actor), 'writer', or 'composer'
-  let items;
-  let resolvedMediaType; // used to set mediaType on result items
+  // Fetch combined credits and profile info concurrently
+  const [creditsData, personData] = await Promise.all([
+    tmdbGet(`/person/${personId}/combined_credits`, { language: 'en-US' }),
+    tmdbGet(`/person/${personId}`, { language: 'en-US' }).catch(() => null),
+  ]);
 
-  if (role === 'cast') {
-    // Combined credits covers both movies and TV the actor appeared in
-    const data = await tmdbGet(`/person/${personId}/combined_credits`, { language: 'en-US' });
-    const castCredits = (data.cast || [])
-      .filter((c) => c.media_type === 'movie' || c.media_type === 'tv')
-      .filter((c) => c.vote_count >= 5); // skip obscure entries
-
-    // Deduplicate by id
-    const seen = new Set();
-    const unique = castCredits.filter((item) => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
-
-    // Sort by rating descending (highest to lowest)
-    unique.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
-
-    const results = unique.map((item) => {
-      const dateValue = item.release_date || item.first_air_date || '';
-      return {
-        mediaType: item.media_type,
-        tmdbId: item.id,
-        title: item.title || item.name || '(Untitled)',
-        year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
-        synopsis: (item.overview || '').trim() || 'No synopsis available.',
-        posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-        backdropUrl: item.backdrop_path
-          ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
-          : null,
-        ratingValue: item.vote_average || 0,
-        rating:
-          typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
-        character: item.character || '',
-      };
-    });
-
-    // Get profile image
-    const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
-    const profileUrl = personData.profile_path
-      ? `https://image.tmdb.org/t/p/w185${personData.profile_path}`
-      : null;
-
-    return { personName, role: 'cast', results, profileUrl };
-  }
-
-  if (role === 'writer') {
-    const data = await tmdbGet(`/person/${personId}/combined_credits`, { language: 'en-US' });
-    const crewCredits = (data.crew || [])
-      .filter((c) => WRITER_CREW_JOBS.has(c.job))
-      .filter((c) => c.media_type === 'movie' || c.media_type === 'tv')
-      .filter((c) => (c.vote_count ?? 0) >= 5);
-
-    const seen = new Set();
-    const unique = crewCredits.filter((item) => {
-      const key = `${item.media_type}:${item.id}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    unique.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
-
-    const results = unique.map((item) => {
-      const dateValue = item.release_date || item.first_air_date || '';
-      return {
-        mediaType: item.media_type,
-        tmdbId: item.id,
-        title: item.title || item.name || '(Untitled)',
-        year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
-        synopsis: (item.overview || '').trim() || 'No synopsis available.',
-        posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-        backdropUrl: item.backdrop_path
-          ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
-          : null,
-        ratingValue: item.vote_average || 0,
-        rating:
-          typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
-      };
-    });
-
-    const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
-    const profileUrl = personData.profile_path
-      ? `https://image.tmdb.org/t/p/w185${personData.profile_path}`
-      : null;
-
-    return { personName, role: 'writer', results, profileUrl };
-  }
-
-  if (role === 'composer') {
-    const data = await tmdbGet(`/person/${personId}/combined_credits`, { language: 'en-US' });
-    const crewCredits = (data.crew || [])
-      .filter((c) => c.job === COMPOSER_CREW_JOB)
-      .filter((c) => c.media_type === 'movie' || c.media_type === 'tv')
-      .filter((c) => (c.vote_count ?? 0) >= 5);
-
-    const seen = new Set();
-    const unique = crewCredits.filter((item) => {
-      const key = `${item.media_type}:${item.id}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    unique.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
-
-    const results = unique.map((item) => {
-      const dateValue = item.release_date || item.first_air_date || '';
-      return {
-        mediaType: item.media_type,
-        tmdbId: item.id,
-        title: item.title || item.name || '(Untitled)',
-        year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
-        synopsis: (item.overview || '').trim() || 'No synopsis available.',
-        posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-        backdropUrl: item.backdrop_path
-          ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
-          : null,
-        ratingValue: item.vote_average || 0,
-        rating:
-          typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
-      };
-    });
-
-    const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
-    const profileUrl = personData.profile_path
-      ? `https://image.tmdb.org/t/p/w185${personData.profile_path}`
-      : null;
-
-    return { personName, role: 'composer', results, profileUrl };
-  }
-
-  // Director / Creator path
-  const endpoint =
-    role === 'movie' ? `/person/${personId}/movie_credits` : `/person/${personId}/tv_credits`;
-
-  const data = await tmdbGet(endpoint, { language: 'en-US' });
-  resolvedMediaType = role;
-
-  if (role === 'movie') {
-    items = (data.crew || []).filter((c) => c.job === 'Director');
-  } else {
-    items = (data.crew || []).filter((c) => c.job === 'Creator');
-    if (!items.length) items = data.crew || [];
-  }
-
-  // Deduplicate by id
-  const seen = new Set();
-  const unique = items.filter((item) => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
-
-  // Sort by rating descending (highest to lowest)
-  unique.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
-
-  const results = unique.map((item) => {
-    const dateValue = item.release_date || item.first_air_date || '';
-    return {
-      mediaType: resolvedMediaType,
-      tmdbId: item.id,
-      title: item.title || item.name || '(Untitled)',
-      year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
-      synopsis: (item.overview || '').trim() || 'No synopsis available.',
-      posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-      backdropUrl: item.backdrop_path
-        ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
-        : null,
-      ratingValue: item.vote_average || 0,
-      rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
-    };
-  });
-
-  // Get profile image
-  const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
-  const profileUrl = personData.profile_path
+  const profileUrl = personData?.profile_path
     ? `https://image.tmdb.org/t/p/w185${personData.profile_path}`
     : null;
 
-  return { personName, role, results, profileUrl };
+  const { rails, totalCreditsCount } = partitionFilmographyCredits(creditsData, role, 30);
+
+  // Flatten unique credits across all rails for backward compatibility with results
+  const results = [];
+  const seen = new Set();
+  for (const rail of rails) {
+    for (const item of (rail.data || rail.credits || [])) {
+      const key = `${item.mediaType}:${item.tmdbId}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        results.push(item);
+      }
+    }
+  }
+
+  return {
+    personName,
+    role,
+    results,
+    rails,
+    profileUrl,
+    total: totalCreditsCount || results.length,
+  };
+}
+
+/**
+ * Fetches combined credits (/person/{personId}/combined_credits) along with person profile.
+ * Used for partitioning filmography into role rails (Acting, Directing, Writing).
+ *
+ * @param {number} personId TMDB person ID
+ * @param {string} [personName] Display name
+ * @returns {Promise<{ personId: number, personName: string, profileUrl: string | null, cast: Array, crew: Array }>}
+ */
+export async function fetchPersonCombinedCredits(personId, personName) {
+  const data = await tmdbGet(`/person/${personId}/combined_credits`, { language: 'en-US' });
+  let profileUrl = null;
+  try {
+    const personData = await tmdbGet(`/person/${personId}`, { language: 'en-US' });
+    profileUrl = personData?.profile_path
+      ? `https://image.tmdb.org/t/p/w185${personData.profile_path}`
+      : null;
+  } catch {
+    // Non-fatal if person profile endpoint fails
+  }
+
+  return {
+    personId,
+    personName,
+    profileUrl,
+    cast: Array.isArray(data?.cast) ? data.cast : [],
+    crew: Array.isArray(data?.crew) ? data.crew : [],
+  };
 }
 
 /**

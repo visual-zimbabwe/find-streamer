@@ -7,8 +7,6 @@ import { useTheme } from '../theme/ThemeProvider';
 import { MediaListRow } from './MediaListRow';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { EmptyState } from './EmptyState';
-import { useBottomSheet } from './StackBottomSheet';
-import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { initialsForName } from './PersonCard';
 import { ProgrammeEyebrowLabel, ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { GlassIconButton } from './GlassIconButton';
@@ -17,9 +15,7 @@ import { scale } from '../utils/responsive';
 
 const ROW_HEIGHT = scale(76);
 
-function PersonRow({ person, colors, typography, onPress, onLongPress }) {
-  const canPeek = Boolean(person.id);
-
+function PersonRow({ person, colors, typography, onPress }) {
   return (
     <MediaListRow
       item={person}
@@ -34,18 +30,14 @@ function PersonRow({ person, colors, typography, onPress, onLongPress }) {
       colors={colors}
       typography={typography}
       onPress={onPress}
-      onLongPress={canPeek ? onLongPress : undefined}
-      delayLongPress={canPeek ? 400 : undefined}
-      showPeekHint={canPeek}
+      showPeekHint={false}
       chevronSize={16}
       chevronColor={colors.onSurfaceVariant}
       chevronOpacity={1}
       minHeight={ROW_HEIGHT}
       paddingHorizontal={0}
       accessibilityRole="button"
-      accessibilityLabel={`${person.name}, ${person.roleLabel}. View filmography${
-        canPeek ? '. Hold for a quick filmography preview' : ''
-      }`}
+      accessibilityLabel={`${person.name}, ${person.roleLabel}. View filmography`}
     />
   );
 }
@@ -60,7 +52,6 @@ export function FullCastScreen({ title, cast = [], crew = [], onPersonPress, onB
   const { colors, typography } = theme;
   const insets = useSafeAreaInsets();
   const bottomNavScroll = useBottomNavScroll();
-  const { show: showSheet, dismiss: dismissSheet } = useBottomSheet();
 
   const sections = useMemo(
     () =>
@@ -69,30 +60,6 @@ export function FullCastScreen({ title, cast = [], crew = [], onPersonPress, onB
         { key: 'crew', title: 'Crew', data: crew },
       ].filter((section) => section.data.length > 0),
     [cast, crew],
-  );
-
-  const handlePeek = useCallback(
-    (person) => {
-      if (!person.id) return;
-      Haptics.selectionAsync();
-      let sheetId;
-      const content = (
-        <ActorFilmographySheetContent
-          person={person}
-          role={person.filmographyRole}
-          onPersonPress={onPersonPress}
-          onDismiss={() => dismissSheet(sheetId)}
-        />
-      );
-      sheetId = showSheet(content, {
-        title: `⭐ ${person.name}`,
-        size: 'large',
-        scrollable: false,
-        showCloseButton: true,
-        dismissOnBackdrop: true,
-      });
-    },
-    [onPersonPress, showSheet, dismissSheet],
   );
 
   const atmosphereColors = [colors.surfaceContainerHigh, colors.background];
@@ -104,10 +71,9 @@ export function FullCastScreen({ title, cast = [], crew = [], onPersonPress, onB
         colors={colors}
         typography={typography}
         onPress={() => onPersonPress?.(item.id, item.name, item.filmographyRole)}
-        onLongPress={() => handlePeek(item)}
       />
     ),
-    [colors, typography, onPersonPress, handlePeek],
+    [colors, typography, onPersonPress],
   );
 
   const renderSectionHeader = useCallback(

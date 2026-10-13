@@ -36,7 +36,6 @@ import { TrailerModal } from './TrailerModal';
 import { SoundtrackPickerSheetContent } from './SoundtrackPickerSheet';
 import { WhereToWatchSection } from './WhereToWatchSection';
 import { SeasonDetailSheetContent } from './SeasonDetailSheet';
-import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { PersonRail } from './PersonRail';
 import { GlassIconButton } from './GlassIconButton';
 import { ContentRail } from './ContentRail';
@@ -1116,31 +1115,6 @@ export function ResultView({
     [result?.title, colors, typography, showSheet],
   );
 
-  /** Long-press a cast or crew card → push a filmography peek sheet */
-  const handleActorLongPress = useCallback(
-    (person, role) => {
-      if (!person.id) return; // need an ID to fetch filmography
-      Haptics.selectionAsync();
-      let sheetId;
-      const content = (
-        <ActorFilmographySheetContent
-          person={person}
-          role={role}
-          onPersonPress={onPersonPress}
-          onDismiss={() => dismissSheet(sheetId)}
-        />
-      );
-      sheetId = showSheet(content, {
-        title: `⭐ ${person.name}`,
-        size: 'large',
-        scrollable: false,
-        showCloseButton: true,
-        dismissOnBackdrop: true,
-      });
-    },
-    [onPersonPress, showSheet, dismissSheet],
-  );
-
   // Gated on focus. Native-driven and cheap, but an 18s loop that never stops
   // keeps the whole app permanently non-idle, which is why `uiautomator dump`
   // fails with "could not get idle state" — and it kept running behind every
@@ -2203,7 +2177,7 @@ export function ResultView({
                   seeAllLabel={`See All ${totalPeopleCount}`}
                   seeAllAccessibilityLabel={`See all ${totalPeopleCount} cast and crew`}
                   onPersonPress={(person) => handlePersonPressWithFallback(person, 'cast')}
-                  onPersonLongPress={(person) => handleActorLongPress(person, 'cast')}
+                  canPeek={false}
                   style={styles.section}
                 />
               )}
@@ -2222,9 +2196,7 @@ export function ResultView({
                   onPersonPress={(person) =>
                     handlePersonPressWithFallback(person, filmographyRoleForPerson(person))
                   }
-                  onPersonLongPress={(person) =>
-                    handleActorLongPress(person, filmographyRoleForPerson(person))
-                  }
+                  canPeek={false}
                   style={styles.section}
                 />
               )}

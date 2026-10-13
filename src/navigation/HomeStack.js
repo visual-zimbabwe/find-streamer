@@ -82,8 +82,13 @@ function FullCastScreenRoute({ route }) {
 
 function FilmographyScreenRoute() {
   const navigation = useNavigation();
-  const { filmographyPerson, filmographyResults, filmographyLoading, handleSelectFilmographyItem } =
-    usePeople();
+  const {
+    filmographyPerson,
+    filmographyResults,
+    filmographyRails,
+    filmographyLoading,
+    handleSelectFilmographyItem,
+  } = usePeople();
 
   if (!filmographyPerson) return null;
 
@@ -95,6 +100,7 @@ function FilmographyScreenRoute() {
       total={filmographyPerson.total}
       currentTmdbId={filmographyPerson.currentTmdbId}
       results={filmographyResults}
+      rails={filmographyRails}
       onSelectItem={(item) => handleSelectFilmographyItem(item, navigation)}
       loading={filmographyLoading}
       onBack={() => navigation.goBack()}
