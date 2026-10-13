@@ -16,6 +16,7 @@ import { EmptyState } from './EmptyState';
 import { ResultsSkeleton } from './SkeletonLoaders';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { ProgrammeHairline } from './ProgrammeHairline';
+import { GlassIconButton } from './GlassIconButton';
 import { GridPosterCard, PosterGrid } from './GridPosterCard';
 import { RELEASED, franchiseCountLabel, franchiseTileMeta, releaseStateFor } from '../lib/franchise';
 import { scale } from '../utils/responsive';
@@ -69,6 +70,7 @@ export function FilmographyScreen({
   profileUrl,
   total = null,
   currentTmdbId = null,
+  onBack,
 }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
@@ -118,9 +120,29 @@ export function FilmographyScreen({
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
 
+      {onBack ? (
+        <View
+          style={[styles.floatingHeader, { top: (insets.top || 0) + 12 }]}
+          pointerEvents="box-none"
+        >
+          <GlassIconButton
+            icon="arrow-back"
+            iconSize={22}
+            onPress={onBack}
+            accessibilityLabel="Go back"
+          />
+        </View>
+      ) : null}
+
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 112 }]}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: (insets.top || 0) + (onBack ? scale(56) : scale(28)),
+            paddingBottom: insets.bottom + 112,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
         {...bottomNavScroll}
@@ -254,9 +276,13 @@ const styles = StyleSheet.create({
   scroll: {
     flex: 1,
   },
+  floatingHeader: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 50,
+  },
   content: {
     paddingHorizontal: GRID_PAD,
-    paddingTop: scale(28),
   },
   pageHeader: {
     alignItems: 'center',

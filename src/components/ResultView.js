@@ -38,6 +38,7 @@ import { WhereToWatchSection } from './WhereToWatchSection';
 import { SeasonDetailSheetContent } from './SeasonDetailSheet';
 import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { PersonRail } from './PersonRail';
+import { GlassIconButton } from './GlassIconButton';
 import { ContentRail } from './ContentRail';
 import { fetchTitleCollection, fetchTitleRails, searchPersonByName } from '../lib/tmdb';
 import { buildDetailTabs, buildTitleDetailRows, spokenRuntime, stickyTitleFontSize } from '../lib/titleMeta';
@@ -2781,63 +2782,38 @@ export function ResultView({
         style={[styles.floatingHeader, { top: (insets.top || 0) + 12 }]}
         pointerEvents="box-none"
       >
-        <TouchableOpacity
-          style={[
-            styles.floatingButton,
-            { backgroundColor: colors.surfaceContainerHighest + 'E6' },
-          ]}
+        <GlassIconButton
+          icon="arrow-back"
+          iconSize={22}
           onPress={onBack}
-          accessibilityRole="button"
           accessibilityLabel="Go back"
-        >
-          <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
-        </TouchableOpacity>
+        />
 
         {/* Both act on the payload, not the seed: a share card built from a
             half-built object is wrong art, and saving one writes a watchlist
             entry with no availability behind it. The window is the length of
             the resolve. */}
         <View style={styles.floatingRightActions}>
-          <TouchableOpacity
-            style={[
-              styles.floatingButton,
-              { backgroundColor: colors.surfaceContainerHighest + 'E6' },
-              loading && styles.floatingButtonPending,
-            ]}
+          <GlassIconButton
+            icon="share-social-outline"
+            iconSize={20}
             onPress={handleOpenShareSheet}
             disabled={loading}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: loading }}
             accessibilityLabel={`Share ${result.title}`}
-          >
-            <Ionicons name="share-social-outline" size={20} color={colors.onSurface} />
-          </TouchableOpacity>
+          />
 
-          <TouchableOpacity
-            style={[
-              styles.floatingButton,
-              { backgroundColor: colors.surfaceContainerHighest + 'E6' },
-              loading && styles.floatingButtonPending,
-            ]}
-            onPress={() => {
-              Haptics.selectionAsync();
-              onToggleWatchlist(result);
-            }}
+          <GlassIconButton
+            icon={isInWatchlist ? 'bookmark' : 'bookmark-outline'}
+            iconSize={20}
+            active={isInWatchlist}
+            onPress={() => onToggleWatchlist(result)}
             disabled={loading}
-            accessibilityRole="button"
             accessibilityLabel={
               isInWatchlist
                 ? `Manage ${result.title} in your library`
                 : `Save ${result.title} to your library`
             }
-            accessibilityState={{ selected: isInWatchlist, disabled: loading }}
-          >
-            <Ionicons
-              name={isInWatchlist ? 'bookmark' : 'bookmark-outline'}
-              size={20}
-              color={isInWatchlist ? GOLD_ACCENT : colors.onSurface}
-            />
-          </TouchableOpacity>
+          />
         </View>
       </View>
     </>
@@ -3562,23 +3538,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 48,
     alignItems: 'center',
-  },
-  floatingButtonPending: {
-    opacity: 0.45,
-  },
-  floatingButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
   },
   floatingRightActions: {
     flexDirection: 'row',

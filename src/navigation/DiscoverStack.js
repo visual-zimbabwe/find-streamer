@@ -46,6 +46,7 @@ function DiscoverFullCastScreen({ route }) {
       title={title}
       cast={cast}
       crew={crew}
+      onBack={() => navigation.goBack()}
       onPersonPress={(personId, personName, role) =>
         handlePersonPress(personId, personName, role, navigation)
       }
@@ -70,6 +71,7 @@ function DiscoverFilmographyScreen() {
       results={filmographyResults}
       onSelectItem={(item) => handleSelectFilmographyItem(item, navigation)}
       loading={filmographyLoading}
+      onBack={() => navigation.goBack()}
     />
   );
 }

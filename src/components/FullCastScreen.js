@@ -11,6 +11,7 @@ import { useBottomSheet } from './StackBottomSheet';
 import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { initialsForName } from './PersonCard';
 import { ProgrammeHairline } from './ProgrammeHairline';
+import { GlassIconButton } from './GlassIconButton';
 import { GOLD_ACCENT, GRID_PAD, SCROLL_BOTTOM_PAD } from '../theme/programme';
 import { scale } from '../utils/responsive';
 
@@ -54,7 +55,7 @@ function PersonRow({ person, colors, typography, onPress, onLongPress }) {
  * than an expanded rail: TMDb returns the complete credit list (often 100+),
  * which is a destination, not a progressive disclosure.
  */
-export function FullCastScreen({ title, cast = [], crew = [], onPersonPress }) {
+export function FullCastScreen({ title, cast = [], crew = [], onPersonPress, onBack }) {
   const { theme } = useTheme();
   const { colors, typography } = theme;
   const insets = useSafeAreaInsets();
@@ -126,6 +127,20 @@ export function FullCastScreen({ title, cast = [], crew = [], onPersonPress }) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LinearGradient colors={atmosphereColors} style={styles.atmosphereTop} pointerEvents="none" />
 
+      {onBack ? (
+        <View
+          style={[styles.floatingHeader, { top: (insets.top || 0) + 12 }]}
+          pointerEvents="box-none"
+        >
+          <GlassIconButton
+            icon="arrow-back"
+            iconSize={22}
+            onPress={onBack}
+            accessibilityLabel="Go back"
+          />
+        </View>
+      ) : null}
+
       <SectionList
         sections={sections}
         keyExtractor={(item, index) => `${item.role}-${item.id || item.name}-${index}`}
@@ -134,7 +149,10 @@ export function FullCastScreen({ title, cast = [], crew = [], onPersonPress }) {
         stickySectionHeadersEnabled={false}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + SCROLL_BOTTOM_PAD },
+          {
+            paddingTop: (insets.top || 0) + (onBack ? scale(56) : scale(28)),
+            paddingBottom: insets.bottom + SCROLL_BOTTOM_PAD,
+          },
         ]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
@@ -180,9 +198,13 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
   },
+  floatingHeader: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 50,
+  },
   content: {
     paddingHorizontal: GRID_PAD,
-    paddingTop: scale(28),
   },
   pageHeader: {
     marginBottom: scale(20),
