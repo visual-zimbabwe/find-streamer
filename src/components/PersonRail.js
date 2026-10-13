@@ -201,30 +201,16 @@ export function PersonRail({
     }
 
     return (
-      <View
-        style={[
-          styles.sectionHeaderRow,
-          config.bleed && styles.sectionHeaderRowBleed,
-        ]}
-      >
-        <ProgrammeEyebrowLabel eyebrow={config.title} />
-        {config.showHeaderSeeAll ? (
-          <TouchableOpacity
-            onPress={handleHeaderSeeAll}
-            accessibilityRole="button"
-            accessibilityLabel={
-              seeAllAccessibilityLabel ||
-              formatPersonSeeAllAccessibilityLabel(config.title, config.totalCount)
-            }
-            style={styles.seeAllButton}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={[typography.labelSm, styles.seeAllText, { color: GOLD_ACCENT }]}>
-              {config.seeAllLabel}
-            </Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
+      <ProgrammeEyebrowLabel
+        eyebrow={config.title}
+        actionLabel={config.showHeaderSeeAll ? config.seeAllLabel : null}
+        onAction={config.showHeaderSeeAll ? handleHeaderSeeAll : null}
+        actionAccessibilityLabel={
+          seeAllAccessibilityLabel ||
+          formatPersonSeeAllAccessibilityLabel(config.title, config.totalCount)
+        }
+        style={config.bleed && styles.sectionHeaderBleed}
+      />
     );
   };
 
@@ -341,22 +327,8 @@ const styles = StyleSheet.create({
   railBleed: {
     marginHorizontal: -24,
   },
-  sectionHeaderRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: scale(18),
-  },
-  sectionHeaderRowBleed: {
+  sectionHeaderBleed: {
     paddingHorizontal: 24,
-  },
-  seeAllButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  seeAllText: {
-    fontWeight: '900',
-    letterSpacing: 1,
   },
   scrollList: {
     alignItems: 'flex-start',

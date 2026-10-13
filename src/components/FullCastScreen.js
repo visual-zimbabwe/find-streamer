@@ -10,7 +10,7 @@ import { EmptyState } from './EmptyState';
 import { useBottomSheet } from './StackBottomSheet';
 import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { initialsForName } from './PersonCard';
-import { ProgrammeHairline } from './ProgrammeHairline';
+import { ProgrammeEyebrowLabel, ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { GlassIconButton } from './GlassIconButton';
 import { GOLD_ACCENT, GRID_PAD, SCROLL_BOTTOM_PAD } from '../theme/programme';
 import { scale } from '../utils/responsive';
@@ -113,14 +113,13 @@ export function FullCastScreen({ title, cast = [], crew = [], onPersonPress, onB
   const renderSectionHeader = useCallback(
     ({ section }) => (
       // Not sticky, so no opaque fill — it would cut a band through the atmosphere gradient.
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-          {`${section.title} · ${section.data.length}`}
-        </Text>
-        <ProgrammeHairline style={styles.sectionHairline} />
-      </View>
+      <ProgrammeEyebrowLabel
+        eyebrow={section.title}
+        count={section.data.length}
+        style={styles.sectionHeader}
+      />
     ),
-    [typography],
+    [],
   );
 
   return (
@@ -160,18 +159,14 @@ export function FullCastScreen({ title, cast = [], crew = [], onPersonPress, onB
         maxToRenderPerBatch={12}
         windowSize={9}
         ListHeaderComponent={
-          <View style={styles.pageHeader}>
-            <Text style={[styles.eyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-              Cast &amp; Crew
-            </Text>
-            <Text
-              style={[styles.pageTitle, { color: colors.onSurface, ...typography.titleMd }]}
-              numberOfLines={2}
-              accessibilityRole="header"
-            >
-              {title}
-            </Text>
-          </View>
+          <ProgrammeSectionHeader
+            eyebrow="Cast & Crew"
+            title={title}
+            titleVariant="titleMd"
+            titleUppercase
+            align="center"
+            style={styles.pageHeader}
+          />
         }
         ListEmptyComponent={
           <EmptyState
@@ -209,31 +204,8 @@ const styles = StyleSheet.create({
   pageHeader: {
     marginBottom: scale(20),
   },
-  eyebrow: {
-    alignSelf: 'stretch',
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  pageTitle: {
-    alignSelf: 'stretch',
-    fontWeight: '800',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
   sectionHeader: {
     paddingBottom: scale(10),
     paddingTop: scale(14),
-  },
-  sectionTitle: {
-    alignSelf: 'stretch',
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    marginBottom: scale(10),
-    textTransform: 'uppercase',
-  },
-  sectionHairline: {
-    marginBottom: 0,
   },
 });
