@@ -8,6 +8,7 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
+import { ProgrammeBadge } from './ProgrammeBadge';
 import { fetchWatchProviderRegions, SERVICE_FALLBACK_COLORS } from '../lib/tmdb';
 import { FALLBACK_WATCH_REGIONS, WHERE_TO_WATCH_SERVICES } from '../lib/whereToWatch';
 
@@ -132,9 +133,16 @@ export function WhereToWatchCountrySheet({ selectedCode, onSelect, allowAll = fa
           onPress={() => onSelect({ code: null, label: 'All countries' })}
           accessibilityLabel="Show titles from all countries"
           leading={
-            <View style={[styles.leadingBadge, { borderColor: GOLD_DIM }]}>
-              <Ionicons name="earth-outline" size={16} color={GOLD_ACCENT} />
-            </View>
+            <ProgrammeBadge
+              icon="earth-outline"
+              iconSize={16}
+              iconColor={GOLD_ACCENT}
+              variant="outline"
+              size="lg"
+              shape="circle"
+              borderColor={GOLD_DIM}
+              style={styles.leadingBadge}
+            />
           }
         />
       ) : null}
@@ -148,11 +156,16 @@ export function WhereToWatchCountrySheet({ selectedCode, onSelect, allowAll = fa
           onPress={() => onSelect(region)}
           accessibilityLabel={`Filter availability for ${region.label}`}
           leading={
-            <View style={[styles.leadingBadge, { borderColor: GOLD_DIM }]}>
-              <Text style={[styles.leadingBadgeText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-                {region.code}
-              </Text>
-            </View>
+            <ProgrammeBadge
+              label={region.code}
+              variant="outline"
+              size="lg"
+              shape="circle"
+              borderColor={GOLD_DIM}
+              textColor={GOLD_ACCENT}
+              style={styles.leadingBadge}
+              textStyle={styles.leadingBadgeText}
+            />
           }
         />
       ))}
@@ -179,9 +192,16 @@ export function WhereToWatchServiceSheet({ selectedKey, onSelect }) {
         onPress={() => onSelect(null)}
         accessibilityLabel="Match any streaming service"
         leading={
-          <View style={[styles.leadingBadge, { borderColor: GOLD_DIM }]}>
-            <Ionicons name="apps-outline" size={16} color={GOLD_ACCENT} />
-          </View>
+          <ProgrammeBadge
+            icon="apps-outline"
+            iconSize={16}
+            iconColor={GOLD_ACCENT}
+            variant="outline"
+            size="lg"
+            shape="circle"
+            borderColor={GOLD_DIM}
+            style={styles.leadingBadge}
+          />
         }
       />
       {WHERE_TO_WATCH_SERVICES.map((service) => (
@@ -192,14 +212,20 @@ export function WhereToWatchServiceSheet({ selectedKey, onSelect }) {
           onPress={() => onSelect(service.key)}
           accessibilityLabel={`Only show titles on ${service.label}`}
           leading={
-            <View style={[styles.leadingBadge, { borderColor: GOLD_DIM }]}>
+            <ProgrammeBadge
+              variant="outline"
+              size="lg"
+              shape="circle"
+              borderColor={GOLD_DIM}
+              style={styles.leadingBadge}
+            >
               <View
                 style={[
                   styles.serviceDot,
                   { backgroundColor: SERVICE_FALLBACK_COLORS[service.key] || GOLD_ACCENT },
                 ]}
               />
-            </View>
+            </ProgrammeBadge>
           }
         />
       ))}
@@ -278,9 +304,16 @@ export function WhereToWatchLanguageSheet({
           onPress={() => onSelect(null)}
           accessibilityLabel="Show titles in all languages"
           leading={
-            <View style={[styles.leadingBadge, { borderColor: GOLD_DIM }]}>
-              <Ionicons name="globe-outline" size={16} color={GOLD_ACCENT} />
-            </View>
+            <ProgrammeBadge
+              icon="globe-outline"
+              iconSize={16}
+              iconColor={GOLD_ACCENT}
+              variant="outline"
+              size="lg"
+              shape="circle"
+              borderColor={GOLD_DIM}
+              style={styles.leadingBadge}
+            />
           }
         />
       )}
@@ -300,20 +333,19 @@ export function WhereToWatchLanguageSheet({
             onPress={() => onSelect(lang)}
             accessibilityLabel={`Filter to ${lang.label} titles (${lang.count})`}
             leading={
-              <View style={[styles.leadingBadge, { borderColor: GOLD_DIM }]}>
-                {lang.isOther ? (
-                  <Ionicons name="help-outline" size={16} color={GOLD_ACCENT} />
-                ) : (
-                  <Text
-                    style={[
-                      styles.leadingBadgeText,
-                      { color: GOLD_ACCENT, ...typography.labelSm },
-                    ]}
-                  >
-                    {lang.code.toUpperCase()}
-                  </Text>
-                )}
-              </View>
+              <ProgrammeBadge
+                icon={lang.isOther ? 'help-outline' : undefined}
+                label={lang.isOther ? undefined : lang.code.toUpperCase()}
+                iconSize={16}
+                iconColor={GOLD_ACCENT}
+                variant="outline"
+                size="lg"
+                shape="circle"
+                borderColor={GOLD_DIM}
+                textColor={GOLD_ACCENT}
+                style={styles.leadingBadge}
+                textStyle={styles.leadingBadgeText}
+              />
             }
           />
         );
@@ -365,9 +397,16 @@ export function WhereToWatchCollectionsSheet({ collections, selectedIds, onApply
         onPress={() => setSelected(new Set(allIds))}
         accessibilityLabel="Search across all collections"
         leading={
-          <View style={[styles.leadingBadge, { borderColor: GOLD_DIM }]}>
-            <Ionicons name="albums-outline" size={16} color={GOLD_ACCENT} />
-          </View>
+          <ProgrammeBadge
+            icon="albums-outline"
+            iconSize={16}
+            iconColor={GOLD_ACCENT}
+            variant="outline"
+            size="lg"
+            shape="circle"
+            borderColor={GOLD_DIM}
+            style={styles.leadingBadge}
+          />
         }
       />
       {collections.map((collection) => (
@@ -378,13 +417,16 @@ export function WhereToWatchCollectionsSheet({ collections, selectedIds, onApply
           onPress={() => toggle(collection.id)}
           accessibilityLabel={`${selected.has(collection.id) ? 'Exclude' : 'Include'} ${collection.name}`}
           leading={
-            <View style={[styles.leadingBadge, { borderColor: GOLD_DIM }]}>
-              <Ionicons
-                name={collection.icon || 'albums-outline'}
-                size={16}
-                color={GOLD_ACCENT}
-              />
-            </View>
+            <ProgrammeBadge
+              icon={collection.icon || 'albums-outline'}
+              iconSize={16}
+              iconColor={GOLD_ACCENT}
+              variant="outline"
+              size="lg"
+              shape="circle"
+              borderColor={GOLD_DIM}
+              style={styles.leadingBadge}
+            />
           }
         />
       ))}

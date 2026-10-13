@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MediaArtwork } from './MediaArtwork';
+import { ProgrammeBadge } from './ProgrammeBadge';
 import { GOLD_ACCENT } from '../theme/programme';
 import { theme as defaultTheme } from '../theme/tokens';
 import { scale } from '../utils/responsive';
@@ -85,15 +86,19 @@ export function PersonCard({
         </View>
 
         {canPeek ? (
-          <View
-            style={[
-              styles.peekBadge,
-              { backgroundColor: colors.surfaceContainerHighest, borderColor: colors.background },
-            ]}
+          <ProgrammeBadge
+            icon="ellipsis-horizontal"
+            iconSize={11}
+            iconColor={GOLD_ACCENT}
+            variant="solid"
+            shape="circle"
+            size="xs"
+            backgroundColor={colors.surfaceContainerHighest}
+            borderColor={colors.background}
+            borderWidth={1.5}
+            style={styles.peekBadge}
             pointerEvents="none"
-          >
-            <Ionicons name="ellipsis-horizontal" size={11} color={GOLD_ACCENT} />
-          </View>
+          />
         ) : null}
       </View>
 

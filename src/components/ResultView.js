@@ -40,6 +40,7 @@ import { ActorFilmographySheetContent } from './ActorFilmographySheet';
 import { PersonRail } from './PersonRail';
 import { GlassIconButton } from './GlassIconButton';
 import { ContentRail } from './ContentRail';
+import { ProgrammeBadge } from './ProgrammeBadge';
 import { fetchTitleCollection, fetchTitleRails, searchPersonByName } from '../lib/tmdb';
 import { buildDetailTabs, buildTitleDetailRows, spokenRuntime, stickyTitleFontSize } from '../lib/titleMeta';
 import {
@@ -1863,11 +1864,15 @@ export function ResultView({
               {result.omdbRatings?.rated ? (
                 <>
                   <Text style={styles.metaDot}>•</Text>
-                  <View style={styles.certBadge}>
-                    <Text style={[styles.certBadgeText, typography.labelSm]}>
-                      {result.omdbRatings.rated}
-                    </Text>
-                  </View>
+                  <ProgrammeBadge
+                    label={result.omdbRatings.rated}
+                    variant="glass"
+                    size="xs"
+                    shape="rounded"
+                    context="certification"
+                    style={styles.certBadge}
+                    textStyle={styles.certBadgeText}
+                  />
                 </>
               ) : null}
               {(isTv ? (seasonCount > 0 ? pluralize(seasonCount, 'season') : null) : runtimeLabel) ? (
@@ -2162,11 +2167,15 @@ export function ResultView({
                   }
                   getItemPosterOverlay={(item) =>
                     item.seasonNumber === latestSeasonNumber ? (
-                      <View style={[styles.seasonLatestPill, { backgroundColor: GOLD_ACCENT }]}>
-                        <Text style={[styles.seasonLatestText, { color: '#141414' }]}>
-                          LATEST
-                        </Text>
-                      </View>
+                      <ProgrammeBadge
+                        label="LATEST"
+                        variant="gold"
+                        size="xs"
+                        shape="pill"
+                        context="seasonLatest"
+                        style={styles.seasonLatestPill}
+                        textStyle={styles.seasonLatestText}
+                      />
                     ) : null
                   }
                   getItemAccessibilityLabel={(item) => {

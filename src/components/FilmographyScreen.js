@@ -17,6 +17,7 @@ import { ResultsSkeleton } from './SkeletonLoaders';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { GlassIconButton } from './GlassIconButton';
+import { ProgrammeBadge } from './ProgrammeBadge';
 import { GridPosterCard, PosterGrid } from './GridPosterCard';
 import { RELEASED, franchiseCountLabel, franchiseTileMeta, releaseStateFor } from '../lib/franchise';
 import { scale } from '../utils/responsive';
@@ -46,15 +47,26 @@ function FilmographyCard({ item, role, colors, typography, radii, onPress, isCur
       metaText={metaText}
       posterOverlay={
         showTypeBadge ? (
-          <View style={styles.typeBadge}>
-            <Ionicons name={mediaIcon} size={10} color={GOLD_ACCENT} />
-          </View>
+          <ProgrammeBadge
+            icon={mediaIcon}
+            iconSize={10}
+            iconColor={GOLD_ACCENT}
+            variant="glass"
+            size="xs"
+            shape="square"
+            style={styles.typeBadge}
+          />
         ) : isCollection && item.order ? (
-          <View style={[styles.orderBadge, isPending && styles.orderBadgePending]}>
-            <Text style={[styles.orderBadgeText, isPending && styles.orderBadgeTextPending]}>
-              {item.order}
-            </Text>
-          </View>
+          <ProgrammeBadge
+            label={item.order}
+            variant={isPending ? 'glass' : 'gold'}
+            isPending={isPending}
+            size="xs"
+            shape="rounded"
+            context="order"
+            style={styles.orderBadge}
+            textStyle={styles.orderBadgeText}
+          />
         ) : null
       }
     />

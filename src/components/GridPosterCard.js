@@ -3,6 +3,7 @@ import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { MediaArtwork } from './MediaArtwork';
+import { ProgrammeBadge } from './ProgrammeBadge';
 import { useHeroTransition } from './HeroTransition';
 import {
   GOLD_ACCENT,
@@ -133,16 +134,27 @@ export const GridPosterCard = memo(function GridPosterCard({
           />
         ) : null}
         {rankBadge != null ? (
-          <View style={[styles.rankBadge, { borderRadius: radii.sm }]}>
-            <Text style={styles.rankBadgeText}>{rankBadge}</Text>
-          </View>
+          <ProgrammeBadge
+            label={rankBadge}
+            variant="outline"
+            size="xs"
+            shape="rounded"
+            color={GOLD_ACCENT}
+            context="rank"
+            style={styles.rankBadge}
+            textStyle={styles.rankBadgeText}
+          />
         ) : null}
         {yearBadge || footnoteBadge ? (
-          <View style={[styles.yearBadge, { borderRadius: radii.sm }]}>
-            <Text style={styles.yearBadgeText} numberOfLines={1}>
-              {yearBadge || footnoteBadge}
-            </Text>
-          </View>
+          <ProgrammeBadge
+            label={yearBadge || footnoteBadge}
+            variant="glass"
+            size="xs"
+            shape="rounded"
+            context="year"
+            style={styles.yearBadge}
+            textStyle={styles.yearBadgeText}
+          />
         ) : null}
         {onRemove ? (
           <TouchableOpacity
