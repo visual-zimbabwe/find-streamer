@@ -13,70 +13,20 @@ import { useTheme } from '../theme/ThemeProvider';
 import { MediaArtwork } from './MediaArtwork';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
 import { EmptyState } from './EmptyState';
-import { ResultsSkeleton } from './SkeletonLoaders';
+import { ContentRailSkeleton } from './SkeletonLoaders';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { GlassIconButton } from './GlassIconButton';
-import { ProgrammeBadge } from './ProgrammeBadge';
-import { GridPosterCard, PosterGrid } from './GridPosterCard';
-import { RELEASED, franchiseCountLabel, franchiseTileMeta, releaseStateFor } from '../lib/franchise';
+import { ContentRail } from './ContentRail';
+import { partitionFilmographyCredits } from '../lib/actorFilmographyModel';
+import { franchiseCountLabel, franchiseTileMeta, releaseStateFor } from '../lib/franchise';
 import { scale } from '../utils/responsive';
-
-function FilmographyCard({ item, role, colors, typography, radii, onPress, isCurrent }) {
-  const mediaIcon = item.mediaType === 'tv' ? 'tv-outline' : 'film-outline';
-  const showTypeBadge =
-    role === 'cast' || role === 'writer' || role === 'composer' || role === 'company';
-  const isCollection = role === 'collection';
-
-  // A collection is an ordered set that can include films nobody can watch yet;
-  // the grid says so for the same reason the detail rail does.
-  const state = isCollection ? releaseStateFor(item) : null;
-  const isPending = isCollection && state !== RELEASED;
-  const metaText = isCollection
-    ? franchiseTileMeta({ year: item.year, state, isCurrent })
-    : `${item.year}${role === 'cast' && item.character ? ` · ${item.character}` : ''}`;
-
-  return (
-    <GridPosterCard
-      item={item}
-      colors={colors}
-      typography={typography}
-      radii={radii}
-      onPress={onPress}
-      showMediaIcon={false}
-      metaText={metaText}
-      posterOverlay={
-        showTypeBadge ? (
-          <ProgrammeBadge
-            icon={mediaIcon}
-            iconSize={10}
-            iconColor={GOLD_ACCENT}
-            variant="glass"
-            size="xs"
-            shape="square"
-            style={styles.typeBadge}
-          />
-        ) : isCollection && item.order ? (
-          <ProgrammeBadge
-            label={item.order}
-            variant={isPending ? 'glass' : 'gold'}
-            isPending={isPending}
-            size="xs"
-            shape="rounded"
-            context="order"
-            style={styles.orderBadge}
-            textStyle={styles.orderBadgeText}
-          />
-        ) : null
-      }
-    />
-  );
-}
 
 export function FilmographyScreen({
   personName,
   role,
   results = [],
+  rails = null,
   onSelectItem,
   loading,
   profileUrl,
@@ -107,7 +57,7 @@ export function FilmographyScreen({
   const isCompany = role === 'company';
   const isCollection = role === 'collection';
 
-  // Release order is the spine of a collection, and it has to survive the grid:
+  // Release order is the spine of a collection, and it has to survive the rails:
   // the badge states a film's place in the WHOLE set, not its cell position.
   const items = useMemo(
     () =>
@@ -126,7 +76,18 @@ export function FilmographyScreen({
       ? `Top ${results.length} of ${total.toLocaleString()}`
       : `${results.length} title${results.length !== 1 ? 's' : ''}`;
 
+  // Resolve role rails for talent (partitioned by Acting, Directing, Writing, Music)
+  const resolvedRails = useMemo(() => {
+    if (rails && rails.length > 0) return rails;
+    if (isCollection || isCompany) return null;
+    if (!results || results.length === 0) return [];
+    const { rails: derived } = partitionFilmographyCredits({ cast: results, crew: [] }, role, 30);
+    return derived;
+  }, [rails, results, isCollection, isCompany, role]);
+
   const atmosphereColors = [colors.surfaceContainerHigh, colors.background];
+  const hasRails = resolvedRails && resolvedRails.length > 0;
+  const hasItems = items && items.length > 0;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -237,8 +198,12 @@ export function FilmographyScreen({
         <ProgrammeHairline style={styles.headerHairline} />
 
         {loading ? (
-          <ResultsSkeleton count={4} />
-        ) : results.length === 0 ? (
+          <View style={styles.skeletonContainer}>
+            <ContentRailSkeleton posterCount={4} />
+            <View style={styles.skeletonSpacer} />
+            <ContentRailSkeleton posterCount={4} />
+          </View>
+        ) : !hasRails && !hasItems ? (
           <EmptyState
             variant="empty"
             title="No titles found"
@@ -251,22 +216,70 @@ export function FilmographyScreen({
             }
             compact
           />
+        ) : hasRails ? (
+          resolvedRails.map((rail, railIdx) => (
+            <ContentRail
+              key={rail.roleType || rail.id || railIdx}
+              title={rail.title}
+              subtitle={`${rail.totalCount || rail.count || rail.data?.length} title${
+                (rail.totalCount || rail.count || rail.data?.length) !== 1 ? 's' : ''
+              }`}
+              icon={rail.icon}
+              data={rail.data || rail.credits}
+              colors={colors}
+              typography={typography}
+              radii={radii}
+              variant="section"
+              bleed
+              showMediaType
+              showTitle={false}
+              showCaption
+              onSelectItem={onSelectItem}
+              getItemMetaText={(item) =>
+                item.metaText || item.roleMeta || (item.year && item.year !== 'N/A' ? item.year : '')
+              }
+            />
+          ))
+        ) : isCollection ? (
+          <ContentRail
+            title={roleLabel}
+            subtitle={countText}
+            icon="albums-outline"
+            data={items}
+            colors={colors}
+            typography={typography}
+            radii={radii}
+            variant="section"
+            bleed
+            showMediaType={false}
+            showTitle={false}
+            showCaption
+            onSelectItem={onSelectItem}
+            getItemRankBadge={(item) => item.order}
+            getItemMetaText={(item) =>
+              franchiseTileMeta({
+                year: item.year,
+                state: releaseStateFor(item),
+                isCurrent: item.tmdbId === currentTmdbId,
+              })
+            }
+          />
         ) : (
-          <PosterGrid
-            bodyStyle={styles.resultsGrid}
-            items={items}
-            keyExtractor={(item) => `${item.mediaType}-${item.tmdbId}`}
-            renderItem={(item) => (
-              <FilmographyCard
-                item={item}
-                role={role}
-                colors={colors}
-                typography={typography}
-                radii={radii}
-                isCurrent={isCollection && item.tmdbId === currentTmdbId}
-                onPress={() => onSelectItem(item)}
-              />
-            )}
+          <ContentRail
+            title={roleLabel}
+            subtitle={countText}
+            icon={isCompany ? 'business-outline' : 'film-outline'}
+            data={items}
+            colors={colors}
+            typography={typography}
+            radii={radii}
+            variant="section"
+            bleed
+            showMediaType
+            showTitle={false}
+            showCaption
+            onSelectItem={onSelectItem}
+            getItemMetaText={(item) => (item.year && item.year !== 'N/A' ? item.year : '')}
           />
         )}
       </ScrollView>
@@ -294,11 +307,12 @@ const styles = StyleSheet.create({
     zIndex: 50,
   },
   content: {
-    paddingHorizontal: GRID_PAD,
+    paddingHorizontal: 0,
   },
   pageHeader: {
     alignItems: 'center',
     marginBottom: scale(18),
+    paddingHorizontal: GRID_PAD,
   },
   personAvatar: {
     alignItems: 'center',
@@ -351,46 +365,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   headerHairline: {
-    marginBottom: scale(24),
+    marginHorizontal: GRID_PAD,
+    marginBottom: scale(12),
   },
-  resultsGrid: {
-    paddingHorizontal: 0,
+  skeletonContainer: {
+    paddingVertical: scale(8),
   },
-  typeBadge: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    borderRadius: 4,
-    bottom: 8,
-    height: 18,
-    justifyContent: 'center',
-    position: 'absolute',
-    right: 8,
-    width: 18,
-  },
-  // Bottom-left is the only free corner on a grid poster: the rating badge owns
-  // top-left, the bookmark owns top-right, and the media-type badge bottom-right.
-  orderBadge: {
-    alignItems: 'center',
-    backgroundColor: GOLD_ACCENT,
-    borderRadius: 4,
-    bottom: 8,
-    height: 20,
-    justifyContent: 'center',
-    left: 8,
-    minWidth: 20,
-    paddingHorizontal: 4,
-    position: 'absolute',
-  },
-  orderBadgeText: {
-    color: '#141414',
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  // Gold means watchable here as it does everywhere else in the app.
-  orderBadgePending: {
-    backgroundColor: 'rgba(0,0,0,0.72)',
-  },
-  orderBadgeTextPending: {
-    color: '#d6d6d0',
+  skeletonSpacer: {
+    height: scale(28),
   },
 });

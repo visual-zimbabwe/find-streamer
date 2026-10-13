@@ -229,6 +229,7 @@ function MobileApp() {
     () => ({
       filmographyPerson: people.filmographyPerson,
       filmographyResults: people.filmographyResults,
+      filmographyRails: people.filmographyRails,
       filmographyLoading: people.filmographyLoading,
       handleSelectFilmographyItem: people.handleSelectFilmographyItem,
       handlePersonPress: people.handlePersonPress,
@@ -238,6 +239,7 @@ function MobileApp() {
     [
       people.filmographyPerson,
       people.filmographyResults,
+      people.filmographyRails,
       people.filmographyLoading,
       people.handleSelectFilmographyItem,
       people.handlePersonPress,

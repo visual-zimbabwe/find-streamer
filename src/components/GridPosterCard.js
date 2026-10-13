@@ -64,6 +64,7 @@ export const GridPosterCard = memo(function GridPosterCard({
   showMediaIcon = true,
   showMediaType = true,
   showCaption = true,
+  showTitle = true,
   yearBadge = null,
   showRating = true,
   rankBadge = null,
@@ -204,22 +205,26 @@ export const GridPosterCard = memo(function GridPosterCard({
       </Animated.View>
       {!showCaption ? null : (
         <>
-          <Text
-            style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
-            numberOfLines={2}
-          >
-            {item.title}
-          </Text>
+          {showTitle && item.title ? (
+            <Text
+              style={[styles.cardTitle, { color: colors.onSurface, ...typography.labelSm }]}
+              numberOfLines={2}
+            >
+              {item.title}
+            </Text>
+          ) : null}
           {metaText ? (
             <Text
               style={[
                 styles.cardMetaText,
                 { color: colors.onSurfaceVariant, ...typography.labelSm },
+                !showTitle && styles.cardMetaTextStandalone,
               ]}
+              numberOfLines={2}
             >
               {metaText}
             </Text>
-          ) : (
+          ) : !showTitle ? null : (
             <View style={styles.cardMeta}>
               {showMediaType && showMediaIcon ? (
                 <Ionicons
@@ -359,5 +364,6 @@ const styles = StyleSheet.create({
   cardTitle: { marginTop: 8, fontWeight: '700' },
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, flexWrap: 'wrap' },
   cardMetaText: { marginTop: 2, fontWeight: '600' },
+  cardMetaTextStandalone: { marginTop: 8 },
   cardYear: { fontSize: 11, fontWeight: '600' },
 });

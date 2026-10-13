@@ -40,6 +40,7 @@ const FocalRailItem = memo(function FocalRailItem({
   radii,
   showMediaType,
   showCaption,
+  showTitle = true,
   showRank,
   onRemoveItem,
   onToggleWatchlist,
@@ -118,6 +119,7 @@ const FocalRailItem = memo(function FocalRailItem({
         radii={radii}
         showMediaType={showMediaType}
         showCaption={showCaption}
+        showTitle={showTitle}
         showRating={false}
         rankBadge={rankBadge}
         footnoteBadge={showRank ? formatWatchers(item.watchers) : null}
@@ -165,6 +167,7 @@ export function ContentRail({
   variant = 'section',
   showMediaType = true,
   showCaption = true,
+  showTitle = true,
   status = 'ready',
   onRetry = null,
   onSeeAll = null,
@@ -206,6 +209,7 @@ export function ContentRail({
         radii={radii}
         showMediaType={showMediaType}
         showCaption={showCaption}
+        showTitle={showTitle}
         showRank={showRank}
         onRemoveItem={onRemoveItem}
         onToggleWatchlist={onRemoveItem ? null : onToggleWatchlist}
@@ -226,6 +230,7 @@ export function ContentRail({
       radii,
       showMediaType,
       showCaption,
+      showTitle,
       showRank,
       onRemoveItem,
       onToggleWatchlist,
