@@ -3,7 +3,9 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MediaArtwork } from './MediaArtwork';
 import { GOLD_ACCENT } from '../theme/programme';
+import { theme as defaultTheme } from '../theme/tokens';
 import { scale } from '../utils/responsive';
+import { formatPersonRoleLabel } from '../lib/personRailModel';
 
 export function initialsForName(name = '') {
   const initials = name
@@ -24,23 +26,31 @@ export function initialsForName(name = '') {
  */
 export function PersonCard({
   person,
-  colors,
-  typography,
+  colors: propColors,
+  typography: propTypography,
   accent = false,
   canPeek = false,
   onPress,
   onLongPress,
+  style,
+  accessibilityLabel: propA11yLabel,
 }) {
+  const colors = propColors || defaultTheme.colors;
+  const typography = propTypography || defaultTheme.typography;
+  const roleText = formatPersonRoleLabel(person);
   const peekHint = canPeek ? '. Hold for a quick filmography preview' : '';
+  const a11yLabel =
+    propA11yLabel ||
+    `${person?.name || 'Talent'}, ${roleText || 'Cast'}. View filmography${peekHint}`;
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, style]}
       onPress={onPress}
       onLongPress={canPeek ? onLongPress : undefined}
       delayLongPress={canPeek ? 400 : undefined}
       accessibilityRole="button"
-      accessibilityLabel={`${person.name}, ${person.roleLabel}. View filmography${peekHint}`}
+      accessibilityLabel={a11yLabel}
       activeOpacity={0.78}
     >
       <View style={styles.avatarWrap}>
@@ -97,7 +107,7 @@ export function PersonCard({
         style={[styles.role, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
         numberOfLines={2}
       >
-        {person.roleLabel}
+        {roleText}
       </Text>
     </TouchableOpacity>
   );

@@ -37,7 +37,7 @@ import { SoundtrackPickerSheetContent } from './SoundtrackPickerSheet';
 import { WhereToWatchSection } from './WhereToWatchSection';
 import { SeasonDetailSheetContent } from './SeasonDetailSheet';
 import { ActorFilmographySheetContent } from './ActorFilmographySheet';
-import { PersonCard } from './PersonCard';
+import { PersonRail } from './PersonRail';
 import { ContentRail } from './ContentRail';
 import { fetchTitleCollection, fetchTitleRails, searchPersonByName } from '../lib/tmdb';
 import { buildDetailTabs, buildTitleDetailRows, spokenRuntime, stickyTitleFontSize } from '../lib/titleMeta';
@@ -255,10 +255,6 @@ function normalizePersonName(name) {
     .replace(/[^a-z0-9\s]+/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function personKey(person, index) {
-  return `${person.role || 'person'}-${person.id || person.name}-${index}`;
 }
 
 function filmographyRoleForPerson(person) {
@@ -1438,18 +1434,6 @@ export function ResultView({
     Boolean(onSeeAllPeople) &&
     (peopleSections.castPeople.length > visibleCastPeople.length ||
       peopleSections.crewPeople.length > visibleCrewPeople.length);
-  const seeAllPeopleButton = hasMorePeople ? (
-    <TouchableOpacity
-      onPress={handleSeeAllPeople}
-      accessibilityRole="button"
-      accessibilityLabel={`See all ${totalPeopleCount} cast and crew`}
-      style={styles.seeAllButton}
-    >
-      <Text style={[typography.labelSm, styles.seeAllText, { color: GOLD_ACCENT }]}>
-        {`See All ${totalPeopleCount}`}
-      </Text>
-    </TouchableOpacity>
-  ) : null;
   const hasAvailabilityData = Array.isArray(result.rows);
 
   // ── Franchise (render-side) ──────────────────────────────────────────────
@@ -2201,63 +2185,38 @@ export function ResultView({
             <View style={styles.tabContentPane}>
               {/* ─── Cast ─── */}
               {visibleCastPeople.length > 0 && (
-                <View style={styles.section}>
-                  <View style={styles.sectionHeaderRow}>
-                    <ProgrammeEyebrowLabel eyebrow="Cast" />
-                    {seeAllPeopleButton}
-                  </View>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.peopleScroll}
-                    decelerationRate="fast"
-                  >
-                    {visibleCastPeople.map((person, index) => (
-                      <PersonCard
-                        key={personKey(person, index)}
-                        person={person}
-                        colors={colors}
-                        typography={typography}
-                        canPeek={Boolean(person.id)}
-                        onPress={() => handlePersonPressWithFallback(person, 'cast')}
-                        onLongPress={() => handleActorLongPress(person, 'cast')}
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
+                <PersonRail
+                  title="Cast"
+                  data={visibleCastPeople}
+                  totalCount={peopleSections.castPeople.length}
+                  onSeeAll={hasMorePeople ? handleSeeAllPeople : null}
+                  seeAllLabel={`See All ${totalPeopleCount}`}
+                  seeAllAccessibilityLabel={`See all ${totalPeopleCount} cast and crew`}
+                  onPersonPress={(person) => handlePersonPressWithFallback(person, 'cast')}
+                  onPersonLongPress={(person) => handleActorLongPress(person, 'cast')}
+                  style={styles.section}
+                />
               )}
 
               {/* ─── Crew ─── */}
               {visibleCrewPeople.length > 0 && (
-                <View style={styles.section}>
-                  <View style={styles.sectionHeaderRow}>
-                    <ProgrammeEyebrowLabel eyebrow="Crew" />
-                    {visibleCastPeople.length === 0 ? seeAllPeopleButton : null}
-                  </View>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.peopleScroll}
-                    decelerationRate="fast"
-                  >
-                    {visibleCrewPeople.map((person, index) => (
-                      <PersonCard
-                        key={personKey(person, index)}
-                        person={person}
-                        colors={colors}
-                        typography={typography}
-                        accent
-                        canPeek={Boolean(person.id)}
-                        onPress={() =>
-                          handlePersonPressWithFallback(person, filmographyRoleForPerson(person))
-                        }
-                        onLongPress={() =>
-                          handleActorLongPress(person, filmographyRoleForPerson(person))
-                        }
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
+                <PersonRail
+                  title="Crew"
+                  data={visibleCrewPeople}
+                  totalCount={peopleSections.crewPeople.length}
+                  accent
+                  onSeeAll={hasMorePeople ? handleSeeAllPeople : null}
+                  showHeaderSeeAll={visibleCastPeople.length === 0}
+                  seeAllLabel={`See All ${totalPeopleCount}`}
+                  seeAllAccessibilityLabel={`See all ${totalPeopleCount} cast and crew`}
+                  onPersonPress={(person) =>
+                    handlePersonPressWithFallback(person, filmographyRoleForPerson(person))
+                  }
+                  onPersonLongPress={(person) =>
+                    handleActorLongPress(person, filmographyRoleForPerson(person))
+                  }
+                  style={styles.section}
+                />
               )}
 
               {visibleCastPeople.length === 0 && visibleCrewPeople.length === 0 && (
@@ -3200,12 +3159,6 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 40,
   },
-  sectionHeaderRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
   sectionLabel: {
     fontWeight: '800',
     letterSpacing: 1.5,
@@ -3252,18 +3205,6 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontWeight: '700',
-  },
-  seeAllButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  seeAllText: {
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  peopleScroll: {
-    gap: 16,
-    paddingRight: 40,
   },
   seasonsScroll: {
     gap: 12,
