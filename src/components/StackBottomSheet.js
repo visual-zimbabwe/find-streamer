@@ -50,6 +50,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { scale } from '../utils/responsive';
 import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
+import { GlassIconButton } from './GlassIconButton';
 
 const SIZE_HEIGHT_RATIO = {
   small: 0.38,
@@ -366,14 +367,14 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
             )}
           </View>
           {showCloseButton !== false && (
-            <TouchableOpacity
+            <GlassIconButton
+              icon="close"
+              size={36}
+              iconSize={20}
+              variant="surface"
               onPress={dismissWithAnimation}
-              style={[sheetStyles.closeBtn, { backgroundColor: colors.surfaceContainerHighest }]}
-              accessibilityRole="button"
               accessibilityLabel="Close sheet"
-            >
-              <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
+            />
           )}
         </View>
       )}
@@ -541,14 +542,6 @@ const sheetStyles = StyleSheet.create({
   },
   subtitle: {
     marginTop: 4,
-  },
-  closeBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
   },
   headerRule: {
     height: StyleSheet.hairlineWidth,

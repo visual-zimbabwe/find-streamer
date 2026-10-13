@@ -9,6 +9,7 @@ import { getImdbTop100Movies, getImdbTop100Tv } from '../lib/imdbTop100Catalog';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { scale } from '../utils/responsive';
 import { MediaListRow } from './MediaListRow';
+import { GlassIconButton } from './GlassIconButton';
 import { FranchiseRailsView } from './FranchiseRailsView';
 import { HomeTopNav } from './HomeTopNav';
 import { GOLD_ACCENT, GRID_PAD } from '../theme/programme';
@@ -57,9 +58,20 @@ function ImdbRankedRow({
   );
 }
 
-function ImdbPageHeader({ colors, typography, count, mediaTab }) {
+function ImdbPageHeader({ colors, typography, count, mediaTab, onBack }) {
   return (
     <View style={styles.imdbPageHeader}>
+      {onBack ? (
+        <View style={styles.imdbBackRow}>
+          <GlassIconButton
+            icon="arrow-back"
+            iconSize={20}
+            size={36}
+            onPress={onBack}
+            accessibilityLabel="Back to collections"
+          />
+        </View>
+      ) : null}
       <Text style={[styles.imdbEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>IMDb</Text>
       <Text
         style={[styles.imdbPageTitle, { color: colors.onSurface, ...typography.titleMd }]}
@@ -220,6 +232,7 @@ export function CollectionsScreen({
               typography={typography}
               count={imdbItems.length}
               mediaTab={imdbMediaTab}
+              onBack={() => onSubViewChange?.('franchises')}
             />
           }
           {...bottomNavScroll}
@@ -294,6 +307,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     marginBottom: scale(20),
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  imdbBackRow: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    zIndex: 10,
   },
   imdbEyebrow: {
     fontWeight: '800',

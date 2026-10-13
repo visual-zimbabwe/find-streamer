@@ -193,6 +193,7 @@ function SearchFullCastScreen({ route }) {
       title={title}
       cast={cast}
       crew={crew}
+      onBack={() => navigation.goBack()}
       onPersonPress={(personId, personName, role) =>
         handlePersonPress(personId, personName, role, navigation)
       }
@@ -237,6 +238,7 @@ function SearchFilmographyScreen() {
       results={filmographyResults}
       onSelectItem={(item) => handleSelectFilmographyItem(item, navigation)}
       loading={filmographyLoading}
+      onBack={() => navigation.goBack()}
     />
   );
 }

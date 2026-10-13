@@ -18,6 +18,7 @@ import { WebView } from 'react-native-webview';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
+import { GlassIconButton } from './GlassIconButton';
 
 /** Android WebView default UA contains "; wv)" — YouTube often blocks embedded playback for that client. */
 const YOUTUBE_WEBVIEW_USER_AGENT_ANDROID =
@@ -420,17 +421,16 @@ export function TrailerModal({
                 YouTube
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.closeBtn,
-                { backgroundColor: PLAYER_SURFACE_HIGH, borderRadius: radii.full },
-              ]}
+            <GlassIconButton
+              icon="close"
+              iconSize={20}
+              size={36}
+              variant="surface"
+              backgroundColor={PLAYER_SURFACE_HIGH}
+              iconColor={PLAYER_ON_SURFACE}
               onPress={handleClose}
-              accessibilityRole="button"
               accessibilityLabel="Close trailer player"
-            >
-              <Ionicons name="close" size={20} color={PLAYER_ON_SURFACE} />
-            </TouchableOpacity>
+            />
           </View>
         ) : null}
 
@@ -546,14 +546,17 @@ export function TrailerModal({
           )}
 
           {isLandscape ? (
-            <TouchableOpacity
-              style={[styles.closeFloating, { top: (insets.top || 12) + 8 }]}
+            <GlassIconButton
+              icon="close"
+              iconSize={22}
+              size={40}
+              variant="glass"
+              backgroundColor="rgba(0,0,0,0.55)"
+              iconColor={PLAYER_ON_SURFACE}
               onPress={handleClose}
-              accessibilityRole="button"
               accessibilityLabel="Close trailer player"
-            >
-              <Ionicons name="close" size={22} color={PLAYER_ON_SURFACE} />
-            </TouchableOpacity>
+              style={[styles.closeFloating, { top: (insets.top || 12) + 8 }]}
+            />
           ) : null}
         </View>
       </View>
