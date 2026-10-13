@@ -10,6 +10,7 @@ import { watchlistEntryKey } from '../lib/watchlistModel';
 import { scale } from '../utils/responsive';
 import { MediaListRow } from './MediaListRow';
 import { GlassIconButton } from './GlassIconButton';
+import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { FranchiseRailsView } from './FranchiseRailsView';
 import { HomeTopNav } from './HomeTopNav';
 import { GOLD_ACCENT, GRID_PAD } from '../theme/programme';
@@ -58,7 +59,7 @@ function ImdbRankedRow({
   );
 }
 
-function ImdbPageHeader({ colors, typography, count, mediaTab, onBack }) {
+function ImdbPageHeader({ count, mediaTab, onBack }) {
   return (
     <View style={styles.imdbPageHeader}>
       {onBack ? (
@@ -72,18 +73,13 @@ function ImdbPageHeader({ colors, typography, count, mediaTab, onBack }) {
           />
         </View>
       ) : null}
-      <Text style={[styles.imdbEyebrow, { color: GOLD_ACCENT, ...typography.labelSm }]}>IMDb</Text>
-      <Text
-        style={[styles.imdbPageTitle, { color: colors.onSurface, ...typography.titleMd }]}
-        accessibilityRole="header"
-      >
-        Top 100
-      </Text>
-      <Text
-        style={[styles.imdbPageSubtitle, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
-      >
-        {count} {mediaTab === 'tv' ? 'series' : 'films'}
-      </Text>
+      <ProgrammeSectionHeader
+        eyebrow="IMDb"
+        title="Top 100"
+        subtitle={`${count} ${mediaTab === 'tv' ? 'series' : 'films'}`}
+        titleVariant="titleMd"
+        align="center"
+      />
     </View>
   );
 }
@@ -304,8 +300,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: GRID_PAD,
   },
   imdbPageHeader: {
-    alignItems: 'center',
-    gap: 4,
     marginBottom: scale(20),
     position: 'relative',
     justifyContent: 'center',
@@ -315,23 +309,5 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     zIndex: 10,
-  },
-  imdbEyebrow: {
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    paddingEnd: 2,
-    textTransform: 'uppercase',
-  },
-  imdbPageTitle: {
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    paddingEnd: 2,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
-  imdbPageSubtitle: {
-    fontWeight: '600',
-    letterSpacing: 0.4,
-    textAlign: 'center',
   },
 });

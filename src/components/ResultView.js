@@ -2566,7 +2566,18 @@ export function ResultView({
               {/* ─── Awards & Recognition ─── */}
               {showAwardsSection && (
                 <View style={styles.section}>
-                  <ProgrammeEyebrowLabel eyebrow="Awards & Recognition" />
+                  <ProgrammeEyebrowLabel
+                    eyebrow="Awards & Recognition"
+                    actionLabel={
+                      displayAwards.length > 0
+                        ? hiddenAwardCount > 0
+                          ? `See All ${displayAwards.length}`
+                          : 'Details'
+                        : null
+                    }
+                    onAction={displayAwards.length > 0 ? handleAwardPress : null}
+                    actionAccessibilityLabel={`See all ${displayAwards.length} award ceremonies`}
+                  />
 
                   {awardTotalsLine ? (
                     <Text
