@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView } from 
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeProvider';
+import { ProgrammeBadge } from './ProgrammeBadge';
 import { WATCHLIST_STATUSES } from '../lib/watchlistModel';
 
 // Show the filter field only once the list is long enough to warrant hunting.
@@ -220,18 +221,16 @@ export function WatchlistCollectionsSheet({
                         {collection.name}
                       </Text>
                       {locked && (
-                        <View
-                          style={[styles.currentBadge, { backgroundColor: colors.primary + '22' }]}
-                        >
-                          <Text
-                            style={[
-                              styles.currentBadgeText,
-                              { color: colors.primary, ...typography.labelSm },
-                            ]}
-                          >
-                            Default
-                          </Text>
-                        </View>
+                        <ProgrammeBadge
+                          label="Default"
+                          variant="solid"
+                          size="xs"
+                          shape="rounded"
+                          backgroundColor={colors.primary + '22'}
+                          textColor={colors.primary}
+                          style={styles.currentBadge}
+                          textStyle={styles.currentBadgeText}
+                        />
                       )}
                     </View>
                     {!!collection.description && (

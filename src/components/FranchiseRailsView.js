@@ -36,6 +36,7 @@ import { ContentRail } from './ContentRail';
 import { FranchiseNavigatorSheet } from './FranchiseNavigatorSheet';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
+import { ProgrammeBadge } from './ProgrammeBadge';
 import { HomeFeedSkeleton } from './SkeletonLoaders';
 
 const SCRUBBER_LETTERS = ['ALL', '#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
@@ -1032,9 +1033,14 @@ export function FranchiseRailsView({
             Fast Index
           </Text>
           {badgeCount > 0 && (
-            <View style={[styles.floatingBadge, { backgroundColor: GOLD_ACCENT }]}>
-              <Text style={styles.floatingBadgeText}>{badgeCount}</Text>
-            </View>
+            <ProgrammeBadge
+              label={badgeCount}
+              variant="gold"
+              size="xs"
+              shape="pill"
+              style={styles.floatingBadge}
+              textStyle={styles.floatingBadgeText}
+            />
           )}
         </TouchableOpacity>
       </View>
