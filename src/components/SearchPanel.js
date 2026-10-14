@@ -180,7 +180,6 @@ export function SearchPanel({
       {!hideHistory && hasRecentViewed && (
         <ContentRail
           title="Recent"
-          icon="time-outline"
           data={recentViewed}
           colors={colors}
           typography={typography}
@@ -215,7 +214,6 @@ export function SearchPanel({
       {!hideHistory && (
         <ContentRail
           title={trendingFromFallback ? 'Trending now' : 'Trending on Trakt'}
-          icon="trending-up-outline"
           data={traktTrending.items}
           status={traktTrending.status}
           onRetry={loadTrending}
@@ -248,7 +246,6 @@ export function SearchPanel({
       {!hideHistory && (
         <ContentRail
           title="Now playing in US theaters"
-          icon="ticket-outline"
           data={nowPlaying.items}
           status={nowPlaying.status}
           onRetry={loadNowPlaying}

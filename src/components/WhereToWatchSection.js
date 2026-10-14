@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import {
   SERVICE_LABELS,
-  flagForCountryCode,
   serviceLabelsForRow,
 } from '../lib/providerAvailability';
 import { loadWhereToWatchPrefs } from '../lib/whereToWatch';
@@ -240,9 +239,6 @@ export function WhereToWatchSection({
               accessible
               accessibilityLabel={`In your country, ${homeCountry.label}: ${homeStatus.detail}`}
             >
-              <Text style={styles.homeStatusFlag} importantForAccessibility="no">
-                {flagForCountryCode(homeCountry.code)}
-              </Text>
               <View style={styles.homeStatusBody}>
                 <Text
                   style={[
@@ -288,9 +284,6 @@ export function WhereToWatchSection({
                     ', ',
                   )}`}
                 >
-                  <Text style={styles.rowFlag} importantForAccessibility="no">
-                    {flagForCountryCode(row.code)}
-                  </Text>
                   <Text
                     style={[
                       styles.countryName,
@@ -396,9 +389,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  homeStatusFlag: {
-    fontSize: 22,
-  },
   homeStatusBody: {
     flex: 1,
   },
@@ -426,9 +416,6 @@ const styles = StyleSheet.create({
     borderLeftColor: GOLD_ACCENT,
     borderLeftWidth: 2,
     paddingLeft: 10,
-  },
-  rowFlag: {
-    fontSize: 18,
   },
   countryName: {
     flex: 1,

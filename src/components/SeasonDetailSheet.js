@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { flagForCountryCode, serviceLabelsForRow } from '../lib/providerAvailability';
+import { serviceLabelsForRow } from '../lib/providerAvailability';
 import { loadWhereToWatchPrefs } from '../lib/whereToWatch';
 import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
 import { MediaArtwork } from './MediaArtwork';
@@ -142,9 +142,6 @@ export function SeasonDetailSheetContent({ season, seriesTitle, colors, typograp
                     : 'this season is not free to stream'
                 }`}
               >
-                <Text style={styles.homeStatusFlag} importantForAccessibility="no">
-                  {flagForCountryCode(homeCountry.code)}
-                </Text>
                 <View style={styles.homeStatusBody}>
                   <Text
                     style={[
@@ -192,9 +189,6 @@ export function SeasonDetailSheetContent({ season, seriesTitle, colors, typograp
                       isHome ? ', your country' : ''
                     }: ${rowServices.join(', ')}`}
                   >
-                    <Text style={styles.rowFlag} importantForAccessibility="no">
-                      {flagForCountryCode(row.code)}
-                    </Text>
                     <Text
                       style={[
                         styles.countryName,
@@ -298,9 +292,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  homeStatusFlag: {
-    fontSize: 22,
-  },
   homeStatusBody: {
     flex: 1,
   },
@@ -328,9 +319,6 @@ const styles = StyleSheet.create({
     borderLeftColor: GOLD_ACCENT,
     borderLeftWidth: 2,
     paddingLeft: 10,
-  },
-  rowFlag: {
-    fontSize: 18,
   },
   countryName: {
     flex: 1,
