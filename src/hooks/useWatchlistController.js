@@ -387,10 +387,10 @@ export function useWatchlistController({ showToast }) {
                   />
                 ),
                 {
-                  eyebrow: 'Watchlist',
-                  title: 'Edit List',
-                  subtitle: collection.name,
-                  size: 'small',
+                  title: 'Edit watchlist',
+                  centerTitle: true,
+                  showCloseButton: false,
+                  size: 'auto',
                   scrollable: false,
                 },
               );
@@ -432,8 +432,11 @@ export function useWatchlistController({ showToast }) {
       };
 
       const id = showSheet(renderContent(sheetItem), {
-        eyebrow: openedCommitted ? 'Manage' : 'Save to',
-        title: sheetItem?.title || 'Library',
+        title: sheetItem?.title
+          ? (openedCommitted ? `Manage ${sheetItem.title}` : `Save to Library`)
+          : 'Save to Library',
+        centerTitle: true,
+        showCloseButton: false,
         size: 'large',
         scrollable: false,
         onClose: () => {

@@ -31,7 +31,7 @@ const INDICATOR_MS = 280;
 const LABEL_MS = 220;
 const EASE_INDICATOR = Easing.out(Easing.cubic);
 
-export function BottomNav({ activeTab, onTabPress, fixed = false }) {
+export function BottomNav({ activeTab, onTabPress, fixed = false, hidden = false }) {
   const { theme } = useTheme();
   const { colors, typography } = theme;
   const insets = useSafeAreaInsets();
@@ -44,14 +44,15 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
   const shellH = MARQUEE_ROW_H + insets.bottom;
 
   const translateY = useRef(new Animated.Value(0)).current;
+  const shouldShow = (fixed || visible) && !hidden;
 
   useEffect(() => {
     Animated.timing(translateY, {
-      toValue: fixed || visible ? 0 : shellH + 8,
+      toValue: shouldShow ? 0 : shellH + 8,
       duration: FADE_MS,
       useNativeDriver: true,
     }).start();
-  }, [fixed, visible, translateY, shellH]);
+  }, [shouldShow, translateY, shellH]);
 
   // The indicator rides a shared value rather than an RN `Animated.Value`. Under
   // Fabric the native driver never writes back to the JS value, so every commit
@@ -83,7 +84,7 @@ export function BottomNav({ activeTab, onTabPress, fixed = false }) {
           transform: [{ translateY }],
         },
       ]}
-      pointerEvents="box-none"
+      pointerEvents={shouldShow ? 'box-none' : 'none'}
     >
       <View
         style={[

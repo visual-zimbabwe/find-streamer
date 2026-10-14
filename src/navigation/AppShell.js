@@ -7,7 +7,7 @@ import { AppHeader } from '../components/AppHeader';
 import { BottomNav } from '../components/BottomNav';
 import { StatePanel } from '../components/StatePanel';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { BottomSheetPortal } from '../components/StackBottomSheet';
+import { BottomSheetPortal, useBottomSheet } from '../components/StackBottomSheet';
 import { HeroTransitionProvider } from '../components/HeroTransition';
 import { useStatus, useSearch, useNav } from '../context/domainContexts';
 import { RootTabs } from './RootTabs';
@@ -52,6 +52,7 @@ function AppShellInner({ rootNavState }) {
   // panel's own inline loader. The overlay this replaced was excluded from six of
   // the eight views precisely because it was answering two different questions.
 
+  const { sheets } = useBottomSheet();
   const bottomNavFixed = activeTab === 'search' && focusedRoute === 'Search';
 
   return (
@@ -92,7 +93,12 @@ function AppShellInner({ rootNavState }) {
           onDismiss={() => setOfflineBanner(null)}
         />
 
-        <BottomNav activeTab={activeTab} onTabPress={onTabPress} fixed={bottomNavFixed} />
+        <BottomNav
+          activeTab={activeTab}
+          onTabPress={onTabPress}
+          fixed={bottomNavFixed}
+          hidden={sheets.length > 0}
+        />
         <BottomSheetPortal />
       </HeroTransitionProvider>
     </View>

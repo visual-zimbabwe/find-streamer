@@ -168,10 +168,11 @@ export const GlassIconButton = React.forwardRef(function GlassIconButton(
     [disabled, loading, triggerHaptic, onLongPress],
   );
 
+  const isClear = variant === 'clear';
   const resolvedBorderWidth =
     customBorderWidth != null
       ? customBorderWidth
-      : variant === 'clear'
+      : isClear
         ? 0
         : 1;
 
@@ -185,6 +186,7 @@ export const GlassIconButton = React.forwardRef(function GlassIconButton(
       hitSlop={customHitSlop || dimensions.hitSlop}
       style={[
         styles.base,
+        isClear && styles.clearBase,
         {
           width: dimensions.size,
           height: dimensions.size,
@@ -235,6 +237,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 4,
+  },
+  clearBase: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    borderWidth: 0,
+    elevation: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    overflow: 'visible',
   },
   disabled: {
     opacity: 0.45,
