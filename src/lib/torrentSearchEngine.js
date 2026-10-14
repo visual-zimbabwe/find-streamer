@@ -206,7 +206,8 @@ export function calculateMatchScore(releaseName, query, options = {}) {
   let matchedCount = 0;
   for (const qWord of testWords) {
     const stem = qWord.endsWith('s') && qWord.length > 3 ? qWord.slice(0, -1) : qWord;
-    if (releaseWords.some((rw) => rw === stem || rw.startsWith(stem) || rw.includes(stem))) {
+    const isShort = stem.length <= 3;
+    if (releaseWords.some((rw) => (isShort ? rw === stem : rw === stem || rw.startsWith(stem)))) {
       matchedCount += 1;
     }
   }
@@ -224,37 +225,72 @@ export function calculateMatchScore(releaseName, query, options = {}) {
     score += 80;
   }
 
-  // Year bonus
-  if (options.year && normRelease.includes(String(options.year))) {
-    score += 40;
-  }
+  // Movie-specific filtering and scoring
+  if (options.isMovie) {
+    const parsedSe = extractSeasonEpisode(releaseName);
+    if (parsedSe.season != null && parsedSe.episode != null) {
+      return 0; // Exclude TV episodes
+    }
+    if (isSeasonPack(releaseName)) {
+      return 0; // Exclude season packs
+    }
+    if (/\b(s\d{1,2}e\d{1,2}|season\s*\d+|complete\s*series)\b/i.test(normRelease)) {
+      return 0; // Exclude TV shows
+    }
 
-  // Season Pack bonus
-  if (isSeasonPack(releaseName)) {
-    score += 30;
-  }
-
-  // Episode target validation & bonus
-  if (options.episode != null && options.season != null) {
-    const sNum = Number(options.season);
-    const eNum = Number(options.episode);
-    const parsed = extractSeasonEpisode(releaseName);
-    if (parsed.season != null && parsed.episode != null) {
-      if (parsed.season !== sNum || parsed.episode !== eNum) {
-        return 0; // Explicitly reject mismatching season or episode
+    if (options.year) {
+      const targetYear = Number(options.year);
+      const yearMatch = normRelease.match(/\b(19\d\d|20\d\d)\b/);
+      if (yearMatch) {
+        const relYear = Number(yearMatch[1]);
+        const diff = Math.abs(relYear - targetYear);
+        if (diff > 1) {
+          return 0; // Exclude different movies
+        }
+        if (diff === 0) {
+          score += 60;
+        } else if (diff === 1) {
+          score += 30;
+        }
       }
-      score += 180;
-    } else {
-      const epTokens = [
-        `s${String(sNum).padStart(2, '0')}e${String(eNum).padStart(2, '0')}`,
-        `s${sNum}e${eNum}`,
-        `${sNum}x${String(eNum).padStart(2, '0')}`,
-        `${sNum}x${eNum}`,
-      ];
-      if (epTokens.some((tok) => normRelease.includes(tok))) {
-        score += 150;
+      if (normRelease.includes(`${normQuery} ${options.year}`)) {
+        score += 40;
+      }
+    }
+  } else {
+    // TV show logic
+    // Year bonus
+    if (options.year && normRelease.includes(String(options.year))) {
+      score += 40;
+    }
+
+    // Season Pack bonus
+    if (isSeasonPack(releaseName)) {
+      score += 30;
+    }
+
+    // Episode target validation & bonus
+    if (options.episode != null && options.season != null) {
+      const sNum = Number(options.season);
+      const eNum = Number(options.episode);
+      const parsed = extractSeasonEpisode(releaseName);
+      if (parsed.season != null && parsed.episode != null) {
+        if (parsed.season !== sNum || parsed.episode !== eNum) {
+          return 0; // Explicitly reject mismatching season or episode
+        }
+        score += 180;
       } else {
-        return 0; // Exclude non-matching releases for episode queries
+        const epTokens = [
+          `s${String(sNum).padStart(2, '0')}e${String(eNum).padStart(2, '0')}`,
+          `s${sNum}e${eNum}`,
+          `${sNum}x${String(eNum).padStart(2, '0')}`,
+          `${sNum}x${eNum}`,
+        ];
+        if (epTokens.some((tok) => normRelease.includes(tok))) {
+          score += 150;
+        } else {
+          return 0; // Exclude non-matching releases for episode queries
+        }
       }
     }
   }
@@ -265,6 +301,7 @@ export function calculateMatchScore(releaseName, query, options = {}) {
 /**
  * Fetch torrents from APIBay.
  * @param {string} query
+ * @param {string | null} [category]
  * @returns {Promise<Array<{
  *   name: string;
  *   infoHash: string;
@@ -272,9 +309,10 @@ export function calculateMatchScore(releaseName, query, options = {}) {
  *   size: number;
  *   source: string;
  *   magnetUrl: string;
+ *   imdb?: string | null;
  * }>>}
  */
-export async function fetchApibay(query) {
+export async function fetchApibay(query, category = null) {
   try {
     const clean = sanitizeQuery(query);
     if (!clean) return [];
@@ -282,7 +320,10 @@ export async function fetchApibay(query) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    const url = `https://apibay.org/q.php?q=${encodeURIComponent(clean)}`;
+    let url = `https://apibay.org/q.php?q=${encodeURIComponent(clean)}`;
+    if (category) {
+      url += `&cat=${category}`;
+    }
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
@@ -306,6 +347,7 @@ export async function fetchApibay(query) {
         size: Number(item.size) || 0,
         source: 'apibay',
         magnetUrl: enhanceMagnet(item.info_hash, item.name),
+        imdb: item.imdb || null,
       }));
   } catch {
     return [];
@@ -523,3 +565,77 @@ export async function searchSeasonPackTorrents({ seriesTitle, seasonNumber, imdb
   packs.sort((a, b) => b.seeders - a.seeders);
   return packs;
 }
+
+/**
+ * High-level search for Movie torrents across APIBay and peer swarms.
+ * @param {{
+ *   title: string;
+ *   year?: number | string | null;
+ *   imdbId?: string | null;
+ * }} params
+ * @returns {Promise<Array<{
+ *   name: string;
+ *   infoHash: string;
+ *   seeders: number;
+ *   size: number;
+ *   formattedSize: string;
+ *   source: string;
+ *   magnetUrl: string;
+ *   score: number;
+ *   attributes: ReturnType<typeof parseReleaseAttributes>;
+ * }>>}
+ */
+export async function searchMovieTorrents({ title, year, imdbId }) {
+  const cleanTitle = sanitizeQuery(title);
+  if (!cleanTitle && !imdbId) return [];
+
+  const cleanImdb = imdbId ? (String(imdbId).startsWith('tt') ? String(imdbId) : `tt${imdbId}`) : null;
+
+  const queries = [];
+  if (cleanImdb) {
+    queries.push(fetchApibay(cleanImdb));
+  }
+  if (cleanTitle && year) {
+    queries.push(fetchApibay(`${cleanTitle} ${year}`, '200'));
+  }
+  if (cleanTitle) {
+    queries.push(fetchApibay(cleanTitle, '200'));
+  }
+
+  const resultsArrays = await Promise.all(queries);
+  const rawCandidates = resultsArrays.flat();
+
+  const seen = new Set();
+  const scored = [];
+
+  for (const item of rawCandidates) {
+    if (!item.infoHash || seen.has(item.infoHash)) continue;
+    seen.add(item.infoHash);
+
+    // Filter and score using movie criteria
+    let score = calculateMatchScore(item.name, cleanTitle || title, {
+      year,
+      isMovie: true,
+    });
+
+    if (score <= 0) continue;
+
+    // Grant bonus for matching IMDb ID if present
+    if (cleanImdb && item.imdb && cleanImdb.replace(/^tt/, '') === String(item.imdb).replace(/^tt/, '')) {
+      score += 200;
+    }
+
+    scored.push({
+      ...item,
+      score,
+      formattedSize: formatSize(item.size),
+      attributes: parseReleaseAttributes(item.name),
+    });
+  }
+
+  // Sort by score * 1000 + seeders
+  scored.sort((a, b) => b.score * 1000 + b.seeders - (a.score * 1000 + a.seeders));
+
+  return scored;
+}
+

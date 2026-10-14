@@ -36,6 +36,7 @@ import { TrailerModal } from './TrailerModal';
 import { SoundtrackPickerSheetContent } from './SoundtrackPickerSheet';
 import { WhereToWatchSection } from './WhereToWatchSection';
 import { SeasonDetailSheetContent } from './SeasonDetailSheet';
+import { MovieStreamSheetContent } from './MovieStreamSheet';
 import { PersonRail } from './PersonRail';
 import { GlassIconButton } from './GlassIconButton';
 import { ContentRail } from './ContentRail';
@@ -1104,6 +1105,48 @@ export function ResultView({
     [result?.title, result?.tmdbId, result?.imdbId, result?.year, colors, typography, showSheet],
   );
 
+  /** Tap Stream Movie for a film → open movie stream sheet with peer swarms */
+  const handleMovieStreamPress = useCallback(() => {
+    Haptics.selectionAsync();
+    showSheet(
+      <MovieStreamSheetContent
+        movieTitle={result?.title}
+        movieYear={result?.year}
+        imdbId={result?.imdbId}
+        posterUrl={result?.posterUrl}
+        runtimeMinutes={result?.runtimeMinutes}
+        genres={result?.genres}
+        ratingValue={result?.tmdbRating || result?.omdbRatings?.imdbScore}
+        rows={result?.rows}
+        providerSummary={result?.providerSummary}
+        colors={colors}
+        typography={typography}
+      />,
+      {
+        title: result?.title || 'Stream Movie',
+        centerTitle: true,
+        showCloseButton: false,
+        size: 'large',
+        scrollable: false,
+        dismissOnBackdrop: true,
+      },
+    );
+  }, [
+    result?.title,
+    result?.year,
+    result?.imdbId,
+    result?.posterUrl,
+    result?.runtimeMinutes,
+    result?.genres,
+    result?.tmdbRating,
+    result?.omdbRatings?.imdbScore,
+    result?.rows,
+    result?.providerSummary,
+    colors,
+    typography,
+    showSheet,
+  ]);
+
   // Gated on focus. Native-driven and cheap, but an 18s loop that never stops
   // keeps the whole app permanently non-idle, which is why `uiautomator dump`
   // fails with "could not get idle state" — and it kept running behind every
@@ -1770,6 +1813,28 @@ export function ResultView({
                 </Text>
               ) : null}
             </View>
+
+            {/* Stream Movie button for films */}
+            {!isTv && (
+              <TouchableOpacity
+                style={[
+                  styles.streamMovieButton,
+                  ((result.trailer && result.trailer !== 'N/A') || soundtrackRows.length > 0) && {
+                    marginBottom: 10,
+                  },
+                ]}
+                onPress={handleMovieStreamPress}
+                accessibilityRole="button"
+                accessibilityLabel={`Stream ${result.title}`}
+              >
+                <Ionicons name="play" size={18} color={GOLD_ACCENT} style={{ marginRight: 6 }} />
+                <Text
+                  style={[styles.streamMovieButtonText, { color: GOLD_ACCENT, ...typography.labelLg }]}
+                >
+                  Stream Movie
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {/* Watch Trailer full-width button */}
             {result.trailer && result.trailer !== 'N/A' && (
@@ -3380,6 +3445,20 @@ const styles = StyleSheet.create({
   floatingRightActions: {
     flexDirection: 'row',
     gap: 12,
+  },
+  streamMovieButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: verticalScale(44),
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    width: '100%',
+    marginBottom: 0,
+  },
+  streamMovieButtonText: {
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   trailerButton: {
     flexDirection: 'row',
