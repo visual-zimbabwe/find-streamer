@@ -1836,34 +1836,25 @@ export function ResultView({
                 </Text>
               ) : null}
               {result.omdbRatings?.rated ? (
-                <>
-                  <Text style={styles.metaDot}>•</Text>
-                  <ProgrammeBadge
-                    label={result.omdbRatings.rated}
-                    variant="glass"
-                    size="xs"
-                    shape="rounded"
-                    context="certification"
-                    style={styles.certBadge}
-                    textStyle={styles.certBadgeText}
-                  />
-                </>
+                <ProgrammeBadge
+                  label={result.omdbRatings.rated}
+                  variant="glass"
+                  size="xs"
+                  shape="rounded"
+                  context="certification"
+                  style={styles.certBadge}
+                  textStyle={styles.certBadgeText}
+                />
               ) : null}
               {(isTv ? (seasonCount > 0 ? pluralize(seasonCount, 'season') : null) : runtimeLabel) ? (
-                <>
-                  <Text style={styles.metaDot}>•</Text>
-                  <Text style={[styles.metaItemText, typography.labelSm]}>
-                    {isTv ? pluralize(seasonCount, 'season') : runtimeLabel}
-                  </Text>
-                </>
+                <Text style={[styles.metaItemText, typography.labelSm]}>
+                  {isTv ? pluralize(seasonCount, 'season') : runtimeLabel}
+                </Text>
               ) : null}
               {hasGenres ? (
-                <>
-                  <Text style={styles.metaDot}>•</Text>
-                  <Text style={[styles.metaItemText, typography.labelSm]} numberOfLines={1}>
-                    {result.genres}
-                  </Text>
-                </>
+                <Text style={[styles.metaItemText, typography.labelSm]} numberOfLines={1}>
+                  {result.genres}
+                </Text>
               ) : null}
             </View>
 
@@ -2128,11 +2119,15 @@ export function ResultView({
                   variant="inline"
                   showHairline={false}
                   showMediaType={false}
+                  showTitle={false}
+                  showCaption
                   keyExtractor={(item, index) => String(item.id || item.seasonNumber || index)}
                   onSelectItem={handleSeasonPress}
                   getItemRankBadge={(item, index) => item.seasonNumber || index + 1}
                   getItemMetaText={(item) =>
-                    `${item.year} • ${pluralize(item.episodeCount, 'episode')}`
+                    [item.year ? String(item.year) : null, pluralize(item.episodeCount, 'episode')]
+                      .filter(Boolean)
+                      .join('  ·  ')
                   }
                   getItemPosterStyle={(item) =>
                     item.seasonNumber === latestSeasonNumber
@@ -2241,6 +2236,8 @@ export function ResultView({
                     variant="inline"
                     showHairline={false}
                     showMediaType={false}
+                    showTitle={false}
+                    showCaption
                     titleCase
                     onSeeAll={
                       franchiseWindow.hasMore && onCollectionPress
@@ -2307,6 +2304,8 @@ export function ResultView({
                     bleed
                     variant="inline"
                     showHairline={false}
+                    showCaption={false}
+                    showMediaType={false}
                     onSelectItem={onSelectSimilar}
                     onToggleWatchlist={onToggleWatchlist}
                     savedKeys={savedWatchlistKeys}
@@ -2330,6 +2329,9 @@ export function ResultView({
                     bleed
                     variant="inline"
                     showHairline={false}
+                    showTitle={false}
+                    showCaption
+                    showMediaType={false}
                     onSelectItem={onSelectSimilar}
                     onToggleWatchlist={onToggleWatchlist}
                     savedKeys={savedWatchlistKeys}
@@ -2907,18 +2909,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
+    columnGap: 12,
     marginBottom: 14,
   },
   metaItemText: {
     color: '#ffffff',
     fontWeight: '600',
     letterSpacing: 0.2,
-  },
-  metaDot: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
-    fontWeight: '900',
   },
   certBadge: {
     paddingHorizontal: 6,

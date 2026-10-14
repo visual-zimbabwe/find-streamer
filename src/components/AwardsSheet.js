@@ -38,12 +38,6 @@ export function AwardsSheetContent({ ceremonies, colors, typography, onOpenImdb,
 
           {ceremony.categories.map((category) => (
             <View key={category.id} style={styles.categoryRow}>
-              <Ionicons
-                name={category.wins > 0 ? 'trophy' : 'ellipse-outline'}
-                size={13}
-                color={category.wins > 0 ? GOLD_ACCENT : colors.onSurfaceVariant}
-                style={styles.categoryIcon}
-              />
               <Text
                 style={[styles.category, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
               >
@@ -55,10 +49,11 @@ export function AwardsSheetContent({ ceremonies, colors, typography, onOpenImdb,
                   {
                     color: category.wins > 0 ? GOLD_ACCENT : colors.onSurfaceVariant,
                     ...typography.labelSm,
+                    fontWeight: category.wins > 0 ? '800' : '600',
                   },
                 ]}
               >
-                {category.wins > 0 ? 'Won' : 'Nominated'}
+                {category.wins > 0 ? 'WON' : 'NOMINATED'}
               </Text>
             </View>
           ))}

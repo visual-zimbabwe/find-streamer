@@ -224,14 +224,13 @@ export function FilmographyScreen({
               subtitle={`${rail.totalCount || rail.count || rail.data?.length} title${
                 (rail.totalCount || rail.count || rail.data?.length) !== 1 ? 's' : ''
               }`}
-              icon={rail.icon}
               data={rail.data || rail.credits}
               colors={colors}
               typography={typography}
               radii={radii}
               variant="section"
               bleed
-              showMediaType
+              showMediaType={false}
               showTitle={false}
               showCaption
               onSelectItem={onSelectItem}
@@ -244,7 +243,6 @@ export function FilmographyScreen({
           <ContentRail
             title={roleLabel}
             subtitle={countText}
-            icon="albums-outline"
             data={items}
             colors={colors}
             typography={typography}
@@ -268,14 +266,13 @@ export function FilmographyScreen({
           <ContentRail
             title={roleLabel}
             subtitle={countText}
-            icon={isCompany ? 'business-outline' : 'film-outline'}
             data={items}
             colors={colors}
             typography={typography}
             radii={radii}
             variant="section"
             bleed
-            showMediaType
+            showMediaType={false}
             showTitle={false}
             showCaption
             onSelectItem={onSelectItem}
