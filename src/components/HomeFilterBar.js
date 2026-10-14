@@ -9,6 +9,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { scale } from '../utils/responsive';
 import { GOLD_ACCENT } from '../theme/programme';
 import { getServiceLabel } from '../lib/whereToWatch';
+import { resolveLanguageLabel } from '../lib/languages';
 
 /**
  * Home's browse header: the wordmark over a single horizontally-scrollable chip
@@ -150,11 +151,11 @@ export const HomeFilterBar = memo(function HomeFilterBar({
           accessibilityLabel="Open Collections"
         />
         <Chip
-          label={languageActive ? language.label : 'All languages'}
+          label={languageActive ? (resolveLanguageLabel(language?.code) || language.label) : 'All languages'}
           trailingIcon="chevron-down"
           active={languageActive}
           onPress={onOpenLanguage}
-          accessibilityLabel={`Language: ${languageActive ? language.label : 'All languages'}. Change language filter`}
+          accessibilityLabel={`Language: ${languageActive ? (resolveLanguageLabel(language?.code) || language.label) : 'All languages'}. Change language filter`}
         />
         <Chip
           label={countryActive ? country.label : 'All countries'}

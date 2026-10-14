@@ -11,6 +11,7 @@ import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
 import { ProgrammeBadge } from './ProgrammeBadge';
 import { fetchWatchProviderRegions, SERVICE_FALLBACK_COLORS } from '../lib/tmdb';
 import { FALLBACK_WATCH_REGIONS, WHERE_TO_WATCH_SERVICES } from '../lib/whereToWatch';
+import { resolveLanguageLabel } from '../lib/languages';
 
 function OptionRow({ label, sublabel, selected, onPress, leading, accessibilityLabel }) {
   const { theme } = useTheme();
@@ -221,15 +222,28 @@ export function WhereToWatchLanguageSheet({
   const { colors, typography, radii } = theme;
   const [query, setQuery] = useState('');
 
+  const normalizedLanguages = useMemo(() => {
+    return (languages || []).map((lang) => {
+      const resolvedLabel =
+        lang.isOther || lang.code === 'other'
+          ? 'Other'
+          : resolveLanguageLabel(lang.code) || lang.label;
+      return {
+        ...lang,
+        label: resolvedLabel,
+      };
+    });
+  }, [languages]);
+
   const visibleLanguages = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return languages;
-    return languages.filter(
+    if (!trimmed) return normalizedLanguages;
+    return normalizedLanguages.filter(
       (lang) =>
         lang.label.toLowerCase().includes(trimmed) ||
         lang.code.toLowerCase().includes(trimmed),
     );
-  }, [languages, query]);
+  }, [normalizedLanguages, query]);
 
   return (
     <View style={styles.sheetContent}>
@@ -309,8 +323,7 @@ export function WhereToWatchLanguageSheet({
             accessibilityLabel={`Filter to ${lang.label} titles (${lang.count})`}
             leading={
               <ProgrammeBadge
-                icon={lang.isOther ? 'help-outline' : undefined}
-                label={lang.isOther ? undefined : lang.code.toUpperCase()}
+                icon={lang.isOther ? 'help-outline' : 'language-outline'}
                 iconSize={16}
                 iconColor={GOLD_ACCENT}
                 variant="outline"
@@ -319,7 +332,6 @@ export function WhereToWatchLanguageSheet({
                 borderColor={GOLD_DIM}
                 textColor={GOLD_ACCENT}
                 style={styles.leadingBadge}
-                textStyle={styles.leadingBadgeText}
               />
             }
           />

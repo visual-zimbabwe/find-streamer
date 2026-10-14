@@ -28,6 +28,7 @@ import {
   SkeletonBlock,
 } from './SkeletonLoaders';
 import { INTENT_PRESETS, intentPresetActive } from '../lib/languagePresets';
+import { resolveLanguageLabel } from '../lib/languages';
 import { AIR_DATE_SORT } from '../lib/tvAiringFilter';
 import { SMART_FILTERS } from '../lib/smartFilters';
 import {
@@ -113,10 +114,10 @@ const AIRING_QUICK_PICK = {
 };
 
 // Resolve an ISO 639-1 code to a human label using the TMDB language list the vm
-// already loads; falls back to the upper-cased code before that list arrives.
+// already loads; falls back to the resolved language name before that list arrives.
 function labelForLanguageCode(code, languages) {
   const match = Array.isArray(languages) ? languages.find((l) => l.code === code) : null;
-  return match?.label || String(code || '').toUpperCase();
+  return match?.label || resolveLanguageLabel(code);
 }
 
 function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {

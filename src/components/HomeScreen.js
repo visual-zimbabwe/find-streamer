@@ -20,6 +20,7 @@ import {
   getAvailableWatchlistLanguages,
   getUserWatchlistCollections,
   isDefaultCollectionId,
+  resolveLanguageLabel,
   watchlistEntryKey,
 } from '../lib/watchlistModel';
 import { useBottomNavScroll } from '../context/BottomNavVisibilityContext';
@@ -239,7 +240,14 @@ export function HomeScreen({
           selectedCode={homeLanguage?.code || null}
           totalCount={totalLibraryTitlesCount}
           onSelect={(lang) => {
-            setHomeLanguage(lang?.code ? { code: lang.code, label: lang.label } : null);
+            setHomeLanguage(
+              lang?.code
+                ? {
+                    code: lang.code,
+                    label: resolveLanguageLabel(lang.code) || lang.label,
+                  }
+                : null,
+            );
             bottomSheet.dismiss(sheetId);
           }}
         />
@@ -352,7 +360,8 @@ export function HomeScreen({
 
   const filterParts = [];
   if (homeLanguage?.label) {
-    filterParts.push(`in ${homeLanguage.label}`);
+    const langLabel = resolveLanguageLabel(homeLanguage.code) || homeLanguage.label;
+    filterParts.push(`in ${langLabel}`);
   }
   if (homeServiceKey) {
     filterParts.push(
