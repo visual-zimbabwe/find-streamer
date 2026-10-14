@@ -140,10 +140,20 @@ export function SeasonDetailSheetContent({
   const topSeasonPack = seasonPacks[0] || null;
 
   // Stream launch helper (auto opens mpv.android with auto-play in landscape)
-  const handleLaunchStream = useCallback(async (magnetUrl, releaseName, fileIdx) => {
-    Haptics.selectionAsync();
-    await launchStream({ magnetUrl, title: releaseName, fileIdx });
-  }, []);
+  const handleLaunchStream = useCallback(
+    async (magnetUrl, releaseName, fileIdx, episodeNum) => {
+      Haptics.selectionAsync();
+      await launchStream({
+        magnetUrl,
+        title: releaseName,
+        fileIdx,
+        imdbId,
+        season: season?.seasonNumber,
+        episode: episodeNum,
+      });
+    },
+    [imdbId, season?.seasonNumber],
+  );
 
   // Toggle season pack drawer
   const handleToggleSeasonPack = useCallback(() => {
@@ -656,7 +666,7 @@ export function SeasonDetailSheetContent({
                             <View style={styles.sourceActionsRow}>
                               <TouchableOpacity
                                 style={styles.streamPrimaryBtn}
-                                onPress={() => handleLaunchStream(source.magnetUrl, source.name, source.fileIdx)}
+                                onPress={() => handleLaunchStream(source.magnetUrl, source.name, source.fileIdx, item.episodeNumber)}
                                 activeOpacity={0.7}
                               >
                                 <Ionicons name="play" size={13} color={GOLD_ACCENT} />

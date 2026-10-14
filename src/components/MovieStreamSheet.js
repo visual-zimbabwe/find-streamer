@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,11 +9,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { serviceLabelsForRow } from '../lib/providerAvailability';
-import { loadWhereToWatchPrefs } from '../lib/whereToWatch';
 import { GOLD_ACCENT } from '../theme/programme';
 import { MediaArtwork } from './MediaArtwork';
-import { ProgrammeEyebrowLabel } from './ProgrammeSectionHeader';
 import { searchMovieTorrents } from '../lib/torrentSearchEngine';
 import { launchStream } from '../lib/streamLauncher';
 import { toastiva } from 'toastiva';
@@ -45,24 +41,8 @@ export function MovieStreamSheetContent({
   colors,
   typography,
 }) {
-  const [activeTab, setActiveTab] = useState('streams'); // 'streams' | 'availability'
   const [streams, setStreams] = useState([]);
   const [streamsLoading, setStreamsLoading] = useState(true);
-
-  // Streaming availability in user's country
-  const [homeCountry, setHomeCountry] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadWhereToWatchPrefs().then((prefs) => {
-      if (!cancelled && prefs?.countryCode) {
-        setHomeCountry({ code: prefs.countryCode, label: prefs.countryLabel });
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Fetch peer swarms for the movie
   useEffect(() => {
@@ -87,11 +67,6 @@ export function MovieStreamSheetContent({
     };
   }, [movieTitle, movieYear, imdbId]);
 
-  const homeRow = useMemo(
-    () => (homeCountry && rows ? rows.find((row) => row.code === homeCountry.code) : null),
-    [rows, homeCountry],
-  );
-
   const topStream = streams[0] || null;
 
   const handleLaunch = useCallback(
@@ -100,9 +75,9 @@ export function MovieStreamSheetContent({
       if (seeders === 0) {
         toastiva.info('Warning: Swarm has 0 seeders. Buffering may fail.');
       }
-      await launchStream({ magnetUrl, title: releaseName, fileIdx });
+      await launchStream({ magnetUrl, title: releaseName, fileIdx, imdbId });
     },
-    [],
+    [imdbId],
   );
 
   const runtimeLabel = formatMovieRuntime(runtimeMinutes);
@@ -188,248 +163,111 @@ export function MovieStreamSheetContent({
         </TouchableOpacity>
       </View>
 
-      {/* Segmented Tab Control */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={styles.tabButton}
-          onPress={() => {
-            Haptics.selectionAsync();
-            setActiveTab('streams');
-          }}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              typography.labelMd,
-              {
-                color: activeTab === 'streams' ? GOLD_ACCENT : colors.onSurfaceVariant,
-                fontWeight: activeTab === 'streams' ? '800' : '500',
-              },
-            ]}
-          >
-            {streams.length > 0 ? `Streams (${streams.length})` : 'Streams'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tabButton}
-          onPress={() => {
-            Haptics.selectionAsync();
-            setActiveTab('availability');
-          }}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              typography.labelMd,
-              {
-                color: activeTab === 'availability' ? GOLD_ACCENT : colors.onSurfaceVariant,
-                fontWeight: activeTab === 'availability' ? '800' : '500',
-              },
-            ]}
-          >
-            Where To Watch
-          </Text>
-        </TouchableOpacity>
+      {/* Streams Header */}
+      <View style={styles.sectionHeaderRow}>
+        <Text style={[styles.sectionTitle, typography.labelMd, { color: GOLD_ACCENT }]}>
+          {streams.length > 0 ? `Available Streams (${streams.length})` : 'Available Streams'}
+        </Text>
       </View>
 
-      {/* Tab Content: STREAMS */}
-      {activeTab === 'streams' && (
-        <View style={styles.streamsContainer}>
-          {streamsLoading ? (
-            <View style={styles.loaderCenter}>
-              <ActivityIndicator size="small" color={GOLD_ACCENT} />
-              <Text
-                style={[
-                  styles.loaderText,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-              >
-                Searching peer swarms for releases...
-              </Text>
-            </View>
-          ) : !streams.length ? (
-            <View style={styles.emptyStreams}>
-              <Ionicons name="film-outline" size={24} color={colors.onSurfaceVariant} />
-              <Text
-                style={[
-                  styles.emptyStreamsText,
-                  { color: colors.onSurfaceVariant, ...typography.bodyMd },
-                ]}
-              >
-                No peer streams found for this movie.
-              </Text>
-            </View>
-          ) : (
-            streams.map((item) => (
-              <View key={item.infoHash} style={styles.streamItem}>
-                <View style={styles.streamMetaRow}>
-                  <Text
-                    style={[styles.streamName, { color: colors.onSurface, ...typography.bodySm }]}
-                    numberOfLines={2}
-                  >
-                    {item.name}
-                  </Text>
-                  <View style={styles.badgeRow}>
-                    <Text
-                      style={[
-                        styles.qualityBadge,
-                        { color: GOLD_ACCENT, ...typography.labelSm },
-                      ]}
-                    >
-                      {item.attributes?.resolution}
-                    </Text>
-                    {item.attributes?.codec && (
-                      <Text
-                        style={[
-                          styles.attrBadge,
-                          { color: colors.onSurfaceVariant, ...typography.labelSm },
-                        ]}
-                      >
-                        {item.attributes.codec}
-                      </Text>
-                    )}
-                    <Text
-                      style={[
-                        styles.seedBadge,
-                        {
-                          color:
-                            item.seeders >= 20
-                              ? '#4CAF50'
-                              : item.seeders > 0
-                              ? '#E5A93C'
-                              : colors.onSurfaceVariant,
-                          ...typography.labelSm,
-                        },
-                      ]}
-                    >
-                      {item.seeders} seeds
-                    </Text>
-                    <Text
-                      style={[
-                        styles.sizeBadge,
-                        { color: colors.onSurfaceVariant, ...typography.labelSm },
-                      ]}
-                    >
-                      {item.formattedSize}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.streamActionsRow}>
-                  <TouchableOpacity
-                    style={styles.streamPrimaryBtn}
-                    onPress={() => handleLaunch(item.magnetUrl, item.name, item.fileIdx, item.seeders)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="play" size={13} color={GOLD_ACCENT} />
-                    <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-                      Stream Movie
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-      )}
-
-      {/* Tab Content: WHERE TO WATCH */}
-      {activeTab === 'availability' && (
-        <View style={styles.availabilityContainer}>
-          {homeCountry && (
-            <View style={styles.block}>
-              <ProgrammeEyebrowLabel
-                text={`STREAMING IN ${homeCountry.label || homeCountry.code}`}
-                colors={colors}
-                typography={typography}
-              />
-              {homeRow ? (
-                <View style={styles.homeStatus}>
-                  <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
-                  <View style={styles.homeStatusBody}>
-                    <Text
-                      style={[
-                        styles.homeStatusLabel,
-                        { color: colors.onSurfaceVariant, ...typography.labelSm },
-                      ]}
-                    >
-                      Available
-                    </Text>
-                    <Text
-                      style={[
-                        styles.homeStatusDetail,
-                        { color: colors.onSurface, ...typography.bodyMd },
-                      ]}
-                    >
-                      {serviceLabelsForRow(homeRow).join(', ') || 'Streaming available'}
-                    </Text>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.fallbackRow}>
-                  <Ionicons name="globe-outline" size={15} color={colors.onSurfaceVariant} />
+      {/* Streams List */}
+      <View style={styles.streamsContainer}>
+        {streamsLoading ? (
+          <View style={styles.loaderCenter}>
+            <ActivityIndicator size="small" color={GOLD_ACCENT} />
+            <Text
+              style={[
+                styles.loaderText,
+                { color: colors.onSurfaceVariant, ...typography.labelSm },
+              ]}
+            >
+              Searching peer swarms for releases...
+            </Text>
+          </View>
+        ) : !streams.length ? (
+          <View style={styles.emptyStreams}>
+            <Ionicons name="film-outline" size={24} color={colors.onSurfaceVariant} />
+            <Text
+              style={[
+                styles.emptyStreamsText,
+                { color: colors.onSurfaceVariant, ...typography.bodyMd },
+              ]}
+            >
+              No peer streams found for this movie.
+            </Text>
+          </View>
+        ) : (
+          streams.map((item) => (
+            <View key={item.infoHash} style={styles.streamItem}>
+              <View style={styles.streamMetaRow}>
+                <Text
+                  style={[styles.streamName, { color: colors.onSurface, ...typography.bodySm }]}
+                  numberOfLines={2}
+                >
+                  {item.name}
+                </Text>
+                <View style={styles.badgeRow}>
                   <Text
                     style={[
-                      styles.fallbackText,
+                      styles.qualityBadge,
+                      { color: GOLD_ACCENT, ...typography.labelSm },
+                    ]}
+                  >
+                    {item.attributes?.resolution}
+                  </Text>
+                  {item.attributes?.codec && (
+                    <Text
+                      style={[
+                        styles.attrBadge,
+                        { color: colors.onSurfaceVariant, ...typography.labelSm },
+                      ]}
+                    >
+                      {item.attributes.codec}
+                    </Text>
+                  )}
+                  <Text
+                    style={[
+                      styles.seedBadge,
+                      {
+                        color:
+                          item.seeders >= 20
+                            ? '#4CAF50'
+                            : item.seeders > 0
+                            ? '#E5A93C'
+                            : colors.onSurfaceVariant,
+                        ...typography.labelSm,
+                      },
+                    ]}
+                  >
+                    {item.seeders} seeds
+                  </Text>
+                  <Text
+                    style={[
+                      styles.sizeBadge,
                       { color: colors.onSurfaceVariant, ...typography.labelSm },
                     ]}
                   >
-                    Not currently streaming on subscribed services in {homeCountry.label}.
+                    {item.formattedSize}
                   </Text>
                 </View>
-              )}
-            </View>
-          )}
+              </View>
 
-          {rows && rows.length > 0 && (
-            <View style={styles.block}>
-              <ProgrammeEyebrowLabel
-                text="GLOBAL AVAILABILITY"
-                colors={colors}
-                typography={typography}
-              />
-              <View style={styles.table}>
-                {rows.slice(0, 8).map((row) => (
-                  <View key={row.code} style={styles.tableRow}>
-                    <Text
-                      style={[
-                        styles.countryName,
-                        { color: colors.onSurface, ...typography.bodySm },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {row.name || row.code}
-                    </Text>
-                    <View style={styles.providerBadges}>
-                      {serviceLabelsForRow(row).slice(0, 3).map((serviceName, idx) => {
-                        const summaryMatch = providerSummary?.find(
-                          (p) => p.name?.toLowerCase() === serviceName.toLowerCase(),
-                        );
-                        return summaryMatch?.logoUrl ? (
-                          <Image
-                            key={idx}
-                            source={{ uri: summaryMatch.logoUrl }}
-                            style={styles.serviceLogo}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <View
-                            key={idx}
-                            style={[styles.dot, { backgroundColor: colors.outlineVariant }]}
-                          />
-                        );
-                      })}
-                    </View>
-                  </View>
-                ))}
+              <View style={styles.streamActionsRow}>
+                <TouchableOpacity
+                  style={styles.streamPrimaryBtn}
+                  onPress={() => handleLaunch(item.magnetUrl, item.name, item.fileIdx, item.seeders)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="play" size={13} color={GOLD_ACCENT} />
+                  <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+                    Stream Movie
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
-          )}
-        </View>
-      )}
+          ))
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -492,20 +330,13 @@ const styles = StyleSheet.create({
   autoPlaySubtitle: {
     fontWeight: '500',
   },
-  tabBar: {
-    alignItems: 'center',
+  sectionHeaderRow: {
     backgroundColor: 'transparent',
     borderWidth: 0,
-    flexDirection: 'row',
-    gap: 24,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  tabButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    paddingVertical: 6,
-  },
-  tabText: {
+  sectionTitle: {
+    fontWeight: '700',
     letterSpacing: 0.3,
   },
   streamsContainer: {
@@ -580,69 +411,5 @@ const styles = StyleSheet.create({
   streamPrimaryText: {
     color: GOLD_ACCENT,
     fontWeight: '700',
-  },
-  availabilityContainer: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    paddingBottom: 24,
-  },
-  block: {
-    marginBottom: 24,
-  },
-  fallbackRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  fallbackText: {
-    flex: 1,
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  homeStatus: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    paddingVertical: 8,
-  },
-  homeStatusBody: {
-    flex: 1,
-  },
-  homeStatusLabel: {
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    marginBottom: 2,
-    textTransform: 'uppercase',
-  },
-  homeStatusDetail: {
-    fontWeight: '700',
-  },
-  table: {
-    marginTop: 12,
-  },
-  tableRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    paddingVertical: 8,
-  },
-  countryName: {
-    flex: 1,
-    fontWeight: '500',
-  },
-  providerBadges: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  dot: {
-    borderRadius: 4,
-    height: 8,
-    width: 8,
-  },
-  serviceLogo: {
-    borderRadius: 6,
-    height: 24,
-    width: 24,
   },
 });
