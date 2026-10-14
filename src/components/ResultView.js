@@ -1078,7 +1078,7 @@ export function ResultView({
     [onPersonPress],
   );
 
-  /** Tap a season card → peek sheet with that season's own availability */
+  /** Tap a season card → peek sheet with that season's episodes and streams */
   const handleSeasonPress = useCallback(
     (season) => {
       Haptics.selectionAsync();
@@ -1123,7 +1123,7 @@ export function ResultView({
         typography={typography}
       />,
       {
-        title: result?.title || 'Stream Movie',
+        title: result?.title || 'Play Now',
         centerTitle: true,
         showCloseButton: false,
         size: 'large',
@@ -1814,52 +1814,50 @@ export function ResultView({
               ) : null}
             </View>
 
-            {/* Stream Movie button for films */}
-            {!isTv && (
-              <TouchableOpacity
+            {/* Hero Actions: Play Now and Watch Trailer */}
+            {(!isTv || (result.trailer && result.trailer !== 'N/A')) && (
+              <View
                 style={[
-                  styles.streamMovieButton,
-                  ((result.trailer && result.trailer !== 'N/A') || soundtrackRows.length > 0) && {
-                    marginBottom: 10,
-                  },
-                ]}
-                onPress={handleMovieStreamPress}
-                accessibilityRole="button"
-                accessibilityLabel={`Stream ${result.title}`}
-              >
-                <Ionicons name="play" size={18} color={GOLD_ACCENT} style={{ marginRight: 6 }} />
-                <Text
-                  style={[styles.streamMovieButtonText, { color: GOLD_ACCENT, ...typography.labelLg }]}
-                >
-                  Stream Movie
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Watch Trailer full-width button */}
-            {result.trailer && result.trailer !== 'N/A' && (
-              <TouchableOpacity
-                style={[
-                  styles.trailerButton,
-                  { backgroundColor: GOLD_ACCENT },
+                  styles.heroActionRow,
                   soundtrackRows.length > 0 && { marginBottom: 10 },
                 ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setTrailerVisible(true);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Watch ${
-                  result.trailerType === 'Teaser' ? 'teaser' : 'trailer'
-                } for ${result.title}`}
               >
-                <Ionicons name="play" size={18} color="#141414" style={{ marginRight: 6 }} />
-                <Text
-                  style={[styles.trailerButtonText, { color: '#141414', ...typography.labelLg }]}
-                >
-                  {result.trailerType === 'Teaser' ? 'Watch Teaser' : 'Watch Trailer'}
-                </Text>
-              </TouchableOpacity>
+                {!isTv && (
+                  <TouchableOpacity
+                    style={styles.heroActionBtn}
+                    onPress={handleMovieStreamPress}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Play ${result.title}`}
+                  >
+                    <Ionicons name="play" size={18} color={GOLD_ACCENT} style={{ marginRight: 6 }} />
+                    <Text
+                      style={[styles.heroActionBtnText, { color: GOLD_ACCENT, ...typography.labelLg }]}
+                    >
+                      Play Now
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {result.trailer && result.trailer !== 'N/A' && (
+                  <TouchableOpacity
+                    style={styles.heroActionBtn}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setTrailerVisible(true);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Watch ${
+                      result.trailerType === 'Teaser' ? 'teaser' : 'trailer'
+                    } for ${result.title}`}
+                  >
+                    <Text
+                      style={[styles.heroActionBtnText, { color: GOLD_ACCENT, ...typography.labelLg }]}
+                    >
+                      {result.trailerType === 'Teaser' ? 'Watch Teaser' : 'Watch Trailer'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
 
             {/*
@@ -2101,7 +2099,6 @@ export function ResultView({
                   showCaption
                   keyExtractor={(item, index) => String(item.id || item.seasonNumber || index)}
                   onSelectItem={handleSeasonPress}
-                  getItemRankBadge={(item, index) => item.seasonNumber || index + 1}
                   getItemMetaText={(item) =>
                     [item.year ? String(item.year) : null, pluralize(item.episodeCount, 'episode')]
                       .filter(Boolean)
@@ -3446,15 +3443,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  heroActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    minHeight: verticalScale(44),
+    marginBottom: 0,
+  },
+  heroActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    paddingVertical: 8,
+  },
+  heroActionBtnText: {
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
   streamMovieButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    height: verticalScale(44),
     backgroundColor: 'transparent',
     borderWidth: 0,
-    width: '100%',
-    marginBottom: 0,
+    paddingVertical: 8,
   },
   streamMovieButtonText: {
     fontWeight: '800',
@@ -3463,20 +3476,13 @@ const styles = StyleSheet.create({
   trailerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    height: verticalScale(48),
-    borderRadius: 12,
-    width: '100%',
-    marginBottom: 0,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    paddingVertical: 8,
   },
   trailerButtonText: {
     fontWeight: '800',
     letterSpacing: 0.5,
-    flexShrink: 1,
   },
   /**
    * Secondary to Watch Trailer directly above it — a gold tonal outline rather

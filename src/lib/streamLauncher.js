@@ -75,7 +75,7 @@ export async function launchStream({ magnetUrl, title, fileIdx, imdbId, season, 
       console.log('[launchStream] Orientation lock error:', orientErr);
     }
 
-    toastiva.info('Streaming in mpv (Landscape)...');
+    toastiva.info('Playing in mpv (Landscape)...');
 
     // Attempt direct native launch with subtitle extras
     if (TorrentStreamerModule?.launchPlayer) {

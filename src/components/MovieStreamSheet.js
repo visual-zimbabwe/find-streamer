@@ -137,7 +137,7 @@ export function MovieStreamSheetContent({
           <Ionicons name="play" size={16} color={GOLD_ACCENT} />
           <View style={styles.autoPlayTextCol}>
             <Text style={[styles.autoPlayTitle, { color: GOLD_ACCENT, ...typography.labelMd }]}>
-              Auto Play Best Stream (Landscape)
+              Auto Play (Landscape)
             </Text>
             <Text
               style={[
@@ -149,7 +149,7 @@ export function MovieStreamSheetContent({
               {streamsLoading
                 ? 'Searching peer swarms for verified releases...'
                 : !topStream
-                ? 'No peer streams found'
+                ? 'No releases found'
                 : topStream.seeders === 0
                 ? 'No active seeders in peer swarm'
                 : `${topStream.attributes?.resolution} · ${topStream.formattedSize} · ${topStream.seeders} seeds`}
@@ -166,7 +166,7 @@ export function MovieStreamSheetContent({
       {/* Streams Header */}
       <View style={styles.sectionHeaderRow}>
         <Text style={[styles.sectionTitle, typography.labelMd, { color: GOLD_ACCENT }]}>
-          {streams.length > 0 ? `Available Streams (${streams.length})` : 'Available Streams'}
+          {streams.length > 0 ? `Available Releases (${streams.length})` : 'Available Releases'}
         </Text>
       </View>
 
@@ -193,7 +193,7 @@ export function MovieStreamSheetContent({
                 { color: colors.onSurfaceVariant, ...typography.bodyMd },
               ]}
             >
-              No peer streams found for this movie.
+              No releases found for this movie.
             </Text>
           </View>
         ) : (
@@ -260,7 +260,7 @@ export function MovieStreamSheetContent({
                 >
                   <Ionicons name="play" size={13} color={GOLD_ACCENT} />
                   <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-                    Stream Movie
+                    Play Now
                   </Text>
                 </TouchableOpacity>
               </View>

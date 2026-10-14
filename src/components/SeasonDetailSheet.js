@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Linking,
   Platform,
   ScrollView,
@@ -14,8 +13,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { toastiva } from 'toastiva';
-import { serviceLabelsForRow } from '../lib/providerAvailability';
-import { loadWhereToWatchPrefs } from '../lib/whereToWatch';
 import { GOLD_ACCENT } from '../theme/programme';
 import { MediaArtwork } from './MediaArtwork';
 import { ProgrammeEyebrowLabel } from './ProgrammeSectionHeader';
@@ -47,8 +44,7 @@ function formatAirDate(airDate) {
 
 /**
  * Enhanced Season Hub: provides interactive episode browsing, episode-level
- * stream source resolution, complete Season Pack binge mode, and streaming
- * provider availability.
+ * playback source resolution, and complete Season Pack binge mode.
  */
 export function SeasonDetailSheetContent({
   season,
@@ -59,7 +55,6 @@ export function SeasonDetailSheetContent({
   colors,
   typography,
 }) {
-  const [activeTab, setActiveTab] = useState('episodes'); // 'episodes' | 'availability'
   const [episodes, setEpisodes] = useState([]);
   const [episodesLoading, setEpisodesLoading] = useState(true);
 
@@ -73,21 +68,6 @@ export function SeasonDetailSheetContent({
   const [loadingEpisodes, setLoadingEpisodes] = useState({});
   const [expandedEpisodeSources, setExpandedEpisodeSources] = useState({});
   const [expandedOverview, setExpandedOverview] = useState({});
-
-  // Streaming availability in user's country
-  const [homeCountry, setHomeCountry] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadWhereToWatchPrefs().then((prefs) => {
-      if (!cancelled && prefs?.countryCode) {
-        setHomeCountry({ code: prefs.countryCode, label: prefs.countryLabel });
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Fetch season episodes from TMDb
   useEffect(() => {
@@ -128,14 +108,6 @@ export function SeasonDetailSheetContent({
       cancelled = true;
     };
   }, [seriesTitle, season?.seasonNumber, imdbId]);
-
-  const rows = useMemo(() => season?.availabilityRows || null, [season]);
-  const providerSummary = useMemo(() => season?.providerSummary || [], [season]);
-
-  const homeRow = useMemo(
-    () => (homeCountry && rows ? rows.find((row) => row.code === homeCountry.code) : null),
-    [rows, homeCountry],
-  );
 
   const topSeasonPack = seasonPacks[0] || null;
 
@@ -205,10 +177,10 @@ export function SeasonDetailSheetContent({
         setExpandedEpisodeSources((prev) => ({ ...prev, [epNum]: true }));
 
         if (!sources.length) {
-          toastiva.info(`No peer streams found for Episode ${epNum}`);
+          toastiva.info(`No sources found for Episode ${epNum}`);
         }
       } catch {
-        toastiva.info(`Unable to query streams for Episode ${epNum}`);
+        toastiva.info(`Unable to query sources for Episode ${epNum}`);
       } finally {
         setLoadingEpisodes((prev) => ({ ...prev, [epNum]: false }));
       }
@@ -284,7 +256,7 @@ export function SeasonDetailSheetContent({
                 ? 'Searching peer swarms for season pack...'
                 : topSeasonPack
                 ? `${topSeasonPack.attributes?.resolution} · ${topSeasonPack.formattedSize} · ${topSeasonPack.seeders} seeds`
-                : 'Stream complete season in one continuous playlist'}
+                : 'Play complete season in one continuous playlist'}
             </Text>
           </View>
           {seasonPackLoading ? (
@@ -372,7 +344,7 @@ export function SeasonDetailSheetContent({
                     >
                       <Ionicons name="play" size={13} color={GOLD_ACCENT} />
                       <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-                        Stream Season
+                        Play Season
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -393,55 +365,15 @@ export function SeasonDetailSheetContent({
         </View>
       ) : null}
 
-      {/* Navigation Tabs: Episodes vs Where to Watch */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'episodes' && styles.tabButtonActive]}
-          onPress={() => {
-            Haptics.selectionAsync();
-            setActiveTab('episodes');
-          }}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              {
-                color: activeTab === 'episodes' ? GOLD_ACCENT : colors.onSurfaceVariant,
-                fontWeight: activeTab === 'episodes' ? '800' : '600',
-                ...typography.labelMd,
-              },
-            ]}
-          >
-            Episodes {episodes.length ? `(${episodes.length})` : ''}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'availability' && styles.tabButtonActive]}
-          onPress={() => {
-            Haptics.selectionAsync();
-            setActiveTab('availability');
-          }}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              {
-                color: activeTab === 'availability' ? GOLD_ACCENT : colors.onSurfaceVariant,
-                ...typography.labelMd,
-              },
-            ]}
-          >
-            Where To Watch
-          </Text>
-        </TouchableOpacity>
+      {/* Episodes Section Header */}
+      <View style={styles.sectionHeaderRow}>
+        <Text style={[styles.sectionTitle, typography.labelMd, { color: GOLD_ACCENT }]}>
+          Episodes {episodes.length ? `(${episodes.length})` : ''}
+        </Text>
       </View>
 
-      {/* Tab Content: EPISODES */}
-      {activeTab === 'episodes' && (
-        <View style={styles.episodesContainer}>
+      {/* Episodes List */}
+      <View style={styles.episodesContainer}>
           {episodesLoading ? (
             <View style={styles.loaderCenter}>
               <ActivityIndicator size="small" color={GOLD_ACCENT} />
@@ -578,8 +510,8 @@ export function SeasonDetailSheetContent({
                         {isLoadingStream
                           ? 'Searching Swarms...'
                           : isExpanded
-                          ? 'Hide Stream Sources'
-                          : 'Stream Episode'}
+                          ? 'Hide Sources'
+                          : 'Play Episode'}
                       </Text>
                       {sources.length > 0 && !isExpanded && (
                         <Text
@@ -604,7 +536,7 @@ export function SeasonDetailSheetContent({
                             { color: colors.onSurfaceVariant, ...typography.labelSm },
                           ]}
                         >
-                          No active streams found for this episode.
+                          No active sources found for this episode.
                         </Text>
                       ) : (
                         sources.slice(0, 4).map((source) => (
@@ -671,7 +603,7 @@ export function SeasonDetailSheetContent({
                               >
                                 <Ionicons name="play" size={13} color={GOLD_ACCENT} />
                                 <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-                                  Stream
+                                  Play
                                 </Text>
                               </TouchableOpacity>
                             </View>
@@ -685,129 +617,7 @@ export function SeasonDetailSheetContent({
             })
           )}
         </View>
-      )}
 
-      {/* Tab Content: WHERE TO WATCH (Original Availability Table) */}
-      {activeTab === 'availability' && (
-        <View style={styles.block}>
-          <ProgrammeEyebrowLabel eyebrow="Where To Watch This Season" />
-
-          {!rows ? (
-            <View style={styles.fallbackRow}>
-              <Ionicons
-                name="information-circle-outline"
-                size={16}
-                color={colors.onSurfaceVariant}
-              />
-              <Text
-                style={[
-                  styles.fallbackText,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-              >
-                Season-by-season availability isn&apos;t available for this show — see Where To
-                Watch for the series-wide answer.
-              </Text>
-            </View>
-          ) : rows.length === 0 ? (
-            <View style={styles.fallbackRow}>
-              <Ionicons name="earth-outline" size={16} color={colors.onSurfaceVariant} />
-              <Text
-                style={[
-                  styles.fallbackText,
-                  { color: colors.onSurfaceVariant, ...typography.labelSm },
-                ]}
-              >
-                This season isn&apos;t free to stream anywhere right now.
-              </Text>
-            </View>
-          ) : (
-            <>
-              {homeCountry ? (
-                <View
-                  style={styles.homeStatus}
-                  accessible
-                  accessibilityLabel={`In your country, ${homeCountry.label}: ${
-                    homeRow
-                      ? serviceLabelsForRow(homeRow).join(', ')
-                      : 'this season is not free to stream'
-                  }`}
-                >
-                  <View style={styles.homeStatusBody}>
-                    <Text
-                      style={[
-                        styles.homeStatusLabel,
-                        { color: colors.onSurfaceVariant, ...typography.labelSm },
-                      ]}
-                    >
-                      {`Your country · ${homeCountry.label}`}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.homeStatusDetail,
-                        {
-                          color: homeRow ? GOLD_ACCENT : colors.onSurfaceVariant,
-                          ...typography.bodyMd,
-                        },
-                      ]}
-                      numberOfLines={2}
-                    >
-                      {homeRow
-                        ? serviceLabelsForRow(homeRow).join(', ')
-                        : 'Not free to stream here right now'}
-                    </Text>
-                  </View>
-                </View>
-              ) : null}
-
-              <View style={styles.table}>
-                {rows.map((row) => {
-                  const isHome = homeCountry ? row.code === homeCountry.code : false;
-                  const rowServices = serviceLabelsForRow(row);
-                  return (
-                    <View
-                      key={row.code}
-                      style={styles.tableRow}
-                      accessible
-                      accessibilityLabel={`${row.country}${
-                        isHome ? ', your country' : ''
-                      }: ${rowServices.join(', ')}`}
-                    >
-                      <Text
-                        style={[
-                          styles.countryName,
-                          { color: isHome ? GOLD_ACCENT : colors.onSurface, ...typography.bodyMd },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {row.country}
-                      </Text>
-                      <View style={styles.providerBadges} importantForAccessibility="no">
-                        {providerSummary.map((provider) =>
-                          row.providers[provider.key] ? (
-                            provider.logoUrl ? (
-                              <Image
-                                key={provider.key}
-                                source={{ uri: provider.logoUrl }}
-                                style={styles.serviceLogo}
-                              />
-                            ) : (
-                              <View
-                                key={provider.key}
-                                style={[styles.dot, { backgroundColor: provider.fallbackColor }]}
-                              />
-                            )
-                          ) : null,
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </>
-          )}
-        </View>
-      )}
     </ScrollView>
   );
 }
@@ -881,17 +691,14 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 24,
   },
-  tabBar: {
-    flexDirection: 'row',
-    gap: 20,
-    marginBottom: 16,
+  sectionHeaderRow: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    marginBottom: 12,
   },
-  tabButton: {
-    paddingBottom: 4,
-  },
-  tabButtonActive: {},
-  tabText: {
-    letterSpacing: 0.4,
+  sectionTitle: {
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   episodesContainer: {
     gap: 20,
@@ -1042,66 +849,5 @@ const styles = StyleSheet.create({
   streamPrimaryText: {
     color: GOLD_ACCENT,
     fontWeight: '700',
-  },
-  block: {
-    marginBottom: 28,
-  },
-  fallbackRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  fallbackText: {
-    flex: 1,
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  homeStatus: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 0,
-    paddingVertical: 8,
-  },
-  homeStatusBody: {
-    flex: 1,
-  },
-  homeStatusLabel: {
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    marginBottom: 2,
-    textTransform: 'uppercase',
-  },
-  homeStatusDetail: {
-    fontWeight: '700',
-  },
-  table: {
-    marginTop: 12,
-  },
-  tableRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 0,
-    paddingVertical: 8,
-  },
-  tableRowHome: {},
-  countryName: {
-    flex: 1,
-    fontWeight: '500',
-  },
-  providerBadges: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  dot: {
-    borderRadius: 4,
-    height: 8,
-    width: 8,
-  },
-  serviceLogo: {
-    borderRadius: 6,
-    height: 24,
-    width: 24,
   },
 });
