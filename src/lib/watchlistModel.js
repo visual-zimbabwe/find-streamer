@@ -4,6 +4,7 @@ import {
   WATCHLIST_CATEGORIES,
   getWatchlistCategory,
 } from './watchlistCategories.js';
+import { resolveLanguageLabel } from './languages.js';
 
 /** @typedef {import('./types.js').WatchlistItem} WatchlistItem */
 /** @typedef {import('./types.js').WatchlistCollection} WatchlistCollection */
@@ -287,26 +288,7 @@ export function topWatchlistLanguages(
     .map(([code]) => code);
 }
 
-/**
- * Maps an ISO 639-1 code to a human-readable English label.
- * @param {string} code
- * @returns {string}
- */
-export function resolveLanguageLabel(code) {
-  if (!code) return 'Other';
-  const clean = String(code).toLowerCase().trim();
-  if (clean === 'other') return 'Other';
-  try {
-    if (typeof Intl !== 'undefined' && Intl.DisplayNames) {
-      const dn = new Intl.DisplayNames(['en'], { type: 'language' });
-      const name = dn.of(clean);
-      if (name && name.toLowerCase() !== clean) {
-        return name;
-      }
-    }
-  } catch {}
-  return clean.toUpperCase();
-}
+export { resolveLanguageLabel };
 
 /**
  * Derives all distinct original languages for titles in the user's active watchlist/collections,

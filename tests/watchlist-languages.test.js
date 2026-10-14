@@ -89,13 +89,48 @@ test('empty / non-array input yields no languages', () => {
 
 test('resolveLanguageLabel maps ISO codes to English names', () => {
   assert.equal(resolveLanguageLabel('en'), 'English');
+  assert.equal(resolveLanguageLabel('da'), 'Danish');
+  assert.equal(resolveLanguageLabel('fr'), 'French');
+  assert.equal(resolveLanguageLabel('de'), 'German');
   assert.equal(resolveLanguageLabel('ko'), 'Korean');
   assert.equal(resolveLanguageLabel('ja'), 'Japanese');
-  assert.equal(resolveLanguageLabel('fr'), 'French');
+  assert.equal(resolveLanguageLabel('zh'), 'Chinese');
+  assert.equal(resolveLanguageLabel('cn'), 'Cantonese');
   assert.equal(resolveLanguageLabel('es'), 'Spanish');
+  assert.equal(resolveLanguageLabel('nl'), 'Dutch');
+  assert.equal(resolveLanguageLabel('no'), 'Norwegian');
+  assert.equal(resolveLanguageLabel('ar'), 'Arabic');
+  assert.equal(resolveLanguageLabel('sv'), 'Swedish');
+  assert.equal(resolveLanguageLabel('it'), 'Italian');
+  assert.equal(resolveLanguageLabel('ru'), 'Russian');
+  assert.equal(resolveLanguageLabel('pt'), 'Portuguese');
+  assert.equal(resolveLanguageLabel('hi'), 'Hindi');
+  assert.equal(resolveLanguageLabel('en-US'), 'English');
+  assert.equal(resolveLanguageLabel('pt-BR'), 'Portuguese');
   assert.equal(resolveLanguageLabel('other'), 'Other');
+  assert.equal(resolveLanguageLabel('xx'), 'No Language');
   assert.equal(resolveLanguageLabel(''), 'Other');
   assert.equal(resolveLanguageLabel(null), 'Other');
+  assert.equal(resolveLanguageLabel(undefined), 'Other');
+});
+
+test('resolveLanguageLabel works without Intl.DisplayNames (Hermes runtime simulation)', () => {
+  const originalDisplayNames = Intl.DisplayNames;
+  try {
+    // @ts-ignore
+    delete Intl.DisplayNames;
+    assert.equal(resolveLanguageLabel('en'), 'English');
+    assert.equal(resolveLanguageLabel('da'), 'Danish');
+    assert.equal(resolveLanguageLabel('fr'), 'French');
+    assert.equal(resolveLanguageLabel('de'), 'German');
+    assert.equal(resolveLanguageLabel('ko'), 'Korean');
+    assert.equal(resolveLanguageLabel('zh'), 'Chinese');
+    assert.equal(resolveLanguageLabel('nl'), 'Dutch');
+    assert.equal(resolveLanguageLabel('no'), 'Norwegian');
+    assert.equal(resolveLanguageLabel('ar'), 'Arabic');
+  } finally {
+    Intl.DisplayNames = originalDisplayNames;
+  }
 });
 
 // ─── getAvailableWatchlistLanguages ────────────────────────────────────────────
