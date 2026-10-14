@@ -23,7 +23,16 @@ extern const char *_GoStringPtr(_GoString_ s);
 
 #line 3 "main.go"
 
+
 #include <stdlib.h>
+#include <android/log.h>
+
+static void android_log_info(const char* tag, const char* msg) {
+    __android_log_print(ANDROID_LOG_INFO, tag, "%s", msg);
+}
+static void android_log_error(const char* tag, const char* msg) {
+    __android_log_print(ANDROID_LOG_ERROR, tag, "%s", msg);
+}
 
 #line 1 "cgo-generated-wrapper"
 

@@ -13,8 +13,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import * as IntentLauncher from 'expo-intent-launcher';
-import * as ScreenOrientation from 'expo-screen-orientation';
 import { toastiva } from 'toastiva';
 import { serviceLabelsForRow } from '../lib/providerAvailability';
 import { loadWhereToWatchPrefs } from '../lib/whereToWatch';
@@ -26,6 +24,7 @@ import {
   searchEpisodeTorrents,
   searchSeasonPackTorrents,
 } from '../lib/torrentSearchEngine';
+import { launchStream } from '../lib/streamLauncher';
 
 function pluralize(count, singular, plural = `${singular}s`) {
   return `${count || 0} ${(count || 0) === 1 ? singular : plural}`;
@@ -141,83 +140,9 @@ export function SeasonDetailSheetContent({
   const topSeasonPack = seasonPacks[0] || null;
 
   // Stream launch helper (auto opens mpv.android with auto-play in landscape)
-  const handleLaunchStream = useCallback(async (magnetUrl, releaseName) => {
+  const handleLaunchStream = useCallback(async (magnetUrl, releaseName, fileIdx) => {
     Haptics.selectionAsync();
-
-    // On Android, stream through local embedded engine directly into mpv in landscape
-    if (Platform.OS === 'android') {
-      const streamUrl = `http://127.0.0.1:8899/stream?magnet=${encodeURIComponent(magnetUrl)}`;
-
-      // Prime swarm metadata in background
-      try {
-        fetch(`http://127.0.0.1:8899/preload?magnet=${encodeURIComponent(magnetUrl)}`).catch(() => {});
-      } catch {
-        // Preload is opportunistic
-      }
-
-      // Lock orientation to LANDSCAPE prior to launching the player
-      try {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-      } catch (orientErr) {
-        console.log('[handleLaunchStream] Orientation lock error:', orientErr);
-      }
-
-      toastiva.info('Streaming in mpv (Landscape)...');
-
-      try {
-        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-          data: streamUrl,
-          type: 'video/*',
-          packageName: 'is.xyz.mpv',
-          className: 'is.xyz.mpv.MPVActivity',
-          extra: {
-            title: releaseName || 'Trova Stream',
-          },
-        });
-        return;
-      } catch (mpvError) {
-        console.log('[handleLaunchStream] MPVActivity direct launch failed, attempting generic video viewer:', mpvError);
-        try {
-          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-            data: streamUrl,
-            type: 'video/*',
-            extra: {
-              title: releaseName || 'Trova Stream',
-            },
-          });
-          return;
-        } catch (genericError) {
-          console.log('[handleLaunchStream] Generic video player launch failed:', genericError);
-          // Fallback to launching the mpv app or system magnet
-          try {
-            IntentLauncher.openApplication('is.xyz.mpv');
-            return;
-          } catch {
-            // Fall through to system magnet handler
-          }
-        }
-      } finally {
-        // Restore portrait orientation upon returning to Trova
-        try {
-          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-        } catch {
-          // Ignored
-        }
-      }
-    }
-
-    // Fallback: try default system magnet handler
-    try {
-      const supported = await Linking.canOpenURL(magnetUrl);
-      if (supported) {
-        await Linking.openURL(magnetUrl);
-        return;
-      }
-    } catch {
-      // Ignored - fall through to toast
-    }
-
-    toastiva.info('Unable to launch video player');
+    await launchStream({ magnetUrl, title: releaseName, fileIdx });
   }, []);
 
   // Toggle season pack drawer
@@ -432,7 +357,7 @@ export function SeasonDetailSheetContent({
                   <View style={styles.sourceActionsRow}>
                     <TouchableOpacity
                       style={styles.streamPrimaryBtn}
-                      onPress={() => handleLaunchStream(pack.magnetUrl, pack.name)}
+                      onPress={() => handleLaunchStream(pack.magnetUrl, pack.name, pack.fileIdx)}
                       activeOpacity={0.7}
                     >
                       <Ionicons name="play" size={13} color={GOLD_ACCENT} />
@@ -731,7 +656,7 @@ export function SeasonDetailSheetContent({
                             <View style={styles.sourceActionsRow}>
                               <TouchableOpacity
                                 style={styles.streamPrimaryBtn}
-                                onPress={() => handleLaunchStream(source.magnetUrl, source.name)}
+                                onPress={() => handleLaunchStream(source.magnetUrl, source.name, source.fileIdx)}
                                 activeOpacity={0.7}
                               >
                                 <Ionicons name="play" size={13} color={GOLD_ACCENT} />

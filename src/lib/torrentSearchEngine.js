@@ -86,9 +86,10 @@ export function isSeasonPack(name) {
  * Enhances a bare infohash or existing magnet link with Tier-1 public trackers.
  * @param {string} magnetOrHash
  * @param {string} [displayName]
+ * @param {string[]} [extraTrackers]
  * @returns {string}
  */
-export function enhanceMagnet(magnetOrHash, displayName = '') {
+export function enhanceMagnet(magnetOrHash, displayName = '', extraTrackers = []) {
   if (!magnetOrHash) return '';
   let magnet = magnetOrHash.trim();
 
@@ -105,11 +106,15 @@ export function enhanceMagnet(magnetOrHash, displayName = '') {
     }
   }
 
+  const allTrackers = [...PUBLIC_TRACKERS, ...(Array.isArray(extraTrackers) ? extraTrackers : [])];
   // Inject trackers not already present in the magnet URL
   const existingLower = magnet.toLowerCase();
-  const missingTrackers = PUBLIC_TRACKERS.filter(
-    (tracker) => !existingLower.includes(encodeURIComponent(tracker).toLowerCase()) && !existingLower.includes(tracker.toLowerCase()),
-  );
+  const seenTrackers = new Set();
+  const missingTrackers = allTrackers.filter((tracker) => {
+    if (!tracker || seenTrackers.has(tracker)) return false;
+    seenTrackers.add(tracker);
+    return !existingLower.includes(encodeURIComponent(tracker).toLowerCase()) && !existingLower.includes(tracker.toLowerCase());
+  });
 
   const trackerParams = missingTrackers.map((t) => `&tr=${encodeURIComponent(t)}`).join('');
   return magnet + trackerParams;
@@ -206,7 +211,8 @@ export function calculateMatchScore(releaseName, query, options = {}) {
   let matchedCount = 0;
   for (const qWord of testWords) {
     const stem = qWord.endsWith('s') && qWord.length > 3 ? qWord.slice(0, -1) : qWord;
-    if (releaseWords.some((rw) => rw === stem || rw.startsWith(stem) || rw.includes(stem))) {
+    const isShort = stem.length <= 3;
+    if (releaseWords.some((rw) => (isShort ? rw === stem : rw === stem || rw.startsWith(stem)))) {
       matchedCount += 1;
     }
   }
@@ -224,37 +230,72 @@ export function calculateMatchScore(releaseName, query, options = {}) {
     score += 80;
   }
 
-  // Year bonus
-  if (options.year && normRelease.includes(String(options.year))) {
-    score += 40;
-  }
+  // Movie-specific filtering and scoring
+  if (options.isMovie) {
+    const parsedSe = extractSeasonEpisode(releaseName);
+    if (parsedSe.season != null && parsedSe.episode != null) {
+      return 0; // Exclude TV episodes
+    }
+    if (isSeasonPack(releaseName)) {
+      return 0; // Exclude season packs
+    }
+    if (/\b(s\d{1,2}e\d{1,2}|season\s*\d+|complete\s*series)\b/i.test(normRelease)) {
+      return 0; // Exclude TV shows
+    }
 
-  // Season Pack bonus
-  if (isSeasonPack(releaseName)) {
-    score += 30;
-  }
-
-  // Episode target validation & bonus
-  if (options.episode != null && options.season != null) {
-    const sNum = Number(options.season);
-    const eNum = Number(options.episode);
-    const parsed = extractSeasonEpisode(releaseName);
-    if (parsed.season != null && parsed.episode != null) {
-      if (parsed.season !== sNum || parsed.episode !== eNum) {
-        return 0; // Explicitly reject mismatching season or episode
+    if (options.year) {
+      const targetYear = Number(options.year);
+      const yearMatch = normRelease.match(/\b(19\d\d|20\d\d)\b/);
+      if (yearMatch) {
+        const relYear = Number(yearMatch[1]);
+        const diff = Math.abs(relYear - targetYear);
+        if (diff > 1) {
+          return 0; // Exclude different movies
+        }
+        if (diff === 0) {
+          score += 60;
+        } else if (diff === 1) {
+          score += 30;
+        }
       }
-      score += 180;
-    } else {
-      const epTokens = [
-        `s${String(sNum).padStart(2, '0')}e${String(eNum).padStart(2, '0')}`,
-        `s${sNum}e${eNum}`,
-        `${sNum}x${String(eNum).padStart(2, '0')}`,
-        `${sNum}x${eNum}`,
-      ];
-      if (epTokens.some((tok) => normRelease.includes(tok))) {
-        score += 150;
+      if (normRelease.includes(`${normQuery} ${options.year}`)) {
+        score += 40;
+      }
+    }
+  } else {
+    // TV show logic
+    // Year bonus
+    if (options.year && normRelease.includes(String(options.year))) {
+      score += 40;
+    }
+
+    // Season Pack bonus
+    if (isSeasonPack(releaseName)) {
+      score += 30;
+    }
+
+    // Episode target validation & bonus
+    if (options.episode != null && options.season != null) {
+      const sNum = Number(options.season);
+      const eNum = Number(options.episode);
+      const parsed = extractSeasonEpisode(releaseName);
+      if (parsed.season != null && parsed.episode != null) {
+        if (parsed.season !== sNum || parsed.episode !== eNum) {
+          return 0; // Explicitly reject mismatching season or episode
+        }
+        score += 180;
       } else {
-        return 0; // Exclude non-matching releases for episode queries
+        const epTokens = [
+          `s${String(sNum).padStart(2, '0')}e${String(eNum).padStart(2, '0')}`,
+          `s${sNum}e${eNum}`,
+          `${sNum}x${String(eNum).padStart(2, '0')}`,
+          `${sNum}x${eNum}`,
+        ];
+        if (epTokens.some((tok) => normRelease.includes(tok))) {
+          score += 150;
+        } else {
+          return 0; // Exclude non-matching releases for episode queries
+        }
       }
     }
   }
@@ -265,6 +306,7 @@ export function calculateMatchScore(releaseName, query, options = {}) {
 /**
  * Fetch torrents from APIBay.
  * @param {string} query
+ * @param {string | null} [category]
  * @returns {Promise<Array<{
  *   name: string;
  *   infoHash: string;
@@ -272,9 +314,10 @@ export function calculateMatchScore(releaseName, query, options = {}) {
  *   size: number;
  *   source: string;
  *   magnetUrl: string;
+ *   imdb?: string | null;
  * }>>}
  */
-export async function fetchApibay(query) {
+export async function fetchApibay(query, category = null) {
   try {
     const clean = sanitizeQuery(query);
     if (!clean) return [];
@@ -282,7 +325,10 @@ export async function fetchApibay(query) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    const url = `https://apibay.org/q.php?q=${encodeURIComponent(clean)}`;
+    let url = `https://apibay.org/q.php?q=${encodeURIComponent(clean)}`;
+    if (category) {
+      url += `&cat=${category}`;
+    }
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
@@ -306,6 +352,7 @@ export async function fetchApibay(query) {
         size: Number(item.size) || 0,
         source: 'apibay',
         magnetUrl: enhanceMagnet(item.info_hash, item.name),
+        imdb: item.imdb || null,
       }));
   } catch {
     return [];
@@ -378,7 +425,164 @@ export async function fetchEztv({ search, imdbId, season, episode }) {
 }
 
 /**
- * High-level search for a specific TV episode across APIBay and EZTV.
+ * Parses byte size string from Torrentio stream title (e.g. "1.54 GB" or "744.37 MB").
+ * @param {string} title
+ * @returns {number}
+ */
+export function parseTorrentioSize(title) {
+  if (!title) return 0;
+  const match = title.match(new RegExp('\\u{1F4BE}\\s*([0-9.]+)\\s*([KMGT]?B)', 'iu'));
+  if (!match) return 0;
+  const num = parseFloat(match[1]);
+  const unit = match[2].toUpperCase();
+  if (unit === 'GB' || unit === 'GIB') return Math.round(num * 1024 * 1024 * 1024);
+  if (unit === 'MB' || unit === 'MIB') return Math.round(num * 1024 * 1024);
+  if (unit === 'KB' || unit === 'KIB') return Math.round(num * 1024);
+  if (unit === 'TB' || unit === 'TIB') return Math.round(num * 1024 * 1024 * 1024 * 1024);
+  return Math.round(num);
+}
+
+/**
+ * Parses seeder count from Torrentio stream title (e.g. 78 seeds).
+ * @param {string} title
+ * @returns {number}
+ */
+export function parseTorrentioSeeders(title) {
+  if (!title) return 0;
+  const match = title.match(new RegExp('\\u{1F464}\\s*(\\d+)', 'u'));
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+/**
+ * Parses provider source name from Torrentio stream title (e.g. YTS).
+ * @param {string} title
+ * @returns {string}
+ */
+export function parseTorrentioSource(title) {
+  if (!title) return 'torrentio';
+  const match = title.match(new RegExp('\\u{2699}(?:\\u{FE0F})?\\s*([^\\n\\r]+)', 'u'));
+  return match ? match[1].trim() : 'torrentio';
+}
+
+/**
+ * Fetch torrents from Torrentio provider aggregator (1337x, YTS, TorrentGalaxy, Rutracker).
+ * @param {{
+ *   imdbId: string;
+ *   season?: number | string;
+ *   episode?: number | string;
+ * }} params
+ * @returns {Promise<Array<{
+ *   name: string;
+ *   infoHash: string;
+ *   seeders: number;
+ *   size: number;
+ *   source: string;
+ *   magnetUrl: string;
+ *   fileIdx?: number | null;
+ *   season?: number;
+ *   episode?: number;
+ * }>>}
+ */
+export async function fetchTorrentio({ imdbId, season, episode }) {
+  try {
+    if (!imdbId) return [];
+    const cleanImdb = String(imdbId).startsWith('tt') ? String(imdbId) : `tt${imdbId}`;
+    let url = '';
+    if (season != null && episode != null) {
+      url = `https://torrentio.strem.fun/stream/series/${cleanImdb}:${season}:${episode}.json`;
+    } else {
+      url = `https://torrentio.strem.fun/stream/movie/${cleanImdb}.json`;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Trova)',
+      },
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    const streams = data?.streams;
+    if (!Array.isArray(streams) || !streams.length) return [];
+
+    return streams
+      .filter((item) => item.infoHash)
+      .map((item) => {
+        const titleStr = item.title || '';
+        const lines = titleStr.split('\n').map((l) => l.trim()).filter(Boolean);
+        const name = item.behaviorHints?.filename || lines[0] || 'Unknown Release';
+        const seeders = parseTorrentioSeeders(titleStr);
+        const size = parseTorrentioSize(titleStr);
+        const source = parseTorrentioSource(titleStr);
+        const extraTrackers = Array.isArray(item.sources)
+          ? item.sources
+              .filter((s) => typeof s === 'string' && s.startsWith('tracker:'))
+              .map((s) => s.slice(8))
+          : [];
+
+        return {
+          name,
+          infoHash: item.infoHash.toLowerCase(),
+          seeders,
+          size,
+          source: `torrentio (${source})`,
+          magnetUrl: enhanceMagnet(item.infoHash, name, extraTrackers),
+          fileIdx: typeof item.fileIdx === 'number' ? item.fileIdx : null,
+          imdb: imdbId,
+          season: season != null ? Number(season) : undefined,
+          episode: episode != null ? Number(episode) : undefined,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Resolves IMDb ID by title and optional media type via Cinemeta catalog API.
+ * @param {string} title
+ * @param {'movie' | 'series'} [type]
+ * @returns {Promise<string | null>}
+ */
+export async function resolveImdbId(title, type = 'movie') {
+  try {
+    const clean = sanitizeQuery(title);
+    if (!clean) return null;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(
+      `https://v3-cinemeta.strem.io/catalog/${type}/top/search=${encodeURIComponent(clean)}.json`,
+      {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Trova)',
+        },
+      },
+    );
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.metas?.[0]?.imdb_id || data?.metas?.[0]?.id || null;
+  } catch {
+    return null;
+  }
+}
+
+function resolutionBonus(res) {
+  if (res === '1080p') return 80;
+  if (res === '720p') return 60;
+  if (res === '4K') return 40;
+  if (res === 'HD') return 30;
+  return 10;
+}
+
+/**
+ * High-level search for a specific TV episode across Torrentio, APIBay, and EZTV.
  * @param {{
  *   seriesTitle: string;
  *   seasonNumber: number;
@@ -393,6 +597,7 @@ export async function fetchEztv({ search, imdbId, season, episode }) {
  *   formattedSize: string;
  *   source: string;
  *   magnetUrl: string;
+ *   fileIdx?: number | null;
  *   score: number;
  *   attributes: ReturnType<typeof parseReleaseAttributes>;
  * }>>}
@@ -404,15 +609,26 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
   const query = `${seriesTitle} ${epTag}`;
 
   const cleanTitle = sanitizeQuery(seriesTitle);
+  let cleanImdb = imdbId ? (String(imdbId).startsWith('tt') ? String(imdbId) : `tt${imdbId}`) : null;
+  if (!cleanImdb && cleanTitle) {
+    cleanImdb = await resolveImdbId(cleanTitle, 'series');
+  }
 
   // Concurrently query sources targeted at this specific episode
-  const [apibayEp, apibayX, eztvResults] = await Promise.all([
+  const queries = [
     fetchApibay(query),
     fetchApibay(`${cleanTitle} ${seasonNumber}x${eStr}`),
-    fetchEztv({ imdbId, search: `${cleanTitle} ${epTag}` }),
-  ]);
+    fetchEztv({ imdbId: cleanImdb || imdbId, search: `${cleanTitle} ${epTag}` }),
+  ];
 
-  const rawCandidates = [...apibayEp, ...apibayX, ...eztvResults];
+  if (cleanImdb) {
+    queries.push(
+      fetchTorrentio({ imdbId: cleanImdb, season: seasonNumber, episode: episodeNumber }),
+    );
+  }
+
+  const resultsArrays = await Promise.all(queries);
+  const rawCandidates = resultsArrays.flat();
 
   const seen = new Set();
   const scored = [];
@@ -421,8 +637,10 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
     if (!item.infoHash || seen.has(item.infoHash)) continue;
     seen.add(item.infoHash);
 
+    const isTorrentioExact = item.source?.startsWith('torrentio');
+
     // Reject pure season packs for single episode searches
-    if (isSeasonPack(item.name)) {
+    if (!isTorrentioExact && isSeasonPack(item.name)) {
       const parsed = extractSeasonEpisode(item.name);
       if (parsed.season !== seasonNumber || parsed.episode !== episodeNumber) {
         continue;
@@ -437,17 +655,23 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
     }
 
     // Verify parsed season/episode matches if present in title
-    const parsed = extractSeasonEpisode(item.name);
-    if (parsed.season != null && parsed.episode != null) {
-      if (parsed.season !== seasonNumber || parsed.episode !== episodeNumber) {
-        continue;
+    if (!isTorrentioExact) {
+      const parsed = extractSeasonEpisode(item.name);
+      if (parsed.season != null && parsed.episode != null) {
+        if (parsed.season !== seasonNumber || parsed.episode !== episodeNumber) {
+          continue;
+        }
       }
     }
 
-    const score = calculateMatchScore(item.name, cleanTitle, {
+    let score = calculateMatchScore(item.name, cleanTitle, {
       season: seasonNumber,
       episode: episodeNumber,
     });
+
+    if (score <= 0 && isTorrentioExact) {
+      score = 80;
+    }
 
     if (score > 0) {
       scored.push({
@@ -459,8 +683,23 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
     }
   }
 
-  // Rank by score * 1000 + seed count
-  scored.sort((a, b) => b.score * 1000 + b.seeders - (a.score * 1000 + a.seeders));
+  // Rank active swarms strictly above dead (0 seeders) swarms
+  scored.sort((a, b) => {
+    const aHasSeeds = a.seeders > 0;
+    const bHasSeeds = b.seeders > 0;
+    if (aHasSeeds !== bHasSeeds) {
+      return aHasSeeds ? -1 : 1;
+    }
+
+    const aDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(a.name) ? -100 : 0;
+    const bDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(b.name) ? -100 : 0;
+
+    const aWeight =
+      a.score * 30 + Math.min(a.seeders, 300) * 30 + resolutionBonus(a.attributes?.resolution) + aDubOnly;
+    const bWeight =
+      b.score * 30 + Math.min(b.seeders, 300) * 30 + resolutionBonus(b.attributes?.resolution) + bDubOnly;
+    return bWeight - aWeight;
+  });
 
   return scored;
 }
@@ -504,7 +743,10 @@ export async function searchSeasonPackTorrents({ seriesTitle, seasonNumber, imdb
 
     // Filter to ensure it represents this season and is a pack
     const norm = item.name.toLowerCase();
-    const hasSeason = norm.includes(`s${sStr}`) || norm.includes(`season ${seasonNumber}`) || norm.includes(`season ${sStr}`);
+    const hasSeason =
+      norm.includes(`s${sStr}`) ||
+      norm.includes(`season ${seasonNumber}`) ||
+      norm.includes(`season ${sStr}`);
     if (!hasSeason) continue;
 
     // Reject single episode releases (e.g. S01E05) unless marked complete/batch
@@ -520,6 +762,140 @@ export async function searchSeasonPackTorrents({ seriesTitle, seasonNumber, imdb
     });
   }
 
-  packs.sort((a, b) => b.seeders - a.seeders);
+  packs.sort((a, b) => {
+    const aHasSeeds = a.seeders > 0;
+    const bHasSeeds = b.seeders > 0;
+    if (aHasSeeds !== bHasSeeds) return aHasSeeds ? -1 : 1;
+    return b.seeders - a.seeders;
+  });
   return packs;
 }
+
+/**
+ * High-level search for Movie torrents across Torrentio (1337x, YTS, TorrentGalaxy, Rutracker) and APIBay.
+ * @param {{
+ *   title: string;
+ *   year?: number | string | null;
+ *   imdbId?: string | null;
+ * }} params
+ * @returns {Promise<Array<{
+ *   name: string;
+ *   infoHash: string;
+ *   seeders: number;
+ *   size: number;
+ *   formattedSize: string;
+ *   source: string;
+ *   magnetUrl: string;
+ *   fileIdx?: number | null;
+ *   score: number;
+ *   attributes: ReturnType<typeof parseReleaseAttributes>;
+ * }>>}
+ */
+export async function searchMovieTorrents({ title, year, imdbId }) {
+  const cleanTitle = sanitizeQuery(title);
+  if (!cleanTitle && !imdbId) return [];
+
+  let cleanImdb = imdbId ? (String(imdbId).startsWith('tt') ? String(imdbId) : `tt${imdbId}`) : null;
+  if (!cleanImdb && cleanTitle) {
+    cleanImdb = await resolveImdbId(cleanTitle, 'movie');
+  }
+
+  const queries = [];
+  if (cleanImdb) {
+    queries.push(fetchTorrentio({ imdbId: cleanImdb }));
+    queries.push(fetchApibay(cleanImdb));
+  }
+  if (cleanTitle && year) {
+    queries.push(fetchApibay(`${cleanTitle} ${year}`, '200'));
+  }
+  if (cleanTitle) {
+    queries.push(fetchApibay(cleanTitle, '200'));
+  }
+
+  const resultsArrays = await Promise.all(queries);
+  const rawCandidates = resultsArrays.flat();
+
+  const seen = new Set();
+  const scored = [];
+
+  for (const item of rawCandidates) {
+    if (!item.infoHash || seen.has(item.infoHash)) continue;
+    seen.add(item.infoHash);
+
+    const isTorrentioMatch = item.source?.startsWith('torrentio');
+
+    // Filter and score using movie criteria
+    let score = calculateMatchScore(item.name, cleanTitle || title, {
+      year,
+      isMovie: true,
+    });
+
+    // If candidate came from Torrentio by exact IMDb lookup, ensure baseline score
+    if (score <= 0 && isTorrentioMatch && cleanImdb) {
+      score = 80;
+    }
+
+    if (score <= 0) continue;
+
+    // Grant bonus for matching IMDb ID if present
+    if (cleanImdb && item.imdb && cleanImdb.replace(/^tt/, '') === String(item.imdb).replace(/^tt/, '')) {
+      score += 40;
+    }
+
+    scored.push({
+      ...item,
+      score,
+      formattedSize: formatSize(item.size),
+      attributes: parseReleaseAttributes(item.name),
+    });
+  }
+
+  // Rank active swarms strictly above dead (0 seeders) swarms
+  scored.sort((a, b) => {
+    const aHasSeeds = a.seeders > 0;
+    const bHasSeeds = b.seeders > 0;
+    if (aHasSeeds !== bHasSeeds) {
+      return aHasSeeds ? -1 : 1;
+    }
+
+    // Size feasibility scoring for mobile streaming:
+    // Ideal mobile movie sizes: 0.8 GB - 4.5 GB (1080p / 720p with instant buffering)
+    // Heavy penalty for > 10 GB (e.g. 15-20 GB BluRay remuxes that stall mobile playback)
+    let aSizeBonus = 0;
+    if (a.size > 0) {
+      const aSizeGB = a.size / (1024 * 1024 * 1024);
+      if (aSizeGB >= 0.8 && aSizeGB <= 4.5) {
+        aSizeBonus = 80;
+      } else if (aSizeGB > 10) {
+        aSizeBonus = -200;
+      } else if (aSizeGB > 7) {
+        aSizeBonus = -100;
+      }
+    }
+
+    let bSizeBonus = 0;
+    if (b.size > 0) {
+      const bSizeGB = b.size / (1024 * 1024 * 1024);
+      if (bSizeGB >= 0.8 && bSizeGB <= 4.5) {
+        bSizeBonus = 80;
+      } else if (bSizeGB > 10) {
+        bSizeBonus = -200;
+      } else if (bSizeGB > 7) {
+        bSizeBonus = -100;
+      }
+    }
+
+    // Penalize dubbed-only releases
+    const aDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(a.name) ? -100 : 0;
+    const bDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(b.name) ? -100 : 0;
+
+    const aWeight =
+      a.score * 30 + Math.min(a.seeders, 300) * 30 + resolutionBonus(a.attributes?.resolution) + aSizeBonus + aDubOnly;
+    const bWeight =
+      b.score * 30 + Math.min(b.seeders, 300) * 30 + resolutionBonus(b.attributes?.resolution) + bSizeBonus + bDubOnly;
+    return bWeight - aWeight;
+  });
+
+  return scored;
+}
+

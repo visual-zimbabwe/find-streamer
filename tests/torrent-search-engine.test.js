@@ -9,6 +9,9 @@ import {
   calculateMatchScore,
   extractSeasonEpisode,
   PUBLIC_TRACKERS,
+  parseTorrentioSize,
+  parseTorrentioSeeders,
+  parseTorrentioSource,
 } from '../src/lib/torrentSearchEngine.js';
 
 test('sanitizeQuery removes punctuation and normalizes spaces', () => {
@@ -103,3 +106,88 @@ test('calculateMatchScore gives massive bonus to targeted episode releases and r
   assert.equal(otherEpScore, 0, 'Different episode must be rejected with score 0');
   assert.equal(wrongSeasonScore, 0, 'Different season must be rejected with score 0');
 });
+
+test('calculateMatchScore correctly scores movies and rejects TV releases or wrong year', () => {
+  const movieScore = calculateMatchScore(
+    'Inception (2010) 1080p BrRip x264 - 1.85GB - YIFY',
+    'Inception',
+    { year: 2010, isMovie: true }
+  );
+  assert.ok(movieScore >= 150, `Expected movieScore >= 150, got ${movieScore}`);
+
+  // Rejects TV episodes when searching for a movie
+  const tvEpScore = calculateMatchScore(
+    'Inception S01E01 1080p HDTV',
+    'Inception',
+    { year: 2010, isMovie: true }
+  );
+  assert.equal(tvEpScore, 0, 'TV episodes must be rejected when searching for a movie');
+
+  // Rejects season packs when searching for a movie
+  const tvPackScore = calculateMatchScore(
+    'Inception Season 1 Complete 720p',
+    'Inception',
+    { year: 2010, isMovie: true }
+  );
+  assert.equal(tvPackScore, 0, 'TV season packs must be rejected when searching for a movie');
+
+  // Rejects movie remakes / different years differing by > 1 year
+  const wrongYearScore = calculateMatchScore(
+    'Halloween (1978) 1080p BluRay',
+    'Halloween',
+    { year: 2018, isMovie: true }
+  );
+  assert.equal(wrongYearScore, 0, 'Releases with conflicting years (> 1 year) must be rejected');
+
+  // Allows festival release difference (+/- 1 year)
+  const festivalScore = calculateMatchScore(
+    'Parasite 2019 1080p BluRay',
+    'Parasite',
+    { year: 2020, isMovie: true }
+  );
+  assert.ok(festivalScore > 0, 'Releases with +/- 1 year difference should still match');
+});
+
+test('calculateMatchScore handles short movie titles accurately without substring bleed', () => {
+  const upMatch = calculateMatchScore(
+    'Up 2009 1080p BluRay x264',
+    'Up',
+    { year: 2009, isMovie: true }
+  );
+  assert.ok(upMatch > 0, 'Short title Up must match Up 2009');
+
+  const superbadMatch = calculateMatchScore(
+    'Superbad 2007 1080p',
+    'Up',
+    { year: 2009, isMovie: true }
+  );
+  assert.equal(superbadMatch, 0, 'Superbad must not match query Up');
+});
+
+test('parseTorrentioSize correctly parses sizes in GB, MB, KB, TB', () => {
+  assert.equal(parseTorrentioSize('\u{1F464} 78 \u{1F4BE} 1.5 GB \u{2699}\u{FE0F} YTS'), 1610612736);
+  assert.equal(parseTorrentioSize('\u{1F464} 5 \u{1F4BE} 744.37 MB \u{2699}\u{FE0F} Rutracker'), 780528517);
+  assert.equal(parseTorrentioSize('\u{1F4BE} 500 KB'), 512000);
+  assert.equal(parseTorrentioSize('no size here'), 0);
+  assert.equal(parseTorrentioSize(''), 0);
+});
+
+test('parseTorrentioSeeders correctly extracts seed count', () => {
+  assert.equal(parseTorrentioSeeders('\u{1F464} 78 \u{1F4BE} 1.5 GB \u{2699}\u{FE0F} YTS'), 78);
+  assert.equal(parseTorrentioSeeders('\u{1F464} 0 \u{1F4BE} 1.5 GB'), 0);
+  assert.equal(parseTorrentioSeeders('No icon here'), 0);
+});
+
+test('parseTorrentioSource extracts the origin source', () => {
+  assert.equal(parseTorrentioSource('\u{1F464} 78 \u{1F4BE} 1.5 GB \u{2699}\u{FE0F} YTS'), 'YTS');
+  assert.equal(parseTorrentioSource('\u{1F464} 5 \u{1F4BE} 18 GB \u{2699}\u{FE0F} Rutracker\nMulti Subs'), 'Rutracker');
+  assert.equal(parseTorrentioSource('No gear icon'), 'torrentio');
+});
+
+test('enhanceMagnet includes extraTrackers when provided', () => {
+  const hash = '34ff1fae9661d72152fb1fc31e27c15297072654';
+  const custom = 'udp://custom.tracker.org:8080/announce';
+  const enhanced = enhanceMagnet(hash, 'Test Title', [custom]);
+  assert.ok(enhanced.includes(encodeURIComponent(custom)));
+});
+
