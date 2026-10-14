@@ -15,7 +15,7 @@ const { TorrentStreamerModule } = NativeModules;
  * }} options
  * @returns {Promise<boolean>}
  */
-export async function launchStream({ magnetUrl, title, fileIdx }) {
+export async function launchStream({ magnetUrl, title, fileIdx, imdbId, season, episode }) {
   if (!magnetUrl) return false;
 
   if (Platform.OS === 'android') {
@@ -40,6 +40,34 @@ export async function launchStream({ magnetUrl, title, fileIdx }) {
       // Preload is opportunistic
     }
 
+    // Pre-fetch English subtitles if no English subs in release name
+    let subtitleUrl = null;
+    const hasEnglishSubs = /\b(esub|esubs|eng\.sub|english\.sub|en\.sub)\b/i.test(title || '');
+    if (!hasEnglishSubs && imdbId) {
+      try {
+        const cleanImdb = String(imdbId).trim();
+        let query = `http://127.0.0.1:8899/fetch-subtitle?imdb=${encodeURIComponent(cleanImdb)}`;
+        if (season != null) query += `&season=${season}`;
+        if (episode != null) query += `&episode=${episode}`;
+        if (title) query += `&title=${encodeURIComponent(title)}`;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const subRes = await fetch(query, { signal: controller.signal }).catch(() => null);
+        clearTimeout(timeoutId);
+
+        if (subRes && subRes.ok) {
+          const data = await subRes.json().catch(() => null);
+          if (data?.status && data?.url) {
+            subtitleUrl = data.url;
+            console.log(`[launchStream] Loaded English subtitles from ${data.source}: ${data.url}`);
+          }
+        }
+      } catch (subErr) {
+        console.log('[launchStream] Subtitle fetch error:', subErr);
+      }
+    }
+
     // Lock orientation to LANDSCAPE prior to launching the player
     try {
       await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
@@ -48,6 +76,16 @@ export async function launchStream({ magnetUrl, title, fileIdx }) {
     }
 
     toastiva.info('Streaming in mpv (Landscape)...');
+
+    // Attempt direct native launch with subtitle extras
+    if (TorrentStreamerModule?.launchPlayer) {
+      try {
+        await TorrentStreamerModule.launchPlayer(streamUrl, title || 'Trova Stream', subtitleUrl);
+        return true;
+      } catch (launchErr) {
+        console.log('[launchStream] Native player launch failed, falling back to IntentLauncher:', launchErr);
+      }
+    }
 
     try {
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
