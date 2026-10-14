@@ -17,6 +17,7 @@ import { MediaArtwork } from './MediaArtwork';
 import { ProgrammeEyebrowLabel } from './ProgrammeSectionHeader';
 import { searchMovieTorrents } from '../lib/torrentSearchEngine';
 import { launchStream } from '../lib/streamLauncher';
+import { toastiva } from 'toastiva';
 
 function formatMovieRuntime(minutes) {
   if (!minutes || minutes <= 0) return null;
@@ -94,9 +95,12 @@ export function MovieStreamSheetContent({
   const topStream = streams[0] || null;
 
   const handleLaunch = useCallback(
-    async (magnetUrl, releaseName) => {
+    async (magnetUrl, releaseName, fileIdx, seeders = 1) => {
       Haptics.selectionAsync();
-      await launchStream({ magnetUrl, title: releaseName });
+      if (seeders === 0) {
+        toastiva.info('Warning: Swarm has 0 seeders. Buffering may fail.');
+      }
+      await launchStream({ magnetUrl, title: releaseName, fileIdx });
     },
     [],
   );
@@ -144,7 +148,14 @@ export function MovieStreamSheetContent({
       <View style={styles.autoPlayContainer}>
         <TouchableOpacity
           style={styles.autoPlayHeader}
-          onPress={() => topStream && handleLaunch(topStream.magnetUrl, topStream.name)}
+          onPress={() => {
+            if (!topStream) return;
+            if (topStream.seeders === 0) {
+              toastiva.info('No active peers found in swarm');
+              return;
+            }
+            handleLaunch(topStream.magnetUrl, topStream.name, topStream.fileIdx, topStream.seeders);
+          }}
           activeOpacity={topStream ? 0.7 : 1}
           disabled={!topStream}
         >
@@ -162,14 +173,16 @@ export function MovieStreamSheetContent({
             >
               {streamsLoading
                 ? 'Searching peer swarms for verified releases...'
-                : topStream
-                ? `${topStream.attributes?.resolution} · ${topStream.formattedSize} · ${topStream.seeders} seeds`
-                : 'No peer streams found'}
+                : !topStream
+                ? 'No peer streams found'
+                : topStream.seeders === 0
+                ? 'No active seeders in peer swarm'
+                : `${topStream.attributes?.resolution} · ${topStream.formattedSize} · ${topStream.seeders} seeds`}
             </Text>
           </View>
           {streamsLoading ? (
             <ActivityIndicator size="small" color={GOLD_ACCENT} />
-          ) : topStream ? (
+          ) : topStream && topStream.seeders > 0 ? (
             <Ionicons name="play-circle-outline" size={20} color={GOLD_ACCENT} />
           ) : null}
         </TouchableOpacity>
@@ -282,7 +295,12 @@ export function MovieStreamSheetContent({
                       style={[
                         styles.seedBadge,
                         {
-                          color: item.seeders >= 50 ? '#4CAF50' : '#E5A93C',
+                          color:
+                            item.seeders >= 20
+                              ? '#4CAF50'
+                              : item.seeders > 0
+                              ? '#E5A93C'
+                              : colors.onSurfaceVariant,
                           ...typography.labelSm,
                         },
                       ]}
@@ -303,7 +321,7 @@ export function MovieStreamSheetContent({
                 <View style={styles.streamActionsRow}>
                   <TouchableOpacity
                     style={styles.streamPrimaryBtn}
-                    onPress={() => handleLaunch(item.magnetUrl, item.name)}
+                    onPress={() => handleLaunch(item.magnetUrl, item.name, item.fileIdx, item.seeders)}
                     activeOpacity={0.7}
                   >
                     <Ionicons name="play" size={13} color={GOLD_ACCENT} />

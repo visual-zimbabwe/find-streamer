@@ -9,6 +9,9 @@ import {
   calculateMatchScore,
   extractSeasonEpisode,
   PUBLIC_TRACKERS,
+  parseTorrentioSize,
+  parseTorrentioSeeders,
+  parseTorrentioSource,
 } from '../src/lib/torrentSearchEngine.js';
 
 test('sanitizeQuery removes punctuation and normalizes spaces', () => {
@@ -159,5 +162,32 @@ test('calculateMatchScore handles short movie titles accurately without substrin
     { year: 2009, isMovie: true }
   );
   assert.equal(superbadMatch, 0, 'Superbad must not match query Up');
+});
+
+test('parseTorrentioSize correctly parses sizes in GB, MB, KB, TB', () => {
+  assert.equal(parseTorrentioSize('\u{1F464} 78 \u{1F4BE} 1.5 GB \u{2699}\u{FE0F} YTS'), 1610612736);
+  assert.equal(parseTorrentioSize('\u{1F464} 5 \u{1F4BE} 744.37 MB \u{2699}\u{FE0F} Rutracker'), 780528517);
+  assert.equal(parseTorrentioSize('\u{1F4BE} 500 KB'), 512000);
+  assert.equal(parseTorrentioSize('no size here'), 0);
+  assert.equal(parseTorrentioSize(''), 0);
+});
+
+test('parseTorrentioSeeders correctly extracts seed count', () => {
+  assert.equal(parseTorrentioSeeders('\u{1F464} 78 \u{1F4BE} 1.5 GB \u{2699}\u{FE0F} YTS'), 78);
+  assert.equal(parseTorrentioSeeders('\u{1F464} 0 \u{1F4BE} 1.5 GB'), 0);
+  assert.equal(parseTorrentioSeeders('No icon here'), 0);
+});
+
+test('parseTorrentioSource extracts the origin source', () => {
+  assert.equal(parseTorrentioSource('\u{1F464} 78 \u{1F4BE} 1.5 GB \u{2699}\u{FE0F} YTS'), 'YTS');
+  assert.equal(parseTorrentioSource('\u{1F464} 5 \u{1F4BE} 18 GB \u{2699}\u{FE0F} Rutracker\nMulti Subs'), 'Rutracker');
+  assert.equal(parseTorrentioSource('No gear icon'), 'torrentio');
+});
+
+test('enhanceMagnet includes extraTrackers when provided', () => {
+  const hash = '34ff1fae9661d72152fb1fc31e27c15297072654';
+  const custom = 'udp://custom.tracker.org:8080/announce';
+  const enhanced = enhanceMagnet(hash, 'Test Title', [custom]);
+  assert.ok(enhanced.includes(encodeURIComponent(custom)));
 });
 

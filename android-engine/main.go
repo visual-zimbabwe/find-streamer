@@ -30,10 +30,12 @@ var fallbackTrackers = [][]string{
 	{"udp://tracker.opentrackr.org:1337/announce"},
 	{"udp://open.stealth.si:80/announce"},
 	{"udp://tracker.torrent.eu.org:451/announce"},
+	{"udp://tracker.openbittorrent.com:6969/announce"},
+	{"http://tracker.openbittorrent.com:80/announce"},
 	{"udp://explodie.org:6969/announce"},
 	{"udp://tracker.cyberia.is:6969/announce"},
+	{"udp://tracker.moeking.me:6969/announce"},
 	{"udp://p4p.arenabg.com:1337/announce"},
-	{"http://tracker.openbittorrent.com:80/announce"},
 }
 
 func isVideoExt(name string) bool {
@@ -109,7 +111,7 @@ func preloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Quick check if metadata is ready (up to 12s)
+	// Quick check if metadata is ready (up to 8s)
 	select {
 	case <-t.GotInfo():
 		targetFile := getLargestVideoFile(t)
@@ -124,7 +126,7 @@ func preloadHandler(w http.ResponseWriter, r *http.Request) {
 			"filename": filename,
 			"size":     length,
 		})
-	case <-time.After(12 * time.Second):
+	case <-time.After(8 * time.Second):
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status": "resolving_peers",
 		})
@@ -146,17 +148,30 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Wait up to 60 seconds for metadata resolution
+	// Wait up to 15 seconds for metadata resolution
 	select {
 	case <-t.GotInfo():
-	case <-time.After(60 * time.Second):
+	case <-time.After(15 * time.Second):
 		http.Error(w, "timed out fetching torrent metadata from swarm", http.StatusGatewayTimeout)
 		return
 	case <-r.Context().Done():
 		return
 	}
 
-	targetFile := getLargestVideoFile(t)
+	var targetFile *torrent.File
+	fileIdxStr := r.URL.Query().Get("fileIdx")
+	if fileIdxStr != "" {
+		var idx int
+		if _, err := fmt.Sscanf(fileIdxStr, "%d", &idx); err == nil {
+			files := t.Files()
+			if idx >= 0 && idx < len(files) {
+				targetFile = files[idx]
+			}
+		}
+	}
+	if targetFile == nil {
+		targetFile = getLargestVideoFile(t)
+	}
 	if targetFile == nil {
 		http.Error(w, "no video file found in torrent", http.StatusNotFound)
 		return

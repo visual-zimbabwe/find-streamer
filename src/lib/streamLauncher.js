@@ -13,11 +13,14 @@ import { toastiva } from 'toastiva';
  * }} options
  * @returns {Promise<boolean>}
  */
-export async function launchStream({ magnetUrl, title }) {
+export async function launchStream({ magnetUrl, title, fileIdx }) {
   if (!magnetUrl) return false;
 
   if (Platform.OS === 'android') {
-    const streamUrl = `http://127.0.0.1:8899/stream?magnet=${encodeURIComponent(magnetUrl)}`;
+    let streamUrl = `http://127.0.0.1:8899/stream?magnet=${encodeURIComponent(magnetUrl)}`;
+    if (typeof fileIdx === 'number') {
+      streamUrl += `&fileIdx=${fileIdx}`;
+    }
 
     // Prime swarm metadata in background
     try {

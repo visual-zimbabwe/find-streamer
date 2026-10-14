@@ -86,9 +86,10 @@ export function isSeasonPack(name) {
  * Enhances a bare infohash or existing magnet link with Tier-1 public trackers.
  * @param {string} magnetOrHash
  * @param {string} [displayName]
+ * @param {string[]} [extraTrackers]
  * @returns {string}
  */
-export function enhanceMagnet(magnetOrHash, displayName = '') {
+export function enhanceMagnet(magnetOrHash, displayName = '', extraTrackers = []) {
   if (!magnetOrHash) return '';
   let magnet = magnetOrHash.trim();
 
@@ -105,11 +106,15 @@ export function enhanceMagnet(magnetOrHash, displayName = '') {
     }
   }
 
+  const allTrackers = [...PUBLIC_TRACKERS, ...(Array.isArray(extraTrackers) ? extraTrackers : [])];
   // Inject trackers not already present in the magnet URL
   const existingLower = magnet.toLowerCase();
-  const missingTrackers = PUBLIC_TRACKERS.filter(
-    (tracker) => !existingLower.includes(encodeURIComponent(tracker).toLowerCase()) && !existingLower.includes(tracker.toLowerCase()),
-  );
+  const seenTrackers = new Set();
+  const missingTrackers = allTrackers.filter((tracker) => {
+    if (!tracker || seenTrackers.has(tracker)) return false;
+    seenTrackers.add(tracker);
+    return !existingLower.includes(encodeURIComponent(tracker).toLowerCase()) && !existingLower.includes(tracker.toLowerCase());
+  });
 
   const trackerParams = missingTrackers.map((t) => `&tr=${encodeURIComponent(t)}`).join('');
   return magnet + trackerParams;
@@ -420,7 +425,163 @@ export async function fetchEztv({ search, imdbId, season, episode }) {
 }
 
 /**
- * High-level search for a specific TV episode across APIBay and EZTV.
+ * Parses byte size string from Torrentio stream title (e.g. "1.54 GB" or "744.37 MB").
+ * @param {string} title
+ * @returns {number}
+ */
+export function parseTorrentioSize(title) {
+  if (!title) return 0;
+  const match = title.match(new RegExp('\\u{1F4BE}\\s*([0-9.]+)\\s*([KMGT]?B)', 'iu'));
+  if (!match) return 0;
+  const num = parseFloat(match[1]);
+  const unit = match[2].toUpperCase();
+  if (unit === 'GB' || unit === 'GIB') return Math.round(num * 1024 * 1024 * 1024);
+  if (unit === 'MB' || unit === 'MIB') return Math.round(num * 1024 * 1024);
+  if (unit === 'KB' || unit === 'KIB') return Math.round(num * 1024);
+  if (unit === 'TB' || unit === 'TIB') return Math.round(num * 1024 * 1024 * 1024 * 1024);
+  return Math.round(num);
+}
+
+/**
+ * Parses seeder count from Torrentio stream title (e.g. 78 seeds).
+ * @param {string} title
+ * @returns {number}
+ */
+export function parseTorrentioSeeders(title) {
+  if (!title) return 0;
+  const match = title.match(new RegExp('\\u{1F464}\\s*(\\d+)', 'u'));
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+/**
+ * Parses provider source name from Torrentio stream title (e.g. YTS).
+ * @param {string} title
+ * @returns {string}
+ */
+export function parseTorrentioSource(title) {
+  if (!title) return 'torrentio';
+  const match = title.match(new RegExp('\\u{2699}(?:\\u{FE0F})?\\s*([^\\n\\r]+)', 'u'));
+  return match ? match[1].trim() : 'torrentio';
+}
+
+/**
+ * Fetch torrents from Torrentio provider aggregator (1337x, YTS, TorrentGalaxy, Rutracker).
+ * @param {{
+ *   imdbId: string;
+ *   season?: number | string;
+ *   episode?: number | string;
+ * }} params
+ * @returns {Promise<Array<{
+ *   name: string;
+ *   infoHash: string;
+ *   seeders: number;
+ *   size: number;
+ *   source: string;
+ *   magnetUrl: string;
+ *   fileIdx?: number | null;
+ *   season?: number;
+ *   episode?: number;
+ * }>>}
+ */
+export async function fetchTorrentio({ imdbId, season, episode }) {
+  try {
+    if (!imdbId) return [];
+    const cleanImdb = String(imdbId).startsWith('tt') ? String(imdbId) : `tt${imdbId}`;
+    let url = '';
+    if (season != null && episode != null) {
+      url = `https://torrentio.strem.fun/stream/series/${cleanImdb}:${season}:${episode}.json`;
+    } else {
+      url = `https://torrentio.strem.fun/stream/movie/${cleanImdb}.json`;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Trova)',
+      },
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    const streams = data?.streams;
+    if (!Array.isArray(streams) || !streams.length) return [];
+
+    return streams
+      .filter((item) => item.infoHash)
+      .map((item) => {
+        const titleStr = item.title || '';
+        const lines = titleStr.split('\n').map((l) => l.trim()).filter(Boolean);
+        const name = item.behaviorHints?.filename || lines[0] || 'Unknown Release';
+        const seeders = parseTorrentioSeeders(titleStr);
+        const size = parseTorrentioSize(titleStr);
+        const source = parseTorrentioSource(titleStr);
+        const extraTrackers = Array.isArray(item.sources)
+          ? item.sources
+              .filter((s) => typeof s === 'string' && s.startsWith('tracker:'))
+              .map((s) => s.slice(8))
+          : [];
+
+        return {
+          name,
+          infoHash: item.infoHash.toLowerCase(),
+          seeders,
+          size,
+          source: `torrentio (${source})`,
+          magnetUrl: enhanceMagnet(item.infoHash, name, extraTrackers),
+          fileIdx: typeof item.fileIdx === 'number' ? item.fileIdx : null,
+          season: season != null ? Number(season) : undefined,
+          episode: episode != null ? Number(episode) : undefined,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Resolves IMDb ID by title and optional media type via Cinemeta catalog API.
+ * @param {string} title
+ * @param {'movie' | 'series'} [type]
+ * @returns {Promise<string | null>}
+ */
+export async function resolveImdbId(title, type = 'movie') {
+  try {
+    const clean = sanitizeQuery(title);
+    if (!clean) return null;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(
+      `https://v3-cinemeta.strem.io/catalog/${type}/top/search=${encodeURIComponent(clean)}.json`,
+      {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Trova)',
+        },
+      },
+    );
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.metas?.[0]?.imdb_id || data?.metas?.[0]?.id || null;
+  } catch {
+    return null;
+  }
+}
+
+function resolutionBonus(res) {
+  if (res === '1080p') return 80;
+  if (res === '720p') return 60;
+  if (res === '4K') return 40;
+  if (res === 'HD') return 30;
+  return 10;
+}
+
+/**
+ * High-level search for a specific TV episode across Torrentio, APIBay, and EZTV.
  * @param {{
  *   seriesTitle: string;
  *   seasonNumber: number;
@@ -435,6 +596,7 @@ export async function fetchEztv({ search, imdbId, season, episode }) {
  *   formattedSize: string;
  *   source: string;
  *   magnetUrl: string;
+ *   fileIdx?: number | null;
  *   score: number;
  *   attributes: ReturnType<typeof parseReleaseAttributes>;
  * }>>}
@@ -446,15 +608,26 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
   const query = `${seriesTitle} ${epTag}`;
 
   const cleanTitle = sanitizeQuery(seriesTitle);
+  let cleanImdb = imdbId ? (String(imdbId).startsWith('tt') ? String(imdbId) : `tt${imdbId}`) : null;
+  if (!cleanImdb && cleanTitle) {
+    cleanImdb = await resolveImdbId(cleanTitle, 'series');
+  }
 
   // Concurrently query sources targeted at this specific episode
-  const [apibayEp, apibayX, eztvResults] = await Promise.all([
+  const queries = [
     fetchApibay(query),
     fetchApibay(`${cleanTitle} ${seasonNumber}x${eStr}`),
-    fetchEztv({ imdbId, search: `${cleanTitle} ${epTag}` }),
-  ]);
+    fetchEztv({ imdbId: cleanImdb || imdbId, search: `${cleanTitle} ${epTag}` }),
+  ];
 
-  const rawCandidates = [...apibayEp, ...apibayX, ...eztvResults];
+  if (cleanImdb) {
+    queries.push(
+      fetchTorrentio({ imdbId: cleanImdb, season: seasonNumber, episode: episodeNumber }),
+    );
+  }
+
+  const resultsArrays = await Promise.all(queries);
+  const rawCandidates = resultsArrays.flat();
 
   const seen = new Set();
   const scored = [];
@@ -463,8 +636,10 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
     if (!item.infoHash || seen.has(item.infoHash)) continue;
     seen.add(item.infoHash);
 
+    const isTorrentioExact = item.source?.startsWith('torrentio');
+
     // Reject pure season packs for single episode searches
-    if (isSeasonPack(item.name)) {
+    if (!isTorrentioExact && isSeasonPack(item.name)) {
       const parsed = extractSeasonEpisode(item.name);
       if (parsed.season !== seasonNumber || parsed.episode !== episodeNumber) {
         continue;
@@ -479,17 +654,23 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
     }
 
     // Verify parsed season/episode matches if present in title
-    const parsed = extractSeasonEpisode(item.name);
-    if (parsed.season != null && parsed.episode != null) {
-      if (parsed.season !== seasonNumber || parsed.episode !== episodeNumber) {
-        continue;
+    if (!isTorrentioExact) {
+      const parsed = extractSeasonEpisode(item.name);
+      if (parsed.season != null && parsed.episode != null) {
+        if (parsed.season !== seasonNumber || parsed.episode !== episodeNumber) {
+          continue;
+        }
       }
     }
 
-    const score = calculateMatchScore(item.name, cleanTitle, {
+    let score = calculateMatchScore(item.name, cleanTitle, {
       season: seasonNumber,
       episode: episodeNumber,
     });
+
+    if (score <= 0 && isTorrentioExact) {
+      score = 250;
+    }
 
     if (score > 0) {
       scored.push({
@@ -501,8 +682,23 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
     }
   }
 
-  // Rank by score * 1000 + seed count
-  scored.sort((a, b) => b.score * 1000 + b.seeders - (a.score * 1000 + a.seeders));
+  // Rank active swarms strictly above dead (0 seeders) swarms
+  scored.sort((a, b) => {
+    const aHasSeeds = a.seeders > 0;
+    const bHasSeeds = b.seeders > 0;
+    if (aHasSeeds !== bHasSeeds) {
+      return aHasSeeds ? -1 : 1;
+    }
+
+    const aDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(a.name) ? -100 : 0;
+    const bDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(b.name) ? -100 : 0;
+
+    const aWeight =
+      a.score * 50 + Math.min(a.seeders, 500) * 5 + resolutionBonus(a.attributes?.resolution) + aDubOnly;
+    const bWeight =
+      b.score * 50 + Math.min(b.seeders, 500) * 5 + resolutionBonus(b.attributes?.resolution) + bDubOnly;
+    return bWeight - aWeight;
+  });
 
   return scored;
 }
@@ -546,7 +742,10 @@ export async function searchSeasonPackTorrents({ seriesTitle, seasonNumber, imdb
 
     // Filter to ensure it represents this season and is a pack
     const norm = item.name.toLowerCase();
-    const hasSeason = norm.includes(`s${sStr}`) || norm.includes(`season ${seasonNumber}`) || norm.includes(`season ${sStr}`);
+    const hasSeason =
+      norm.includes(`s${sStr}`) ||
+      norm.includes(`season ${seasonNumber}`) ||
+      norm.includes(`season ${sStr}`);
     if (!hasSeason) continue;
 
     // Reject single episode releases (e.g. S01E05) unless marked complete/batch
@@ -562,12 +761,17 @@ export async function searchSeasonPackTorrents({ seriesTitle, seasonNumber, imdb
     });
   }
 
-  packs.sort((a, b) => b.seeders - a.seeders);
+  packs.sort((a, b) => {
+    const aHasSeeds = a.seeders > 0;
+    const bHasSeeds = b.seeders > 0;
+    if (aHasSeeds !== bHasSeeds) return aHasSeeds ? -1 : 1;
+    return b.seeders - a.seeders;
+  });
   return packs;
 }
 
 /**
- * High-level search for Movie torrents across APIBay and peer swarms.
+ * High-level search for Movie torrents across Torrentio (1337x, YTS, TorrentGalaxy, Rutracker) and APIBay.
  * @param {{
  *   title: string;
  *   year?: number | string | null;
@@ -581,6 +785,7 @@ export async function searchSeasonPackTorrents({ seriesTitle, seasonNumber, imdb
  *   formattedSize: string;
  *   source: string;
  *   magnetUrl: string;
+ *   fileIdx?: number | null;
  *   score: number;
  *   attributes: ReturnType<typeof parseReleaseAttributes>;
  * }>>}
@@ -589,10 +794,14 @@ export async function searchMovieTorrents({ title, year, imdbId }) {
   const cleanTitle = sanitizeQuery(title);
   if (!cleanTitle && !imdbId) return [];
 
-  const cleanImdb = imdbId ? (String(imdbId).startsWith('tt') ? String(imdbId) : `tt${imdbId}`) : null;
+  let cleanImdb = imdbId ? (String(imdbId).startsWith('tt') ? String(imdbId) : `tt${imdbId}`) : null;
+  if (!cleanImdb && cleanTitle) {
+    cleanImdb = await resolveImdbId(cleanTitle, 'movie');
+  }
 
   const queries = [];
   if (cleanImdb) {
+    queries.push(fetchTorrentio({ imdbId: cleanImdb }));
     queries.push(fetchApibay(cleanImdb));
   }
   if (cleanTitle && year) {
@@ -612,11 +821,18 @@ export async function searchMovieTorrents({ title, year, imdbId }) {
     if (!item.infoHash || seen.has(item.infoHash)) continue;
     seen.add(item.infoHash);
 
+    const isTorrentioMatch = item.source?.startsWith('torrentio');
+
     // Filter and score using movie criteria
     let score = calculateMatchScore(item.name, cleanTitle || title, {
       year,
       isMovie: true,
     });
+
+    // If candidate came from Torrentio by exact IMDb lookup, ensure baseline score
+    if (score <= 0 && isTorrentioMatch && cleanImdb) {
+      score = 250;
+    }
 
     if (score <= 0) continue;
 
@@ -633,8 +849,24 @@ export async function searchMovieTorrents({ title, year, imdbId }) {
     });
   }
 
-  // Sort by score * 1000 + seeders
-  scored.sort((a, b) => b.score * 1000 + b.seeders - (a.score * 1000 + a.seeders));
+  // Rank active swarms strictly above dead (0 seeders) swarms
+  scored.sort((a, b) => {
+    const aHasSeeds = a.seeders > 0;
+    const bHasSeeds = b.seeders > 0;
+    if (aHasSeeds !== bHasSeeds) {
+      return aHasSeeds ? -1 : 1;
+    }
+
+    // Penalize dubbed-only releases
+    const aDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(a.name) ? -100 : 0;
+    const bDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(b.name) ? -100 : 0;
+
+    const aWeight =
+      a.score * 50 + Math.min(a.seeders, 500) * 5 + resolutionBonus(a.attributes?.resolution) + aDubOnly;
+    const bWeight =
+      b.score * 50 + Math.min(b.seeders, 500) * 5 + resolutionBonus(b.attributes?.resolution) + bDubOnly;
+    return bWeight - aWeight;
+  });
 
   return scored;
 }
