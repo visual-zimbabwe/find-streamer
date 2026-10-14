@@ -38,6 +38,16 @@ class MainApplication : Application(), ReactApplication {
     }
     loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
+
+    // Launch embedded mobile torrent streaming engine
+    Thread {
+      try {
+        val storage = java.io.File(cacheDir, "torrent_stream").absolutePath
+        TorrentStreamer.start(storage, 8899)
+      } catch (e: Throwable) {
+        android.util.Log.e("MainApplication", "Failed to start TorrentStreamer", e)
+      }
+    }.start()
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {

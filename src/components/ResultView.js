@@ -1085,6 +1085,9 @@ export function ResultView({
         <SeasonDetailSheetContent
           season={season}
           seriesTitle={result?.title}
+          seriesTmdbId={result?.tmdbId}
+          imdbId={result?.imdbId}
+          seriesYear={result?.year}
           colors={colors}
           typography={typography}
         />,
@@ -1098,7 +1101,7 @@ export function ResultView({
         },
       );
     },
-    [result?.title, colors, typography, showSheet],
+    [result?.title, result?.tmdbId, result?.imdbId, result?.year, colors, typography, showSheet],
   );
 
   // Gated on focus. Native-driven and cheap, but an 18s loop that never stops

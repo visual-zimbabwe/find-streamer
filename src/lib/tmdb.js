@@ -1769,3 +1769,42 @@ export async function enrichTraktItems(items = []) {
     }
   });
 }
+
+/**
+ * Fetch full episode list for a specific season of a TV series.
+ * @param {number | string} seriesId
+ * @param {number | string} seasonNumber
+ * @returns {Promise<Array<{
+ *   id: number;
+ *   episodeNumber: number;
+ *   name: string;
+ *   overview: string;
+ *   airDate: string | null;
+ *   runtimeMinutes: number | null;
+ *   stillUrl: string | null;
+ *   rating: string | null;
+ * }>>}
+ */
+export async function fetchSeasonEpisodes(seriesId, seasonNumber) {
+  if (!seriesId || seasonNumber == null) return [];
+  try {
+    const data = await tmdbGet(`/tv/${seriesId}/season/${seasonNumber}`, { language: 'en-US' });
+    if (!data || !Array.isArray(data.episodes)) return [];
+    return data.episodes.map((ep) => ({
+      id: ep.id,
+      episodeNumber: ep.episode_number,
+      name: ep.name || `Episode ${ep.episode_number}`,
+      overview: (ep.overview || '').trim(),
+      airDate: ep.air_date || null,
+      runtimeMinutes: ep.runtime || null,
+      stillUrl: ep.still_path ? `https://image.tmdb.org/t/p/w500${ep.still_path}` : null,
+      rating:
+        typeof ep.vote_average === 'number' && ep.vote_average > 0
+          ? ep.vote_average.toFixed(1)
+          : null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
