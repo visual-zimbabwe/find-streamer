@@ -533,6 +533,7 @@ export async function fetchTorrentio({ imdbId, season, episode }) {
           source: `torrentio (${source})`,
           magnetUrl: enhanceMagnet(item.infoHash, name, extraTrackers),
           fileIdx: typeof item.fileIdx === 'number' ? item.fileIdx : null,
+          imdb: imdbId,
           season: season != null ? Number(season) : undefined,
           episode: episode != null ? Number(episode) : undefined,
         };
@@ -669,7 +670,7 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
     });
 
     if (score <= 0 && isTorrentioExact) {
-      score = 250;
+      score = 80;
     }
 
     if (score > 0) {
@@ -694,9 +695,9 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
     const bDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(b.name) ? -100 : 0;
 
     const aWeight =
-      a.score * 50 + Math.min(a.seeders, 500) * 5 + resolutionBonus(a.attributes?.resolution) + aDubOnly;
+      a.score * 30 + Math.min(a.seeders, 300) * 30 + resolutionBonus(a.attributes?.resolution) + aDubOnly;
     const bWeight =
-      b.score * 50 + Math.min(b.seeders, 500) * 5 + resolutionBonus(b.attributes?.resolution) + bDubOnly;
+      b.score * 30 + Math.min(b.seeders, 300) * 30 + resolutionBonus(b.attributes?.resolution) + bDubOnly;
     return bWeight - aWeight;
   });
 
@@ -831,14 +832,14 @@ export async function searchMovieTorrents({ title, year, imdbId }) {
 
     // If candidate came from Torrentio by exact IMDb lookup, ensure baseline score
     if (score <= 0 && isTorrentioMatch && cleanImdb) {
-      score = 250;
+      score = 80;
     }
 
     if (score <= 0) continue;
 
     // Grant bonus for matching IMDb ID if present
     if (cleanImdb && item.imdb && cleanImdb.replace(/^tt/, '') === String(item.imdb).replace(/^tt/, '')) {
-      score += 200;
+      score += 40;
     }
 
     scored.push({
@@ -857,14 +858,41 @@ export async function searchMovieTorrents({ title, year, imdbId }) {
       return aHasSeeds ? -1 : 1;
     }
 
+    // Size feasibility scoring for mobile streaming:
+    // Ideal mobile movie sizes: 0.8 GB - 4.5 GB (1080p / 720p with instant buffering)
+    // Heavy penalty for > 10 GB (e.g. 15-20 GB BluRay remuxes that stall mobile playback)
+    let aSizeBonus = 0;
+    if (a.size > 0) {
+      const aSizeGB = a.size / (1024 * 1024 * 1024);
+      if (aSizeGB >= 0.8 && aSizeGB <= 4.5) {
+        aSizeBonus = 80;
+      } else if (aSizeGB > 10) {
+        aSizeBonus = -200;
+      } else if (aSizeGB > 7) {
+        aSizeBonus = -100;
+      }
+    }
+
+    let bSizeBonus = 0;
+    if (b.size > 0) {
+      const bSizeGB = b.size / (1024 * 1024 * 1024);
+      if (bSizeGB >= 0.8 && bSizeGB <= 4.5) {
+        bSizeBonus = 80;
+      } else if (bSizeGB > 10) {
+        bSizeBonus = -200;
+      } else if (bSizeGB > 7) {
+        bSizeBonus = -100;
+      }
+    }
+
     // Penalize dubbed-only releases
     const aDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(a.name) ? -100 : 0;
     const bDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(b.name) ? -100 : 0;
 
     const aWeight =
-      a.score * 50 + Math.min(a.seeders, 500) * 5 + resolutionBonus(a.attributes?.resolution) + aDubOnly;
+      a.score * 30 + Math.min(a.seeders, 300) * 30 + resolutionBonus(a.attributes?.resolution) + aSizeBonus + aDubOnly;
     const bWeight =
-      b.score * 50 + Math.min(b.seeders, 500) * 5 + resolutionBonus(b.attributes?.resolution) + bDubOnly;
+      b.score * 30 + Math.min(b.seeders, 300) * 30 + resolutionBonus(b.attributes?.resolution) + bSizeBonus + bDubOnly;
     return bWeight - aWeight;
   });
 

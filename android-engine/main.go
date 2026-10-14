@@ -1,7 +1,16 @@
 package main
 
 /*
+#cgo LDFLAGS: -llog
 #include <stdlib.h>
+#include <android/log.h>
+
+static void android_log_info(const char* tag, const char* msg) {
+    __android_log_print(ANDROID_LOG_INFO, tag, "%s", msg);
+}
+static void android_log_error(const char* tag, const char* msg) {
+    __android_log_print(ANDROID_LOG_ERROR, tag, "%s", msg);
+}
 */
 import "C"
 import (
@@ -14,9 +23,30 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/anacrolix/torrent"
 )
+
+func logInfo(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	log.Printf("[TorrentEngine] " + msg)
+	cTag := C.CString("TorrentStreamerEngine")
+	cMsg := C.CString(msg)
+	C.android_log_info(cTag, cMsg)
+	C.free(unsafe.Pointer(cTag))
+	C.free(unsafe.Pointer(cMsg))
+}
+
+func logError(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	log.Printf("[TorrentEngine ERROR] " + msg)
+	cTag := C.CString("TorrentStreamerEngine")
+	cMsg := C.CString(msg)
+	C.android_log_error(cTag, cMsg)
+	C.free(unsafe.Pointer(cTag))
+	C.free(unsafe.Pointer(cMsg))
+}
 
 var (
 	clientLock sync.Mutex
@@ -111,7 +141,7 @@ func preloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Quick check if metadata is ready (up to 8s)
+	// Quick check if metadata is ready (up to 12s)
 	select {
 	case <-t.GotInfo():
 		targetFile := getLargestVideoFile(t)
@@ -121,12 +151,14 @@ func preloadHandler(w http.ResponseWriter, r *http.Request) {
 			filename = filepath.Base(targetFile.Path())
 			length = targetFile.Length()
 		}
+		logInfo("preload ready: %s (%d bytes)", filename, length)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":   "ready",
 			"filename": filename,
 			"size":     length,
 		})
-	case <-time.After(8 * time.Second):
+	case <-time.After(12 * time.Second):
+		logInfo("preload: resolving peers in background")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status": "resolving_peers",
 		})
@@ -142,19 +174,25 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logInfo("streamHandler: received stream request")
 	t, err := getOrCreateTorrent(magnet)
 	if err != nil {
+		logError("streamHandler: failed to load magnet: %v", err)
 		http.Error(w, fmt.Sprintf("failed to load magnet: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	// Wait up to 15 seconds for metadata resolution
+	// Wait up to 45 seconds for metadata resolution from swarm
+	logInfo("streamHandler: waiting for torrent metadata from swarm (45s timeout)...")
 	select {
 	case <-t.GotInfo():
-	case <-time.After(15 * time.Second):
+		logInfo("streamHandler: torrent metadata resolved! Total files: %d", len(t.Files()))
+	case <-time.After(45 * time.Second):
+		logError("streamHandler: timed out fetching torrent metadata from swarm after 45s")
 		http.Error(w, "timed out fetching torrent metadata from swarm", http.StatusGatewayTimeout)
 		return
 	case <-r.Context().Done():
+		logInfo("streamHandler: client cancelled request during metadata wait")
 		return
 	}
 
@@ -173,9 +211,12 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 		targetFile = getLargestVideoFile(t)
 	}
 	if targetFile == nil {
+		logError("streamHandler: no video file found in torrent")
 		http.Error(w, "no video file found in torrent", http.StatusNotFound)
 		return
 	}
+
+	logInfo("streamHandler: serving file '%s' (%d bytes)", filepath.Base(targetFile.Path()), targetFile.Length())
 
 	// Begin downloading file chunks
 	targetFile.Download()
@@ -217,7 +258,8 @@ func InitTorrentEngine(storageDir *C.char, port C.int) C.int {
 	}
 
 	if tClient != nil {
-		return 0 // already initialized
+		logInfo("InitTorrentEngine: engine already running on port %d", listenPort)
+		return 0
 	}
 
 	os.MkdirAll(cachePath, 0755)
@@ -232,7 +274,7 @@ func InitTorrentEngine(storageDir *C.char, port C.int) C.int {
 	var err error
 	tClient, err = torrent.NewClient(cfg)
 	if err != nil {
-		log.Printf("[TorrentEngine] failed to create client: %v", err)
+		logError("InitTorrentEngine: failed to create torrent client: %v", err)
 		return -1
 	}
 
@@ -248,9 +290,9 @@ func InitTorrentEngine(storageDir *C.char, port C.int) C.int {
 
 		addr := fmt.Sprintf("127.0.0.1:%d", listenPort)
 		go func() {
-			log.Printf("[TorrentEngine] HTTP server listening on %s", addr)
+			logInfo("HTTP server listening on %s", addr)
 			if err := http.ListenAndServe(addr, mux); err != nil {
-				log.Printf("[TorrentEngine] server error: %v", err)
+				logError("HTTP server error: %v", err)
 			}
 		}()
 	})

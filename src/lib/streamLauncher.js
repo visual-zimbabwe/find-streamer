@@ -1,7 +1,9 @@
-import { Linking, Platform } from 'react-native';
+import { Linking, NativeModules, Platform } from 'react-native';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { toastiva } from 'toastiva';
+
+const { TorrentStreamerModule } = NativeModules;
 
 /**
  * Auto-launches a stream in mpv-android locked to landscape orientation,
@@ -20,6 +22,15 @@ export async function launchStream({ magnetUrl, title, fileIdx }) {
     let streamUrl = `http://127.0.0.1:8899/stream?magnet=${encodeURIComponent(magnetUrl)}`;
     if (typeof fileIdx === 'number') {
       streamUrl += `&fileIdx=${fileIdx}`;
+    }
+
+    // Keep background stream server active with an Android ForegroundService
+    if (TorrentStreamerModule?.startService) {
+      try {
+        await TorrentStreamerModule.startService(title || 'Trova Stream');
+      } catch (serviceErr) {
+        console.log('[launchStream] Foreground service start error:', serviceErr);
+      }
     }
 
     // Prime swarm metadata in background
@@ -70,6 +81,15 @@ export async function launchStream({ magnetUrl, title, fileIdx }) {
         }
       }
     } finally {
+      // Stop background stream service upon player exit
+      if (TorrentStreamerModule?.stopService) {
+        try {
+          await TorrentStreamerModule.stopService();
+        } catch {
+          // Ignored
+        }
+      }
+
       // Restore portrait orientation upon returning to Trova
       try {
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
