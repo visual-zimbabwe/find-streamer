@@ -40,6 +40,7 @@ import { PersonRail } from './PersonRail';
 import { GlassIconButton } from './GlassIconButton';
 import { ContentRail } from './ContentRail';
 import { ProgrammeBadge } from './ProgrammeBadge';
+import { ProgrammeScorecard } from './ProgrammeScorecard';
 import { fetchTitleCollection, fetchTitleRails, searchPersonByName } from '../lib/tmdb';
 import { buildDetailTabs, buildTitleDetailRows, spokenRuntime, stickyTitleFontSize } from '../lib/titleMeta';
 import {
@@ -51,9 +52,6 @@ import {
   releaseStateFor,
 } from '../lib/franchise';
 import {
-  rottenTomatoesEmoji,
-  rottenTomatoesFresh,
-  metacriticBadge,
   rottenTomatoesUrl,
   metacriticUrl,
 } from '../lib/ratingBadges';
@@ -421,21 +419,6 @@ async function fetchWikidataDetails(imdbId, tmdbId, mediaType) {
   };
 }
 
-
-/**
- * A critic score with its scale kept visible ("7.6" + a dimmed "/10"). Four
- * scores on three scales (/10, %, /100) sat unit-less in one row, so a 74
- * Metascore read as if it were comparable to a 7.6. The unit is dimmed, not
- * hidden, so the number still leads.
- */
-function ScoreValue({ value, unit, typography }) {
-  return (
-    <Text style={[styles.heroRatingText, { ...typography.labelSm }]} numberOfLines={1}>
-      {value}
-      {unit ? <Text style={styles.heroRatingUnit}>{unit}</Text> : null}
-    </Text>
-  );
-}
 
 export function ResultView({
   result,
@@ -1398,10 +1381,6 @@ export function ResultView({
 
   const currentTab = tabs.some((t) => t.id === activeTab) ? activeTab : 'watch';
   const detailRows = buildTitleDetailRows(wikiData);
-  /** Metacritic tile colored by its own thresholds (green/yellow/red), not fixed green. */
-  const metaBadge = result.omdbRatings?.metascore
-    ? metacriticBadge(result.omdbRatings.metascore)
-    : null;
   const totalPeopleCount = peopleSections.crewPeople.length + peopleSections.castPeople.length;
   /** Rails stay capped; the full list is a destination, not an expansion. */
   const visibleCastPeople = peopleSections.castPeople.slice(0, RAIL_PERSON_CAP);
@@ -1669,100 +1648,27 @@ export function ResultView({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.heroRatingsStrip}
               >
-                {hasRating && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      Linking.openURL(
-                        `https://www.themoviedb.org/${result.mediaType === 'tv' ? 'tv' : 'movie'}/${result.tmdbId}`,
-                      );
-                    }}
-                    style={styles.heroRatingItem}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${result.title}, TMDb ${ratingForCard(result.rating)} out of 10. Opens TMDb.`}
-                  >
-                    <View style={styles.badgeTmdb}>
-                      <Text style={styles.badgeTmdbText}>TMDb</Text>
-                    </View>
-                    <ScoreValue
-                      value={ratingForCard(result.rating)}
-                      unit="/10"
-                      typography={typography}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {result.omdbRatings?.imdbRating && result.imdbId && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      Linking.openURL(`https://www.imdb.com/title/${result.imdbId}/`);
-                    }}
-                    style={styles.heroRatingItem}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${result.title}, IMDb ${result.omdbRatings.imdbRating.split('/')[0]} out of 10. Opens IMDb.`}
-                  >
-                    <View style={styles.badgeImdb}>
-                      <Text style={styles.badgeImdbText}>IMDb</Text>
-                    </View>
-                    <ScoreValue
-                      value={result.omdbRatings.imdbRating.split('/')[0]}
-                      unit="/10"
-                      typography={typography}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {result.omdbRatings?.rottenTomatoes && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      Linking.openURL(
-                        rottenTomatoesUrl({ title: result.title, mediaType: result.mediaType }),
-                      );
-                    }}
-                    style={styles.heroRatingItem}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${result.title}, Rotten Tomatoes ${result.omdbRatings.rottenTomatoes.replace(
-                      '%',
-                      '',
-                    )} percent, ${
-                      rottenTomatoesFresh(result.omdbRatings.rottenTomatoes) ? 'Fresh' : 'Rotten'
-                    }. Opens Rotten Tomatoes.`}
-                  >
-                    <View style={styles.badgeRt}>
-                      <Text style={[styles.badgeRtText, { fontWeight: '900' }]}>RT</Text>
-                    </View>
-                    <ScoreValue
-                      value={result.omdbRatings.rottenTomatoes.replace('%', '')}
-                      unit="%"
-                      typography={typography}
-                    />
-                  </TouchableOpacity>
-                )}
-
-                {result.omdbRatings?.metascore && metaBadge && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      Linking.openURL(
-                        metacriticUrl({ title: result.title, mediaType: result.mediaType }),
-                      );
-                    }}
-                    style={styles.heroRatingItem}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${result.title}, Metacritic ${result.omdbRatings.metascore} out of 100. Opens Metacritic.`}
-                  >
-                    <View style={[styles.badgeMeta, { backgroundColor: metaBadge.bg }]}>
-                      <Text style={[styles.badgeMetaText, { color: metaBadge.fg }]}>M</Text>
-                    </View>
-                    <ScoreValue
-                      value={result.omdbRatings.metascore}
-                      unit="/100"
-                      typography={typography}
-                    />
-                  </TouchableOpacity>
-                )}
+                <ProgrammeScorecard
+                  tmdbRating={hasRating ? ratingForCard(result.rating) : null}
+                  tmdbUrl={
+                    hasRating
+                      ? `https://www.themoviedb.org/${result.mediaType === 'tv' ? 'tv' : 'movie'}/${result.tmdbId}`
+                      : null
+                  }
+                  imdbRating={result.imdbId ? result.omdbRatings?.imdbRating : null}
+                  imdbUrl={result.imdbId ? `https://www.imdb.com/title/${result.imdbId}/` : null}
+                  rottenTomatoes={result.omdbRatings?.rottenTomatoes}
+                  rottenTomatoesUrl={rottenTomatoesUrl({
+                    title: result.title,
+                    mediaType: result.mediaType,
+                  })}
+                  metascore={result.omdbRatings?.metascore}
+                  metacriticUrl={metacriticUrl({
+                    title: result.title,
+                    mediaType: result.mediaType,
+                  })}
+                  title={result.title}
+                />
               </ScrollView>
             </View>
 
@@ -2937,75 +2843,7 @@ const styles = StyleSheet.create({
   heroRatingsStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
     paddingRight: 20,
-  },
-  heroRatingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 0,
-    paddingVertical: 4,
-  },
-  heroRatingText: {
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: -0.2,
-  },
-  heroRatingUnit: {
-    fontWeight: '700',
-    // Dimmed so the score still leads, but the scale stays legible.
-    color: 'rgba(255,255,255,0.55)',
-    letterSpacing: 0,
-  },
-  badgeTmdb: {
-    backgroundColor: '#0d253f',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#01b4e4',
-  },
-  badgeTmdbText: {
-    color: '#01b4e4',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  badgeImdb: {
-    backgroundColor: '#F5C518',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  badgeImdbText: {
-    color: '#000000',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  badgeRt: {
-    backgroundColor: '#FA320A',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  badgeRtText: {
-    color: '#ffffff',
-    fontSize: 10,
-  },
-  badgeMeta: {
-    backgroundColor: '#66CC33',
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeMetaText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '900',
   },
   ratingRow: {
     flexDirection: 'row',

@@ -132,18 +132,6 @@ export function WhereToWatchCountrySheet({ selectedCode, onSelect, allowAll = fa
           selected={!selectedCode}
           onPress={() => onSelect({ code: null, label: 'All countries' })}
           accessibilityLabel="Show titles from all countries"
-          leading={
-            <ProgrammeBadge
-              icon="earth-outline"
-              iconSize={16}
-              iconColor={GOLD_ACCENT}
-              variant="outline"
-              size="lg"
-              shape="circle"
-              borderColor={GOLD_DIM}
-              style={styles.leadingBadge}
-            />
-          }
         />
       ) : null}
 
@@ -151,22 +139,9 @@ export function WhereToWatchCountrySheet({ selectedCode, onSelect, allowAll = fa
         <OptionRow
           key={region.code}
           label={region.label}
-          sublabel={region.code}
           selected={region.code === selectedCode}
           onPress={() => onSelect(region)}
           accessibilityLabel={`Filter availability for ${region.label}`}
-          leading={
-            <ProgrammeBadge
-              label={region.code}
-              variant="outline"
-              size="lg"
-              shape="circle"
-              borderColor={GOLD_DIM}
-              textColor={GOLD_ACCENT}
-              style={styles.leadingBadge}
-              textStyle={styles.leadingBadgeText}
-            />
-          }
         />
       ))}
 

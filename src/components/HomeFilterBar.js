@@ -9,7 +9,6 @@ import { useTheme } from '../theme/ThemeProvider';
 import { scale } from '../utils/responsive';
 import { GOLD_ACCENT } from '../theme/programme';
 import { getServiceLabel } from '../lib/whereToWatch';
-import { flagForCountryCode } from '../lib/providerAvailability';
 
 /**
  * Home's browse header: the wordmark over a single horizontally-scrollable chip
@@ -22,7 +21,7 @@ import { flagForCountryCode } from '../lib/providerAvailability';
  * line on a phone without truncating a long country/service name, and it unifies
  * the type toggle and the filter into one chip language.
  */
-function Chip({ flag, logoUrl, label, active, trailingIcon, onPress, accessibilityLabel, accessibilityRole = 'button', selected }) {
+function Chip({ logoUrl, label, active, trailingIcon, onPress, accessibilityLabel, accessibilityRole = 'button', selected }) {
   const { theme } = useTheme();
   const { typography } = theme;
   return (
@@ -44,10 +43,6 @@ function Chip({ flag, logoUrl, label, active, trailingIcon, onPress, accessibili
           resizeMode="contain"
           importantForAccessibility="no"
         />
-      ) : flag ? (
-        <Text style={styles.chipFlag} importantForAccessibility="no">
-          {flag}
-        </Text>
       ) : null}
       <Text
         style={[
@@ -162,7 +157,6 @@ export const HomeFilterBar = memo(function HomeFilterBar({
           accessibilityLabel={`Language: ${languageActive ? language.label : 'All languages'}. Change language filter`}
         />
         <Chip
-          flag={countryActive ? flagForCountryCode(country.code) : null}
           label={countryActive ? country.label : 'All countries'}
           trailingIcon="chevron-down"
           active={countryActive}
@@ -223,9 +217,6 @@ const styles = StyleSheet.create({
     minHeight: 36,
     paddingHorizontal: scale(4),
     paddingVertical: 6,
-  },
-  chipFlag: {
-    fontSize: 15,
   },
   chipLogo: {
     width: 18,
