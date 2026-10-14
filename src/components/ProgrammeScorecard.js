@@ -66,7 +66,7 @@ export const ProgrammeScorecard = memo(function ProgrammeScorecard({
               onPress={handlePress}
               disabled={!item.url}
               activeOpacity={0.72}
-              style={styles.item}
+              style={[styles.item, index === 0 && styles.firstItem]}
               accessibilityRole="button"
               accessibilityLabel={item.a11yLabel}
             >
@@ -84,28 +84,29 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.22)',
-    borderRadius: 8,
     alignSelf: 'flex-start',
-    overflow: 'hidden',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  firstItem: {
+    paddingLeft: 0,
   },
   divider: {
     width: StyleSheet.hairlineWidth,
-    height: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    height: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
   label: {
-    color: 'rgba(255, 255, 255, 0.55)',
-    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.6,
   },

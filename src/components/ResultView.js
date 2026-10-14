@@ -984,9 +984,10 @@ export function ResultView({
     );
     sheetId = showSheet(content, {
       title: 'Awards & Recognition',
+      centerTitle: true,
+      showCloseButton: false,
       size: 'large',
       scrollable: false,
-      showCloseButton: true,
       dismissOnBackdrop: true,
     });
   }, [
@@ -1037,9 +1038,10 @@ export function ResultView({
     );
     sheetId = showSheet(content, {
       title: 'Soundtrack',
+      centerTitle: true,
+      showCloseButton: false,
       size: 'large',
       scrollable: false,
-      showCloseButton: true,
       dismissOnBackdrop: true,
     });
   }, [soundtrackRows, colors, typography, showSheet, dismissSheet]);
@@ -1088,9 +1090,10 @@ export function ResultView({
         />,
         {
           title: season.name,
+          centerTitle: true,
+          showCloseButton: false,
           size: 'large',
           scrollable: false,
-          showCloseButton: true,
           dismissOnBackdrop: true,
         },
       );
@@ -1248,9 +1251,10 @@ export function ResultView({
       />,
       {
         title: 'Share Card',
+        centerTitle: true,
+        showCloseButton: false,
         size: 'large',
         scrollable: false,
-        showCloseButton: true,
         dismissOnBackdrop: true,
       },
     );
@@ -2684,7 +2688,8 @@ export function ResultView({
       >
         <GlassIconButton
           icon="arrow-back"
-          iconSize={22}
+          variant="clear"
+          iconSize={26}
           onPress={onBack}
           accessibilityLabel="Go back"
         />
@@ -2696,7 +2701,8 @@ export function ResultView({
         <View style={styles.floatingRightActions}>
           <GlassIconButton
             icon="share-social-outline"
-            iconSize={20}
+            variant="clear"
+            iconSize={24}
             onPress={handleOpenShareSheet}
             disabled={loading}
             accessibilityLabel={`Share ${result.title}`}
@@ -2704,7 +2710,8 @@ export function ResultView({
 
           <GlassIconButton
             icon={isInWatchlist ? 'bookmark' : 'bookmark-outline'}
-            iconSize={20}
+            variant="clear"
+            iconSize={24}
             active={isInWatchlist}
             onPress={() => onToggleWatchlist(result)}
             disabled={loading}
@@ -3369,7 +3376,7 @@ const styles = StyleSheet.create({
   },
   floatingRightActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   trailerButton: {
     flexDirection: 'row',

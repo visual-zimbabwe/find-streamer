@@ -66,6 +66,7 @@ export function WatchlistCollectionsSheet({
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         contentContainerStyle={styles.scrollContent}
       >
         <Text
@@ -94,8 +95,7 @@ export function WatchlistCollectionsSheet({
                   style={[
                     styles.recentChip,
                     {
-                      backgroundColor: colors.surfaceContainerHigh,
-                      borderColor: colors.primary + '55',
+                      backgroundColor: 'rgba(212, 175, 55, 0.12)',
                       borderRadius: radii.full,
                     },
                   ]}
@@ -131,16 +131,7 @@ export function WatchlistCollectionsSheet({
           </Text>
 
           {showSearch && (
-            <View
-              style={[
-                styles.searchBox,
-                {
-                  backgroundColor: colors.surfaceContainerHigh,
-                  borderColor: colors.outlineVariant + '35',
-                  borderRadius: radii.lg,
-                },
-              ]}
-            >
+            <View style={styles.searchBox}>
               <Ionicons name="search" size={16} color={colors.onSurfaceVariant} />
               <TextInput
                 value={query}
@@ -172,15 +163,9 @@ export function WatchlistCollectionsSheet({
                   key={collection.id}
                   style={[
                     styles.categoryOption,
-                    {
-                      backgroundColor: isSelected
-                        ? colors.primary + '18'
-                        : colors.surfaceContainerHigh,
-                      borderColor: isSelected ? colors.primary + '66' : colors.outlineVariant + '33',
-                      borderRadius: radii.lg,
-                    },
+                    isSelected && styles.categoryOptionSelected,
                   ]}
-                  activeOpacity={locked ? 1 : 0.82}
+                  activeOpacity={locked ? 1 : 0.72}
                   onPress={() => {
                     if (!locked) onToggleCollection(collection.id);
                   }}
@@ -198,12 +183,12 @@ export function WatchlistCollectionsSheet({
                   <View
                     style={[
                       styles.categoryIcon,
-                      { backgroundColor: isSelected ? colors.primary + '33' : colors.primary + '22' },
+                      { backgroundColor: isSelected ? 'rgba(212, 175, 55, 0.20)' : 'rgba(212, 175, 55, 0.10)' },
                     ]}
                   >
                     <Ionicons
                       name={collection.icon || 'albums-outline'}
-                      size={22}
+                      size={20}
                       color={colors.primary}
                     />
                   </View>
@@ -215,6 +200,7 @@ export function WatchlistCollectionsSheet({
                           {
                             color: isSelected ? colors.primary : colors.onSurface,
                             ...typography.bodyLg,
+                            fontWeight: isSelected ? '700' : '500',
                           },
                         ]}
                       >
@@ -245,11 +231,13 @@ export function WatchlistCollectionsSheet({
                       </Text>
                     )}
                   </View>
-                  <Ionicons
-                    name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={20}
-                    color={isSelected ? colors.primary : colors.onSurfaceVariant}
-                  />
+                  {isSelected ? (
+                    <Ionicons
+                      name="checkmark"
+                      size={22}
+                      color={colors.primary}
+                    />
+                  ) : null}
                 </TouchableOpacity>
               );
             })}
@@ -267,16 +255,7 @@ export function WatchlistCollectionsSheet({
           </View>
 
           {/* Create a new list */}
-          <View
-            style={[
-              styles.createCollectionBox,
-              {
-                backgroundColor: colors.surfaceContainerHigh,
-                borderColor: colors.outlineVariant + '35',
-                borderRadius: radii.lg,
-              },
-            ]}
-          >
+          <View style={styles.createCollectionBox}>
             <TextInput
               value={name}
               onChangeText={setName}
@@ -322,8 +301,7 @@ export function WatchlistCollectionsSheet({
                   style={[
                     styles.statusChip,
                     {
-                      backgroundColor: selected ? colors.primary + '22' : colors.surfaceContainerHigh,
-                      borderColor: selected ? colors.primary + '66' : colors.outlineVariant + '33',
+                      backgroundColor: selected ? colors.primary : 'rgba(255, 255, 255, 0.08)',
                       borderRadius: radii.full,
                     },
                   ]}
@@ -336,12 +314,12 @@ export function WatchlistCollectionsSheet({
                   <Ionicons
                     name={status.icon}
                     size={14}
-                    color={selected ? colors.primary : colors.onSurfaceVariant}
+                    color={selected ? colors.onPrimary : colors.onSurfaceVariant}
                   />
                   <Text
                     style={[
                       styles.statusChipText,
-                      { color: selected ? colors.primary : colors.onSurface, ...typography.labelSm },
+                      { color: selected ? colors.onPrimary : colors.onSurface, ...typography.labelSm },
                     ]}
                   >
                     {status.label}
@@ -439,40 +417,47 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     alignItems: 'center',
-    borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 22,
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: 10,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
   },
   searchInput: {
     flex: 1,
-    minHeight: 24,
+    minHeight: 40,
     padding: 0,
   },
   categoryList: {
-    gap: 10,
+    gap: 4,
   },
   categoryOption: {
     alignItems: 'center',
-    borderWidth: 1,
+    borderRadius: 14,
     flexDirection: 'row',
-    gap: 12,
-    padding: 14,
+    gap: 14,
+    minHeight: 56,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  categoryOptionSelected: {
+    backgroundColor: 'rgba(212, 175, 55, 0.10)',
   },
   categoryIcon: {
     alignItems: 'center',
-    borderRadius: 20,
-    height: 40,
+    borderRadius: 18,
+    height: 36,
     justifyContent: 'center',
-    width: 40,
+    width: 36,
   },
   categoryCopy: {
     flex: 1,
     minWidth: 0,
   },
   categoryOptionTitle: {
-    fontWeight: '800',
+    fontWeight: '600',
   },
   categoryOptionDescription: {
     lineHeight: 18,
@@ -497,22 +482,24 @@ const styles = StyleSheet.create({
   },
   createCollectionBox: {
     alignItems: 'center',
-    borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 22,
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginTop: 6,
   },
   collectionInput: {
     flex: 1,
-    minHeight: 42,
+    minHeight: 40,
     padding: 0,
   },
   createCollectionButton: {
     alignItems: 'center',
-    height: 42,
+    height: 36,
     justifyContent: 'center',
-    width: 42,
+    width: 36,
   },
   statusRow: {
     flexDirection: 'row',
@@ -521,10 +508,9 @@ const styles = StyleSheet.create({
   },
   statusChip: {
     alignItems: 'center',
-    borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
   },
   statusChipText: {
@@ -626,16 +612,7 @@ export function EditCollectionSheet({
         <Text style={[styles.groupLabel, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
           Watchlist Name
         </Text>
-        <View
-          style={[
-            styles.createCollectionBox,
-            {
-              backgroundColor: colors.surfaceContainerHigh,
-              borderColor: colors.outlineVariant + '44',
-              borderRadius: radii.lg,
-            },
-          ]}
-        >
+        <View style={styles.createCollectionBox}>
           <TextInput
             value={name}
             onChangeText={setName}

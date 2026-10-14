@@ -253,9 +253,9 @@ export function HomeScreen({
         />
       ),
       {
-        eyebrow: 'Language',
-        title: 'Original Language',
-        subtitle: 'Show titles in your library spoken in…',
+        title: 'Original language',
+        centerTitle: true,
+        showCloseButton: false,
         size: 'large',
         scrollable: true,
       },
@@ -276,9 +276,9 @@ export function HomeScreen({
         />
       ),
       {
-        eyebrow: 'Where to Watch',
-        title: 'Country',
-        subtitle: 'Show titles you can stream in…',
+        title: 'Streaming region',
+        centerTitle: true,
+        showCloseButton: false,
         size: 'large',
         scrollable: true,
       },
@@ -303,9 +303,9 @@ export function HomeScreen({
         />
       ),
       {
-        eyebrow: 'Where to Watch',
-        title: 'Streaming Service',
-        subtitle: 'Narrow to one service',
+        title: 'Streaming service',
+        centerTitle: true,
+        showCloseButton: false,
         size: 'large',
         scrollable: true,
       },

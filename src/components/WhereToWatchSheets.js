@@ -15,19 +15,15 @@ import { resolveLanguageLabel } from '../lib/languages';
 
 function OptionRow({ label, sublabel, selected, onPress, leading, accessibilityLabel }) {
   const { theme } = useTheme();
-  const { colors, typography, radii } = theme;
+  const { colors, typography } = theme;
 
   return (
     <TouchableOpacity
       style={[
         styles.optionRow,
-        {
-          backgroundColor: selected ? GOLD_ACCENT + '18' : colors.surfaceContainerHigh,
-          borderColor: selected ? GOLD_ACCENT + '66' : colors.outlineVariant + '33',
-          borderRadius: radii.lg,
-        },
+        selected && styles.optionRowSelected,
       ]}
-      activeOpacity={0.82}
+      activeOpacity={0.72}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel || label}
@@ -38,7 +34,11 @@ function OptionRow({ label, sublabel, selected, onPress, leading, accessibilityL
         <Text
           style={[
             styles.optionLabel,
-            { color: selected ? GOLD_ACCENT : colors.onSurface, ...typography.bodyLg },
+            {
+              color: selected ? GOLD_ACCENT : colors.onSurface,
+              ...typography.bodyLg,
+              fontWeight: selected ? '700' : '500',
+            },
           ]}
           numberOfLines={1}
         >
@@ -53,11 +53,9 @@ function OptionRow({ label, sublabel, selected, onPress, leading, accessibilityL
           </Text>
         )}
       </View>
-      <Ionicons
-        name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-        size={20}
-        color={selected ? GOLD_ACCENT : colors.onSurfaceVariant}
-      />
+      {selected ? (
+        <Ionicons name="checkmark" size={20} color={GOLD_ACCENT} />
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -94,16 +92,7 @@ export function WhereToWatchCountrySheet({ selectedCode, onSelect, allowAll = fa
 
   return (
     <View style={styles.sheetContent}>
-      <View
-        style={[
-          styles.searchBox,
-          {
-            backgroundColor: colors.surfaceContainerHigh,
-            borderColor: colors.outlineVariant + '35',
-            borderRadius: radii.lg,
-          },
-        ]}
-      >
+      <View style={styles.searchBox}>
         <Ionicons name="search-outline" size={18} color={colors.onSurfaceVariant} />
         <TextInput
           value={query}
@@ -167,18 +156,6 @@ export function WhereToWatchServiceSheet({ selectedKey, onSelect }) {
         selected={!selectedKey}
         onPress={() => onSelect(null)}
         accessibilityLabel="Match any streaming service"
-        leading={
-          <ProgrammeBadge
-            icon="apps-outline"
-            iconSize={16}
-            iconColor={GOLD_ACCENT}
-            variant="outline"
-            size="lg"
-            shape="circle"
-            borderColor={GOLD_DIM}
-            style={styles.leadingBadge}
-          />
-        }
       />
       {WHERE_TO_WATCH_SERVICES.map((service) => (
         <OptionRow
@@ -187,22 +164,6 @@ export function WhereToWatchServiceSheet({ selectedKey, onSelect }) {
           selected={service.key === selectedKey}
           onPress={() => onSelect(service.key)}
           accessibilityLabel={`Only show titles on ${service.label}`}
-          leading={
-            <ProgrammeBadge
-              variant="outline"
-              size="lg"
-              shape="circle"
-              borderColor={GOLD_DIM}
-              style={styles.leadingBadge}
-            >
-              <View
-                style={[
-                  styles.serviceDot,
-                  { backgroundColor: SERVICE_FALLBACK_COLORS[service.key] || GOLD_ACCENT },
-                ]}
-              />
-            </ProgrammeBadge>
-          }
         />
       ))}
       <Text style={[styles.footnote, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
@@ -219,7 +180,7 @@ export function WhereToWatchLanguageSheet({
   totalCount = 0,
 }) {
   const { theme } = useTheme();
-  const { colors, typography, radii } = theme;
+  const { colors, typography } = theme;
   const [query, setQuery] = useState('');
 
   const normalizedLanguages = useMemo(() => {
@@ -248,16 +209,7 @@ export function WhereToWatchLanguageSheet({
   return (
     <View style={styles.sheetContent}>
       {languages.length > 5 && (
-        <View
-          style={[
-            styles.searchBox,
-            {
-              backgroundColor: colors.surfaceContainerHigh,
-              borderColor: colors.outlineVariant + '35',
-              borderRadius: radii.lg,
-            },
-          ]}
-        >
+        <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={18} color={colors.onSurfaceVariant} />
           <TextInput
             value={query}
@@ -292,18 +244,6 @@ export function WhereToWatchLanguageSheet({
           selected={!selectedCode}
           onPress={() => onSelect(null)}
           accessibilityLabel="Show titles in all languages"
-          leading={
-            <ProgrammeBadge
-              icon="globe-outline"
-              iconSize={16}
-              iconColor={GOLD_ACCENT}
-              variant="outline"
-              size="lg"
-              shape="circle"
-              borderColor={GOLD_DIM}
-              style={styles.leadingBadge}
-            />
-          }
         />
       )}
 
@@ -321,19 +261,6 @@ export function WhereToWatchLanguageSheet({
             selected={isSelected}
             onPress={() => onSelect(lang)}
             accessibilityLabel={`Filter to ${lang.label} titles (${lang.count})`}
-            leading={
-              <ProgrammeBadge
-                icon={lang.isOther ? 'help-outline' : 'language-outline'}
-                iconSize={16}
-                iconColor={GOLD_ACCENT}
-                variant="outline"
-                size="lg"
-                shape="circle"
-                borderColor={GOLD_DIM}
-                textColor={GOLD_ACCENT}
-                style={styles.leadingBadge}
-              />
-            }
           />
         );
       })}
@@ -388,10 +315,9 @@ export function WhereToWatchCollectionsSheet({ collections, selectedIds, onApply
             icon="albums-outline"
             iconSize={16}
             iconColor={GOLD_ACCENT}
-            variant="outline"
+            variant="subtle"
             size="lg"
             shape="circle"
-            borderColor={GOLD_DIM}
             style={styles.leadingBadge}
           />
         }
@@ -408,10 +334,9 @@ export function WhereToWatchCollectionsSheet({ collections, selectedIds, onApply
               icon={collection.icon || 'albums-outline'}
               iconSize={16}
               iconColor={GOLD_ACCENT}
-              variant="outline"
+              variant="subtle"
               size="lg"
               shape="circle"
-              borderColor={GOLD_DIM}
               style={styles.leadingBadge}
             />
           }
@@ -447,49 +372,53 @@ export function WhereToWatchCollectionsSheet({ collections, selectedIds, onApply
 
 const styles = StyleSheet.create({
   sheetContent: {
-    gap: 10,
+    gap: 4,
     paddingBottom: 8,
   },
   searchBox: {
     alignItems: 'center',
-    borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 22,
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 4,
-    paddingHorizontal: 12,
+    marginBottom: 6,
+    paddingHorizontal: 14,
     paddingVertical: 4,
   },
   searchInput: {
     flex: 1,
-    minHeight: 42,
+    minHeight: 40,
     padding: 0,
   },
   optionRow: {
     alignItems: 'center',
-    borderWidth: 1,
+    borderRadius: 14,
     flexDirection: 'row',
-    gap: 12,
+    gap: 14,
     minHeight: 56,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  optionRowSelected: {
+    backgroundColor: 'rgba(212, 175, 55, 0.10)',
   },
   optionCopy: {
     flex: 1,
     minWidth: 0,
   },
   optionLabel: {
-    fontWeight: '700',
+    fontWeight: '600',
   },
   optionSublabel: {
-    fontWeight: '600',
-    letterSpacing: 0.6,
-    marginTop: 1,
-    textTransform: 'uppercase',
+    fontWeight: '500',
+    letterSpacing: 0.3,
+    marginTop: 2,
+    opacity: 0.8,
   },
   leadingBadge: {
     alignItems: 'center',
+    backgroundColor: 'rgba(212, 175, 55, 0.12)',
     borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
     height: 36,
     justifyContent: 'center',
     width: 36,
@@ -504,17 +433,18 @@ const styles = StyleSheet.create({
     width: 12,
   },
   emptyText: {
-    paddingVertical: 12,
+    paddingVertical: 16,
     textAlign: 'center',
   },
   footnote: {
-    marginTop: 4,
+    marginTop: 10,
     textAlign: 'center',
+    opacity: 0.7,
   },
   applyButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
+    marginTop: 12,
     minHeight: 50,
   },
   applyButtonText: {
