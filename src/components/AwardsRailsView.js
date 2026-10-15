@@ -449,14 +449,14 @@ export function AwardsRailsView({
           showHairline={false}
           titleCase
           onSelectItem={onSelectItem}
-          onToggleWatchlist={onToggleWatchlist}
+          onToggleWatchlist={null}
           saved={savedKeys}
           getItemRankBadge={(film) => film.awardYear || null}
           headerRight={headerRight}
         />
       );
     },
-    [colors, typography, radii, savedKeys, onSelectItem, onToggleWatchlist, onSaveCollection],
+    [colors, typography, radii, savedKeys, onSelectItem, onSaveCollection],
   );
 
   const renderEmpty = () => (

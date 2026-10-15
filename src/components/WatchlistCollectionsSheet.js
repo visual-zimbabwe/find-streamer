@@ -104,18 +104,12 @@ export function WatchlistCollectionsSheet({
                   accessibilityRole="button"
                   accessibilityLabel={`Save to ${collection.name}`}
                 >
-                  <Ionicons
-                    name={collection.icon || 'albums-outline'}
-                    size={15}
-                    color={colors.primary}
-                  />
                   <Text
                     style={[styles.recentChipText, { color: colors.onSurface, ...typography.labelSm }]}
                     numberOfLines={1}
                   >
                     {collection.name}
                   </Text>
-                  <Ionicons name="add" size={15} color={colors.primary} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -180,18 +174,6 @@ export function WatchlistCollectionsSheet({
                   accessibilityLabel={`${isSelected ? 'Remove from' : 'Add to'} ${collection.name}${!collection.immutable ? ', long-press to edit' : ''}`}
                   accessibilityState={{ checked: isSelected, disabled: locked }}
                 >
-                  <View
-                    style={[
-                      styles.categoryIcon,
-                      { backgroundColor: isSelected ? 'rgba(212, 175, 55, 0.20)' : 'rgba(212, 175, 55, 0.10)' },
-                    ]}
-                  >
-                    <Ionicons
-                      name={collection.icon || 'albums-outline'}
-                      size={20}
-                      color={colors.primary}
-                    />
-                  </View>
                   <View style={styles.categoryCopy}>
                     <View style={styles.categoryLabelRow}>
                       <Text
@@ -311,11 +293,6 @@ export function WatchlistCollectionsSheet({
                   accessibilityLabel={`Set status to ${status.label}`}
                   accessibilityState={{ selected }}
                 >
-                  <Ionicons
-                    name={status.icon}
-                    size={14}
-                    color={selected ? colors.onPrimary : colors.onSurfaceVariant}
-                  />
                   <Text
                     style={[
                       styles.statusChipText,
@@ -342,7 +319,6 @@ export function WatchlistCollectionsSheet({
               accessibilityLabel="Remove from library"
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             >
-              <Ionicons name="trash-outline" size={16} color={colors.error} />
               <Text style={[styles.removeLinkText, { color: colors.error, ...typography.labelSm }]}>
                 Remove from library
               </Text>
@@ -439,18 +415,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
     minHeight: 56,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   categoryOptionSelected: {
     backgroundColor: 'rgba(212, 175, 55, 0.10)',
-  },
-  categoryIcon: {
-    alignItems: 'center',
-    borderRadius: 18,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
   },
   categoryCopy: {
     flex: 1,
@@ -508,10 +477,9 @@ const styles = StyleSheet.create({
   },
   statusChip: {
     alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
   },
   statusChipText: {
     fontWeight: '800',
@@ -645,7 +613,6 @@ export function EditCollectionSheet({
             accessibilityRole="button"
             accessibilityLabel={`Delete ${collection?.name} watchlist`}
           >
-            <Ionicons name="trash-outline" size={18} color={colors.error || '#CF6679'} />
             <Text
               style={[
                 styles.deleteButtonText,
@@ -673,7 +640,6 @@ export function EditCollectionSheet({
             accessibilityRole="button"
             accessibilityLabel={`Confirm delete ${collection?.name} watchlist`}
           >
-            <Ionicons name="alert-circle" size={18} color={colors.onError || '#FFFFFF'} />
             <Text
               style={[
                 styles.deleteButtonText,
