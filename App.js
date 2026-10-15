@@ -1,8 +1,9 @@
 import 'react-native-gesture-handler';
 import { enableScreens } from 'react-native-screens';
 import { StatusBar } from 'expo-status-bar';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider } from './src/theme/ThemeProvider';
 import { BottomSheetProvider } from './src/components/StackBottomSheet';
@@ -73,6 +74,10 @@ function MobileApp() {
   const [fontsLoaded, fontError] = useFonts(FONT_MAP);
   // Don't wedge first paint if a face fails to load — fall back to System.
   const fontsReady = fontsLoaded || Boolean(fontError);
+
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+  }, []);
 
   const { showToast } = useToast();
   const requestError = useRequestError({ showToast });

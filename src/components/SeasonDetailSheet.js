@@ -598,7 +598,7 @@ export function SeasonDetailSheetContent({
                             <View style={styles.sourceActionsRow}>
                               <TouchableOpacity
                                 style={styles.streamPrimaryBtn}
-                                onPress={() => handleLaunchStream(source.magnetUrl, source.name, source.fileIdx, item.episodeNumber)}
+                                onPress={() => handleLaunchStream(source.magnetUrl, source.name, source.fileIdx, epNum)}
                                 activeOpacity={0.7}
                               >
                                 <Ionicons name="play" size={13} color={GOLD_ACCENT} />

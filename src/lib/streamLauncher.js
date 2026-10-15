@@ -1,9 +1,11 @@
-import { Linking, NativeModules, Platform } from 'react-native';
+import { AppState, Linking, NativeModules, Platform } from 'react-native';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { toastiva } from 'toastiva';
 
 const { TorrentStreamerModule } = NativeModules;
+
+let activePlayerCleanup = null;
 
 /**
  * Auto-launches a stream in mpv-android locked to landscape orientation,
@@ -68,6 +70,11 @@ export async function launchStream({ magnetUrl, title, fileIdx, imdbId, season, 
       }
     }
 
+    // Clean up any lingering listener from a previous stream
+    if (activePlayerCleanup) {
+      await activePlayerCleanup();
+    }
+
     // Lock orientation to LANDSCAPE prior to launching the player
     try {
       await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
@@ -77,49 +84,27 @@ export async function launchStream({ magnetUrl, title, fileIdx, imdbId, season, 
 
     toastiva.info('Playing in mpv (Landscape)...');
 
-    // Attempt direct native launch with subtitle extras
-    if (TorrentStreamerModule?.launchPlayer) {
-      try {
-        await TorrentStreamerModule.launchPlayer(streamUrl, title || 'Trova Stream', subtitleUrl);
-        return true;
-      } catch (launchErr) {
-        console.log('[launchStream] Native player launch failed, falling back to IntentLauncher:', launchErr);
-      }
-    }
+    // Setup listener to restore portrait orientation and stop background stream service
+    // as soon as the user finishes/exits mpv and Trova returns to the foreground.
+    let hasLeftTrova = AppState.currentState !== 'active';
+    let cleanupDone = false;
+    let appStateSub = null;
 
-    try {
-      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-        data: streamUrl,
-        type: 'video/*',
-        packageName: 'is.xyz.mpv',
-        className: 'is.xyz.mpv.MPVActivity',
-        extra: {
-          title: title || 'Trova Stream',
-        },
-      });
-      return true;
-    } catch (mpvError) {
-      console.log('[launchStream] MPVActivity direct launch failed, attempting generic video viewer:', mpvError);
-      try {
-        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-          data: streamUrl,
-          type: 'video/*',
-          extra: {
-            title: title || 'Trova Stream',
-          },
-        });
-        return true;
-      } catch (genericError) {
-        console.log('[launchStream] Generic video player launch failed:', genericError);
-        try {
-          IntentLauncher.openApplication('is.xyz.mpv');
-          return true;
-        } catch {
-          // Fall through to system magnet handler
-        }
+    const cleanup = async () => {
+      if (cleanupDone) return;
+      cleanupDone = true;
+      if (appStateSub) {
+        appStateSub.remove();
+        appStateSub = null;
       }
-    } finally {
-      // Stop background stream service upon player exit
+      if (activePlayerCleanup === cleanup) {
+        activePlayerCleanup = null;
+      }
+      try {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      } catch (orientErr) {
+        console.log('[launchStream] Orientation restore error:', orientErr);
+      }
       if (TorrentStreamerModule?.stopService) {
         try {
           await TorrentStreamerModule.stopService();
@@ -127,14 +112,71 @@ export async function launchStream({ magnetUrl, title, fileIdx, imdbId, season, 
           // Ignored
         }
       }
+    };
 
-      // Restore portrait orientation upon returning to Trova
+    activePlayerCleanup = cleanup;
+
+    appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        hasLeftTrova = true;
+      } else if (nextState === 'active' && hasLeftTrova) {
+        cleanup();
+      }
+    });
+
+    let playerLaunched = false;
+
+    // Attempt direct native launch with subtitle extras
+    if (TorrentStreamerModule?.launchPlayer) {
       try {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-      } catch {
-        // Ignored
+        await TorrentStreamerModule.launchPlayer(streamUrl, title || 'Trova Stream', subtitleUrl);
+        playerLaunched = true;
+      } catch (launchErr) {
+        console.log('[launchStream] Native player launch failed, falling back to IntentLauncher:', launchErr);
       }
     }
+
+    if (!playerLaunched) {
+      try {
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: streamUrl,
+          type: 'video/*',
+          packageName: 'is.xyz.mpv',
+          className: 'is.xyz.mpv.MPVActivity',
+          extra: {
+            title: title || 'Trova Stream',
+          },
+        });
+        playerLaunched = true;
+      } catch (mpvError) {
+        console.log('[launchStream] MPVActivity direct launch failed, attempting generic video viewer:', mpvError);
+        try {
+          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+            data: streamUrl,
+            type: 'video/*',
+            extra: {
+              title: title || 'Trova Stream',
+            },
+          });
+          playerLaunched = true;
+        } catch (genericError) {
+          console.log('[launchStream] Generic video player launch failed:', genericError);
+          try {
+            await IntentLauncher.openApplication('is.xyz.mpv');
+            playerLaunched = true;
+          } catch {
+            // Fall through to system magnet handler
+          }
+        }
+      }
+    }
+
+    if (playerLaunched) {
+      return true;
+    }
+
+    // If all player launch attempts failed, immediately restore portrait and cleanup
+    await cleanup();
   }
 
   // Fallback: try default system magnet handler
