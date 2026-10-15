@@ -18,7 +18,7 @@ import { ContentRail } from './ContentRail';
 import { GlassIconButton } from './GlassIconButton';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeBadge } from './ProgrammeBadge';
-import { getAwardCeremonyRows, getAwardsCeremonies } from '../lib/awardsCatalog';
+import { getAwardCeremonyRows, getAwardsCeremonies, getAllAwardWinners } from '../lib/awardsCatalog';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { scale } from '../utils/responsive';
@@ -52,6 +52,7 @@ const GROUP_CEREMONY_IDS = {
     'guldbagge',
     'bodil',
     'brazilian_cinema',
+    'canadian_screen_awards',
     'aacta',
     'national_film_awards_india',
   ]),
@@ -87,6 +88,7 @@ const GROUP_CEREMONY_IDS = {
     'guldbagge',
     'bodil',
     'brazilian_cinema',
+    'canadian_screen_awards',
     'national_film_awards_india',
     'busan_new_currents',
     'sydney_film_fest',
@@ -95,6 +97,152 @@ const GROUP_CEREMONY_IDS = {
     'filmfest_munchen',
   ]),
 };
+
+const AwardsSearchBar = React.memo(function AwardsSearchBar({
+  searchQuery,
+  onChangeSearch,
+  onClearSearch,
+  colors,
+  typography,
+  radii,
+}) {
+  return (
+    <View
+      style={[
+        styles.searchBox,
+        {
+          backgroundColor: colors.surfaceContainerHigh,
+          borderRadius: radii.lg,
+        },
+      ]}
+    >
+      <Ionicons name="search-outline" size={17} color={GOLD_ACCENT} style={styles.searchIcon} />
+      <TextInput
+        style={[styles.searchInput, { color: colors.onSurface, ...typography.bodyMd }]}
+        placeholder="Search ceremonies, laureates & directors…"
+        placeholderTextColor={colors.onSurfaceVariant}
+        value={searchQuery}
+        onChangeText={onChangeSearch}
+        autoCorrect={false}
+        autoCapitalize="none"
+        returnKeyType="search"
+        accessibilityLabel="Search awards and laureates"
+      />
+      {searchQuery.length > 0 && (
+        <TouchableOpacity
+          onPress={onClearSearch}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Clear search"
+        >
+          <Ionicons name="close-circle" size={17} color={colors.onSurfaceVariant} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
+
+const AwardsHeader = React.memo(function AwardsHeader({
+  ceremoniesCount,
+  winnersCount,
+  searchQuery,
+  onChangeSearch,
+  onClearSearch,
+  activeGroup,
+  onSelectGroup,
+  onOpenNavigator,
+  colors,
+  typography,
+  radii,
+}) {
+  return (
+    <View style={styles.headerContainer}>
+      <ProgrammeSectionHeader
+        eyebrow="GLOBAL CINEMA HONORS"
+        title="Prestigious Awards & Laureates"
+        subtitle={`${ceremoniesCount} Premier Honors · ${winnersCount.toLocaleString()} Acclaimed Laureates`}
+        titleVariant="titleLg"
+        align="center"
+      />
+
+      <AwardsSearchBar
+        searchQuery={searchQuery}
+        onChangeSearch={onChangeSearch}
+        onClearSearch={onClearSearch}
+        colors={colors}
+        typography={typography}
+        radii={radii}
+      />
+
+      <View style={styles.filterRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pillsScroll}
+        >
+          {CEREMONY_GROUPS.map((group) => {
+            const isSelected = activeGroup === group.id;
+            return (
+              <TouchableOpacity
+                key={group.id}
+                style={[
+                  styles.filterPill,
+                  {
+                    backgroundColor: isSelected ? GOLD_ACCENT + '24' : colors.surfaceContainerHigh,
+                    borderColor: isSelected ? GOLD_ACCENT : 'transparent',
+                    borderRadius: radii.full,
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  onSelectGroup(group.id);
+                }}
+                activeOpacity={0.78}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isSelected }}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    {
+                      color: isSelected ? GOLD_ACCENT : colors.onSurfaceVariant,
+                      fontWeight: isSelected ? '800' : '600',
+                      ...typography.labelSm,
+                    },
+                  ]}
+                >
+                  {group.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <TouchableOpacity
+          style={[
+            styles.fastIndexButton,
+            {
+              backgroundColor: colors.surfaceContainerHigh,
+              borderRadius: radii.full,
+            },
+          ]}
+          onPress={() => {
+            Haptics.selectionAsync();
+            onOpenNavigator();
+          }}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Open ceremony navigator"
+        >
+          <Ionicons name="list-outline" size={16} color={GOLD_ACCENT} />
+          <Text style={[styles.fastIndexText, { color: colors.onSurface, ...typography.labelSm }]}>
+            Ceremonies
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
 
 export function AwardsRailsView({
   colors,
@@ -116,6 +264,7 @@ export function AwardsRailsView({
 
   const allCeremonyRows = useMemo(() => getAwardCeremonyRows(), []);
   const allCeremoniesMeta = useMemo(() => getAwardsCeremonies(), []);
+  const allWinners = useMemo(() => getAllAwardWinners(), []);
 
   // Filter rows by active group and search query
   const filteredRows = useMemo(() => {
@@ -196,116 +345,41 @@ export function AwardsRailsView({
     [filteredRows],
   );
 
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <ProgrammeSectionHeader
-        eyebrow="GLOBAL CINEMA HONORS"
-        title="Prestigious Awards & Laureates"
-        subtitle={`${allCeremoniesMeta.length} Premier Honors · 1,972 Acclaimed Laureates`}
-        titleVariant="titleLg"
-        align="center"
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, []);
+
+  const handleOpenNavigator = useCallback(() => {
+    setNavigatorVisible(true);
+  }, []);
+
+  const listHeader = useMemo(
+    () => (
+      <AwardsHeader
+        ceremoniesCount={allCeremoniesMeta.length}
+        winnersCount={allWinners.length}
+        searchQuery={searchQuery}
+        onChangeSearch={setSearchQuery}
+        onClearSearch={handleClearSearch}
+        activeGroup={activeGroup}
+        onSelectGroup={setActiveGroup}
+        onOpenNavigator={handleOpenNavigator}
+        colors={colors}
+        typography={typography}
+        radii={radii}
       />
-
-      {/* Search Input */}
-      <View
-        style={[
-          styles.searchBox,
-          {
-            backgroundColor: colors.surfaceContainerHigh,
-            borderRadius: radii.lg,
-          },
-        ]}
-      >
-        <Ionicons name="search-outline" size={17} color={GOLD_ACCENT} style={styles.searchIcon} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.onSurface, ...typography.bodyMd }]}
-          placeholder="Search ceremonies, laureates & directors…"
-          placeholderTextColor={colors.onSurfaceVariant}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCorrect={false}
-          accessibilityLabel="Search awards and laureates"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            onPress={() => setSearchQuery('')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel="Clear search"
-          >
-            <Ionicons name="close-circle" size={17} color={colors.onSurfaceVariant} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Category Pills & Fast Navigator Row */}
-      <View style={styles.filterRow}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.pillsScroll}
-        >
-          {CEREMONY_GROUPS.map((group) => {
-            const isSelected = activeGroup === group.id;
-            return (
-              <TouchableOpacity
-                key={group.id}
-                style={[
-                  styles.filterPill,
-                  {
-                    backgroundColor: isSelected ? GOLD_ACCENT + '24' : colors.surfaceContainerHigh,
-                    borderColor: isSelected ? GOLD_ACCENT : 'transparent',
-                    borderRadius: radii.full,
-                  },
-                ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setActiveGroup(group.id);
-                }}
-                activeOpacity={0.78}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isSelected }}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    {
-                      color: isSelected ? GOLD_ACCENT : colors.onSurfaceVariant,
-                      fontWeight: isSelected ? '800' : '600',
-                      ...typography.labelSm,
-                    },
-                  ]}
-                >
-                  {group.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        <TouchableOpacity
-          style={[
-            styles.fastIndexButton,
-            {
-              backgroundColor: colors.surfaceContainerHigh,
-              borderRadius: radii.full,
-            },
-          ]}
-          onPress={() => {
-            Haptics.selectionAsync();
-            setNavigatorVisible(true);
-          }}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Open ceremony navigator"
-        >
-          <Ionicons name="list-outline" size={16} color={GOLD_ACCENT} />
-          <Text style={[styles.fastIndexText, { color: colors.onSurface, ...typography.labelSm }]}>
-            Ceremonies
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    ),
+    [
+      allCeremoniesMeta.length,
+      allWinners.length,
+      searchQuery,
+      activeGroup,
+      handleClearSearch,
+      handleOpenNavigator,
+      colors,
+      typography,
+      radii,
+    ],
   );
 
   const renderRailItem = useCallback(
@@ -404,8 +478,9 @@ export function AwardsRailsView({
         data={filteredRows}
         renderItem={renderRailItem}
         keyExtractor={(item) => item.category.id}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={renderEmpty}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.listContent,
           {

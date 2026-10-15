@@ -176,6 +176,18 @@ EXTENDED_CEREMONY_META = {
         "badgeColor": "#10B981",
         "description": "Brazil's official national film honours, presented by the Brazilian Academy of Cinema for contemporary masterpieces.",
     },
+    "canadian_screen_awards": {
+        "id": "canadian_screen_awards",
+        "name": "Canadian Screen Awards (Prix Écrans canadiens)",
+        "shortName": "Canadian Screen",
+        "awardName": "Best Motion Picture (Meilleur film)",
+        "wikidataId": "Q5030541",
+        "country": "Canada",
+        "city": "Toronto",
+        "founded": 1949,
+        "badgeColor": "#DC2626",
+        "description": "Canada's national academy honours for film, presented annually by the Academy of Canadian Cinema & Television (ACCT).",
+    },
     "filmfest_munchen": {
         "id": "filmfest_munchen",
         "name": "Filmfest München (Munich International Film Festival)",
@@ -833,6 +845,49 @@ NEW_CEREMONY_WINNERS = {
         ("2003", "City of God", "Cidade de Deus", "Fernando Meirelles"),
         ("1999", "Central Station", "Central do Brasil", "Walter Salles"),
     ],
+    "canadian_screen_awards": [
+        ("2024", "BlackBerry", "", "Matt Johnson", "2023"),
+        ("2023", "Brother", "", "Clement Virgo", "2023"),
+        ("2022", "Scarborough", "", "Shasha Nakhai & Rich Williamson", "2021"),
+        ("2021", "Beans", "", "Tracey Deer", "2020"),
+        ("2020", "Antigone", "", "Sophie Deraspe", "2019"),
+        ("2019", "A Colony", "Une colonie", "Geneviève Dulude-De Celles", "2018"),
+        ("2018", "Maudie", "", "Aisling Walsh", "2016"),
+        ("2017", "It's Only the End of the World", "Juste la fin du monde", "Xavier Dolan", "2016"),
+        ("2016", "Room", "", "Lenny Abrahamson", "2015"),
+        ("2015", "Mommy", "", "Xavier Dolan", "2014"),
+        ("2014", "Gabrielle", "", "Louise Archambault", "2013"),
+        ("2013", "War Witch", "Rebelle", "Kim Nguyen", "2012"),
+        ("2012", "Monsieur Lazhar", "", "Philippe Falardeau", "2011"),
+        ("2011", "Incendies", "", "Denis Villeneuve", "2010"),
+        ("2010", "Polytechnique", "", "Denis Villeneuve", "2009"),
+        ("2009", "Passchendaele", "", "Paul Gross", "2008"),
+        ("2008", "Away from Her", "", "Sarah Polley", "2006"),
+        ("2007", "Bon Cop, Bad Cop", "", "Érik Canuel", "2006"),
+        ("2006", "C.R.A.Z.Y.", "", "Jean-Marc Vallée", "2005"),
+        ("2005", "The Triplets of Belleville", "Les Triplettes de Belleville", "Sylvain Chomet", "2003"),
+        ("2004", "The Barbarian Invasions", "Les Invasions barbares", "Denys Arcand", "2003"),
+        ("2003", "Ararat", "", "Atom Egoyan", "2002"),
+        ("2002", "Atanarjuat: The Fast Runner", "Atanarjuat", "Zacharias Kunuk", "2001"),
+        ("2001", "Maelström", "", "Denis Villeneuve", "2000"),
+        ("2000", "Sunshine", "", "István Szabó", "1999"),
+        ("1999", "The Red Violin", "Le Violon rouge", "François Girard", "1998"),
+        ("1998", "The Sweet Hereafter", "", "Atom Egoyan", "1997"),
+        ("1997", "Lilies", "Les Feluettes", "John Greyson", "1996"),
+        ("1996", "Exotica", "", "Atom Egoyan", "1994"),
+        ("1994", "Thirty Two Short Films About Glenn Gould", "", "François Girard", "1993"),
+        ("1993", "Léolo", "", "Jean-Claude Lauzon", "1992"),
+        ("1992", "Black Robe", "", "Bruce Beresford", "1991"),
+        ("1991", "Jesus of Montreal", "Jésus de Montréal", "Denys Arcand", "1989"),
+        ("1989", "The Decline of the American Empire", "Le Déclin de l'empire américain", "Denys Arcand", "1986"),
+        ("1988", "Night Zoo", "Un zoo la nuit", "Jean-Claude Lauzon", "1987"),
+        ("1986", "My American Cousin", "", "Sandy Wilson", "1985"),
+        ("1984", "The Grey Fox", "", "Phillip Borsos", "1982"),
+        ("1981", "The Changeling", "", "Peter Medak", "1980"),
+        ("1980", "The Silent Partner", "", "Daryl Duke", "1978"),
+        ("1971", "Mon oncle Antoine", "", "Claude Jutra", "1971"),
+        ("1970", "Goin' Down the Road", "", "Donald Shebib", "1970"),
+    ],
     "filmfest_munchen": [
         ("2024", "The Seed of the Sacred Fig", "Danaye anjir-e ma'abed", "Mohammad Rasoulof"),
         ("2024", "The Zone of Interest", "", "Jonathan Glazer"),
@@ -1171,22 +1226,24 @@ def main():
     cache = load_cache()
     print(f"Loaded {len(cache)} cached TMDb items.")
 
-    existing_ceremonies = catalog.get("ceremonies", [])
+    existing_ceremonies = [c for c in catalog.get("ceremonies", []) if c["id"] not in EXTENDED_CEREMONY_META]
     existing_all_winners = catalog.get("allWinners", [])
     all_winners_map = {w["id"]: w for w in existing_all_winners}
 
     total_new_films_resolved = 0
     new_ceremonies_output = []
 
-    # Process all 24 new ceremonies
+    # Process all extended ceremonies
     for c_key, meta in EXTENDED_CEREMONY_META.items():
         print(f"Resolving {meta['name']}...")
         winners_raw = NEW_CEREMONY_WINNERS.get(c_key, [])
         winners_list = []
         seen_films_for_ceremony = set()
 
-        for yr, title, orig, director in winners_raw:
-            tmdb_item = resolve_tmdb_item(title, orig, yr, director, cache)
+        for item in winners_raw:
+            yr, title, orig, director = item[:4]
+            rel_yr = item[4] if len(item) > 4 else yr
+            tmdb_item = resolve_tmdb_item(title, orig, rel_yr, director, cache)
             if not tmdb_item:
                 print(f"  [MISS] Could not resolve: {title} ({yr})")
                 continue
