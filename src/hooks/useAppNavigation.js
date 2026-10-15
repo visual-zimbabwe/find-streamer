@@ -34,8 +34,8 @@ export function useAppNavigation({
   const [collectionsSubView, setCollectionsSubView] = useState('franchises');
   const [collectionsImdbTab, setCollectionsImdbTab] = useState('movie');
 
-  const openCollections = useCallback(() => {
-    setCollectionsSubView('franchises');
+  const openCollections = useCallback((initialSubView = 'franchises') => {
+    setCollectionsSubView(initialSubView || 'franchises');
     setCollectionsImdbTab('movie');
     if (navigationRef.isReady()) {
       navigationRef.navigate('home', { screen: 'Collections' });
@@ -56,7 +56,7 @@ export function useAppNavigation({
     const tabRoute = rootState.routes.find((r) => r.name === tabId);
     const stackCanPop = Boolean(tabRoute?.state && tabRoute.state.index > 0);
 
-    if (focusedRoute === 'Collections' && collectionsSubView === 'imdb') {
+    if (focusedRoute === 'Collections' && (collectionsSubView === 'imdb' || collectionsSubView === 'awards')) {
       setCollectionsSubView('franchises');
       return;
     }
