@@ -12,10 +12,10 @@ const {
   getPrestigeTopWinners,
 } = require('../src/lib/awardsCatalog.js');
 
-test('getAwardsCeremonies returns 22 prestigious ceremonies with metadata', () => {
+test('getAwardsCeremonies returns 46 prestigious ceremonies with metadata', () => {
   const ceremonies = getAwardsCeremonies();
   assert.ok(Array.isArray(ceremonies));
-  assert.equal(ceremonies.length, 22);
+  assert.equal(ceremonies.length, 46);
 
   const cannes = ceremonies.find((c) => c.id === 'cannes');
   assert.ok(cannes);
@@ -25,10 +25,17 @@ test('getAwardsCeremonies returns 22 prestigious ceremonies with metadata', () =
   assert.equal(cannes.wikidataId, 'Q179887');
   assert.ok(cannes.winnersCount > 100);
 
-  const oscars = ceremonies.find((c) => c.id === 'oscars_picture');
-  assert.ok(oscars);
-  assert.equal(oscars.shortName, 'Oscars');
-  assert.equal(oscars.founded, 1929);
+  const bafta = ceremonies.find((c) => c.id === 'bafta_film');
+  assert.ok(bafta);
+  assert.equal(bafta.shortName, 'BAFTA Film');
+  assert.equal(bafta.founded, 1948);
+  assert.ok(bafta.winnersCount >= 70);
+
+  const munich = ceremonies.find((c) => c.id === 'filmfest_munchen');
+  assert.ok(munich);
+  assert.equal(munich.shortName, 'Filmfest München');
+  assert.equal(munich.country, 'Germany');
+  assert.ok(munich.winnersCount >= 10);
 });
 
 test('getCeremonyById returns correct ceremony and winners', () => {
@@ -80,7 +87,7 @@ test('getAwardWinnerItem and getAwardsForMovie lookup by tmdbId', () => {
 test('getAwardCeremonyRows formats rows compatible with ContentRail', () => {
   const rows = getAwardCeremonyRows();
   assert.ok(Array.isArray(rows));
-  assert.equal(rows.length, 22);
+  assert.equal(rows.length, 46);
 
   const row = rows[0];
   assert.ok(row.category);
