@@ -38,10 +38,12 @@ import { resolveRatingValue } from '../lib/ratings';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { HomeFeedSkeleton } from './SkeletonLoaders';
 import { useServiceLogos } from '../hooks/useServiceLogos';
+import { getAwardCeremonyRows } from '../lib/awardsCatalog';
+import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
+import { CinematicCardDeck } from './CinematicCardDeck';
 
 const HEADER_BODY_H = scale(96);
 const FILTERED_HERO_MAX = 12;
-import { CinematicCardDeck } from './CinematicCardDeck';
 
 export { ContentRail } from './ContentRail';
 export { CinematicCardDeck } from './CinematicCardDeck';
@@ -186,6 +188,53 @@ export function HomeScreen({
       })
       .filter((row) => row.items.length > 0);
   }, [collections, watchlist, mediaFilter, whereMatches, homeLanguage]);
+
+  const awardCeremonyRows = useMemo(() => {
+    // Hide award rails if user selected 'tv' filter since this is a feature film archive
+    if (mediaFilter === 'tv') return [];
+
+    const rows = getAwardCeremonyRows();
+    const FEATURED_CEREMONIES = ['cannes', 'oscars_picture', 'venice', 'berlin', 'sundance', 'tiff'];
+
+    return rows
+      .filter((r) => FEATURED_CEREMONIES.includes(r.category.ceremonyId))
+      .map((r) => {
+        let items = r.items;
+        if (homeLanguage) {
+          items = items.filter((item) => {
+            const langCode = typeof item.originalLanguage === 'string'
+              ? item.originalLanguage.toLowerCase().trim()
+              : '';
+            if (homeLanguage.code === 'other') {
+              return !langCode;
+            }
+            return langCode === homeLanguage.code;
+          });
+        }
+        return {
+          ...r,
+          items,
+        };
+      })
+      .filter((r) => r.items.length > 0);
+  }, [mediaFilter, homeLanguage]);
+
+  const feedRows = useMemo(() => {
+    const list = [...watchlistRows];
+    // If we have award ceremony rails and no restrictive availability filter hiding everything
+    if (awardCeremonyRows.length > 0 && !whereActive) {
+      list.push({
+        id: 'awards_header_row',
+        category: { id: 'awards_header_row' },
+        isAwardsHeader: true,
+        items: [],
+      });
+      awardCeremonyRows.forEach((r) => {
+        list.push(r);
+      });
+    }
+    return list;
+  }, [watchlistRows, awardCeremonyRows, whereActive]);
 
   // The hero pool: the curated rotating spotlight when unfiltered; the matched
   // library titles themselves when a filter is on (so the hero can never feature
@@ -339,24 +388,49 @@ export function HomeScreen({
   );
 
   const renderRail = useCallback(
-    ({ item: { category, items } }) => (
-      <ContentRail
-        title={category.label}
-        data={items}
-        colors={colors}
-        typography={typography}
-        radii={radii}
-        showMediaType={false}
-        showCaption={false}
-        showHairline={false}
-        titleCase
-        onSelectItem={onSelectItem}
-      />
-    ),
-    [colors, typography, radii, onSelectItem],
+    ({ item }) => {
+      if (item.isAwardsHeader) {
+        return (
+          <View style={styles.awardsHeaderSection}>
+            <ProgrammeSectionHeader
+              eyebrow="GLOBAL CINEMA HONORS"
+              title="Prestigious Awards & Laureates"
+              subtitle="Palme d'Or · Best Picture · Golden Lion · Grand Jury"
+              titleVariant="titleMd"
+              align="left"
+              actionLabel="Explore Awards"
+              onAction={() => onOpenCollections?.('awards')}
+            />
+          </View>
+        );
+      }
+
+      const { category, items } = item;
+      const subtitle = category.awardName
+        ? `${category.awardName}${category.country ? ` · ${category.country}` : ''}`
+        : null;
+
+      return (
+        <ContentRail
+          title={category.fullName || category.label}
+          subtitle={subtitle}
+          data={items}
+          colors={colors}
+          typography={typography}
+          radii={radii}
+          showMediaType={false}
+          showCaption={false}
+          showHairline={false}
+          titleCase
+          onSelectItem={onSelectItem}
+          getItemRankBadge={category.isAwardCeremony ? ((film) => film.awardYear || null) : undefined}
+        />
+      );
+    },
+    [colors, typography, radii, onSelectItem, onOpenCollections],
   );
 
-  const railKeyExtractor = useCallback(({ category }) => category.id, []);
+  const railKeyExtractor = useCallback((item) => item.category?.id || item.id, []);
 
   const filterParts = [];
   if (homeLanguage?.label) {
@@ -456,7 +530,7 @@ export function HomeScreen({
 
       <FlatList
         style={styles.scroll}
-        data={whereChecking ? [] : watchlistRows}
+        data={whereChecking ? [] : feedRows}
         renderItem={renderRail}
         keyExtractor={railKeyExtractor}
         extraData={theme}
@@ -496,6 +570,11 @@ const styles = StyleSheet.create({
   spotlightSection: {
     paddingHorizontal: 0,
     marginBottom: scale(18),
+  },
+  awardsHeaderSection: {
+    paddingHorizontal: GRID_PAD,
+    marginTop: scale(28),
+    marginBottom: scale(6),
   },
   skeletonWrap: {
     paddingHorizontal: GRID_PAD,

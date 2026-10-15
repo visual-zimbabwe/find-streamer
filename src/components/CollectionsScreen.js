@@ -12,6 +12,7 @@ import { MediaListRow } from './MediaListRow';
 import { GlassIconButton } from './GlassIconButton';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { FranchiseRailsView } from './FranchiseRailsView';
+import { AwardsRailsView } from './AwardsRailsView';
 import { HomeTopNav } from './HomeTopNav';
 import { GOLD_ACCENT, GRID_PAD } from '../theme/programme';
 
@@ -149,7 +150,7 @@ export function CollectionsScreen({
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (subView === 'imdb') {
+      if (subView === 'imdb' || subView === 'awards') {
         onSubViewChange?.('franchises');
         return true;
       }
@@ -168,16 +169,17 @@ export function CollectionsScreen({
   }, []);
 
   const handleNavSelect = (key) => {
-    if (subView === 'franchises') {
-      if (key === 'imdb_top100') {
-        onSubViewChange?.('imdb');
-        onImdbMediaTabChange?.('movie');
-      }
-      return;
-    }
-
     if (key === 'collections') {
       onSubViewChange?.('franchises');
+      return;
+    }
+    if (key === 'awards') {
+      onSubViewChange?.('awards');
+      return;
+    }
+    if (key === 'imdb_top100') {
+      onSubViewChange?.('imdb');
+      onImdbMediaTabChange?.('movie');
       return;
     }
     if (key === 'movie' || key === 'tv') {
@@ -189,9 +191,47 @@ export function CollectionsScreen({
     handleHeaderScroll(event);
   });
 
-  const topNavSet = subView === 'imdb' ? 'imdbTop100' : 'collectionsRoot';
+  const topNavSet =
+    subView === 'imdb'
+      ? 'imdbTop100'
+      : subView === 'awards'
+      ? 'awardsRoot'
+      : 'collectionsRoot';
   const topNavSelected =
-    subView === 'imdb' ? (imdbMediaTab === 'tv' ? 'tv' : 'movie') : 'collections';
+    subView === 'imdb'
+      ? (imdbMediaTab === 'tv' ? 'tv' : 'movie')
+      : subView === 'awards'
+      ? 'awards'
+      : 'collections';
+
+  if (subView === 'awards') {
+    return (
+      <View style={[styles.rootWrap, { backgroundColor: colors.background }]}>
+        <LinearGradient
+          colors={atmosphereColors}
+          style={styles.atmosphereTop}
+          pointerEvents="none"
+        />
+        <HomeTopNav
+          navSet={topNavSet}
+          selectedKey={topNavSelected}
+          onSelect={handleNavSelect}
+          variant="programme"
+          headerScrolled={headerScrolled}
+        />
+        <AwardsRailsView
+          colors={colors}
+          typography={typography}
+          radii={radii}
+          savedKeys={savedKeys}
+          onSelectItem={onSelectItem}
+          onToggleWatchlist={onToggleWatchlist}
+          onSaveCollection={onSaveCollection}
+          onHeaderScroll={handleHeaderScroll}
+        />
+      </View>
+    );
+  }
 
   if (subView === 'imdb') {
     return (
