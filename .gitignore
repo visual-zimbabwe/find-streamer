@@ -21,3 +21,8 @@ android/app/.cxx/
 # macOS/Windows system files
 .DS_Store
 Thumbs.db
+
+# Local data cache & backups
+scripts/.*cache.json
+*.backup.json
+

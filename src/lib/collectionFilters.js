@@ -267,7 +267,8 @@ function calculatePopularityScore(row) {
   const artBonus = row.hasArt ? 100 : -500;
   const countBonus = Math.min(row.items.length, 12) * 10;
   const ratingBonus = (row.avgRatingValue || row.firstMovieRatingValue || 0) * 15;
-  return popBonus + artBonus + countBonus + ratingBonus;
+  const voteBonus = Math.min(Math.log10(Math.max(row.totalVotes || 1, 1)) * 40, 200);
+  return popBonus + artBonus + countBonus + ratingBonus + voteBonus;
 }
 
 export function sortCollectionRows(rows, sortMode = 'popular') {
@@ -297,12 +298,12 @@ export function sortCollectionRows(rows, sortMode = 'popular') {
     const artB = b.hasArt ? 1 : 0;
     if (artA !== artB) return artB - artA;
 
-    // Highest rating first
-    const scoreA = a.firstMovieRatingValue || a.avgRatingValue || 0;
-    const scoreB = b.firstMovieRatingValue || b.avgRatingValue || 0;
-    if (scoreB !== scoreA) return scoreB - scoreA;
+    // Statistically sound Bayesian acclaim score first, falling back to rating
+    const scoreA = a.bayesianScore || a.avgRatingValue || a.firstMovieRatingValue || 0;
+    const scoreB = b.bayesianScore || b.avgRatingValue || b.firstMovieRatingValue || 0;
+    if (Math.abs(scoreB - scoreA) > 0.05) return scoreB - scoreA;
 
-    return b.items.length - a.items.length;
+    return (b.totalVotes || 0) - (a.totalVotes || 0);
   });
 }
 

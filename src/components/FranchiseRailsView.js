@@ -492,7 +492,7 @@ function SearchBar({ searchQuery, onSearchChange, onClear, colors, typography, r
       <Ionicons name="search-outline" size={17} color={GOLD_ACCENT} style={styles.searchIcon} />
       <TextInput
         style={[styles.searchInput, { color: colors.onSurface, ...typography.bodyMd }]}
-        placeholder="Search 8,200+ sagas, movies & universes…"
+        placeholder="Search sagas, movies & universes…"
         placeholderTextColor={colors.onSurfaceVariant}
         value={searchQuery}
         onChangeText={onSearchChange}
@@ -511,6 +511,23 @@ function SearchBar({ searchQuery, onSearchChange, onClear, colors, typography, r
       )}
     </View>
   );
+}
+
+function scrollSectionListToOffset(ref, offset = 0, animated = true) {
+  if (!ref?.current) return;
+  const responder = ref.current.getScrollResponder?.();
+  if (responder?.scrollTo) {
+    responder.scrollTo({ x: 0, y: offset, animated });
+    return;
+  }
+  const innerList = ref.current._wrapperListRef?.getListRef?.();
+  if (innerList?.scrollToOffset) {
+    innerList.scrollToOffset({ offset, animated });
+    return;
+  }
+  if (typeof ref.current.scrollToOffset === 'function') {
+    ref.current.scrollToOffset({ offset, animated });
+  }
 }
 
 export function FranchiseRailsView({
@@ -694,7 +711,7 @@ export function FranchiseRailsView({
 
   useEffect(() => {
     requestAnimationFrame(() => {
-      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+      scrollSectionListToOffset(listRef, 0, false);
     });
   }, [searchQuery, sizeFilters, decadeFilters, customDecadeRange, categoryFilter, letterFilter, sortMode]);
 
@@ -703,7 +720,7 @@ export function FranchiseRailsView({
       const offset = pendingScrollRestoreRef.current;
       pendingScrollRestoreRef.current = null;
       requestAnimationFrame(() => {
-        listRef.current?.scrollToOffset?.({ offset, animated: false });
+        scrollSectionListToOffset(listRef, offset, false);
       });
     }
   }, [sectionCollapsed, sections]);
@@ -756,7 +773,7 @@ export function FranchiseRailsView({
 
   const handleScrollToTop = useCallback(() => {
     Haptics.selectionAsync();
-    listRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+    scrollSectionListToOffset(listRef, 0, true);
   }, []);
 
   const bottomNavScroll = useBottomNavScroll((event) => {
