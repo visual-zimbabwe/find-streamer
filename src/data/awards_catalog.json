@@ -1,7 +1,7 @@
 {
-  "updatedAt": "2026-10-15T16:53:40Z",
-  "totalCeremonies": 46,
-  "totalUniqueWinners": 1972,
+  "updatedAt": "2026-10-15T17:18:53Z",
+  "totalCeremonies": 47,
+  "totalUniqueWinners": 2004,
   "ceremonies": [
     {
       "id": "cannes",
@@ -45868,6 +45868,919 @@
       ]
     },
     {
+      "id": "canadian_screen_awards",
+      "name": "Canadian Screen Awards (Prix Écrans canadiens)",
+      "shortName": "Canadian Screen",
+      "awardName": "Best Motion Picture (Meilleur film)",
+      "wikidataId": "Q5030541",
+      "country": "Canada",
+      "city": "Toronto",
+      "founded": 1949,
+      "badgeColor": "#DC2626",
+      "description": "Canada's national academy honours for film, presented annually by the Academy of Canadian Cinema & Television (ACCT).",
+      "winnersCount": 41,
+      "winners": [
+        {
+          "id": 1016084,
+          "tmdbId": 1016084,
+          "mediaType": "movie",
+          "title": "BlackBerry",
+          "originalTitle": "BlackBerry",
+          "year": "2023",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/nQSvHZDuMlrZdm7ooMo8gb4CXhW.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/cUHxmWfkp6se0Rt10Kr86bMCYDE.jpg",
+          "rating": "7.2/10",
+          "ratingValue": 7.18,
+          "voteCount": 1009,
+          "overview": "Two mismatched entrepreneurs – egghead innovator Mike Lazaridis and cut-throat businessman Jim Balsillie – joined forces in an endeavour that was to become a worldwide hit in little more than a decade. The story of the meteoric rise and catastrophic demise of the world's first smartphone.",
+          "releaseDate": "2023-02-13",
+          "awardYear": "2024",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Matt Johnson"
+        },
+        {
+          "id": 996569,
+          "tmdbId": 996569,
+          "mediaType": "movie",
+          "title": "Brother",
+          "originalTitle": "Brother",
+          "year": "2023",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/yqd1CmwaXQkLXVLsO2cqiExplb1.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/6eh7pKQvz8G2oJCLbaJajeV8k8Q.jpg",
+          "rating": "5.8/10",
+          "ratingValue": 5.81,
+          "voteCount": 29,
+          "overview": "Sons of Caribbean immigrants, Francis and Michael face questions of masculinity, identity and family amid the pulsing beat of Toronto's early hip-hop scene. A mystery unfolds when escalating tensions set off a series of events which changes the course of the brothers’ lives forever.",
+          "releaseDate": "2023-03-17",
+          "awardYear": "2023",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Clement Virgo"
+        },
+        {
+          "id": 855136,
+          "tmdbId": 855136,
+          "mediaType": "movie",
+          "title": "Scarborough",
+          "originalTitle": "Scarborough",
+          "year": "2022",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/lzoO0qZRVfAD6Y2lVOFFSeOhTH8.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/k5JyFNsp45CXOeInq257gVf11cg.jpg",
+          "rating": "7.4/10",
+          "ratingValue": 7.4,
+          "voteCount": 7,
+          "overview": "Three kids in a low-income neighborhood find friendship and community in an unlikely place.",
+          "releaseDate": "2022-02-25",
+          "awardYear": "2022",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Shasha Nakhai & Rich Williamson"
+        },
+        {
+          "id": 726220,
+          "tmdbId": 726220,
+          "mediaType": "movie",
+          "title": "Beans",
+          "originalTitle": "Beans",
+          "year": "2021",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/2LkLGOTHOvMCxKwJBav607Hqmgw.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/c1rIiuvMP5k3c1CJNxD2fxpdoh6.jpg",
+          "rating": "6.3/10",
+          "ratingValue": 6.3,
+          "voteCount": 28,
+          "overview": "Twelve-year-old Beans is on the edge: torn between innocent childhood and reckless adolescence; forced to grow up fast and become the tough Mohawk warrior she needs to be during the Oka Crisis, the turbulent Indigenous uprising that tore Quebec and Canada apart for 78 tense days in the summer of 1990.",
+          "releaseDate": "2021-03-30",
+          "awardYear": "2021",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Tracey Deer"
+        },
+        {
+          "id": 582309,
+          "tmdbId": 582309,
+          "mediaType": "movie",
+          "title": "Antigone",
+          "originalTitle": "Antigone",
+          "year": "2019",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/whn30vLHgM5IyMorCVGAsXzB3Zp.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/7p8uiXXprRzbw7uyaER4AG86gLP.jpg",
+          "rating": "6.8/10",
+          "ratingValue": 6.8,
+          "voteCount": 69,
+          "overview": "Sophie Deraspe’s adaptation of the classic Greek tragedy of the same name reimagines the story of a woman’s quest for justice as a commentary on the immigrant experience in contemporary Montreal.",
+          "releaseDate": "2019-11-08",
+          "awardYear": "2020",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Sophie Deraspe"
+        },
+        {
+          "id": 548925,
+          "tmdbId": 548925,
+          "mediaType": "movie",
+          "title": "A Colony",
+          "originalTitle": "Une colonie",
+          "year": "2019",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/5ZDrOxMhCoxL4Shm1POFeSmiS1l.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/6NcsKE9DFP0Faha5ybi6HkoydO4.jpg",
+          "rating": "6.8/10",
+          "ratingValue": 6.8,
+          "voteCount": 39,
+          "overview": "Camille wanders through the countryside talking with frogs and chickens: she sails through life as a carefree soul. But for her older sister, the introverted Mylia, things are more complicated. Mylia is lost between the uncertainty in her family life, the superficial atmosphere at her new school and her first experiences at house parties. It is Camille who eventually introduces Mylia to Jimmy. The boy from the nearby Abenaki reserve is different and he encourages her to break free.",
+          "releaseDate": "2019-02-01",
+          "awardYear": "2019",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Geneviève Dulude-De Celles"
+        },
+        {
+          "id": 359784,
+          "tmdbId": 359784,
+          "mediaType": "movie",
+          "title": "Maudie",
+          "originalTitle": "Maudie",
+          "year": "2016",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/wu9RPdV0uEemFEewJQ6fWwJ9ZcU.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/3J59Ai3VHP4m5jl7CoVM7mpoMrj.jpg",
+          "rating": "7.8/10",
+          "ratingValue": 7.8,
+          "voteCount": 609,
+          "overview": "Canadian folk artist Maud Lewis falls in love with a fishmonger while working for him as a live-in housekeeper.",
+          "releaseDate": "2016-06-16",
+          "awardYear": "2018",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Aisling Walsh"
+        },
+        {
+          "id": 338189,
+          "tmdbId": 338189,
+          "mediaType": "movie",
+          "title": "It's Only the End of the World",
+          "originalTitle": "Juste la fin du monde",
+          "year": "2016",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/riWa3WZrO3n8lLWuaEVMgaqAZGn.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/rsQBqWu6QgAnJmRnpbZu0rC5C7V.jpg",
+          "rating": "7.2/10",
+          "ratingValue": 7.2,
+          "voteCount": 1688,
+          "overview": "Louis, a terminally ill writer, returns home after a long absence to tell his family that he is dying.",
+          "releaseDate": "2016-09-21",
+          "awardYear": "2017",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Xavier Dolan"
+        },
+        {
+          "id": 264644,
+          "tmdbId": 264644,
+          "mediaType": "movie",
+          "title": "Room",
+          "originalTitle": "Room",
+          "year": "2015",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/2hHDMeYyZjbGWn0BeNH1cTMxuM7.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/cGV6R2vzT4TYIabf3JgmrOISQ0y.jpg",
+          "rating": "8.0/10",
+          "ratingValue": 7.99,
+          "voteCount": 9894,
+          "overview": "Held captive for 7 years in an enclosed space, a woman and her young son finally gain their freedom, allowing the boy to experience the outside world for the first time.",
+          "releaseDate": "2015-10-16",
+          "awardYear": "2016",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Lenny Abrahamson"
+        },
+        {
+          "id": 265177,
+          "tmdbId": 265177,
+          "mediaType": "movie",
+          "title": "Mommy",
+          "originalTitle": "Mommy",
+          "year": "2014",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/uPDP0cHGOpkr47rdCdHWo4CyiPj.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/dIHezuC3AmylT8mkXQiWSjz2wJR.jpg",
+          "rating": "8.2/10",
+          "ratingValue": 8.19,
+          "voteCount": 2914,
+          "overview": "A peculiar neighbor offers hope to a recent widow who is struggling to raise a teenager who is unpredictable and, sometimes, violent.",
+          "releaseDate": "2014-09-19",
+          "awardYear": "2015",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Xavier Dolan"
+        },
+        {
+          "id": 215031,
+          "tmdbId": 215031,
+          "mediaType": "movie",
+          "title": "Gabrielle",
+          "originalTitle": "Gabrielle",
+          "year": "2013",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/bE2GYdImWm6UZeAv7DNkihALm27.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/3uMTh3QhxCk5Ihk3v6qZSznLb1z.jpg",
+          "rating": "6.3/10",
+          "ratingValue": 6.35,
+          "voteCount": 46,
+          "overview": "Gabrielle is a young woman with Williams syndrome who has a contagious joie de vivre and an exceptional musical gift. Since she met her boyfriend Martin, at the recreation centre where they are choir members, they have been inseparable. However, because they are \"different,\" their loved ones are fearful of their relationship. As the choir prepare for an important music festival, Gabrielle does everything she can to gain her independence. As determined as she is, Gabrielle must still confront other people's prejudices as well as her own limitations in the hope of experiencing a love far from the \"ordinary\".",
+          "releaseDate": "2013-09-20",
+          "awardYear": "2014",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Louise Archambault"
+        },
+        {
+          "id": 98205,
+          "tmdbId": 98205,
+          "mediaType": "movie",
+          "title": "War Witch",
+          "originalTitle": "Rebelle",
+          "year": "2012",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/78Yi8mzd1S04ANbdlxI1FkMl4Vx.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/hnkdrpKqANChFKvwTRYlw2Y6xZt.jpg",
+          "rating": "6.6/10",
+          "ratingValue": 6.6,
+          "voteCount": 114,
+          "overview": "Somewhere in Sub-Saharan Africa, Komona a 14-year-old girl tells her unborn child growing inside her the story of her life since she has been at war. Everything started when she was abducted by the rebel army at the age of 12.",
+          "releaseDate": "2012-02-17",
+          "awardYear": "2013",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Kim Nguyen"
+        },
+        {
+          "id": 78480,
+          "tmdbId": 78480,
+          "mediaType": "movie",
+          "title": "Monsieur Lazhar",
+          "originalTitle": "Monsieur Lazhar",
+          "year": "2011",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/qcSXbOP1iv859kgQgqZ4Ib9yqKG.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/bMdKv4K2QgAStm0PLQIHNsgMpND.jpg",
+          "rating": "7.2/10",
+          "ratingValue": 7.18,
+          "voteCount": 374,
+          "overview": "During a harsh Montréal winter, an elementary-school class is left reeling after its teacher commits suicide. Bachir Lazhar, a charismatic Algerian immigrant, steps in as the substitute teacher for the classroom of traumatized children. All the while, he must keep his personal life tucked away: the fact that he is seeking political refuge in Québec – and that he, like the children, has suffered an appalling loss.",
+          "releaseDate": "2011-09-10",
+          "awardYear": "2012",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Philippe Falardeau"
+        },
+        {
+          "id": 46738,
+          "tmdbId": 46738,
+          "mediaType": "movie",
+          "title": "Incendies",
+          "originalTitle": "Incendies",
+          "year": "2010",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/yH6DAQVgbyj72S66gN4WWVoTjuf.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/f3ATwil5vmUeTsogBaMEKbBYBth.jpg",
+          "rating": "8.1/10",
+          "ratingValue": 8.1,
+          "voteCount": 3512,
+          "overview": "A mother's last wishes send twins Jeanne and Simon on a journey to Middle East in search of their tangled roots. Adapted from Wajdi Mouawad's acclaimed play, Incendies tells the powerful and moving tale of two young adults' voyage to the core of deep-rooted hatred, never-ending wars and enduring love.",
+          "releaseDate": "2010-09-17",
+          "awardYear": "2011",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Denis Villeneuve"
+        },
+        {
+          "id": 22302,
+          "tmdbId": 22302,
+          "mediaType": "movie",
+          "title": "Polytechnique",
+          "originalTitle": "Polytechnique",
+          "year": "2009",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/bmIhSm9GN1BR0srtjLCEGsAxQqF.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/rD6VVei45TLnkCdDucJDDUmb3e3.jpg",
+          "rating": "7.1/10",
+          "ratingValue": 7.1,
+          "voteCount": 720,
+          "overview": "A dramatization of the  École Polytechnique massacre in Montreal, on December 9, 1989, where 14 female engineering students were murdered (and 13 were wounded) by a 25 year old psychotic misogynist armed with a semi-automatic weapon.",
+          "releaseDate": "2009-02-06",
+          "awardYear": "2010",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Denis Villeneuve"
+        },
+        {
+          "id": 14582,
+          "tmdbId": 14582,
+          "mediaType": "movie",
+          "title": "Passchendaele",
+          "originalTitle": "Passchendaele",
+          "year": "2008",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/2FMtSxzF2fR5dx5was9Kftjag0U.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/mm5itexxDxDZBemUrdX4Mm8Owgk.jpg",
+          "rating": "6.1/10",
+          "ratingValue": 6.1,
+          "voteCount": 126,
+          "overview": "Sergeant Michael Dunne fights in the 10th Battalion, AKA The \"Fighting Tenth\" with the 1st Canadian Division and participated in all major Canadian battles of the war, and set the record for highest number of individual bravery awards for a single battle",
+          "releaseDate": "2008-10-17",
+          "awardYear": "2009",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Paul Gross"
+        },
+        {
+          "id": 1919,
+          "tmdbId": 1919,
+          "mediaType": "movie",
+          "title": "Away from Her",
+          "originalTitle": "Away from Her",
+          "year": "2007",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/oyPE6i9sylR1UhTPFmniOHcQpKb.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/zA9G3qYEyGMK1vu9G0s8cwYpFQA.jpg",
+          "rating": "7.0/10",
+          "ratingValue": 7.04,
+          "voteCount": 253,
+          "overview": "Fiona and Grant have been married for nearly 50 years. They have to face the fact that Fiona’s absent-mindedness is a symptom of Alzheimer’s disease. She must go to a specialized nursing home, where she slowly forgets Grant and turns her affection to Aubrey, another patient in the home.",
+          "releaseDate": "2007-05-04",
+          "awardYear": "2008",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Sarah Polley"
+        },
+        {
+          "id": 15049,
+          "tmdbId": 15049,
+          "mediaType": "movie",
+          "title": "Bon Cop Bad Cop",
+          "originalTitle": "Bon Cop Bad Cop",
+          "year": "2006",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/kidOf2K4pEM0Llsm8aIRcANTcSF.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/f8Vy1YNbHcZSwXAS8zCzZ2yiSQz.jpg",
+          "rating": "6.4/10",
+          "ratingValue": 6.41,
+          "voteCount": 251,
+          "overview": "When the body of the executive of hockey Benoit Brisset is found on the billboard of the border of Quebec and Ontario, the jurisdiction of the crime is shared between the two police forces and detectives David Bouchard from Montreal and Martin Ward from Toronto are assigned to work together. With totally different styles, attitudes and languages.",
+          "releaseDate": "2006-07-06",
+          "awardYear": "2007",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Érik Canuel"
+        },
+        {
+          "id": 11421,
+          "tmdbId": 11421,
+          "mediaType": "movie",
+          "title": "C.R.A.Z.Y.",
+          "originalTitle": "C.R.A.Z.Y.",
+          "year": "2005",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/AoFk3zmjnfSQC7LkE0aqkzZlOPZ.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/h34IJUeyuQqjHTMbHDKpycw2Eaq.jpg",
+          "rating": "7.5/10",
+          "ratingValue": 7.5,
+          "voteCount": 530,
+          "overview": "A young French Canadian, one of five boys in a conservative family in the 1960s and 1970s, struggles to reconcile his emerging identity with his father's values.",
+          "releaseDate": "2005-05-27",
+          "awardYear": "2006",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Jean-Marc Vallée"
+        },
+        {
+          "id": 9662,
+          "tmdbId": 9662,
+          "mediaType": "movie",
+          "title": "The Triplets of Belleville",
+          "originalTitle": "Les Triplettes de Belleville",
+          "year": "2003",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/enw6C4fDw88g0nOQgIJXjgH3NHi.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/yciM9fhJ3er1eBXj4U32bjKb5R3.jpg",
+          "rating": "7.4/10",
+          "ratingValue": 7.39,
+          "voteCount": 1082,
+          "overview": "When her grandson is kidnapped during the Tour de France, Madame Souza and her beloved pooch Bruno team up with the Belleville Sisters—an aged song-and-dance team from the days of Fred Astaire—to rescue him.",
+          "releaseDate": "2003-06-11",
+          "awardYear": "2005",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Sylvain Chomet"
+        },
+        {
+          "id": 11042,
+          "tmdbId": 11042,
+          "mediaType": "movie",
+          "title": "The Barbarian Invasions",
+          "originalTitle": "Les invasions barbares",
+          "year": "2003",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/mqlgZiQHT3B5J8Q4mkgaCkt47uJ.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/7PefpVkSOiQmcdGv6TGHU8kn296.jpg",
+          "rating": "7.0/10",
+          "ratingValue": 7.0,
+          "voteCount": 426,
+          "overview": "In this belated sequel to 'The Decline of the American Empire', middle-aged Montreal college professor, Remy, learns that he is dying of liver cancer. His ex-wife, Louise, asks their estranged son, Sebastian, a successful businessman living in London, to come home. Sebastian makes the impossible happen, using his contacts and disrupting the Canadian healthcare system in every way possible to help his father fight his terminal illness to the bitter end, while reuniting some of Remy's old friends, including Pierre, Alain, Dominique, Diane, and Claude, who return to see their friend before he passes on.",
+          "releaseDate": "2003-05-01",
+          "awardYear": "2004",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Denys Arcand"
+        },
+        {
+          "id": 16351,
+          "tmdbId": 16351,
+          "mediaType": "movie",
+          "title": "Ararat",
+          "originalTitle": "Ararat",
+          "year": "2002",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/kQkn715VQYLIs2nddAUf19Bz5Wj.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/xJZmoX5r5zcvJNbeqBGgdizC0d9.jpg",
+          "rating": "6.1/10",
+          "ratingValue": 6.1,
+          "voteCount": 100,
+          "overview": "Interrogated by a customs officer, a young man recounts how his life was changed during the making of a film about the Armenian genocide.",
+          "releaseDate": "2002-05-20",
+          "awardYear": "2003",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Atom Egoyan"
+        },
+        {
+          "id": 13245,
+          "tmdbId": 13245,
+          "mediaType": "movie",
+          "title": "Atanarjuat: The Fast Runner",
+          "originalTitle": "ᐊᑕᓈᕐᔪᐊᑦ",
+          "year": "2002",
+          "originalLanguage": "iu",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/jSGiFOTwosoiAAXLTLHtzMUCVUN.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/q3XAe77oga8zCH8G6d8T4izEPZ6.jpg",
+          "rating": "6.8/10",
+          "ratingValue": 6.75,
+          "voteCount": 84,
+          "overview": "Based on a local legend and set in an unknown era, it deals with universal themes of love, possessiveness, family, jealousy and power. Beautifully shot, and acted by Inuit people, it portrays a time when people fought duels by taking turns to punch each other until one was unconscious, made love on the way to the caribou hunt, ate walrus meat and lit their igloos with seal-oil lamps.",
+          "releaseDate": "2002-02-01",
+          "awardYear": "2002",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Zacharias Kunuk"
+        },
+        {
+          "id": 35650,
+          "tmdbId": 35650,
+          "mediaType": "movie",
+          "title": "Maelström",
+          "originalTitle": "Maelström",
+          "year": "2000",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/knhWhSDOEPcWed5ljKcJVnXbH7.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/rxaga3bJXuwgHidnTcdwVHifLpH.jpg",
+          "rating": "6.2/10",
+          "ratingValue": 6.25,
+          "voteCount": 202,
+          "overview": "A young woman's life spirals into chaos after she is involved in a hit-and-run accident. Then she encounters a mysterious man named Evian who offers her an opportunity for redemption. Narrated by a fish.",
+          "releaseDate": "2000-09-15",
+          "awardYear": "2001",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Denis Villeneuve"
+        },
+        {
+          "id": 17771,
+          "tmdbId": 17771,
+          "mediaType": "movie",
+          "title": "Sunshine",
+          "originalTitle": "Sunshine",
+          "year": "1999",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/qcHDFrjClW35u0dSuLjsQEi8gDk.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/vlG25qaVew5s3uqSvaNCANd7qBS.jpg",
+          "rating": "6.5/10",
+          "ratingValue": 6.45,
+          "voteCount": 158,
+          "overview": "The fate of a Hungarian Jewish family throughout the 20th century.",
+          "releaseDate": "1999-09-13",
+          "awardYear": "2000",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "István Szabó"
+        },
+        {
+          "id": 14283,
+          "tmdbId": 14283,
+          "mediaType": "movie",
+          "title": "The Red Violin",
+          "originalTitle": "Le violon rouge",
+          "year": "1998",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/uPjq8PaNDhFQTzOu4Ce91f6BFgZ.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/kOpaLjBnfpRqgo4vE9ViIZINt5J.jpg",
+          "rating": "7.3/10",
+          "ratingValue": 7.34,
+          "voteCount": 465,
+          "overview": "300 years of a remarkable musical instrument. Crafted by the Italian master Bussotti (Cecchi) in 1681, the red violin has traveled through Austria, England, China, and Canada, leaving both beauty and tragedy in its wake. In Montreal, Samuel L Jackson plays an appraiser going over its complex history.",
+          "releaseDate": "1998-11-13",
+          "awardYear": "1999",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "François Girard"
+        },
+        {
+          "id": 10217,
+          "tmdbId": 10217,
+          "mediaType": "movie",
+          "title": "The Sweet Hereafter",
+          "originalTitle": "The Sweet Hereafter",
+          "year": "1997",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/gJy7LMq4b5qO5fsSUSoBgm24BHf.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/7zRAZFZ4xVMyoLEvCb4Au41uvny.jpg",
+          "rating": "6.9/10",
+          "ratingValue": 6.9,
+          "voteCount": 443,
+          "overview": "A small mountain community in Canada is devastated when a school bus accident leaves more than a dozen of its children dead. A big-city lawyer arrives to help the survivors' and victims' families prepare a class-action suit, but his efforts only seem to push the townspeople further apart. At the same time, one teenage survivor of the accident has to reckon with the loss of innocence brought about by a different kind of damage.",
+          "releaseDate": "1997-09-25",
+          "awardYear": "1998",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Atom Egoyan"
+        },
+        {
+          "id": 47643,
+          "tmdbId": 47643,
+          "mediaType": "movie",
+          "title": "Lilies",
+          "originalTitle": "Lilies",
+          "year": "1997",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/bgE2GVACHAuJNZ8WKKUm7PeMTmj.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/heRwumGHa2WWe6Q6NRjEmQkeyec.jpg",
+          "rating": "8.1/10",
+          "ratingValue": 8.1,
+          "voteCount": 63,
+          "overview": "1952: Bishop Bilodeau visits a prison to hear the confession of Simon, a boyhood friend jailed for murder 40 years ago. However, once there, Bilodeau finds himself forced to watch a play put on by Simon and the other inmates depicting the two men's youths. As the play progresses, the tragic truth of Simon's crime comes to light.",
+          "releaseDate": "1997-01-29",
+          "awardYear": "1997",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "John Greyson"
+        },
+        {
+          "id": 20156,
+          "tmdbId": 20156,
+          "mediaType": "movie",
+          "title": "Exotica",
+          "originalTitle": "Exotica",
+          "year": "1994",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/pWcJdcIHjL3P6NaEJKeV6ONfAMV.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/sdgWn2YmR2h0HWFUGXmvbCerQCR.jpg",
+          "rating": "6.6/10",
+          "ratingValue": 6.6,
+          "voteCount": 406,
+          "overview": "In the upscale Toronto strip club Exotica, dancer Christina is visited nightly by the obsessive Francis, a depressed tax auditor. Her ex-boyfriend, the club's MC, Eric, still jealously pines for her even as he introduces her onstage, but Eric is having his own relationship problems with the club's female owner. Thomas, a mysterious pet-shop owner, is about to become unexpectedly involved in their lives.",
+          "releaseDate": "1994-09-29",
+          "awardYear": "1996",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Atom Egoyan"
+        },
+        {
+          "id": 20967,
+          "tmdbId": 20967,
+          "mediaType": "movie",
+          "title": "Thirty Two Short Films About Glenn Gould",
+          "originalTitle": "Thirty Two Short Films About Glenn Gould",
+          "year": "1993",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/3GTmkUpCb1uL7psLYqAHyIyld51.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/6srvLtwWhy4IvkNjxM3IfPDcRJL.jpg",
+          "rating": "7.0/10",
+          "ratingValue": 7.0,
+          "voteCount": 50,
+          "overview": "A collection of vignettes highlighting different aspects of the life, work, and character of the acclaimed Canadian classical pianist.",
+          "releaseDate": "1993-11-26",
+          "awardYear": "1994",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "François Girard"
+        },
+        {
+          "id": 11139,
+          "tmdbId": 11139,
+          "mediaType": "movie",
+          "title": "Léolo",
+          "originalTitle": "Léolo",
+          "year": "1992",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/1HDTXmngKg6NHKGVnKADpxGPye5.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/7v4l2FnrpreaV19gY4xYiuPDPL2.jpg",
+          "rating": "7.2/10",
+          "ratingValue": 7.2,
+          "voteCount": 150,
+          "overview": "The story of an imaginative boy who pretends he is the child of a sperm-laden Sicilian tomato upon which his mother accidentally fell.",
+          "releaseDate": "1992-09-16",
+          "awardYear": "1993",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Jean-Claude Lauzon"
+        },
+        {
+          "id": 41784,
+          "tmdbId": 41784,
+          "mediaType": "movie",
+          "title": "Black Robe",
+          "originalTitle": "Black Robe",
+          "year": "1991",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/kaogaZD8WkwfRJnr7zvktiY5E2p.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/7Gm9NXq1Ydje7uyx9Ogr1FxFkIa.jpg",
+          "rating": "6.5/10",
+          "ratingValue": 6.5,
+          "voteCount": 133,
+          "overview": "Missionary Father LaForgue travels to the New World in hopes of converting Algonquin Indians to Catholicism. Accepted, though warily, by the Indians, LaForgue travels with the Indians using his strict Catholic rules and ideals to try and impose his religion.",
+          "releaseDate": "1991-10-04",
+          "awardYear": "1992",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Bruce Beresford"
+        },
+        {
+          "id": 4486,
+          "tmdbId": 4486,
+          "mediaType": "movie",
+          "title": "Jesus of Montreal",
+          "originalTitle": "Jésus de Montréal",
+          "year": "1989",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/evtfMmuJyCQch2JIdWO2SdGWgJA.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/kEaYlYkb5wZQ6ZtydGfNhoujbQn.jpg",
+          "rating": "6.9/10",
+          "ratingValue": 6.87,
+          "voteCount": 100,
+          "overview": "A group of actors putting on an interpretive Passion Play in Montreal begin to experience a meshing of their characters and their private lives as the production takes form against the growing opposition of the Catholic church.",
+          "releaseDate": "1989-05-15",
+          "awardYear": "1991",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Denys Arcand"
+        },
+        {
+          "id": 18499,
+          "tmdbId": 18499,
+          "mediaType": "movie",
+          "title": "The Decline of the American Empire",
+          "originalTitle": "Le Déclin de l'empire américain",
+          "year": "1986",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/j5Bi5lr7Z2tr9fEJI0YuS0AS2iG.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/yItBvynVmSCTvAkzAm5PllP4oth.jpg",
+          "rating": "6.7/10",
+          "ratingValue": 6.7,
+          "voteCount": 183,
+          "overview": "Four very different Montreal university teachers gather at a rambling country house to prepare a dinner. Remy (married), Claude (a homosexual), Pierre (involved with a girlfriend) and Alain (a bachelor) discuss sex, the female body and their affairs with them. Meanwhile, their four female guests, Louise (Remy's wife of 15 years), Dominique (a spinster), Diane (a divorcée) and Danielle (Pierre's girlfriend) are spending the time at a downtown health gym. They also discuss sex, the female body and, naturally, men. Later in the evening, they finally meet at the country house and have dinner. A ninth guest, named Mario, who used to know Diane, drops in on the group for some talk and has a surprise of his own.",
+          "releaseDate": "1986-06-19",
+          "awardYear": "1989",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Denys Arcand"
+        },
+        {
+          "id": 106630,
+          "tmdbId": 106630,
+          "mediaType": "movie",
+          "title": "Night Zoo",
+          "originalTitle": "Un zoo la nuit",
+          "year": "1987",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/7WEZTqguGWRDEmUR3IXyiOoYK0l.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/dWCqzkonCKSe0pB4HymHoyluvnL.jpg",
+          "rating": "6.9/10",
+          "ratingValue": 6.9,
+          "voteCount": 22,
+          "overview": "Marcel, recently released from prison, attempt to rebuild his relationship with his girlfriend Julie (now a prostitute) and especially his father Albert (who thinks he's been away on a long trip abroad), while being pursued by two corrupt cops (one of whom bears a longstanding grudge against him) for drug money he's alleged to possess.",
+          "releaseDate": "1987-05-01",
+          "awardYear": "1988",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Jean-Claude Lauzon"
+        },
+        {
+          "id": 169379,
+          "tmdbId": 169379,
+          "mediaType": "movie",
+          "title": "My American Cousin",
+          "originalTitle": "My American Cousin",
+          "year": "1985",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/ydcRTWqQpRjNvQRXa2TB01cQXmy.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/w1UbvtHMC60i9XLDEyVFP61NF93.jpg",
+          "rating": "6.4/10",
+          "ratingValue": 6.4,
+          "voteCount": 11,
+          "overview": "Sandy Wilcox is a pre-teen girl in rural 1950s British Columbia whose longing to be treated as an adult is roused even further when her older American cousin, Butch Walker, comes for a visit.",
+          "releaseDate": "1985-11-01",
+          "awardYear": "1986",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Sandy Wilson"
+        },
+        {
+          "id": 42136,
+          "tmdbId": 42136,
+          "mediaType": "movie",
+          "title": "The Grey Fox",
+          "originalTitle": "The Grey Fox",
+          "year": "1982",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/ycE2WBSczxBgM1vtRQ9KTtwGTMR.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/5m3iuO5ACGuOE15Gv1TXmNweXRK.jpg",
+          "rating": "6.9/10",
+          "ratingValue": 6.9,
+          "voteCount": 40,
+          "overview": "Old West highwayman Bill Miner, known to Pinkertons as \"The Gentleman Bandit,\" is released in 1901 after 33 years in prison. A genial and charming old man, he re-enters a world unfamiliar to him, and returns to the only thing that gives him purpose — robbery.",
+          "releaseDate": "1982-12-16",
+          "awardYear": "1984",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Phillip Borsos"
+        },
+        {
+          "id": 13550,
+          "tmdbId": 13550,
+          "mediaType": "movie",
+          "title": "The Changeling",
+          "originalTitle": "The Changeling",
+          "year": "1980",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/z4nTYj3JZ5jWAhDgrmEhW2GRAzb.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/r4nx6BZY4PfLPrThytBtAuwN8uV.jpg",
+          "rating": "7.0/10",
+          "ratingValue": 6.98,
+          "voteCount": 757,
+          "overview": "After a tragic event happens, composer John Russell moves to Seattle to try to overcome it and build a new and peaceful life in a lonely big house that has been uninhabited for many years. But, soon after, the obscure history of such an old mansion and his own past begin to haunt him.",
+          "releaseDate": "1980-03-28",
+          "awardYear": "1981",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Peter Medak"
+        },
+        {
+          "id": 25338,
+          "tmdbId": 25338,
+          "mediaType": "movie",
+          "title": "The Silent Partner",
+          "originalTitle": "The Silent Partner",
+          "year": "1978",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/mN5kB6uXIKETr2DcsG0u3wSFolN.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/uU0N4WJjQlExGM7MBkla2qAGBrr.jpg",
+          "rating": "7.1/10",
+          "ratingValue": 7.1,
+          "voteCount": 175,
+          "overview": "Toronto, Canada. A few days before Christmas, Miles Cullen, a bored teller working at a bank branch located in a shopping mall, accidentally learns that the place is about to be robbed when he finds a disconcerting note on one of the counters.",
+          "releaseDate": "1978-09-07",
+          "awardYear": "1980",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Daryl Duke"
+        },
+        {
+          "id": 74689,
+          "tmdbId": 74689,
+          "mediaType": "movie",
+          "title": "Mon oncle Antoine",
+          "originalTitle": "Mon oncle Antoine",
+          "year": "1971",
+          "originalLanguage": "fr",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/9gcADZrXrRoCO3U02e1temvQu7Z.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/2pX2geI8oItHs5IfsUPwJwcmuXV.jpg",
+          "rating": "6.9/10",
+          "ratingValue": 6.9,
+          "voteCount": 55,
+          "overview": "Set in cold rural Quebec at Christmas time, we follow the coming of age of a young boy and the life of his family which owns the town's general store and undertaking business.",
+          "releaseDate": "1971-11-12",
+          "awardYear": "1971",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Claude Jutra"
+        },
+        {
+          "id": 44606,
+          "tmdbId": 44606,
+          "mediaType": "movie",
+          "title": "Goin' Down the Road",
+          "originalTitle": "Goin' Down the Road",
+          "year": "1970",
+          "originalLanguage": "en",
+          "posterUrl": "https://image.tmdb.org/t/p/w500/pmWjQY5NSLG4aBR9wzqKHEXANtH.jpg",
+          "backdropUrl": "https://image.tmdb.org/t/p/original/pdslgfIJ95gnK2jc2WnUX6Uq7V.jpg",
+          "rating": "6.3/10",
+          "ratingValue": 6.3,
+          "voteCount": 22,
+          "overview": "Two friends travel from Nova Scotia to Toronto in hope of finding a better life.  A classic, and over 50 years later, the film has been on every TIFF list of the top 10 Canadian films ever made.",
+          "releaseDate": "1970-07-02",
+          "awardYear": "1970",
+          "award": "Best Motion Picture (Meilleur film)",
+          "position": 1,
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "director": "Donald Shebib"
+        }
+      ]
+    },
+    {
       "id": "filmfest_munchen",
       "name": "Filmfest München (Munich International Film Festival)",
       "shortName": "Filmfest München",
@@ -56768,6 +57681,44 @@
       ]
     },
     {
+      "id": 11042,
+      "tmdbId": 11042,
+      "mediaType": "movie",
+      "title": "The Barbarian Invasions",
+      "originalTitle": "Les invasions barbares",
+      "year": "2003",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/mqlgZiQHT3B5J8Q4mkgaCkt47uJ.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/7PefpVkSOiQmcdGv6TGHU8kn296.jpg",
+      "rating": "7.0/10",
+      "ratingValue": 7.0,
+      "voteCount": 426,
+      "overview": "In this belated sequel to 'The Decline of the American Empire', middle-aged Montreal college professor, Remy, learns that he is dying of liver cancer. His ex-wife, Louise, asks their estranged son, Sebastian, a successful businessman living in London, to come home. Sebastian makes the impossible happen, using his contacts and disrupting the Canadian healthcare system in every way possible to help his father fight his terminal illness to the bitter end, while reuniting some of Remy's old friends, including Pierre, Alain, Dominique, Diane, and Claude, who return to see their friend before he passes on.",
+      "releaseDate": "2003-05-01",
+      "awards": [
+        {
+          "ceremonyId": "oscars_international",
+          "ceremonyName": "Academy Awards – Best International Feature",
+          "award": "Academy Award for Best International Feature Film",
+          "year": "2003",
+          "position": 1
+        },
+        {
+          "ceremonyId": "cesar",
+          "ceremonyName": "César Awards (Académie des César)",
+          "award": "César Award for Best Film (Meilleur film)",
+          "year": "2004",
+          "position": 1
+        },
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2004",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 374475,
       "tmdbId": 374475,
       "mediaType": "movie",
@@ -57132,6 +58083,37 @@
           "ceremonyName": "Los Angeles Film Critics Association (LAFCA)",
           "award": "Best Film",
           "year": "1998",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 265177,
+      "tmdbId": 265177,
+      "mediaType": "movie",
+      "title": "Mommy",
+      "originalTitle": "Mommy",
+      "year": "2014",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/uPDP0cHGOpkr47rdCdHWo4CyiPj.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/dIHezuC3AmylT8mkXQiWSjz2wJR.jpg",
+      "rating": "8.2/10",
+      "ratingValue": 8.19,
+      "voteCount": 2914,
+      "overview": "A peculiar neighbor offers hope to a recent widow who is struggling to raise a teenager who is unpredictable and, sometimes, violent.",
+      "releaseDate": "2014-09-19",
+      "awards": [
+        {
+          "ceremonyId": "cannes",
+          "ceremonyName": "Festival de Cannes",
+          "award": "Prix du Jury (Jury Prize)",
+          "year": "2014",
+          "position": 3
+        },
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2015",
           "position": 1
         }
       ]
@@ -57537,6 +58519,37 @@
           "ceremonyName": "David di Donatello Awards – Miglior Film",
           "award": "David di Donatello per il miglior film",
           "year": "1957",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 264644,
+      "tmdbId": 264644,
+      "mediaType": "movie",
+      "title": "Room",
+      "originalTitle": "Room",
+      "year": "2015",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/2hHDMeYyZjbGWn0BeNH1cTMxuM7.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/cGV6R2vzT4TYIabf3JgmrOISQ0y.jpg",
+      "rating": "8.0/10",
+      "ratingValue": 7.99,
+      "voteCount": 9894,
+      "overview": "Held captive for 7 years in an enclosed space, a woman and her young son finally gain their freedom, allowing the boy to experience the outside world for the first time.",
+      "releaseDate": "2015-10-16",
+      "awards": [
+        {
+          "ceremonyId": "tiff",
+          "ceremonyName": "Toronto International Film Festival (TIFF)",
+          "award": "People's Choice Award",
+          "year": "2015",
+          "position": 1
+        },
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2016",
           "position": 1
         }
       ]
@@ -59781,6 +60794,37 @@
       ]
     },
     {
+      "id": 855136,
+      "tmdbId": 855136,
+      "mediaType": "movie",
+      "title": "Scarborough",
+      "originalTitle": "Scarborough",
+      "year": "2022",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/lzoO0qZRVfAD6Y2lVOFFSeOhTH8.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/k5JyFNsp45CXOeInq257gVf11cg.jpg",
+      "rating": "7.4/10",
+      "ratingValue": 7.4,
+      "voteCount": 7,
+      "overview": "Three kids in a low-income neighborhood find friendship and community in an unlikely place.",
+      "releaseDate": "2022-02-25",
+      "awards": [
+        {
+          "ceremonyId": "tiff",
+          "ceremonyName": "Toronto International Film Festival (TIFF)",
+          "award": "People's Choice First Runner-Up",
+          "year": "2021",
+          "position": 2
+        },
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2022",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 784,
       "tmdbId": 784,
       "mediaType": "movie",
@@ -60527,6 +61571,37 @@
       ]
     },
     {
+      "id": 338189,
+      "tmdbId": 338189,
+      "mediaType": "movie",
+      "title": "It's Only the End of the World",
+      "originalTitle": "Juste la fin du monde",
+      "year": "2016",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/riWa3WZrO3n8lLWuaEVMgaqAZGn.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/rsQBqWu6QgAnJmRnpbZu0rC5C7V.jpg",
+      "rating": "7.2/10",
+      "ratingValue": 7.2,
+      "voteCount": 1688,
+      "overview": "Louis, a terminally ill writer, returns home after a long absence to tell his family that he is dying.",
+      "releaseDate": "2016-09-21",
+      "awards": [
+        {
+          "ceremonyId": "cannes",
+          "ceremonyName": "Festival de Cannes",
+          "award": "Grand Prix",
+          "year": "2016",
+          "position": 2
+        },
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2017",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 11832,
       "tmdbId": 11832,
       "mediaType": "movie",
@@ -61018,37 +62093,6 @@
           "ceremonyName": "Berlin International Film Festival (Berlinale)",
           "award": "Golden Bear (Goldener Bär)",
           "year": "1971",
-          "position": 1
-        }
-      ]
-    },
-    {
-      "id": 11042,
-      "tmdbId": 11042,
-      "mediaType": "movie",
-      "title": "The Barbarian Invasions",
-      "originalTitle": "Les invasions barbares",
-      "year": "2003",
-      "posterUrl": "https://image.tmdb.org/t/p/w500/mqlgZiQHT3B5J8Q4mkgaCkt47uJ.jpg",
-      "backdropUrl": "https://image.tmdb.org/t/p/original/7PefpVkSOiQmcdGv6TGHU8kn296.jpg",
-      "rating": "7.0/10",
-      "ratingValue": 7.0,
-      "voteCount": 426,
-      "overview": "In this belated sequel to 'The Decline of the American Empire', middle-aged Montreal college professor, Remy, learns that he is dying of liver cancer. His ex-wife, Louise, asks their estranged son, Sebastian, a successful businessman living in London, to come home. Sebastian makes the impossible happen, using his contacts and disrupting the Canadian healthcare system in every way possible to help his father fight his terminal illness to the bitter end, while reuniting some of Remy's old friends, including Pierre, Alain, Dominique, Diane, and Claude, who return to see their friend before he passes on.",
-      "releaseDate": "2003-05-01",
-      "awards": [
-        {
-          "ceremonyId": "oscars_international",
-          "ceremonyName": "Academy Awards – Best International Feature",
-          "award": "Academy Award for Best International Feature Film",
-          "year": "2003",
-          "position": 1
-        },
-        {
-          "ceremonyId": "cesar",
-          "ceremonyName": "César Awards (Académie des César)",
-          "award": "César Award for Best Film (Meilleur film)",
-          "year": "2004",
           "position": 1
         }
       ]
@@ -61646,6 +62690,37 @@
       ]
     },
     {
+      "id": 10217,
+      "tmdbId": 10217,
+      "mediaType": "movie",
+      "title": "The Sweet Hereafter",
+      "originalTitle": "The Sweet Hereafter",
+      "year": "1997",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/gJy7LMq4b5qO5fsSUSoBgm24BHf.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/7zRAZFZ4xVMyoLEvCb4Au41uvny.jpg",
+      "rating": "6.9/10",
+      "ratingValue": 6.9,
+      "voteCount": 443,
+      "overview": "A small mountain community in Canada is devastated when a school bus accident leaves more than a dozen of its children dead. A big-city lawyer arrives to help the survivors' and victims' families prepare a class-action suit, but his efforts only seem to push the townspeople further apart. At the same time, one teenage survivor of the accident has to reckon with the loss of innocence brought about by a different kind of damage.",
+      "releaseDate": "1997-09-25",
+      "awards": [
+        {
+          "ceremonyId": "cannes",
+          "ceremonyName": "Festival de Cannes",
+          "award": "Grand Prix",
+          "year": "1997",
+          "position": 2
+        },
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1998",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 465914,
       "tmdbId": 465914,
       "mediaType": "movie",
@@ -61704,6 +62779,37 @@
           "ceremonyName": "Göteborg Film Festival",
           "award": "Dragon Award for Best Nordic Film",
           "year": "2019",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 4486,
+      "tmdbId": 4486,
+      "mediaType": "movie",
+      "title": "Jesus of Montreal",
+      "originalTitle": "Jésus de Montréal",
+      "year": "1989",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/evtfMmuJyCQch2JIdWO2SdGWgJA.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/kEaYlYkb5wZQ6ZtydGfNhoujbQn.jpg",
+      "rating": "6.9/10",
+      "ratingValue": 6.87,
+      "voteCount": 100,
+      "overview": "A group of actors putting on an interpretive Passion Play in Montreal begin to experience a meshing of their characters and their private lives as the production takes form against the growing opposition of the Catholic church.",
+      "releaseDate": "1989-05-15",
+      "awards": [
+        {
+          "ceremonyId": "cannes",
+          "ceremonyName": "Festival de Cannes",
+          "award": "Prix du Jury (Jury Prize)",
+          "year": "1989",
+          "position": 3
+        },
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1991",
           "position": 1
         }
       ]
@@ -62205,6 +63311,37 @@
       ]
     },
     {
+      "id": 18499,
+      "tmdbId": 18499,
+      "mediaType": "movie",
+      "title": "The Decline of the American Empire",
+      "originalTitle": "Le Déclin de l'empire américain",
+      "year": "1986",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/j5Bi5lr7Z2tr9fEJI0YuS0AS2iG.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/yItBvynVmSCTvAkzAm5PllP4oth.jpg",
+      "rating": "6.7/10",
+      "ratingValue": 6.7,
+      "voteCount": 183,
+      "overview": "Four very different Montreal university teachers gather at a rambling country house to prepare a dinner. Remy (married), Claude (a homosexual), Pierre (involved with a girlfriend) and Alain (a bachelor) discuss sex, the female body and their affairs with them. Meanwhile, their four female guests, Louise (Remy's wife of 15 years), Dominique (a spinster), Diane (a divorcée) and Danielle (Pierre's girlfriend) are spending the time at a downtown health gym. They also discuss sex, the female body and, naturally, men. Later in the evening, they finally meet at the country house and have dinner. A ninth guest, named Mario, who used to know Diane, drops in on the group for some talk and has a surprise of his own.",
+      "releaseDate": "1986-06-19",
+      "awards": [
+        {
+          "ceremonyId": "tiff",
+          "ceremonyName": "Toronto International Film Festival (TIFF)",
+          "award": "People's Choice Award",
+          "year": "1986",
+          "position": 1
+        },
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1989",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 17661,
       "tmdbId": 17661,
       "mediaType": "movie",
@@ -62542,6 +63679,37 @@
           "ceremonyName": "Berlin International Film Festival (Berlinale)",
           "award": "Golden Bear (Goldener Bär)",
           "year": "1951",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 726220,
+      "tmdbId": 726220,
+      "mediaType": "movie",
+      "title": "Beans",
+      "originalTitle": "Beans",
+      "year": "2021",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/2LkLGOTHOvMCxKwJBav607Hqmgw.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/c1rIiuvMP5k3c1CJNxD2fxpdoh6.jpg",
+      "rating": "6.3/10",
+      "ratingValue": 6.3,
+      "voteCount": 28,
+      "overview": "Twelve-year-old Beans is on the edge: torn between innocent childhood and reckless adolescence; forced to grow up fast and become the tough Mohawk warrior she needs to be during the Oka Crisis, the turbulent Indigenous uprising that tore Quebec and Canada apart for 78 tense days in the summer of 1990.",
+      "releaseDate": "2021-03-30",
+      "awards": [
+        {
+          "ceremonyId": "tiff",
+          "ceremonyName": "Toronto International Film Festival (TIFF)",
+          "award": "People's Choice Second Runner-Up",
+          "year": "2020",
+          "position": 3
+        },
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2021",
           "position": 1
         }
       ]
@@ -64027,30 +65195,6 @@
       ]
     },
     {
-      "id": 265177,
-      "tmdbId": 265177,
-      "mediaType": "movie",
-      "title": "Mommy",
-      "originalTitle": "Mommy",
-      "year": "2014",
-      "posterUrl": "https://image.tmdb.org/t/p/w500/uPDP0cHGOpkr47rdCdHWo4CyiPj.jpg",
-      "backdropUrl": "https://image.tmdb.org/t/p/original/dIHezuC3AmylT8mkXQiWSjz2wJR.jpg",
-      "rating": "8.2/10",
-      "ratingValue": 8.19,
-      "voteCount": 2914,
-      "overview": "A peculiar neighbor offers hope to a recent widow who is struggling to raise a teenager who is unpredictable and, sometimes, violent.",
-      "releaseDate": "2014-09-19",
-      "awards": [
-        {
-          "ceremonyId": "cannes",
-          "ceremonyName": "Festival de Cannes",
-          "award": "Prix du Jury (Jury Prize)",
-          "year": "2014",
-          "position": 3
-        }
-      ]
-    },
-    {
       "id": 1755291,
       "tmdbId": 1755291,
       "mediaType": "movie",
@@ -64631,6 +65775,56 @@
           "ceremonyName": "National Film Awards (India)",
           "award": "Golden Lotus (Swarna Kamal) for Best Feature Film",
           "year": "1959",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 46738,
+      "tmdbId": 46738,
+      "mediaType": "movie",
+      "title": "Incendies",
+      "originalTitle": "Incendies",
+      "year": "2010",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/yH6DAQVgbyj72S66gN4WWVoTjuf.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/f3ATwil5vmUeTsogBaMEKbBYBth.jpg",
+      "rating": "8.1/10",
+      "ratingValue": 8.1,
+      "voteCount": 3512,
+      "overview": "A mother's last wishes send twins Jeanne and Simon on a journey to Middle East in search of their tangled roots. Adapted from Wajdi Mouawad's acclaimed play, Incendies tells the powerful and moving tale of two young adults' voyage to the core of deep-rooted hatred, never-ending wars and enduring love.",
+      "releaseDate": "2010-09-17",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2011",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 47643,
+      "tmdbId": 47643,
+      "mediaType": "movie",
+      "title": "Lilies",
+      "originalTitle": "Lilies",
+      "year": "1997",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/bgE2GVACHAuJNZ8WKKUm7PeMTmj.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/heRwumGHa2WWe6Q6NRjEmQkeyec.jpg",
+      "rating": "8.1/10",
+      "ratingValue": 8.1,
+      "voteCount": 63,
+      "overview": "1952: Bishop Bilodeau visits a prison to hear the confession of Simon, a boyhood friend jailed for murder 40 years ago. However, once there, Bilodeau finds himself forced to watch a play put on by Simon and the other inmates depicting the two men's youths. As the play progresses, the tragic truth of Simon's crime comes to light.",
+      "releaseDate": "1997-01-29",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1997",
           "position": 1
         }
       ]
@@ -65314,30 +66508,6 @@
           "ceremonyName": "National Society of Film Critics (NSFC)",
           "award": "Best Picture",
           "year": "1986",
-          "position": 1
-        }
-      ]
-    },
-    {
-      "id": 264644,
-      "tmdbId": 264644,
-      "mediaType": "movie",
-      "title": "Room",
-      "originalTitle": "Room",
-      "year": "2015",
-      "posterUrl": "https://image.tmdb.org/t/p/w500/2hHDMeYyZjbGWn0BeNH1cTMxuM7.jpg",
-      "backdropUrl": "https://image.tmdb.org/t/p/original/cGV6R2vzT4TYIabf3JgmrOISQ0y.jpg",
-      "rating": "8.0/10",
-      "ratingValue": 7.99,
-      "voteCount": 9894,
-      "overview": "Held captive for 7 years in an enclosed space, a woman and her young son finally gain their freedom, allowing the boy to experience the outside world for the first time.",
-      "releaseDate": "2015-10-16",
-      "awards": [
-        {
-          "ceremonyId": "tiff",
-          "ceremonyName": "Toronto International Film Festival (TIFF)",
-          "award": "People's Choice Award",
-          "year": "2015",
           "position": 1
         }
       ]
@@ -66847,6 +68017,31 @@
           "ceremonyName": "National Film Awards (India)",
           "award": "Golden Lotus (Swarna Kamal) for Best Feature Film",
           "year": "1955",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 359784,
+      "tmdbId": 359784,
+      "mediaType": "movie",
+      "title": "Maudie",
+      "originalTitle": "Maudie",
+      "year": "2016",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/wu9RPdV0uEemFEewJQ6fWwJ9ZcU.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/3J59Ai3VHP4m5jl7CoVM7mpoMrj.jpg",
+      "rating": "7.8/10",
+      "ratingValue": 7.8,
+      "voteCount": 609,
+      "overview": "Canadian folk artist Maud Lewis falls in love with a fishmonger while working for him as a live-in housekeeper.",
+      "releaseDate": "2016-06-16",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2018",
           "position": 1
         }
       ]
@@ -71278,6 +72473,31 @@
       ]
     },
     {
+      "id": 11421,
+      "tmdbId": 11421,
+      "mediaType": "movie",
+      "title": "C.R.A.Z.Y.",
+      "originalTitle": "C.R.A.Z.Y.",
+      "year": "2005",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/AoFk3zmjnfSQC7LkE0aqkzZlOPZ.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/h34IJUeyuQqjHTMbHDKpycw2Eaq.jpg",
+      "rating": "7.5/10",
+      "ratingValue": 7.5,
+      "voteCount": 530,
+      "overview": "A young French Canadian, one of five boys in a conservative family in the 1960s and 1970s, struggles to reconcile his emerging identity with his father's values.",
+      "releaseDate": "2005-05-27",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2006",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 51857,
       "tmdbId": 51857,
       "mediaType": "movie",
@@ -72367,30 +73587,6 @@
       ]
     },
     {
-      "id": 855136,
-      "tmdbId": 855136,
-      "mediaType": "movie",
-      "title": "Scarborough",
-      "originalTitle": "Scarborough",
-      "year": "2022",
-      "posterUrl": "https://image.tmdb.org/t/p/w500/lzoO0qZRVfAD6Y2lVOFFSeOhTH8.jpg",
-      "backdropUrl": "https://image.tmdb.org/t/p/original/k5JyFNsp45CXOeInq257gVf11cg.jpg",
-      "rating": "7.4/10",
-      "ratingValue": 7.4,
-      "voteCount": 7,
-      "overview": "Three kids in a low-income neighborhood find friendship and community in an unlikely place.",
-      "releaseDate": "2022-02-25",
-      "awards": [
-        {
-          "ceremonyId": "tiff",
-          "ceremonyName": "Toronto International Film Festival (TIFF)",
-          "award": "People's Choice First Runner-Up",
-          "year": "2021",
-          "position": 2
-        }
-      ]
-    },
-    {
       "id": 508883,
       "tmdbId": 508883,
       "mediaType": "movie",
@@ -73099,6 +74295,31 @@
       ]
     },
     {
+      "id": 9662,
+      "tmdbId": 9662,
+      "mediaType": "movie",
+      "title": "The Triplets of Belleville",
+      "originalTitle": "Les Triplettes de Belleville",
+      "year": "2003",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/enw6C4fDw88g0nOQgIJXjgH3NHi.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/yciM9fhJ3er1eBXj4U32bjKb5R3.jpg",
+      "rating": "7.4/10",
+      "ratingValue": 7.39,
+      "voteCount": 1082,
+      "overview": "When her grandson is kidnapped during the Tour de France, Madame Souza and her beloved pooch Bruno team up with the Belleville Sisters—an aged song-and-dance team from the days of Fred Astaire—to rescue him.",
+      "releaseDate": "2003-06-11",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2005",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 38143,
       "tmdbId": 38143,
       "mediaType": "movie",
@@ -73362,6 +74583,31 @@
           "ceremonyName": "AACTA Awards (formerly AFI)",
           "award": "Best Film",
           "year": "2013",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 14283,
+      "tmdbId": 14283,
+      "mediaType": "movie",
+      "title": "The Red Violin",
+      "originalTitle": "Le violon rouge",
+      "year": "1998",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/uPjq8PaNDhFQTzOu4Ce91f6BFgZ.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/kOpaLjBnfpRqgo4vE9ViIZINt5J.jpg",
+      "rating": "7.3/10",
+      "ratingValue": 7.34,
+      "voteCount": 465,
+      "overview": "300 years of a remarkable musical instrument. Crafted by the Italian master Bussotti (Cecchi) in 1681, the red violin has traveled through Austria, England, China, and Canada, leaving both beauty and tragedy in its wake. In Montreal, Samuel L Jackson plays an appraiser going over its complex history.",
+      "releaseDate": "1998-11-13",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1999",
           "position": 1
         }
       ]
@@ -75351,30 +76597,6 @@
       ]
     },
     {
-      "id": 338189,
-      "tmdbId": 338189,
-      "mediaType": "movie",
-      "title": "It's Only the End of the World",
-      "originalTitle": "Juste la fin du monde",
-      "year": "2016",
-      "posterUrl": "https://image.tmdb.org/t/p/w500/riWa3WZrO3n8lLWuaEVMgaqAZGn.jpg",
-      "backdropUrl": "https://image.tmdb.org/t/p/original/rsQBqWu6QgAnJmRnpbZu0rC5C7V.jpg",
-      "rating": "7.2/10",
-      "ratingValue": 7.2,
-      "voteCount": 1688,
-      "overview": "Louis, a terminally ill writer, returns home after a long absence to tell his family that he is dying.",
-      "releaseDate": "2016-09-21",
-      "awards": [
-        {
-          "ceremonyId": "cannes",
-          "ceremonyName": "Festival de Cannes",
-          "award": "Grand Prix",
-          "year": "2016",
-          "position": 2
-        }
-      ]
-    },
-    {
       "id": 43001,
       "tmdbId": 43001,
       "mediaType": "movie",
@@ -76785,6 +78007,31 @@
       ]
     },
     {
+      "id": 11139,
+      "tmdbId": 11139,
+      "mediaType": "movie",
+      "title": "Léolo",
+      "originalTitle": "Léolo",
+      "year": "1992",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/1HDTXmngKg6NHKGVnKADpxGPye5.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/7v4l2FnrpreaV19gY4xYiuPDPL2.jpg",
+      "rating": "7.2/10",
+      "ratingValue": 7.2,
+      "voteCount": 150,
+      "overview": "The story of an imaginative boy who pretends he is the child of a sperm-laden Sicilian tomato upon which his mother accidentally fell.",
+      "releaseDate": "1992-09-16",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1993",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 10149,
       "tmdbId": 10149,
       "mediaType": "movie",
@@ -76903,6 +78150,56 @@
           "ceremonyName": "Academy Awards – Best International Feature",
           "award": "Academy Award for Best International Feature Film",
           "year": "1990",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 1016084,
+      "tmdbId": 1016084,
+      "mediaType": "movie",
+      "title": "BlackBerry",
+      "originalTitle": "BlackBerry",
+      "year": "2023",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/nQSvHZDuMlrZdm7ooMo8gb4CXhW.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/cUHxmWfkp6se0Rt10Kr86bMCYDE.jpg",
+      "rating": "7.2/10",
+      "ratingValue": 7.18,
+      "voteCount": 1009,
+      "overview": "Two mismatched entrepreneurs – egghead innovator Mike Lazaridis and cut-throat businessman Jim Balsillie – joined forces in an endeavour that was to become a worldwide hit in little more than a decade. The story of the meteoric rise and catastrophic demise of the world's first smartphone.",
+      "releaseDate": "2023-02-13",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2024",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 78480,
+      "tmdbId": 78480,
+      "mediaType": "movie",
+      "title": "Monsieur Lazhar",
+      "originalTitle": "Monsieur Lazhar",
+      "year": "2011",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/qcSXbOP1iv859kgQgqZ4Ib9yqKG.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/bMdKv4K2QgAStm0PLQIHNsgMpND.jpg",
+      "rating": "7.2/10",
+      "ratingValue": 7.18,
+      "voteCount": 374,
+      "overview": "During a harsh Montréal winter, an elementary-school class is left reeling after its teacher commits suicide. Bachir Lazhar, a charismatic Algerian immigrant, steps in as the substitute teacher for the classroom of traumatized children. All the while, he must keep his personal life tucked away: the fact that he is seeking political refuge in Québec – and that he, like the children, has suffered an appalling loss.",
+      "releaseDate": "2011-09-10",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2012",
           "position": 1
         }
       ]
@@ -78897,6 +80194,56 @@
       ]
     },
     {
+      "id": 22302,
+      "tmdbId": 22302,
+      "mediaType": "movie",
+      "title": "Polytechnique",
+      "originalTitle": "Polytechnique",
+      "year": "2009",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/bmIhSm9GN1BR0srtjLCEGsAxQqF.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/rD6VVei45TLnkCdDucJDDUmb3e3.jpg",
+      "rating": "7.1/10",
+      "ratingValue": 7.1,
+      "voteCount": 720,
+      "overview": "A dramatization of the  École Polytechnique massacre in Montreal, on December 9, 1989, where 14 female engineering students were murdered (and 13 were wounded) by a 25 year old psychotic misogynist armed with a semi-automatic weapon.",
+      "releaseDate": "2009-02-06",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2010",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 25338,
+      "tmdbId": 25338,
+      "mediaType": "movie",
+      "title": "The Silent Partner",
+      "originalTitle": "The Silent Partner",
+      "year": "1978",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/mN5kB6uXIKETr2DcsG0u3wSFolN.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/uU0N4WJjQlExGM7MBkla2qAGBrr.jpg",
+      "rating": "7.1/10",
+      "ratingValue": 7.1,
+      "voteCount": 175,
+      "overview": "Toronto, Canada. A few days before Christmas, Miles Cullen, a bored teller working at a bank branch located in a shopping mall, accidentally learns that the place is about to be robbed when he finds a disconcerting note on one of the counters.",
+      "releaseDate": "1978-09-07",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1980",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 1777,
       "tmdbId": 1777,
       "mediaType": "movie",
@@ -79400,6 +80747,31 @@
           "ceremonyName": "César Awards (Académie des César)",
           "award": "César Award for Best Film (Meilleur film)",
           "year": "1982",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 1919,
+      "tmdbId": 1919,
+      "mediaType": "movie",
+      "title": "Away from Her",
+      "originalTitle": "Away from Her",
+      "year": "2007",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/oyPE6i9sylR1UhTPFmniOHcQpKb.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/zA9G3qYEyGMK1vu9G0s8cwYpFQA.jpg",
+      "rating": "7.0/10",
+      "ratingValue": 7.04,
+      "voteCount": 253,
+      "overview": "Fiona and Grant have been married for nearly 50 years. They have to face the fact that Fiona’s absent-mindedness is a symptom of Alzheimer’s disease. She must go to a specialized nursing home, where she slowly forgets Grant and turns her affection to Aubrey, another patient in the home.",
+      "releaseDate": "2007-05-04",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2008",
           "position": 1
         }
       ]
@@ -81580,6 +82952,31 @@
       ]
     },
     {
+      "id": 20967,
+      "tmdbId": 20967,
+      "mediaType": "movie",
+      "title": "Thirty Two Short Films About Glenn Gould",
+      "originalTitle": "Thirty Two Short Films About Glenn Gould",
+      "year": "1993",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/3GTmkUpCb1uL7psLYqAHyIyld51.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/6srvLtwWhy4IvkNjxM3IfPDcRJL.jpg",
+      "rating": "7.0/10",
+      "ratingValue": 7.0,
+      "voteCount": 50,
+      "overview": "A collection of vignettes highlighting different aspects of the life, work, and character of the acclaimed Canadian classical pianist.",
+      "releaseDate": "1993-11-26",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1994",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 11360,
       "tmdbId": 11360,
       "mediaType": "movie",
@@ -81721,6 +83118,31 @@
           "ceremonyName": "Golden Horse Awards – Best Narrative Feature",
           "award": "Best Narrative Feature (最佳劇情片)",
           "year": "2014",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 13550,
+      "tmdbId": 13550,
+      "mediaType": "movie",
+      "title": "The Changeling",
+      "originalTitle": "The Changeling",
+      "year": "1980",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/z4nTYj3JZ5jWAhDgrmEhW2GRAzb.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/r4nx6BZY4PfLPrThytBtAuwN8uV.jpg",
+      "rating": "7.0/10",
+      "ratingValue": 6.98,
+      "voteCount": 757,
+      "overview": "After a tragic event happens, composer John Russell moves to Seattle to try to overcome it and build a new and peaceful life in a lonely big house that has been uninhabited for many years. But, soon after, the obscure history of such an old mansion and his own past begin to haunt him.",
+      "releaseDate": "1980-03-28",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1981",
           "position": 1
         }
       ]
@@ -82377,30 +83799,6 @@
           "award": "Prix du Jury (Jury Prize)",
           "year": "1993",
           "position": 3
-        }
-      ]
-    },
-    {
-      "id": 10217,
-      "tmdbId": 10217,
-      "mediaType": "movie",
-      "title": "The Sweet Hereafter",
-      "originalTitle": "The Sweet Hereafter",
-      "year": "1997",
-      "posterUrl": "https://image.tmdb.org/t/p/w500/gJy7LMq4b5qO5fsSUSoBgm24BHf.jpg",
-      "backdropUrl": "https://image.tmdb.org/t/p/original/7zRAZFZ4xVMyoLEvCb4Au41uvny.jpg",
-      "rating": "6.9/10",
-      "ratingValue": 6.9,
-      "voteCount": 443,
-      "overview": "A small mountain community in Canada is devastated when a school bus accident leaves more than a dozen of its children dead. A big-city lawyer arrives to help the survivors' and victims' families prepare a class-action suit, but his efforts only seem to push the townspeople further apart. At the same time, one teenage survivor of the accident has to reckon with the loss of innocence brought about by a different kind of damage.",
-      "releaseDate": "1997-09-25",
-      "awards": [
-        {
-          "ceremonyId": "cannes",
-          "ceremonyName": "Festival de Cannes",
-          "award": "Grand Prix",
-          "year": "1997",
-          "position": 2
         }
       ]
     },
@@ -83809,6 +85207,81 @@
       ]
     },
     {
+      "id": 106630,
+      "tmdbId": 106630,
+      "mediaType": "movie",
+      "title": "Night Zoo",
+      "originalTitle": "Un zoo la nuit",
+      "year": "1987",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/7WEZTqguGWRDEmUR3IXyiOoYK0l.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/dWCqzkonCKSe0pB4HymHoyluvnL.jpg",
+      "rating": "6.9/10",
+      "ratingValue": 6.9,
+      "voteCount": 22,
+      "overview": "Marcel, recently released from prison, attempt to rebuild his relationship with his girlfriend Julie (now a prostitute) and especially his father Albert (who thinks he's been away on a long trip abroad), while being pursued by two corrupt cops (one of whom bears a longstanding grudge against him) for drug money he's alleged to possess.",
+      "releaseDate": "1987-05-01",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1988",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 42136,
+      "tmdbId": 42136,
+      "mediaType": "movie",
+      "title": "The Grey Fox",
+      "originalTitle": "The Grey Fox",
+      "year": "1982",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/ycE2WBSczxBgM1vtRQ9KTtwGTMR.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/5m3iuO5ACGuOE15Gv1TXmNweXRK.jpg",
+      "rating": "6.9/10",
+      "ratingValue": 6.9,
+      "voteCount": 40,
+      "overview": "Old West highwayman Bill Miner, known to Pinkertons as \"The Gentleman Bandit,\" is released in 1901 after 33 years in prison. A genial and charming old man, he re-enters a world unfamiliar to him, and returns to the only thing that gives him purpose — robbery.",
+      "releaseDate": "1982-12-16",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1984",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 74689,
+      "tmdbId": 74689,
+      "mediaType": "movie",
+      "title": "Mon oncle Antoine",
+      "originalTitle": "Mon oncle Antoine",
+      "year": "1971",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/9gcADZrXrRoCO3U02e1temvQu7Z.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/2pX2geI8oItHs5IfsUPwJwcmuXV.jpg",
+      "rating": "6.9/10",
+      "ratingValue": 6.9,
+      "voteCount": 55,
+      "overview": "Set in cold rural Quebec at Christmas time, we follow the coming of age of a young boy and the life of his family which owns the town's general store and undertaking business.",
+      "releaseDate": "1971-11-12",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1971",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 18971,
       "tmdbId": 18971,
       "mediaType": "movie",
@@ -83854,30 +85327,6 @@
           "award": "Best Feature",
           "year": "1999",
           "position": 1
-        }
-      ]
-    },
-    {
-      "id": 4486,
-      "tmdbId": 4486,
-      "mediaType": "movie",
-      "title": "Jesus of Montreal",
-      "originalTitle": "Jésus de Montréal",
-      "year": "1989",
-      "posterUrl": "https://image.tmdb.org/t/p/w500/evtfMmuJyCQch2JIdWO2SdGWgJA.jpg",
-      "backdropUrl": "https://image.tmdb.org/t/p/original/kEaYlYkb5wZQ6ZtydGfNhoujbQn.jpg",
-      "rating": "6.9/10",
-      "ratingValue": 6.87,
-      "voteCount": 100,
-      "overview": "A group of actors putting on an interpretive Passion Play in Montreal begin to experience a meshing of their characters and their private lives as the production takes form against the growing opposition of the Catholic church.",
-      "releaseDate": "1989-05-15",
-      "awards": [
-        {
-          "ceremonyId": "cannes",
-          "ceremonyName": "Festival de Cannes",
-          "award": "Prix du Jury (Jury Prize)",
-          "year": "1989",
-          "position": 3
         }
       ]
     },
@@ -85872,6 +87321,56 @@
       ]
     },
     {
+      "id": 582309,
+      "tmdbId": 582309,
+      "mediaType": "movie",
+      "title": "Antigone",
+      "originalTitle": "Antigone",
+      "year": "2019",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/whn30vLHgM5IyMorCVGAsXzB3Zp.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/7p8uiXXprRzbw7uyaER4AG86gLP.jpg",
+      "rating": "6.8/10",
+      "ratingValue": 6.8,
+      "voteCount": 69,
+      "overview": "Sophie Deraspe’s adaptation of the classic Greek tragedy of the same name reimagines the story of a woman’s quest for justice as a commentary on the immigrant experience in contemporary Montreal.",
+      "releaseDate": "2019-11-08",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2020",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 548925,
+      "tmdbId": 548925,
+      "mediaType": "movie",
+      "title": "A Colony",
+      "originalTitle": "Une colonie",
+      "year": "2019",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/5ZDrOxMhCoxL4Shm1POFeSmiS1l.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/6NcsKE9DFP0Faha5ybi6HkoydO4.jpg",
+      "rating": "6.8/10",
+      "ratingValue": 6.8,
+      "voteCount": 39,
+      "overview": "Camille wanders through the countryside talking with frogs and chickens: she sails through life as a carefree soul. But for her older sister, the introverted Mylia, things are more complicated. Mylia is lost between the uncertainty in her family life, the superficial atmosphere at her new school and her first experiences at house parties. It is Camille who eventually introduces Mylia to Jimmy. The boy from the nearby Abenaki reserve is different and he encourages her to break free.",
+      "releaseDate": "2019-02-01",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2019",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 12626,
       "tmdbId": 12626,
       "mediaType": "movie",
@@ -86134,6 +87633,31 @@
           "ceremonyName": "Sundance Film Festival",
           "award": "Grand Jury Prize (U.S. Dramatic)",
           "year": "2004",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 13245,
+      "tmdbId": 13245,
+      "mediaType": "movie",
+      "title": "Atanarjuat: The Fast Runner",
+      "originalTitle": "ᐊᑕᓈᕐᔪᐊᑦ",
+      "year": "2002",
+      "originalLanguage": "iu",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/jSGiFOTwosoiAAXLTLHtzMUCVUN.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/q3XAe77oga8zCH8G6d8T4izEPZ6.jpg",
+      "rating": "6.8/10",
+      "ratingValue": 6.75,
+      "voteCount": 84,
+      "overview": "Based on a local legend and set in an unknown era, it deals with universal themes of love, possessiveness, family, jealousy and power. Beautifully shot, and acted by Inuit people, it portrays a time when people fought duels by taking turns to punch each other until one was unconscious, made love on the way to the caribou hunt, ate walrus meat and lit their igloos with seal-oil lamps.",
+      "releaseDate": "2002-02-01",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2002",
           "position": 1
         }
       ]
@@ -86881,30 +88405,6 @@
           "award": "Silver Bear Grand Jury Prize",
           "year": "2017",
           "position": 2
-        }
-      ]
-    },
-    {
-      "id": 18499,
-      "tmdbId": 18499,
-      "mediaType": "movie",
-      "title": "The Decline of the American Empire",
-      "originalTitle": "Le Déclin de l'empire américain",
-      "year": "1986",
-      "posterUrl": "https://image.tmdb.org/t/p/w500/j5Bi5lr7Z2tr9fEJI0YuS0AS2iG.jpg",
-      "backdropUrl": "https://image.tmdb.org/t/p/original/yItBvynVmSCTvAkzAm5PllP4oth.jpg",
-      "rating": "6.7/10",
-      "ratingValue": 6.7,
-      "voteCount": 183,
-      "overview": "Four very different Montreal university teachers gather at a rambling country house to prepare a dinner. Remy (married), Claude (a homosexual), Pierre (involved with a girlfriend) and Alain (a bachelor) discuss sex, the female body and their affairs with them. Meanwhile, their four female guests, Louise (Remy's wife of 15 years), Dominique (a spinster), Diane (a divorcée) and Danielle (Pierre's girlfriend) are spending the time at a downtown health gym. They also discuss sex, the female body and, naturally, men. Later in the evening, they finally meet at the country house and have dinner. A ninth guest, named Mario, who used to know Diane, drops in on the group for some talk and has a surprise of his own.",
-      "releaseDate": "1986-06-19",
-      "awards": [
-        {
-          "ceremonyId": "tiff",
-          "ceremonyName": "Toronto International Film Festival (TIFF)",
-          "award": "People's Choice Award",
-          "year": "1986",
-          "position": 1
         }
       ]
     },
@@ -89537,6 +91037,56 @@
       ]
     },
     {
+      "id": 98205,
+      "tmdbId": 98205,
+      "mediaType": "movie",
+      "title": "War Witch",
+      "originalTitle": "Rebelle",
+      "year": "2012",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/78Yi8mzd1S04ANbdlxI1FkMl4Vx.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/hnkdrpKqANChFKvwTRYlw2Y6xZt.jpg",
+      "rating": "6.6/10",
+      "ratingValue": 6.6,
+      "voteCount": 114,
+      "overview": "Somewhere in Sub-Saharan Africa, Komona a 14-year-old girl tells her unborn child growing inside her the story of her life since she has been at war. Everything started when she was abducted by the rebel army at the age of 12.",
+      "releaseDate": "2012-02-17",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2013",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 20156,
+      "tmdbId": 20156,
+      "mediaType": "movie",
+      "title": "Exotica",
+      "originalTitle": "Exotica",
+      "year": "1994",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/pWcJdcIHjL3P6NaEJKeV6ONfAMV.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/sdgWn2YmR2h0HWFUGXmvbCerQCR.jpg",
+      "rating": "6.6/10",
+      "ratingValue": 6.6,
+      "voteCount": 406,
+      "overview": "In the upscale Toronto strip club Exotica, dancer Christina is visited nightly by the obsessive Francis, a depressed tax auditor. Her ex-boyfriend, the club's MC, Eric, still jealously pines for her even as he introduces her onstage, but Eric is having his own relationship problems with the club's female owner. Thomas, a mysterious pet-shop owner, is about to become unexpectedly involved in their lives.",
+      "releaseDate": "1994-09-29",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1996",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 241239,
       "tmdbId": 241239,
       "mediaType": "movie",
@@ -91397,6 +92947,31 @@
       ]
     },
     {
+      "id": 41784,
+      "tmdbId": 41784,
+      "mediaType": "movie",
+      "title": "Black Robe",
+      "originalTitle": "Black Robe",
+      "year": "1991",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/kaogaZD8WkwfRJnr7zvktiY5E2p.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/7Gm9NXq1Ydje7uyx9Ogr1FxFkIa.jpg",
+      "rating": "6.5/10",
+      "ratingValue": 6.5,
+      "voteCount": 133,
+      "overview": "Missionary Father LaForgue travels to the New World in hopes of converting Algonquin Indians to Catholicism. Accepted, though warily, by the Indians, LaForgue travels with the Indians using his strict Catholic rules and ideals to try and impose his religion.",
+      "releaseDate": "1991-10-04",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1992",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 47406,
       "tmdbId": 47406,
       "mediaType": "movie",
@@ -91465,6 +93040,31 @@
           "award": "Silver Bear Grand Jury Prize",
           "year": "1996",
           "position": 2
+        }
+      ]
+    },
+    {
+      "id": 17771,
+      "tmdbId": 17771,
+      "mediaType": "movie",
+      "title": "Sunshine",
+      "originalTitle": "Sunshine",
+      "year": "1999",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/qcHDFrjClW35u0dSuLjsQEi8gDk.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/vlG25qaVew5s3uqSvaNCANd7qBS.jpg",
+      "rating": "6.5/10",
+      "ratingValue": 6.45,
+      "voteCount": 158,
+      "overview": "The fate of a Hungarian Jewish family throughout the 20th century.",
+      "releaseDate": "1999-09-13",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2000",
+          "position": 1
         }
       ]
     },
@@ -91635,6 +93235,31 @@
           "ceremonyName": "Berlin International Film Festival (Berlinale)",
           "award": "Golden Bear (Goldener Bär)",
           "year": "1992",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 15049,
+      "tmdbId": 15049,
+      "mediaType": "movie",
+      "title": "Bon Cop Bad Cop",
+      "originalTitle": "Bon Cop Bad Cop",
+      "year": "2006",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/kidOf2K4pEM0Llsm8aIRcANTcSF.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/f8Vy1YNbHcZSwXAS8zCzZ2yiSQz.jpg",
+      "rating": "6.4/10",
+      "ratingValue": 6.41,
+      "voteCount": 251,
+      "overview": "When the body of the executive of hockey Benoit Brisset is found on the billboard of the border of Quebec and Ontario, the jurisdiction of the crime is shared between the two police forces and detectives David Bouchard from Montreal and Martin Ward from Toronto are assigned to work together. With totally different styles, attitudes and languages.",
+      "releaseDate": "2006-07-06",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2007",
           "position": 1
         }
       ]
@@ -92653,6 +94278,31 @@
       ]
     },
     {
+      "id": 169379,
+      "tmdbId": 169379,
+      "mediaType": "movie",
+      "title": "My American Cousin",
+      "originalTitle": "My American Cousin",
+      "year": "1985",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/ydcRTWqQpRjNvQRXa2TB01cQXmy.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/w1UbvtHMC60i9XLDEyVFP61NF93.jpg",
+      "rating": "6.4/10",
+      "ratingValue": 6.4,
+      "voteCount": 11,
+      "overview": "Sandy Wilcox is a pre-teen girl in rural 1950s British Columbia whose longing to be treated as an adult is roused even further when her older American cousin, Butch Walker, comes for a visit.",
+      "releaseDate": "1985-11-01",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1986",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 1159206,
       "tmdbId": 1159206,
       "mediaType": "movie",
@@ -92794,6 +94444,31 @@
           "ceremonyName": "David di Donatello Awards – Miglior Film",
           "award": "David di Donatello per il miglior film",
           "year": "2008",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 215031,
+      "tmdbId": 215031,
+      "mediaType": "movie",
+      "title": "Gabrielle",
+      "originalTitle": "Gabrielle",
+      "year": "2013",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/bE2GYdImWm6UZeAv7DNkihALm27.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/3uMTh3QhxCk5Ihk3v6qZSznLb1z.jpg",
+      "rating": "6.3/10",
+      "ratingValue": 6.35,
+      "voteCount": 46,
+      "overview": "Gabrielle is a young woman with Williams syndrome who has a contagious joie de vivre and an exceptional musical gift. Since she met her boyfriend Martin, at the recreation centre where they are choir members, they have been inseparable. However, because they are \"different,\" their loved ones are fearful of their relationship. As the choir prepare for an important music festival, Gabrielle does everything she can to gain her independence. As determined as she is, Gabrielle must still confront other people's prejudices as well as her own limitations in the hope of experiencing a love far from the \"ordinary\".",
+      "releaseDate": "2013-09-20",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2014",
           "position": 1
         }
       ]
@@ -93203,30 +94878,6 @@
           "ceremonyName": "Toronto International Film Festival (TIFF)",
           "award": "People's Choice Second Runner-Up",
           "year": "2000",
-          "position": 3
-        }
-      ]
-    },
-    {
-      "id": 726220,
-      "tmdbId": 726220,
-      "mediaType": "movie",
-      "title": "Beans",
-      "originalTitle": "Beans",
-      "year": "2021",
-      "posterUrl": "https://image.tmdb.org/t/p/w500/2LkLGOTHOvMCxKwJBav607Hqmgw.jpg",
-      "backdropUrl": "https://image.tmdb.org/t/p/original/c1rIiuvMP5k3c1CJNxD2fxpdoh6.jpg",
-      "rating": "6.3/10",
-      "ratingValue": 6.3,
-      "voteCount": 28,
-      "overview": "Twelve-year-old Beans is on the edge: torn between innocent childhood and reckless adolescence; forced to grow up fast and become the tough Mohawk warrior she needs to be during the Oka Crisis, the turbulent Indigenous uprising that tore Quebec and Canada apart for 78 tense days in the summer of 1990.",
-      "releaseDate": "2021-03-30",
-      "awards": [
-        {
-          "ceremonyId": "tiff",
-          "ceremonyName": "Toronto International Film Festival (TIFF)",
-          "award": "People's Choice Second Runner-Up",
-          "year": "2020",
           "position": 3
         }
       ]
@@ -93932,6 +95583,31 @@
       ]
     },
     {
+      "id": 44606,
+      "tmdbId": 44606,
+      "mediaType": "movie",
+      "title": "Goin' Down the Road",
+      "originalTitle": "Goin' Down the Road",
+      "year": "1970",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/pmWjQY5NSLG4aBR9wzqKHEXANtH.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/pdslgfIJ95gnK2jc2WnUX6Uq7V.jpg",
+      "rating": "6.3/10",
+      "ratingValue": 6.3,
+      "voteCount": 22,
+      "overview": "Two friends travel from Nova Scotia to Toronto in hope of finding a better life.  A classic, and over 50 years later, the film has been on every TIFF list of the top 10 Canadian films ever made.",
+      "releaseDate": "1970-07-02",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "1970",
+          "position": 1
+        }
+      ]
+    },
+    {
       "id": 209840,
       "tmdbId": 209840,
       "mediaType": "movie",
@@ -93999,6 +95675,31 @@
           "ceremonyName": "Karlovy Vary International Film Festival",
           "award": "Crystal Globe (Křišťálový glóbus)",
           "year": "2008",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 35650,
+      "tmdbId": 35650,
+      "mediaType": "movie",
+      "title": "Maelström",
+      "originalTitle": "Maelström",
+      "year": "2000",
+      "originalLanguage": "fr",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/knhWhSDOEPcWed5ljKcJVnXbH7.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/rxaga3bJXuwgHidnTcdwVHifLpH.jpg",
+      "rating": "6.2/10",
+      "ratingValue": 6.25,
+      "voteCount": 202,
+      "overview": "A young woman's life spirals into chaos after she is involved in a hit-and-run accident. Then she encounters a mysterious man named Evian who offers her an opportunity for redemption. Narrated by a fish.",
+      "releaseDate": "2000-09-15",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2001",
           "position": 1
         }
       ]
@@ -95709,6 +97410,56 @@
           "ceremonyName": "BFI London Film Festival",
           "award": "Best Film Award (Official Competition)",
           "year": "2022",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 14582,
+      "tmdbId": 14582,
+      "mediaType": "movie",
+      "title": "Passchendaele",
+      "originalTitle": "Passchendaele",
+      "year": "2008",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/2FMtSxzF2fR5dx5was9Kftjag0U.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/mm5itexxDxDZBemUrdX4Mm8Owgk.jpg",
+      "rating": "6.1/10",
+      "ratingValue": 6.1,
+      "voteCount": 126,
+      "overview": "Sergeant Michael Dunne fights in the 10th Battalion, AKA The \"Fighting Tenth\" with the 1st Canadian Division and participated in all major Canadian battles of the war, and set the record for highest number of individual bravery awards for a single battle",
+      "releaseDate": "2008-10-17",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2009",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "id": 16351,
+      "tmdbId": 16351,
+      "mediaType": "movie",
+      "title": "Ararat",
+      "originalTitle": "Ararat",
+      "year": "2002",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/kQkn715VQYLIs2nddAUf19Bz5Wj.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/xJZmoX5r5zcvJNbeqBGgdizC0d9.jpg",
+      "rating": "6.1/10",
+      "ratingValue": 6.1,
+      "voteCount": 100,
+      "overview": "Interrogated by a customs officer, a young man recounts how his life was changed during the making of a film about the Armenian genocide.",
+      "releaseDate": "2002-05-20",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2003",
           "position": 1
         }
       ]
@@ -97760,6 +99511,31 @@
           "award": "Grand Prix",
           "year": "2022",
           "position": 2
+        }
+      ]
+    },
+    {
+      "id": 996569,
+      "tmdbId": 996569,
+      "mediaType": "movie",
+      "title": "Brother",
+      "originalTitle": "Brother",
+      "year": "2023",
+      "originalLanguage": "en",
+      "posterUrl": "https://image.tmdb.org/t/p/w500/yqd1CmwaXQkLXVLsO2cqiExplb1.jpg",
+      "backdropUrl": "https://image.tmdb.org/t/p/original/6eh7pKQvz8G2oJCLbaJajeV8k8Q.jpg",
+      "rating": "5.8/10",
+      "ratingValue": 5.81,
+      "voteCount": 29,
+      "overview": "Sons of Caribbean immigrants, Francis and Michael face questions of masculinity, identity and family amid the pulsing beat of Toronto's early hip-hop scene. A mystery unfolds when escalating tensions set off a series of events which changes the course of the brothers’ lives forever.",
+      "releaseDate": "2023-03-17",
+      "awards": [
+        {
+          "ceremonyId": "canadian_screen_awards",
+          "ceremonyName": "Canadian Screen Awards (Prix Écrans canadiens)",
+          "award": "Best Motion Picture (Meilleur film)",
+          "year": "2023",
+          "position": 1
         }
       ]
     },
