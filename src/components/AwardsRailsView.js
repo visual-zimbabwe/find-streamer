@@ -34,10 +34,66 @@ const CEREMONY_GROUPS = [
 
 const GROUP_CEREMONY_IDS = {
   big_three: new Set(['cannes', 'venice', 'berlin']),
-  academies: new Set(['oscars_picture', 'oscars_international', 'cesar', 'goya', 'efa', 'aacta']),
-  critics: new Set(['nyfcc', 'nbr']),
-  festivals: new Set(['sundance', 'tiff', 'locarno', 'san_sebastian', 'karlovy_vary', 'rotterdam']),
-  world: new Set(['tokyo', 'mar_del_plata', 'iffi', 'shanghai', 'aacta_international']),
+  academies: new Set([
+    'oscars_picture',
+    'oscars_international',
+    'bafta_film',
+    'bafta_british',
+    'cesar',
+    'goya',
+    'efa',
+    'david_di_donatello',
+    'deutscher_filmpreis',
+    'japan_academy',
+    'blue_dragon',
+    'golden_horse',
+    'hong_kong_awards',
+    'ariel',
+    'guldbagge',
+    'bodil',
+    'brazilian_cinema',
+    'aacta',
+    'national_film_awards_india',
+  ]),
+  critics: new Set(['nyfcc', 'nbr', 'lafca', 'nsfc', 'spirit_awards', 'gotham_awards']),
+  festivals: new Set([
+    'sundance',
+    'tiff',
+    'locarno',
+    'san_sebastian',
+    'karlovy_vary',
+    'rotterdam',
+    'filmfest_munchen',
+    'london_film_fest',
+    'busan_new_currents',
+    'sydney_film_fest',
+    'goteborg',
+    'sitges',
+    'annecy_animation',
+  ]),
+  world: new Set([
+    'tokyo',
+    'mar_del_plata',
+    'iffi',
+    'shanghai',
+    'aacta_international',
+    'david_di_donatello',
+    'deutscher_filmpreis',
+    'japan_academy',
+    'blue_dragon',
+    'golden_horse',
+    'hong_kong_awards',
+    'ariel',
+    'guldbagge',
+    'bodil',
+    'brazilian_cinema',
+    'national_film_awards_india',
+    'busan_new_currents',
+    'sydney_film_fest',
+    'goteborg',
+    'sitges',
+    'filmfest_munchen',
+  ]),
 };
 
 export function AwardsRailsView({
@@ -145,7 +201,7 @@ export function AwardsRailsView({
       <ProgrammeSectionHeader
         eyebrow="GLOBAL CINEMA HONORS"
         title="Prestigious Awards & Laureates"
-        subtitle="22 Premier International Honors · 1,580 Acclaimed Laureates"
+        subtitle={`${allCeremoniesMeta.length} Premier Honors · 1,972 Acclaimed Laureates`}
         titleVariant="titleLg"
         align="center"
       />
