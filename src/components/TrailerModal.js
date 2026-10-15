@@ -117,6 +117,8 @@ const PLAYER_OBSERVER_JS = `
     'html,body{margin:0!important;padding:0!important;width:100%!important;height:100%!important;overflow:hidden!important}' +
     '#player,#movie_player,.html5-video-player{width:100%!important;height:100%!important;left:0!important;top:0!important}';
   document.head.appendChild(style);
+  document.addEventListener('playing', function () { post({ t: 'playing' }); }, true);
+  document.addEventListener('play', function () { post({ t: 'playing' }); }, true);
   var ticks = 0;
   var timer = setInterval(function () {
     ticks++;
@@ -255,15 +257,16 @@ export function TrailerModal({
   const youtubeUrl = current ? `https://www.youtube.com/watch?v=${current.id}` : trailerUrl;
 
   const handleClose = useCallback(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
     setAttempt(0);
     setWebLoading(true);
     setPlayerError(null);
     onClose?.();
   }, [onClose]);
 
-  // Honour the phone's own auto-rotate setting while the trailer is open: `unlockAsync`
-  // maps to the system default, so a user who has auto-rotate switched OFF stays in
-  // portrait. `OrientationLock.ALL` would override that choice, which isn't ours to make.
+  // On mount, unlock to allow the WebView to mount in current orientation.
+  // When playback begins, handleMessage locks automatically to LANDSCAPE.
+  // Cleanup restores the app to PORTRAIT_UP on modal close or unmount.
   useEffect(() => {
     if (!visible) return undefined;
     let cancelled = false;
@@ -272,8 +275,6 @@ export function TrailerModal({
       .finally(() => {
         if (!cancelled) setOrientationReady(true);
       });
-    // Cleanup, not `handleClose` — a deep link or a backgrounded app can unmount this
-    // without ever calling onClose, and that would leave the whole app unlocked.
     return () => {
       cancelled = true;
       setOrientationReady(false);
@@ -291,6 +292,7 @@ export function TrailerModal({
       }
       setWebLoading(false);
       setPlayerError(describeBlockReason(reason));
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
     },
     [attempt, playlist.length],
   );
@@ -307,6 +309,7 @@ export function TrailerModal({
       // meant "the document parsed", which cleared the spinner over a still-black frame.
       if (message.t === 'playing') {
         setWebLoading(false);
+        ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
         return;
       }
       if (message.t === 'timeout') {
