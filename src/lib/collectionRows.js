@@ -17,6 +17,8 @@ function mapCollectionMovie(item) {
   const year = item.release_date ? item.release_date.slice(0, 4) : 'N/A';
   const ratingValue = typeof item.vote_average === 'number' ? item.vote_average : 0;
   const rating = ratingValue > 0 ? `${ratingValue.toFixed(1)}/10` : 'N/A';
+  const voteCount = typeof item.vote_count === 'number' ? item.vote_count : 0;
+  const popularity = typeof item.popularity === 'number' ? item.popularity : 0;
 
   return {
     mediaType: 'movie',
@@ -29,6 +31,8 @@ function mapCollectionMovie(item) {
     backdropUrl: imageUrl(TMDB_BACKDROP_BASE_URL, collection.backdrop_path),
     ratingValue,
     rating,
+    voteCount,
+    popularity,
     collectionId: collection.id,
     collectionName: collection.name || 'Movie Collection',
     collectionPosterPath: collection.poster_path || null,
@@ -91,6 +95,21 @@ export function buildCollectionRowsFromMovies(movies = [], limit = Infinity) {
       } else {
         row.yearSpan = '';
       }
+
+      const totalVotes = row.items.reduce((acc, curr) => acc + (curr.voteCount || 0), 0);
+      const maxVotes = Math.max(...row.items.map((curr) => curr.voteCount || 0), 0);
+      const maxPopularity = Math.max(...row.items.map((curr) => curr.popularity || 0), 0);
+      row.totalVotes = totalVotes;
+      row.maxVotes = maxVotes;
+      row.maxPopularity = maxPopularity;
+
+      // Bayesian Acclaim score for statistically sound ranking
+      const C = 6.2;
+      const m = 150;
+      row.bayesianScore =
+        totalVotes > 0
+          ? (totalVotes / (totalVotes + m)) * (avgRating || C) + (m / (totalVotes + m)) * C
+          : avgRating;
 
       row.hasArt = row.items.some((item) => item.posterUrl != null) || Boolean(row.posterUrl);
       return row;
