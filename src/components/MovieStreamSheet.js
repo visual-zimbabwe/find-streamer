@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { GOLD_ACCENT } from '../theme/programme';
 import { MediaArtwork } from './MediaArtwork';
 import { searchMovieTorrents } from '../lib/torrentSearchEngine';
 import { launchStream } from '../lib/streamLauncher';
+import { useDownloads } from '../lib/downloadManager';
 import { toastiva } from 'toastiva';
 
 function formatMovieRuntime(minutes) {
@@ -26,11 +26,12 @@ function formatMovieRuntime(minutes) {
 
 /**
  * Movie Stream Hub: provides peer swarm stream resolution, 1-click landscape
- * mpv playback, quality breakdowns (4K, 1080p, 720p), and streaming provider availability.
+ * mpv playback, offline 75 GB storage downloads, and quality breakdowns.
  */
 export function MovieStreamSheetContent({
   movieTitle,
   movieYear,
+  tmdbId,
   imdbId,
   posterUrl,
   runtimeMinutes,
@@ -43,6 +44,20 @@ export function MovieStreamSheetContent({
 }) {
   const [streams, setStreams] = useState([]);
   const [streamsLoading, setStreamsLoading] = useState(true);
+
+  const {
+    usedBytes,
+    startDownload,
+    pauseDownload,
+    resumeDownload,
+    deleteDownload,
+    playDownloaded,
+    getForMedia,
+    formatBytes,
+    formatSpeed,
+  } = useDownloads();
+
+  const movieDownload = getForMedia({ imdbId, tmdbId });
 
   // Fetch peer swarms for the movie
   useEffect(() => {
@@ -80,6 +95,28 @@ export function MovieStreamSheetContent({
     [imdbId],
   );
 
+  const handleStartDownload = useCallback(
+    async (item) => {
+      if (!item?.magnetUrl) return;
+      Haptics.selectionAsync();
+      await startDownload({
+        magnet: item.magnetUrl,
+        infoHash: item.infoHash,
+        fileIdx: item.fileIdx,
+        title: movieTitle,
+        releaseName: item.name,
+        mediaType: 'movie',
+        tmdbId,
+        imdbId,
+        year: movieYear,
+        posterUrl,
+        quality: item.attributes?.resolution || '',
+        codec: item.attributes?.codec || '',
+      });
+    },
+    [startDownload, movieTitle, tmdbId, imdbId, movieYear, posterUrl],
+  );
+
   const runtimeLabel = formatMovieRuntime(runtimeMinutes);
   const metaParts = [movieYear, runtimeLabel, genres].filter(Boolean);
 
@@ -110,7 +147,6 @@ export function MovieStreamSheetContent({
           </Text>
           {ratingValue ? (
             <View style={styles.ratingRow}>
-              <Ionicons name="star" size={13} color={GOLD_ACCENT} />
               <Text style={[styles.ratingText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
                 {typeof ratingValue === 'number' ? ratingValue.toFixed(1) : String(ratingValue)}
               </Text>
@@ -119,11 +155,131 @@ export function MovieStreamSheetContent({
         </View>
       </View>
 
+      {/* Pinned Offline Download Card (works 100% offline) */}
+      {movieDownload ? (
+        <View style={styles.downloadedSection}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, typography.labelMd, { color: GOLD_ACCENT }]}>
+              {movieDownload.state === 'completed'
+                ? 'Downloaded on Device'
+                : movieDownload.state === 'paused'
+                ? 'Download Paused'
+                : movieDownload.state === 'error'
+                ? 'Download Error'
+                : 'Downloading to Device'}
+            </Text>
+            <Text style={[styles.storageText, typography.labelSm, { color: colors.onSurfaceVariant }]}>
+              {formatBytes(usedBytes)} / 75 GB
+            </Text>
+          </View>
+
+          <Text
+            style={[styles.streamName, { color: colors.onSurface, ...typography.bodySm }]}
+            numberOfLines={2}
+          >
+            {movieDownload.releaseName || movieDownload.title || movieTitle}
+          </Text>
+
+          <Text
+            style={[styles.downloadStatusMeta, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+            numberOfLines={2}
+          >
+            {movieDownload.state === 'completed'
+              ? `${movieDownload.quality ? `${movieDownload.quality} · ` : ''}${formatBytes(
+                  movieDownload.totalBytes || movieDownload.completedBytes,
+                )} · Ready for offline playback`
+              : movieDownload.state === 'error'
+              ? movieDownload.error || 'Unable to complete download'
+              : movieDownload.state === 'paused'
+              ? `Paused at ${Math.round((movieDownload.progress || 0) * 100)}% · ${formatBytes(
+                  movieDownload.completedBytes,
+                )}${movieDownload.totalBytes > 0 ? ` / ${formatBytes(movieDownload.totalBytes)}` : ''}`
+              : `${Math.round((movieDownload.progress || 0) * 100)}% · ${formatBytes(
+                  movieDownload.completedBytes,
+                )}${movieDownload.totalBytes > 0 ? ` / ${formatBytes(movieDownload.totalBytes)}` : ''}${
+                  movieDownload.speedBps > 0
+                    ? ` · ${formatSpeed(movieDownload.speedBps)}`
+                    : ' · Connecting to peers...'
+                }`}
+          </Text>
+
+          <View style={styles.streamActionsRow}>
+            {(movieDownload.state === 'completed' || movieDownload.completedBytes > 0) && (
+              <TouchableOpacity
+                style={styles.streamPrimaryBtn}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  playDownloaded(movieDownload);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+                  {movieDownload.state === 'completed' ? 'Play Downloaded' : 'Play Now'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {(movieDownload.state === 'downloading' || movieDownload.state === 'resolving') && (
+              <TouchableOpacity
+                style={styles.streamSecondaryBtn}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  pauseDownload(movieDownload.id);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.streamSecondaryText, { color: colors.onSurface, ...typography.labelSm }]}>
+                  Pause
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {(movieDownload.state === 'paused' || movieDownload.state === 'error') && (
+              <TouchableOpacity
+                style={styles.streamPrimaryBtn}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  resumeDownload(movieDownload.id, movieDownload.title || movieTitle);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+                  Resume
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.streamSecondaryBtn}
+              onPress={() => {
+                Haptics.selectionAsync();
+                deleteDownload(movieDownload.id);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.streamSecondaryText,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                {movieDownload.state === 'completed' ? 'Delete Download' : 'Cancel Download'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       {/* Auto Play Best Stream Header */}
       <View style={styles.autoPlayContainer}>
         <TouchableOpacity
           style={styles.autoPlayHeader}
           onPress={() => {
+            if (movieDownload?.state === 'completed') {
+              Haptics.selectionAsync();
+              playDownloaded(movieDownload);
+              return;
+            }
             if (!topStream) return;
             if (topStream.seeders === 0) {
               toastiva.info('No active peers found in swarm');
@@ -131,13 +287,14 @@ export function MovieStreamSheetContent({
             }
             handleLaunch(topStream.magnetUrl, topStream.name, topStream.fileIdx, topStream.seeders);
           }}
-          activeOpacity={topStream ? 0.7 : 1}
-          disabled={!topStream}
+          activeOpacity={topStream || movieDownload?.state === 'completed' ? 0.7 : 1}
+          disabled={!topStream && movieDownload?.state !== 'completed'}
         >
-          <Ionicons name="play" size={16} color={GOLD_ACCENT} />
           <View style={styles.autoPlayTextCol}>
             <Text style={[styles.autoPlayTitle, { color: GOLD_ACCENT, ...typography.labelMd }]}>
-              Auto Play (Landscape)
+              {movieDownload?.state === 'completed'
+                ? 'Play Downloaded (Landscape)'
+                : 'Auto Play (Landscape)'}
             </Text>
             <Text
               style={[
@@ -146,7 +303,9 @@ export function MovieStreamSheetContent({
               ]}
               numberOfLines={1}
             >
-              {streamsLoading
+              {movieDownload?.state === 'completed'
+                ? `${formatBytes(movieDownload.totalBytes || movieDownload.completedBytes)} · Stored on device`
+                : streamsLoading
                 ? 'Searching peer swarms for verified releases...'
                 : !topStream
                 ? 'No releases found'
@@ -155,10 +314,8 @@ export function MovieStreamSheetContent({
                 : `${topStream.attributes?.resolution} · ${topStream.formattedSize} · ${topStream.seeders} seeds`}
             </Text>
           </View>
-          {streamsLoading ? (
+          {streamsLoading && movieDownload?.state !== 'completed' ? (
             <ActivityIndicator size="small" color={GOLD_ACCENT} />
-          ) : topStream && topStream.seeders > 0 ? (
-            <Ionicons name="play-circle-outline" size={20} color={GOLD_ACCENT} />
           ) : null}
         </TouchableOpacity>
       </View>
@@ -167,6 +324,9 @@ export function MovieStreamSheetContent({
       <View style={styles.sectionHeaderRow}>
         <Text style={[styles.sectionTitle, typography.labelMd, { color: GOLD_ACCENT }]}>
           {streams.length > 0 ? `Available Releases (${streams.length})` : 'Available Releases'}
+        </Text>
+        <Text style={[styles.storageText, typography.labelSm, { color: colors.onSurfaceVariant }]}>
+          {formatBytes(usedBytes)} / 75 GB used
         </Text>
       </View>
 
@@ -186,7 +346,6 @@ export function MovieStreamSheetContent({
           </View>
         ) : !streams.length ? (
           <View style={styles.emptyStreams}>
-            <Ionicons name="film-outline" size={24} color={colors.onSurfaceVariant} />
             <Text
               style={[
                 styles.emptyStreamsText,
@@ -197,75 +356,201 @@ export function MovieStreamSheetContent({
             </Text>
           </View>
         ) : (
-          streams.map((item) => (
-            <View key={item.infoHash} style={styles.streamItem}>
-              <View style={styles.streamMetaRow}>
-                <Text
-                  style={[styles.streamName, { color: colors.onSurface, ...typography.bodySm }]}
-                  numberOfLines={2}
-                >
-                  {item.name}
-                </Text>
-                <View style={styles.badgeRow}>
+          streams.map((item) => {
+            const itemDownload = getForMedia({
+              infoHash: item.infoHash,
+              fileIdx: item.fileIdx,
+            });
+            const isItemCompleted = itemDownload?.state === 'completed';
+            const isItemActive =
+              itemDownload?.state === 'downloading' || itemDownload?.state === 'resolving';
+            const isItemPaused = itemDownload?.state === 'paused';
+
+            return (
+              <View key={item.infoHash} style={styles.streamItem}>
+                <View style={styles.streamMetaRow}>
                   <Text
-                    style={[
-                      styles.qualityBadge,
-                      { color: GOLD_ACCENT, ...typography.labelSm },
-                    ]}
+                    style={[styles.streamName, { color: colors.onSurface, ...typography.bodySm }]}
+                    numberOfLines={2}
                   >
-                    {item.attributes?.resolution}
+                    {item.name}
                   </Text>
-                  {item.attributes?.codec && (
+                  <View style={styles.badgeRow}>
                     <Text
                       style={[
-                        styles.attrBadge,
+                        styles.qualityBadge,
+                        { color: GOLD_ACCENT, ...typography.labelSm },
+                      ]}
+                    >
+                      {item.attributes?.resolution}
+                    </Text>
+                    {item.attributes?.codec && (
+                      <Text
+                        style={[
+                          styles.attrBadge,
+                          { color: colors.onSurfaceVariant, ...typography.labelSm },
+                        ]}
+                      >
+                        {item.attributes.codec}
+                      </Text>
+                    )}
+                    <Text
+                      style={[
+                        styles.seedBadge,
+                        {
+                          color:
+                            item.seeders >= 20
+                              ? '#4CAF50'
+                              : item.seeders > 0
+                              ? '#E5A93C'
+                              : colors.onSurfaceVariant,
+                          ...typography.labelSm,
+                        },
+                      ]}
+                    >
+                      {item.seeders} seeds
+                    </Text>
+                    <Text
+                      style={[
+                        styles.sizeBadge,
                         { color: colors.onSurfaceVariant, ...typography.labelSm },
                       ]}
                     >
-                      {item.attributes.codec}
+                      {item.formattedSize}
                     </Text>
+                  </View>
+                </View>
+
+                <View style={styles.streamActionsRow}>
+                  <TouchableOpacity
+                    style={styles.streamPrimaryBtn}
+                    onPress={() => {
+                      if (isItemCompleted) {
+                        Haptics.selectionAsync();
+                        playDownloaded(itemDownload);
+                      } else {
+                        handleLaunch(item.magnetUrl, item.name, item.fileIdx, item.seeders);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+                      {isItemCompleted ? 'Play Downloaded' : 'Play Now'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {isItemCompleted ? (
+                    <TouchableOpacity
+                      style={styles.streamSecondaryBtn}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        deleteDownload(itemDownload.id);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.streamSecondaryText,
+                          { color: colors.onSurfaceVariant, ...typography.labelSm },
+                        ]}
+                      >
+                        Delete Download
+                      </Text>
+                    </TouchableOpacity>
+                  ) : isItemActive ? (
+                    <>
+                      <TouchableOpacity
+                        style={styles.streamSecondaryBtn}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          pauseDownload(itemDownload.id);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.streamSecondaryText,
+                            { color: GOLD_ACCENT, ...typography.labelSm },
+                          ]}
+                        >
+                          {`Downloading ${Math.round((itemDownload.progress || 0) * 100)}% · Pause`}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.streamSecondaryBtn}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          deleteDownload(itemDownload.id);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.streamSecondaryText,
+                            { color: colors.onSurfaceVariant, ...typography.labelSm },
+                          ]}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : isItemPaused ? (
+                    <>
+                      <TouchableOpacity
+                        style={styles.streamSecondaryBtn}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          resumeDownload(itemDownload.id, movieTitle);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.streamSecondaryText,
+                            { color: GOLD_ACCENT, ...typography.labelSm },
+                          ]}
+                        >
+                          {`Resume (${Math.round((itemDownload.progress || 0) * 100)}%)`}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.streamSecondaryBtn}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          deleteDownload(itemDownload.id);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.streamSecondaryText,
+                            { color: colors.onSurfaceVariant, ...typography.labelSm },
+                          ]}
+                        >
+                          Delete
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.streamSecondaryBtn}
+                      onPress={() => handleStartDownload(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.streamSecondaryText,
+                          { color: colors.onSurface, ...typography.labelSm },
+                        ]}
+                      >
+                        Download
+                      </Text>
+                    </TouchableOpacity>
                   )}
-                  <Text
-                    style={[
-                      styles.seedBadge,
-                      {
-                        color:
-                          item.seeders >= 20
-                            ? '#4CAF50'
-                            : item.seeders > 0
-                            ? '#E5A93C'
-                            : colors.onSurfaceVariant,
-                        ...typography.labelSm,
-                      },
-                    ]}
-                  >
-                    {item.seeders} seeds
-                  </Text>
-                  <Text
-                    style={[
-                      styles.sizeBadge,
-                      { color: colors.onSurfaceVariant, ...typography.labelSm },
-                    ]}
-                  >
-                    {item.formattedSize}
-                  </Text>
                 </View>
               </View>
-
-              <View style={styles.streamActionsRow}>
-                <TouchableOpacity
-                  style={styles.streamPrimaryBtn}
-                  onPress={() => handleLaunch(item.magnetUrl, item.name, item.fileIdx, item.seeders)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="play" size={13} color={GOLD_ACCENT} />
-                  <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-                    Play Now
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
+            );
+          })
         )}
       </View>
     </ScrollView>
@@ -307,6 +592,17 @@ const styles = StyleSheet.create({
   ratingText: {
     fontWeight: '700',
   },
+  downloadedSection: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    gap: 4,
+    marginBottom: 18,
+    paddingHorizontal: 0,
+  },
+  downloadStatusMeta: {
+    fontWeight: '500',
+    marginTop: 2,
+  },
   autoPlayContainer: {
     backgroundColor: 'transparent',
     borderWidth: 0,
@@ -331,13 +627,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   sectionHeaderRow: {
+    alignItems: 'center',
     backgroundColor: 'transparent',
     borderWidth: 0,
-    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
   sectionTitle: {
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  storageText: {
+    fontWeight: '500',
   },
   streamsContainer: {
     backgroundColor: 'transparent',
@@ -396,7 +698,8 @@ const styles = StyleSheet.create({
   streamActionsRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 10,
+    flexWrap: 'wrap',
+    gap: 18,
     marginTop: 2,
   },
   streamPrimaryBtn: {
@@ -404,12 +707,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 0,
     flexDirection: 'row',
-    gap: 5,
     paddingHorizontal: 0,
     paddingVertical: 4,
   },
   streamPrimaryText: {
     color: GOLD_ACCENT,
+    fontWeight: '700',
+  },
+  streamSecondaryBtn: {
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    flexDirection: 'row',
+    paddingHorizontal: 0,
+    paddingVertical: 4,
+  },
+  streamSecondaryText: {
     fontWeight: '700',
   },
 });

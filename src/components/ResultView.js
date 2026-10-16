@@ -37,6 +37,7 @@ import { SoundtrackPickerSheetContent } from './SoundtrackPickerSheet';
 import { WhereToWatchSection } from './WhereToWatchSection';
 import { SeasonDetailSheetContent } from './SeasonDetailSheet';
 import { MovieStreamSheetContent } from './MovieStreamSheet';
+import { useDownloads } from '../lib/downloadManager';
 import { PersonRail } from './PersonRail';
 import { GlassIconButton } from './GlassIconButton';
 import { ContentRail } from './ContentRail';
@@ -1078,6 +1079,11 @@ export function ResultView({
     [onPersonPress],
   );
 
+  const { getForMedia } = useDownloads();
+  const movieDownload = !isTv
+    ? getForMedia({ imdbId: result?.imdbId, tmdbId: result?.tmdbId })
+    : null;
+
   /** Tap a season card → peek sheet with that season's episodes and streams */
   const handleSeasonPress = useCallback(
     (season) => {
@@ -1089,6 +1095,7 @@ export function ResultView({
           seriesTmdbId={result?.tmdbId}
           imdbId={result?.imdbId}
           seriesYear={result?.year}
+          seriesPosterUrl={result?.posterUrl}
           colors={colors}
           typography={typography}
         />,
@@ -1102,7 +1109,16 @@ export function ResultView({
         },
       );
     },
-    [result?.title, result?.tmdbId, result?.imdbId, result?.year, colors, typography, showSheet],
+    [
+      result?.title,
+      result?.tmdbId,
+      result?.imdbId,
+      result?.year,
+      result?.posterUrl,
+      colors,
+      typography,
+      showSheet,
+    ],
   );
 
   /** Tap Stream Movie for a film → open movie stream sheet with peer swarms */
@@ -1112,6 +1128,7 @@ export function ResultView({
       <MovieStreamSheetContent
         movieTitle={result?.title}
         movieYear={result?.year}
+        tmdbId={result?.tmdbId}
         imdbId={result?.imdbId}
         posterUrl={result?.posterUrl}
         runtimeMinutes={result?.runtimeMinutes}
@@ -1134,6 +1151,7 @@ export function ResultView({
   }, [
     result?.title,
     result?.year,
+    result?.tmdbId,
     result?.imdbId,
     result?.posterUrl,
     result?.runtimeMinutes,
@@ -1829,11 +1847,15 @@ export function ResultView({
                     accessibilityRole="button"
                     accessibilityLabel={`Play ${result.title}`}
                   >
-                    <Ionicons name="play" size={18} color={GOLD_ACCENT} style={{ marginRight: 6 }} />
                     <Text
                       style={[styles.heroActionBtnText, { color: GOLD_ACCENT, ...typography.labelLg }]}
                     >
-                      Play Now
+                      {movieDownload?.state === 'completed'
+                        ? 'Play Downloaded'
+                        : movieDownload?.state === 'downloading' ||
+                          movieDownload?.state === 'resolving'
+                        ? `Downloading ${Math.round((movieDownload.progress || 0) * 100)}%`
+                        : 'Play Now'}
                     </Text>
                   </TouchableOpacity>
                 )}

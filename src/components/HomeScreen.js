@@ -41,6 +41,8 @@ import { useServiceLogos } from '../hooks/useServiceLogos';
 import { getAwardCeremonyRows } from '../lib/awardsCatalog';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { CinematicCardDeck } from './CinematicCardDeck';
+import { MediaArtwork } from './MediaArtwork';
+import { useDownloads } from '../lib/downloadManager';
 
 const HEADER_BODY_H = scale(96);
 const FILTERED_HERO_MAX = 12;
@@ -219,8 +221,55 @@ export function HomeScreen({
       .filter((r) => r.items.length > 0);
   }, [mediaFilter, homeLanguage]);
 
+  const {
+    downloads,
+    usedBytes,
+    playDownloaded,
+    pauseDownload,
+    resumeDownload,
+    deleteDownload,
+    formatBytes,
+    formatSpeed,
+  } = useDownloads();
+
+  const downloadedRow = useMemo(() => {
+    if (!Array.isArray(downloads) || downloads.length === 0) return null;
+    const items = downloads
+      .filter((d) => {
+        if (mediaFilter && d.mediaType !== mediaFilter) return false;
+        return true;
+      })
+      .map((d) => ({
+        id: `dl_${d.id}`,
+        tmdbId: d.tmdbId || undefined,
+        imdbId: d.imdbId || undefined,
+        title:
+          d.season > 0 && d.episode > 0
+            ? `${d.title} S${String(d.season).padStart(2, '0')}E${String(d.episode).padStart(2, '0')}`
+            : d.title || 'Downloaded Video',
+        year: d.year || '',
+        mediaType: d.mediaType || 'movie',
+        posterUrl: d.posterUrl || null,
+        downloadEntry: d,
+      }));
+    if (items.length === 0) return null;
+    return {
+      category: {
+        id: 'downloaded_offline_row',
+        label: 'Downloaded',
+        subtitle: `${formatBytes(usedBytes)} of 75 GB used`,
+        isDownloadedRail: true,
+      },
+      items,
+    };
+  }, [downloads, mediaFilter, usedBytes, formatBytes]);
+
   const feedRows = useMemo(() => {
-    const list = [...watchlistRows];
+    const list = [];
+    if (downloadedRow && !whereActive) {
+      list.push(downloadedRow);
+    }
+    list.push(...watchlistRows);
     // If we have award ceremony rails and no restrictive availability filter hiding everything
     if (awardCeremonyRows.length > 0 && !whereActive) {
       list.push({
@@ -234,7 +283,7 @@ export function HomeScreen({
       });
     }
     return list;
-  }, [watchlistRows, awardCeremonyRows, whereActive]);
+  }, [downloadedRow, watchlistRows, awardCeremonyRows, whereActive]);
 
   // The hero pool: the curated rotating spotlight when unfiltered; the matched
   // library titles themselves when a filter is on (so the hero can never feature
@@ -387,6 +436,187 @@ export function HomeScreen({
     [ambientFade],
   );
 
+  const openDownloadedItemSheet = useCallback(
+    (railItem) => {
+      const dl = railItem?.downloadEntry;
+      if (!dl) {
+        onSelectItem?.(railItem);
+        return;
+      }
+      Haptics.selectionAsync();
+      bottomSheet.show(
+        (sheetId) => {
+          const isCompleted = dl.state === 'completed';
+          const isActive = dl.state === 'downloading' || dl.state === 'resolving';
+          const isPaused = dl.state === 'paused' || dl.state === 'error';
+
+          return (
+            <View style={styles.downloadedSheetWrap}>
+              <View style={styles.downloadedSheetHeader}>
+                <MediaArtwork
+                  uri={dl.posterUrl}
+                  style={styles.downloadedSheetPoster}
+                  accessibilityLabel={`${railItem.title} poster`}
+                  title={railItem.title}
+                  instant
+                />
+                <View style={styles.downloadedSheetMetaCol}>
+                  <Text
+                    style={[styles.downloadedSheetTitle, { color: colors.onSurface, ...typography.titleMd }]}
+                    numberOfLines={2}
+                  >
+                    {railItem.title}
+                  </Text>
+                  {dl.episodeTitle ? (
+                    <Text
+                      style={[styles.downloadedSheetSub, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+                      numberOfLines={1}
+                    >
+                      {dl.episodeTitle}
+                    </Text>
+                  ) : null}
+                  <Text
+                    style={[styles.downloadedSheetSub, { color: colors.onSurfaceVariant, ...typography.labelSm }]}
+                    numberOfLines={2}
+                  >
+                    {dl.releaseName || railItem.title}
+                  </Text>
+                  <Text
+                    style={[styles.downloadedSheetSub, { color: GOLD_ACCENT, ...typography.labelSm }]}
+                  >
+                    {isCompleted
+                      ? `${formatBytes(dl.totalBytes || dl.completedBytes)} · Ready offline`
+                      : isActive
+                      ? `Downloading ${Math.round((dl.progress || 0) * 100)}% · ${formatBytes(
+                          dl.completedBytes,
+                        )}${dl.totalBytes > 0 ? ` / ${formatBytes(dl.totalBytes)}` : ''}${
+                          dl.speedBps > 0 ? ` · ${formatSpeed(dl.speedBps)}` : ''
+                        }`
+                      : `Paused at ${Math.round((dl.progress || 0) * 100)}% · ${formatBytes(
+                          dl.completedBytes,
+                        )}`}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.downloadedSheetActions}>
+                {(isCompleted || dl.completedBytes > 0) && (
+                  <TouchableOpacity
+                    style={styles.downloadedActionBtn}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      bottomSheet.dismiss(sheetId);
+                      playDownloaded(dl);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.downloadedPrimaryText, { color: GOLD_ACCENT, ...typography.labelMd }]}>
+                      {isCompleted ? 'Play Downloaded' : 'Play Now'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {isActive && (
+                  <TouchableOpacity
+                    style={styles.downloadedActionBtn}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      pauseDownload(dl.id);
+                      bottomSheet.dismiss(sheetId);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.downloadedSecondaryText, { color: colors.onSurface, ...typography.labelMd }]}>
+                      Pause
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {isPaused && (
+                  <TouchableOpacity
+                    style={styles.downloadedActionBtn}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      resumeDownload(dl.id, railItem.title);
+                      bottomSheet.dismiss(sheetId);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.downloadedPrimaryText, { color: GOLD_ACCENT, ...typography.labelMd }]}>
+                      Resume
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.downloadedActionBtn}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    deleteDownload(dl.id);
+                    bottomSheet.dismiss(sheetId);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.downloadedSecondaryText,
+                      { color: colors.onSurfaceVariant, ...typography.labelMd },
+                    ]}
+                  >
+                    {isCompleted ? 'Delete Download' : 'Cancel Download'}
+                  </Text>
+                </TouchableOpacity>
+
+                {(dl.tmdbId || dl.imdbId) && (
+                  <TouchableOpacity
+                    style={styles.downloadedActionBtn}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      bottomSheet.dismiss(sheetId);
+                      onSelectItem?.({
+                        id: dl.tmdbId || dl.imdbId,
+                        tmdbId: dl.tmdbId || undefined,
+                        imdbId: dl.imdbId || undefined,
+                        title: dl.title,
+                        year: dl.year,
+                        mediaType: dl.mediaType || 'movie',
+                        posterUrl: dl.posterUrl,
+                      });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.downloadedSecondaryText, { color: colors.onSurface, ...typography.labelMd }]}>
+                      Open Title Page
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          );
+        },
+        {
+          title: 'Downloaded on Device',
+          centerTitle: true,
+          showCloseButton: false,
+          size: 'medium',
+          scrollable: false,
+        },
+      );
+    },
+    [
+      bottomSheet,
+      colors,
+      typography,
+      formatBytes,
+      formatSpeed,
+      playDownloaded,
+      pauseDownload,
+      resumeDownload,
+      deleteDownload,
+      onSelectItem,
+    ],
+  );
+
   const renderRail = useCallback(
     ({ item }) => {
       if (item.isAwardsHeader) {
@@ -406,9 +636,11 @@ export function HomeScreen({
       }
 
       const { category, items } = item;
-      const subtitle = category.awardName
-        ? `${category.awardName}${category.country ? ` · ${category.country}` : ''}`
-        : null;
+      const subtitle =
+        category.subtitle ||
+        (category.awardName
+          ? `${category.awardName}${category.country ? ` · ${category.country}` : ''}`
+          : null);
 
       return (
         <ContentRail
@@ -422,12 +654,23 @@ export function HomeScreen({
           showCaption={false}
           showHairline={false}
           titleCase
-          onSelectItem={onSelectItem}
-          getItemRankBadge={category.isAwardCeremony ? ((film) => film.awardYear || null) : undefined}
+          onSelectItem={category.isDownloadedRail ? openDownloadedItemSheet : onSelectItem}
+          getItemRankBadge={
+            category.isAwardCeremony
+              ? (film) => film.awardYear || null
+              : category.isDownloadedRail
+              ? (film) => {
+                  const dl = film.downloadEntry;
+                  if (!dl) return null;
+                  if (dl.state === 'completed') return 'Ready';
+                  return `${Math.round((dl.progress || 0) * 100)}%`;
+                }
+              : undefined
+          }
         />
       );
     },
-    [colors, typography, radii, onSelectItem, onOpenCollections],
+    [colors, typography, radii, onSelectItem, onOpenCollections, openDownloadedItemSheet],
   );
 
   const railKeyExtractor = useCallback((item) => item.category?.id || item.id, []);
@@ -593,5 +836,49 @@ const styles = StyleSheet.create({
   },
   whereEmptyText: {
     textAlign: 'center',
+  },
+  downloadedSheetWrap: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    gap: 16,
+    paddingBottom: 16,
+  },
+  downloadedSheetHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 14,
+  },
+  downloadedSheetPoster: {
+    borderRadius: 8,
+    height: 96,
+    width: 64,
+  },
+  downloadedSheetMetaCol: {
+    flex: 1,
+    gap: 4,
+  },
+  downloadedSheetTitle: {
+    fontWeight: '700',
+  },
+  downloadedSheetSub: {
+    fontWeight: '500',
+  },
+  downloadedSheetActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 20,
+  },
+  downloadedActionBtn: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 6,
+  },
+  downloadedPrimaryText: {
+    fontWeight: '700',
+  },
+  downloadedSecondaryText: {
+    fontWeight: '700',
   },
 });
