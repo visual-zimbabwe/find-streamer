@@ -35,6 +35,8 @@ import {
 import { ContentRail } from './ContentRail';
 import { scale, verticalScale } from '../utils/responsive';
 import { resolveRatingValue } from '../lib/ratings';
+import { loadRailSortPrefs, saveRailSortPrefs } from '../lib/storage';
+import { sortRailItems, toggleRailSortMode } from '../lib/railSort';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { HomeFeedSkeleton } from './SkeletonLoaders';
 import { useServiceLogos } from '../hooks/useServiceLogos';
@@ -114,6 +116,31 @@ export function HomeScreen({
   const whereActive = isWhereFilterNarrowing(homeCountry, homeServiceKey);
   const isFiltered = whereActive || Boolean(homeLanguage);
 
+  const [railSortPrefs, setRailSortPrefs] = useState({});
+
+  useEffect(() => {
+    let active = true;
+    loadRailSortPrefs().then((saved) => {
+      if (active && saved && typeof saved === 'object') {
+        setRailSortPrefs(saved);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleToggleRailSort = useCallback((railId) => {
+    if (!railId) return;
+    setRailSortPrefs((prev) => {
+      const current = prev[railId] || 'rating';
+      const next = toggleRailSortMode(current);
+      const updated = { ...prev, [railId]: next };
+      saveRailSortPrefs(updated);
+      return updated;
+    });
+  }, []);
+
   const availableLanguages = useMemo(
     () => getAvailableWatchlistLanguages(watchlist, collections),
     [watchlist, collections],
@@ -178,7 +205,8 @@ export function HomeScreen({
           }
           return w.collectionIds?.includes(collection.id);
         });
-        const sorted = [...items].sort((a, b) => resolveRatingValue(b) - resolveRatingValue(a));
+        const sortMode = railSortPrefs[collection.id] || 'rating';
+        const sorted = sortRailItems(items, sortMode);
         return {
           category: {
             id: collection.id,
@@ -189,7 +217,7 @@ export function HomeScreen({
         };
       })
       .filter((row) => row.items.length > 0);
-  }, [collections, watchlist, mediaFilter, whereMatches, homeLanguage]);
+  }, [collections, watchlist, mediaFilter, whereMatches, homeLanguage, railSortPrefs]);
 
   const awardCeremonyRows = useMemo(() => {
     // Hide award rails if user selected 'tv' filter since this is a feature film archive
@@ -213,13 +241,16 @@ export function HomeScreen({
             return langCode === homeLanguage.code;
           });
         }
+        const ceremonyId = r.category.ceremonyId || r.category.id;
+        const sortMode = railSortPrefs[ceremonyId] || 'rating';
+        const sorted = sortRailItems(items, sortMode);
         return {
           ...r,
-          items,
+          items: sorted,
         };
       })
       .filter((r) => r.items.length > 0);
-  }, [mediaFilter, homeLanguage]);
+  }, [mediaFilter, homeLanguage, railSortPrefs]);
 
   const {
     downloads,
@@ -950,6 +981,9 @@ export function HomeScreen({
           ? `${category.awardName}${category.country ? ` · ${category.country}` : ''}`
           : null);
 
+      const isSortable = !category.isDownloadedRail;
+      const sortId = category.ceremonyId || category.id;
+
       return (
         <ContentRail
           title={category.fullName || category.label}
@@ -962,6 +996,7 @@ export function HomeScreen({
           showCaption={false}
           showHairline={false}
           titleCase
+          onPress={isSortable ? () => handleToggleRailSort(sortId) : undefined}
           onSelectItem={category.isDownloadedRail ? openDownloadedItemSheet : onSelectItem}
           getItemRankBadge={
             category.isAwardCeremony
@@ -984,7 +1019,15 @@ export function HomeScreen({
         />
       );
     },
-    [colors, typography, radii, onSelectItem, onOpenCollections, openDownloadedItemSheet],
+    [
+      colors,
+      typography,
+      radii,
+      onSelectItem,
+      onOpenCollections,
+      openDownloadedItemSheet,
+      handleToggleRailSort,
+    ],
   );
 
   const railKeyExtractor = useCallback((item) => item.category?.id || item.id, []);

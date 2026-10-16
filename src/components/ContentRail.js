@@ -162,6 +162,7 @@ export function ContentRail({
   typography,
   radii,
   onSelectItem,
+  onPress = null,
   onRemoveItem = null,
   headerRight = null,
   variant = 'section',
@@ -194,6 +195,22 @@ export function ContentRail({
 }) {
   const savedSet = useMemo(() => new Set(savedKeys || []), [savedKeys]);
   const scrollX = useRef(new Animated.Value(0)).current;
+  const internalListRef = useRef(null);
+  const activeListRef = listRef || internalListRef;
+
+  const handleTitlePress = useCallback(
+    (event) => {
+      if (typeof onPress === 'function') {
+        try {
+          activeListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+        } catch {
+          // ignore
+        }
+        onPress(event);
+      }
+    },
+    [onPress, activeListRef],
+  );
 
   const renderItem = useCallback(
     ({ item, index }) => (
@@ -313,8 +330,10 @@ export function ContentRail({
                     titleStyle,
                     titleCase && styles.railTitleCase,
                   ]}
-                  accessibilityRole="header"
+                  accessibilityRole={onPress ? 'button' : 'header'}
                   numberOfLines={2}
+                  onPress={onPress ? handleTitlePress : undefined}
+                  suppressHighlighting
                 >
                   {title}
                 </Text>
@@ -364,7 +383,7 @@ export function ContentRail({
         </View>
       ) : (
         <Animated.FlatList
-          ref={listRef}
+          ref={activeListRef}
           data={data}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
@@ -372,7 +391,7 @@ export function ContentRail({
           initialScrollIndex={initialScrollIndex}
           onScrollToIndexFailed={(info) => {
             setTimeout(() => {
-              listRef?.current?.scrollToIndex?.({ index: info.index, animated: false });
+              activeListRef?.current?.scrollToIndex?.({ index: info.index, animated: false });
             }, 100);
           }}
           horizontal

@@ -20,6 +20,7 @@ const KEYS = {
   defaultWatchlistSeeded: 'find-streamer/default-watchlist-seeded',
   watchlistImdbMigrated: 'find-streamer/watchlist-imdb-migrated',
   homeSpotlightCache: 'find-streamer/home-spotlight-cache',
+  railSortPrefs: 'find-streamer/rail-sort-prefs',
 };
 
 const EMPTY_HOME_SPOTLIGHT_CACHE = { all: [], movie: [], tv: [] };
@@ -315,4 +316,27 @@ export async function saveHomeSpotlightCache(cache, storage = AsyncStorage) {
     KEYS.homeSpotlightCache,
     JSON.stringify(normalizeHomeSpotlightCache(cache)),
   );
+}
+
+export async function loadRailSortPrefs(storage = AsyncStorage) {
+  try {
+    const raw = await storage.getItem(KEYS.railSortPrefs);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+export async function saveRailSortPrefs(prefs, storage = AsyncStorage) {
+  try {
+    if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)) return;
+    await storage.setItem(KEYS.railSortPrefs, JSON.stringify(prefs));
+  } catch {
+    // Ignore storage write errors
+  }
 }
