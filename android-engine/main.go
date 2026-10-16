@@ -54,12 +54,53 @@ func logError(format string, args ...interface{}) {
 }
 
 var (
-	clientLock sync.Mutex
-	tClient    *torrent.Client
-	serverOnce sync.Once
-	cachePath  string
-	listenPort = 8899
+	clientLock    sync.Mutex
+	tClient       *torrent.Client
+	serverOnce    sync.Once
+	cachePath     string
+	listenPort    = 8899
+	downloadsLock sync.Mutex
+	downloads     = make(map[string]*DownloadEntry)
 )
+
+const MaxDownloadQuotaBytes = int64(75) * 1024 * 1024 * 1024 // 75 GB
+
+type DownloadEntry struct {
+	ID             string  `json:"id"`
+	InfoHash       string  `json:"infoHash"`
+	Magnet         string  `json:"magnet"`
+	FileIdx        int     `json:"fileIdx"`
+	Title          string  `json:"title"`
+	ReleaseName    string  `json:"releaseName"`
+	MediaType      string  `json:"mediaType"`
+	TmdbID         int     `json:"tmdbId"`
+	ImdbID         string  `json:"imdbId"`
+	Year           string  `json:"year"`
+	PosterURL      string  `json:"posterUrl"`
+	Season         int     `json:"season,omitempty"`
+	Episode        int     `json:"episode,omitempty"`
+	EpisodeTitle   string  `json:"episodeTitle,omitempty"`
+	Quality        string  `json:"quality,omitempty"`
+	Codec          string  `json:"codec,omitempty"`
+	FilePath       string  `json:"filePath"`
+	RelativePath   string  `json:"relativePath"`
+	RootDir        string  `json:"rootDir"`
+	Filename       string  `json:"filename"`
+	SubtitleURL    string  `json:"subtitleUrl,omitempty"`
+	SubtitlePath   string  `json:"subtitlePath,omitempty"`
+	TotalBytes     int64   `json:"totalBytes"`
+	CompletedBytes int64   `json:"completedBytes"`
+	Progress       float64 `json:"progress"`
+	SpeedBps       int64   `json:"speedBps"`
+	Peers          int     `json:"peers"`
+	State          string  `json:"state"` // "resolving", "downloading", "paused", "completed", "error"
+	ErrorMsg       string  `json:"error,omitempty"`
+	CreatedAt      int64   `json:"createdAt"`
+	CompletedAt    int64   `json:"completedAt,omitempty"`
+
+	lastBytes      int64
+	lastSampleTime time.Time
+}
 
 var fallbackTrackers = [][]string{
 	{"udp://tracker.opentrackr.org:1337/announce"},
@@ -82,28 +123,117 @@ func isVideoExt(name string) bool {
 	return false
 }
 
-func getLargestVideoFile(t *torrent.Torrent) *torrent.File {
+func getLargestVideoFile(t *torrent.Torrent) (*torrent.File, int) {
 	var largest *torrent.File
+	largestIdx := -1
 	var maxLen int64 = -1
-	for _, f := range t.Files() {
+	for idx, f := range t.Files() {
 		if isVideoExt(f.Path()) && f.Length() > maxLen {
 			maxLen = f.Length()
 			largest = f
+			largestIdx = idx
 		}
 	}
 	// Fallback to absolute largest file if no recognized video extension matched
 	if largest == nil {
-		for _, f := range t.Files() {
+		for idx, f := range t.Files() {
 			if f.Length() > maxLen {
 				maxLen = f.Length()
 				largest = f
+				largestIdx = idx
 			}
 		}
 	}
-	return largest
+	return largest, largestIdx
 }
 
-func getOrCreateTorrent(magnet string) (*torrent.Torrent, error) {
+func isProtectedInfoHash(infoHash string) bool {
+	downloadsLock.Lock()
+	defer downloadsLock.Unlock()
+	for _, d := range downloads {
+		if strings.EqualFold(d.InfoHash, infoHash) && (d.State == "downloading" || d.State == "resolving") {
+			return true
+		}
+	}
+	return false
+}
+
+func downloadsIndexPath() string {
+	return filepath.Join(cachePath, "downloads_index.json")
+}
+
+func saveDownloadsIndexLocked() {
+	if cachePath == "" {
+		return
+	}
+	list := make([]*DownloadEntry, 0, len(downloads))
+	for _, d := range downloads {
+		list = append(list, d)
+	}
+	data, err := json.MarshalIndent(list, "", "  ")
+	if err != nil {
+		logError("saveDownloadsIndexLocked marshal error: %v", err)
+		return
+	}
+	tmpPath := downloadsIndexPath() + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0644); err == nil {
+		_ = os.Rename(tmpPath, downloadsIndexPath())
+	}
+}
+
+func loadDownloadsIndex() {
+	downloadsLock.Lock()
+	defer downloadsLock.Unlock()
+
+	data, err := os.ReadFile(downloadsIndexPath())
+	if err != nil {
+		return
+	}
+	var list []*DownloadEntry
+	if err := json.Unmarshal(data, &list); err != nil {
+		logError("loadDownloadsIndex unmarshal error: %v", err)
+		return
+	}
+	for _, entry := range list {
+		if entry == nil || entry.ID == "" {
+			continue
+		}
+		entry.SpeedBps = 0
+		entry.Peers = 0
+		if entry.State == "completed" {
+			if entry.FilePath != "" {
+				if fi, statErr := os.Stat(entry.FilePath); statErr == nil && fi.Size() > 0 {
+					entry.CompletedBytes = fi.Size()
+					entry.TotalBytes = fi.Size()
+					entry.Progress = 1.0
+					downloads[entry.ID] = entry
+				}
+			}
+		} else {
+			if entry.State == "downloading" || entry.State == "resolving" {
+				entry.State = "paused"
+			}
+			downloads[entry.ID] = entry
+		}
+	}
+	saveDownloadsIndexLocked()
+}
+
+func computeUsedBytesLocked() int64 {
+	var used int64
+	for _, d := range downloads {
+		if d.CompletedBytes > 0 {
+			used += d.CompletedBytes
+		} else if d.FilePath != "" {
+			if fi, err := os.Stat(d.FilePath); err == nil {
+				used += fi.Size()
+			}
+		}
+	}
+	return used
+}
+
+func getOrCreateTorrent(magnet string, keepExisting bool) (*torrent.Torrent, error) {
 	clientLock.Lock()
 	client := tClient
 	clientLock.Unlock()
@@ -120,10 +250,12 @@ func getOrCreateTorrent(magnet string) (*torrent.Torrent, error) {
 	// Inject fallback public trackers for resilience
 	t.AddTrackers(fallbackTrackers)
 
-	// Clean up previous torrents to conserve mobile memory and bandwidth
-	for _, existing := range client.Torrents() {
-		if existing.InfoHash() != t.InfoHash() {
-			existing.Drop()
+	if !keepExisting {
+		// Clean up previous ephemeral stream torrents while preserving active downloads
+		for _, existing := range client.Torrents() {
+			if existing.InfoHash() != t.InfoHash() && !isProtectedInfoHash(existing.InfoHash().HexString()) {
+				existing.Drop()
+			}
 		}
 	}
 
@@ -140,7 +272,7 @@ func preloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, err := getOrCreateTorrent(magnet)
+	t, err := getOrCreateTorrent(magnet, false)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"%v"}`, err), http.StatusBadRequest)
 		return
@@ -149,7 +281,7 @@ func preloadHandler(w http.ResponseWriter, r *http.Request) {
 	// Quick check if metadata is ready (up to 12s)
 	select {
 	case <-t.GotInfo():
-		targetFile := getLargestVideoFile(t)
+		targetFile, _ := getLargestVideoFile(t)
 		var filename string
 		var length int64
 		if targetFile != nil {
@@ -172,6 +304,23 @@ func preloadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func writeVideoHeaders(w http.ResponseWriter, filename string) {
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, filepath.Base(filename)))
+	w.Header().Set("Accept-Ranges", "bytes")
+
+	ext := strings.ToLower(filepath.Ext(filename))
+	switch ext {
+	case ".mkv":
+		w.Header().Set("Content-Type", "video/x-matroska")
+	case ".mp4":
+		w.Header().Set("Content-Type", "video/mp4")
+	case ".webm":
+		w.Header().Set("Content-Type", "video/webm")
+	default:
+		w.Header().Set("Content-Type", "video/any")
+	}
+}
+
 func streamHandler(w http.ResponseWriter, r *http.Request) {
 	magnet := r.URL.Query().Get("magnet")
 	if magnet == "" {
@@ -180,7 +329,7 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logInfo("streamHandler: received stream request")
-	t, err := getOrCreateTorrent(magnet)
+	t, err := getOrCreateTorrent(magnet, false)
 	if err != nil {
 		logError("streamHandler: failed to load magnet: %v", err)
 		http.Error(w, fmt.Sprintf("failed to load magnet: %v", err), http.StatusBadRequest)
@@ -213,7 +362,7 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if targetFile == nil {
-		targetFile = getLargestVideoFile(t)
+		targetFile, _ = getLargestVideoFile(t)
 	}
 	if targetFile == nil {
 		logError("streamHandler: no video file found in torrent")
@@ -234,22 +383,616 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 	// 15 MB readahead buffer for smooth mobile streaming
 	reader.SetReadahead(15 * 1024 * 1024)
 
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, filepath.Base(targetFile.Path())))
-	w.Header().Set("Accept-Ranges", "bytes")
+	writeVideoHeaders(w, targetFile.Path())
+	http.ServeContent(w, r, filepath.Base(targetFile.Path()), time.Time{}, reader)
+}
 
-	ext := strings.ToLower(filepath.Ext(targetFile.Path()))
-	switch ext {
-	case ".mkv":
-		w.Header().Set("Content-Type", "video/x-matroska")
-	case ".mp4":
-		w.Header().Set("Content-Type", "video/mp4")
-	case ".webm":
-		w.Header().Set("Content-Type", "video/webm")
-	default:
-		w.Header().Set("Content-Type", "video/any")
+func buildDownloadID(imdbID string, tmdbID int, season int, episode int, infoHash string, fileIdx int) string {
+	base := strings.TrimSpace(imdbID)
+	if base == "" && tmdbID > 0 {
+		base = fmt.Sprintf("tmdb_%d", tmdbID)
+	}
+	if base == "" {
+		base = infoHash
+	}
+	if season > 0 || episode > 0 {
+		return fmt.Sprintf("%s_s%02de%02d", base, season, episode)
+	}
+	if fileIdx >= 0 {
+		return fmt.Sprintf("%s_f%d", base, fileIdx)
+	}
+	return base
+}
+
+func activateDownloadEntry(entry *DownloadEntry) {
+	go func() {
+		t, err := getOrCreateTorrent(entry.Magnet, true)
+		if err != nil {
+			downloadsLock.Lock()
+			entry.State = "error"
+			entry.ErrorMsg = fmt.Sprintf("Failed to add torrent: %v", err)
+			saveDownloadsIndexLocked()
+			downloadsLock.Unlock()
+			return
+		}
+
+		downloadsLock.Lock()
+		entry.InfoHash = t.InfoHash().HexString()
+		saveDownloadsIndexLocked()
+		downloadsLock.Unlock()
+
+		// Pre-cache English subtitle in the background so offline playback has subtitles ready
+		if entry.ImdbID != "" {
+			go func(imdb string, s int, e int, rel string, dlID string) {
+				cachedPath, filename, _, subErr := resolveAndCacheSubtitle(imdb, s, e, rel)
+				if subErr == nil && filename != "" {
+					downloadsLock.Lock()
+					if cur, ok := downloads[dlID]; ok {
+						cur.SubtitleURL = fmt.Sprintf("http://127.0.0.1:%d/subtitles/%s", listenPort, filename)
+						cur.SubtitlePath = cachedPath
+						saveDownloadsIndexLocked()
+					}
+					downloadsLock.Unlock()
+				}
+			}(entry.ImdbID, entry.Season, entry.Episode, entry.ReleaseName, entry.ID)
+		}
+
+		select {
+		case <-t.GotInfo():
+		case <-time.After(90 * time.Second):
+			downloadsLock.Lock()
+			if cur, ok := downloads[entry.ID]; ok && cur.State == "resolving" {
+				cur.State = "error"
+				cur.ErrorMsg = "Timed out resolving torrent metadata from peers"
+				saveDownloadsIndexLocked()
+			}
+			downloadsLock.Unlock()
+			return
+		}
+
+		downloadsLock.Lock()
+		cur, exists := downloads[entry.ID]
+		if !exists || cur.State == "paused" {
+			downloadsLock.Unlock()
+			return
+		}
+
+		var targetFile *torrent.File
+		files := t.Files()
+		if cur.FileIdx >= 0 && cur.FileIdx < len(files) {
+			targetFile = files[cur.FileIdx]
+		} else {
+			var resolvedIdx int
+			targetFile, resolvedIdx = getLargestVideoFile(t)
+			cur.FileIdx = resolvedIdx
+		}
+
+		if targetFile == nil {
+			cur.State = "error"
+			cur.ErrorMsg = "No video file found in torrent"
+			saveDownloadsIndexLocked()
+			downloadsLock.Unlock()
+			return
+		}
+
+		fileLen := targetFile.Length()
+		used := computeUsedBytesLocked() - cur.CompletedBytes
+		if used < 0 {
+			used = 0
+		}
+		if used+fileLen > MaxDownloadQuotaBytes {
+			cur.State = "error"
+			cur.ErrorMsg = "Insufficient Trova storage (75 GB limit reached). Delete a download to free space."
+			saveDownloadsIndexLocked()
+			downloadsLock.Unlock()
+			if !isProtectedInfoHash(t.InfoHash().HexString()) {
+				t.Drop()
+			}
+			return
+		}
+
+		relPath := targetFile.Path()
+		parts := strings.Split(filepath.ToSlash(relPath), "/")
+		rootDir := parts[0]
+
+		cur.RelativePath = relPath
+		cur.RootDir = rootDir
+		cur.FilePath = filepath.Join(cachePath, relPath)
+		cur.Filename = filepath.Base(relPath)
+		cur.TotalBytes = fileLen
+		cur.CompletedBytes = targetFile.BytesCompleted()
+		if cur.TotalBytes > 0 {
+			cur.Progress = float64(cur.CompletedBytes) / float64(cur.TotalBytes)
+		}
+		cur.lastBytes = cur.CompletedBytes
+		cur.lastSampleTime = time.Now()
+
+		if cur.TotalBytes > 0 && cur.CompletedBytes >= cur.TotalBytes {
+			cur.State = "completed"
+			cur.Progress = 1.0
+			cur.SpeedBps = 0
+			cur.CompletedAt = time.Now().Unix()
+			saveDownloadsIndexLocked()
+			downloadsLock.Unlock()
+			if !isProtectedInfoHash(t.InfoHash().HexString()) {
+				t.Drop()
+			}
+			return
+		}
+
+		cur.State = "downloading"
+		cur.ErrorMsg = ""
+		saveDownloadsIndexLocked()
+		downloadsLock.Unlock()
+
+		// Download all pieces of the target video file to persistent storage
+		targetFile.Download()
+		logInfo("Started full file download for '%s' (%d bytes) -> %s", cur.Title, cur.TotalBytes, cur.FilePath)
+	}()
+}
+
+func runDownloadMonitor() {
+	ticker := time.NewTicker(1500 * time.Millisecond)
+	defer ticker.Stop()
+
+	saveCounter := 0
+	for range ticker.C {
+		clientLock.Lock()
+		client := tClient
+		clientLock.Unlock()
+		if client == nil {
+			continue
+		}
+
+		downloadsLock.Lock()
+		changed := false
+		var completedHashes []string
+
+		for _, d := range downloads {
+			if d.State != "downloading" {
+				continue
+			}
+
+			var matchedTorrent *torrent.Torrent
+			for _, t := range client.Torrents() {
+				if strings.EqualFold(t.InfoHash().HexString(), d.InfoHash) {
+					matchedTorrent = t
+					break
+				}
+			}
+			if matchedTorrent == nil || matchedTorrent.Info() == nil {
+				continue
+			}
+
+			files := matchedTorrent.Files()
+			var targetFile *torrent.File
+			if d.FileIdx >= 0 && d.FileIdx < len(files) {
+				targetFile = files[d.FileIdx]
+			} else {
+				targetFile, _ = getLargestVideoFile(matchedTorrent)
+			}
+			if targetFile == nil {
+				continue
+			}
+
+			now := time.Now()
+			completed := targetFile.BytesCompleted()
+			total := targetFile.Length()
+			if total <= 0 {
+				total = d.TotalBytes
+			}
+
+			elapsed := now.Sub(d.lastSampleTime).Seconds()
+			if elapsed >= 0.5 {
+				delta := completed - d.lastBytes
+				if delta < 0 {
+					delta = 0
+				}
+				d.SpeedBps = int64(float64(delta) / elapsed)
+				d.lastBytes = completed
+				d.lastSampleTime = now
+			}
+
+			d.CompletedBytes = completed
+			d.TotalBytes = total
+			if total > 0 {
+				d.Progress = float64(completed) / float64(total)
+				if d.Progress > 1.0 {
+					d.Progress = 1.0
+				}
+			}
+			stats := matchedTorrent.Stats()
+			d.Peers = stats.ActivePeers
+			changed = true
+
+			if total > 0 && completed >= total {
+				d.State = "completed"
+				d.Progress = 1.0
+				d.SpeedBps = 0
+				d.Peers = 0
+				d.CompletedAt = now.Unix()
+				completedHashes = append(completedHashes, d.InfoHash)
+				logInfo("Download completed: %s (%d bytes)", d.Title, d.TotalBytes)
+			}
+		}
+
+		saveCounter++
+		if changed && (len(completedHashes) > 0 || saveCounter%4 == 0) {
+			saveDownloadsIndexLocked()
+		}
+		downloadsLock.Unlock()
+
+		// Drop completed torrents that have no other active downloads
+		for _, hash := range completedHashes {
+			if !isProtectedInfoHash(hash) {
+				for _, t := range client.Torrents() {
+					if strings.EqualFold(t.InfoHash().HexString(), hash) {
+						t.Drop()
+					}
+				}
+			}
+		}
+	}
+}
+
+func downloadStartHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	var payload struct {
+		ID           string `json:"id"`
+		Magnet       string `json:"magnet"`
+		InfoHash     string `json:"infoHash"`
+		FileIdx      *int   `json:"fileIdx"`
+		Title        string `json:"title"`
+		ReleaseName  string `json:"releaseName"`
+		MediaType    string `json:"mediaType"`
+		TmdbID       int    `json:"tmdbId"`
+		ImdbID       string `json:"imdbId"`
+		Year         string `json:"year"`
+		PosterURL    string `json:"posterUrl"`
+		Season       int    `json:"season"`
+		Episode      int    `json:"episode"`
+		EpisodeTitle string `json:"episodeTitle"`
+		Quality      string `json:"quality"`
+		Codec        string `json:"codec"`
 	}
 
-	http.ServeContent(w, r, filepath.Base(targetFile.Path()), time.Time{}, reader)
+	if r.Method == http.MethodPost && r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&payload)
+	}
+	if payload.Magnet == "" {
+		payload.Magnet = r.URL.Query().Get("magnet")
+	}
+	if payload.Title == "" {
+		payload.Title = r.URL.Query().Get("title")
+	}
+	if payload.ImdbID == "" {
+		payload.ImdbID = r.URL.Query().Get("imdbId")
+	}
+	if payload.MediaType == "" {
+		payload.MediaType = r.URL.Query().Get("mediaType")
+		if payload.MediaType == "" {
+			if payload.Season > 0 || payload.Episode > 0 {
+				payload.MediaType = "tv"
+			} else {
+				payload.MediaType = "movie"
+			}
+		}
+	}
+
+	if payload.Magnet == "" {
+		http.Error(w, `{"status":false,"error":"missing magnet"}`, http.StatusBadRequest)
+		return
+	}
+
+	fileIdx := -1
+	if payload.FileIdx != nil {
+		fileIdx = *payload.FileIdx
+	} else if idxStr := r.URL.Query().Get("fileIdx"); idxStr != "" {
+		if parsed, err := strconv.Atoi(idxStr); err == nil {
+			fileIdx = parsed
+		}
+	}
+
+	dlID := payload.ID
+	if dlID == "" {
+		dlID = buildDownloadID(payload.ImdbID, payload.TmdbID, payload.Season, payload.Episode, payload.InfoHash, fileIdx)
+	}
+
+	downloadsLock.Lock()
+	used := computeUsedBytesLocked()
+	if used >= MaxDownloadQuotaBytes {
+		downloadsLock.Unlock()
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": false,
+			"error":  "Insufficient Trova storage (75 GB limit reached). Delete a download to free space.",
+		})
+		return
+	}
+
+	entry, exists := downloads[dlID]
+	if !exists {
+		entry = &DownloadEntry{
+			ID:        dlID,
+			CreatedAt: time.Now().Unix(),
+		}
+		downloads[dlID] = entry
+	}
+
+	entry.Magnet = payload.Magnet
+	if payload.InfoHash != "" {
+		entry.InfoHash = strings.ToLower(payload.InfoHash)
+	}
+	entry.FileIdx = fileIdx
+	if payload.Title != "" {
+		entry.Title = payload.Title
+	}
+	if payload.ReleaseName != "" {
+		entry.ReleaseName = payload.ReleaseName
+	}
+	entry.MediaType = payload.MediaType
+	if payload.TmdbID > 0 {
+		entry.TmdbID = payload.TmdbID
+	}
+	if payload.ImdbID != "" {
+		entry.ImdbID = payload.ImdbID
+	}
+	if payload.Year != "" {
+		entry.Year = payload.Year
+	}
+	if payload.PosterURL != "" {
+		entry.PosterURL = payload.PosterURL
+	}
+	if payload.Season > 0 {
+		entry.Season = payload.Season
+	}
+	if payload.Episode > 0 {
+		entry.Episode = payload.Episode
+	}
+	if payload.EpisodeTitle != "" {
+		entry.EpisodeTitle = payload.EpisodeTitle
+	}
+	if payload.Quality != "" {
+		entry.Quality = payload.Quality
+	}
+	if payload.Codec != "" {
+		entry.Codec = payload.Codec
+	}
+	entry.State = "resolving"
+	entry.ErrorMsg = ""
+	entry.lastSampleTime = time.Now()
+	saveDownloadsIndexLocked()
+	downloadsLock.Unlock()
+
+	activateDownloadEntry(entry)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   true,
+		"download": entry,
+	})
+}
+
+func downloadStatusHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	downloadsLock.Lock()
+	used := computeUsedBytesLocked()
+	free := MaxDownloadQuotaBytes - used
+	if free < 0 {
+		free = 0
+	}
+	list := make([]*DownloadEntry, 0, len(downloads))
+	activeCount := 0
+	for _, d := range downloads {
+		list = append(list, d)
+		if d.State == "downloading" || d.State == "resolving" {
+			activeCount++
+		}
+	}
+	downloadsLock.Unlock()
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":      true,
+		"maxBytes":    MaxDownloadQuotaBytes,
+		"usedBytes":   used,
+		"freeBytes":   free,
+		"activeCount": activeCount,
+		"downloads":   list,
+	})
+}
+
+func downloadPauseHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, `{"status":false,"error":"missing id"}`, http.StatusBadRequest)
+		return
+	}
+
+	downloadsLock.Lock()
+	entry, ok := downloads[id]
+	if !ok {
+		downloadsLock.Unlock()
+		http.Error(w, `{"status":false,"error":"download not found"}`, http.StatusNotFound)
+		return
+	}
+	if entry.State != "completed" {
+		entry.State = "paused"
+		entry.SpeedBps = 0
+		entry.Peers = 0
+		saveDownloadsIndexLocked()
+	}
+	hash := entry.InfoHash
+	downloadsLock.Unlock()
+
+	if hash != "" && !isProtectedInfoHash(hash) {
+		clientLock.Lock()
+		client := tClient
+		clientLock.Unlock()
+		if client != nil {
+			for _, t := range client.Torrents() {
+				if strings.EqualFold(t.InfoHash().HexString(), hash) {
+					t.Drop()
+				}
+			}
+		}
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   true,
+		"download": entry,
+	})
+}
+
+func downloadResumeHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, `{"status":false,"error":"missing id"}`, http.StatusBadRequest)
+		return
+	}
+
+	downloadsLock.Lock()
+	entry, ok := downloads[id]
+	if !ok {
+		downloadsLock.Unlock()
+		http.Error(w, `{"status":false,"error":"download not found"}`, http.StatusNotFound)
+		return
+	}
+	if entry.State == "completed" {
+		downloadsLock.Unlock()
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":   true,
+			"download": entry,
+		})
+		return
+	}
+	entry.State = "resolving"
+	entry.ErrorMsg = ""
+	entry.lastSampleTime = time.Now()
+	saveDownloadsIndexLocked()
+	downloadsLock.Unlock()
+
+	activateDownloadEntry(entry)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   true,
+		"download": entry,
+	})
+}
+
+func downloadDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, `{"status":false,"error":"missing id"}`, http.StatusBadRequest)
+		return
+	}
+
+	downloadsLock.Lock()
+	entry, ok := downloads[id]
+	if !ok {
+		downloadsLock.Unlock()
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": true})
+		return
+	}
+	delete(downloads, id)
+
+	hash := entry.InfoHash
+	filePath := entry.FilePath
+	rootDir := entry.RootDir
+	subPath := entry.SubtitlePath
+
+	sharedHash := false
+	for _, other := range downloads {
+		if hash != "" && strings.EqualFold(other.InfoHash, hash) {
+			sharedHash = true
+			break
+		}
+	}
+	saveDownloadsIndexLocked()
+	used := computeUsedBytesLocked()
+	downloadsLock.Unlock()
+
+	if !sharedHash && hash != "" {
+		clientLock.Lock()
+		client := tClient
+		clientLock.Unlock()
+		if client != nil {
+			for _, t := range client.Torrents() {
+				if strings.EqualFold(t.InfoHash().HexString(), hash) {
+					t.Drop()
+				}
+			}
+		}
+	}
+
+	if filePath != "" {
+		_ = os.Remove(filePath)
+	}
+	if !sharedHash && rootDir != "" && cachePath != "" {
+		targetRoot := filepath.Join(cachePath, rootDir)
+		if targetRoot != cachePath {
+			_ = os.RemoveAll(targetRoot)
+		}
+	}
+	if subPath != "" {
+		_ = os.Remove(subPath)
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    true,
+		"usedBytes": used,
+		"maxBytes":  MaxDownloadQuotaBytes,
+	})
+}
+
+func downloadPlayHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, "missing id query parameter", http.StatusBadRequest)
+		return
+	}
+
+	downloadsLock.Lock()
+	entry, ok := downloads[id]
+	downloadsLock.Unlock()
+	if !ok {
+		http.Error(w, "download not found", http.StatusNotFound)
+		return
+	}
+
+	// Fast path: if file exists on disk and download is completed (or paused with existing file), serve directly from local filesystem!
+	if entry.FilePath != "" && (entry.State == "completed" || entry.State == "paused") {
+		if fi, err := os.Stat(entry.FilePath); err == nil && fi.Size() > 0 {
+			f, openErr := os.Open(entry.FilePath)
+			if openErr == nil {
+				defer f.Close()
+				logInfo("downloadPlayHandler: serving local file directly from disk '%s' (%d bytes)", entry.FilePath, fi.Size())
+				writeVideoHeaders(w, entry.Filename)
+				http.ServeContent(w, r, entry.Filename, fi.ModTime(), f)
+				return
+			}
+		}
+	}
+
+	// Fallback: stream via active torrent engine while downloading
+	q := r.URL.Query()
+	q.Set("magnet", entry.Magnet)
+	if entry.FileIdx >= 0 {
+		q.Set("fileIdx", strconv.Itoa(entry.FileIdx))
+	}
+	r.URL.RawQuery = q.Encode()
+	streamHandler(w, r)
 }
 
 const subdlApiKey = "subdl_jnzfk9ztPjamioVbgy89P46LwXkbRyQcTlNgrQakOI4"
@@ -585,6 +1328,7 @@ func InitTorrentEngine(storageDir *C.char, port C.int) C.int {
 	}
 
 	os.MkdirAll(cachePath, 0755)
+	loadDownloadsIndex()
 
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.DataDir = cachePath
@@ -601,9 +1345,17 @@ func InitTorrentEngine(storageDir *C.char, port C.int) C.int {
 	}
 
 	serverOnce.Do(func() {
+		go runDownloadMonitor()
+
 		mux := http.NewServeMux()
 		mux.HandleFunc("/stream", streamHandler)
 		mux.HandleFunc("/preload", preloadHandler)
+		mux.HandleFunc("/download/start", downloadStartHandler)
+		mux.HandleFunc("/download/status", downloadStatusHandler)
+		mux.HandleFunc("/download/pause", downloadPauseHandler)
+		mux.HandleFunc("/download/resume", downloadResumeHandler)
+		mux.HandleFunc("/download/delete", downloadDeleteHandler)
+		mux.HandleFunc("/download/play", downloadPlayHandler)
 		mux.HandleFunc("/subtitles/", subtitleFileHandler)
 		mux.HandleFunc("/fetch-subtitle", subtitleFetchHandler)
 		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

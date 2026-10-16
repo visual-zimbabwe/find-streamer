@@ -166,7 +166,7 @@ class TorrentStreamerService : Service() {
     private fun ensureEngineRunning() {
         Thread {
             try {
-                val storage = java.io.File(cacheDir, "torrent_stream").absolutePath
+                val storage = java.io.File(filesDir, "trova_media").absolutePath
                 TorrentStreamer.start(storage, 8899)
             } catch (e: Throwable) {
                 Log.e(TAG, "Failed ensuring TorrentStreamer running", e)

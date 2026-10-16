@@ -38,10 +38,14 @@ class MainApplication : Application(), ReactApplication {
     loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
 
-    // Launch embedded mobile torrent streaming engine
+    // Launch embedded mobile torrent streaming & download engine in persistent internal storage
     Thread {
       try {
-        val storage = java.io.File(cacheDir, "torrent_stream").absolutePath
+        val legacyCache = java.io.File(cacheDir, "torrent_stream")
+        if (legacyCache.exists()) {
+          legacyCache.deleteRecursively()
+        }
+        val storage = java.io.File(filesDir, "trova_media").absolutePath
         TorrentStreamer.start(storage, 8899)
       } catch (e: Throwable) {
         android.util.Log.e("MainApplication", "Failed to start TorrentStreamer", e)

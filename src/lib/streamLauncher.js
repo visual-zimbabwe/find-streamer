@@ -17,13 +17,27 @@ let activePlayerCleanup = null;
  * }} options
  * @returns {Promise<boolean>}
  */
-export async function launchStream({ magnetUrl, title, fileIdx, imdbId, season, episode }) {
-  if (!magnetUrl) return false;
+export async function launchStream({
+  magnetUrl,
+  title,
+  fileIdx,
+  imdbId,
+  season,
+  episode,
+  downloadId,
+  cachedSubtitleUrl,
+}) {
+  if (!magnetUrl && !downloadId) return false;
 
   if (Platform.OS === 'android') {
-    let streamUrl = `http://127.0.0.1:8899/stream?magnet=${encodeURIComponent(magnetUrl)}`;
-    if (typeof fileIdx === 'number') {
-      streamUrl += `&fileIdx=${fileIdx}`;
+    let streamUrl;
+    if (downloadId) {
+      streamUrl = `http://127.0.0.1:8899/download/play?id=${encodeURIComponent(downloadId)}`;
+    } else {
+      streamUrl = `http://127.0.0.1:8899/stream?magnet=${encodeURIComponent(magnetUrl)}`;
+      if (typeof fileIdx === 'number') {
+        streamUrl += `&fileIdx=${fileIdx}`;
+      }
     }
 
     // Keep background stream server active with an Android ForegroundService
@@ -35,17 +49,19 @@ export async function launchStream({ magnetUrl, title, fileIdx, imdbId, season, 
       }
     }
 
-    // Prime swarm metadata in background
-    try {
-      fetch(`http://127.0.0.1:8899/preload?magnet=${encodeURIComponent(magnetUrl)}`).catch(() => {});
-    } catch {
-      // Preload is opportunistic
+    // Prime swarm metadata in background when streaming live from magnet
+    if (!downloadId && magnetUrl) {
+      try {
+        fetch(`http://127.0.0.1:8899/preload?magnet=${encodeURIComponent(magnetUrl)}`).catch(() => {});
+      } catch {
+        // Preload is opportunistic
+      }
     }
 
-    // Pre-fetch English subtitles if no English subs in release name
-    let subtitleUrl = null;
+    // Use pre-cached offline subtitle URL if available, otherwise pre-fetch English subtitles
+    let subtitleUrl = cachedSubtitleUrl || null;
     const hasEnglishSubs = /\b(esub|esubs|eng\.sub|english\.sub|en\.sub)\b/i.test(title || '');
-    if (!hasEnglishSubs && imdbId) {
+    if (!subtitleUrl && !hasEnglishSubs && imdbId) {
       try {
         const cleanImdb = String(imdbId).trim();
         let query = `http://127.0.0.1:8899/fetch-subtitle?imdb=${encodeURIComponent(cleanImdb)}`;
@@ -107,7 +123,11 @@ export async function launchStream({ magnetUrl, title, fileIdx, imdbId, season, 
       }
       if (TorrentStreamerModule?.stopService) {
         try {
-          await TorrentStreamerModule.stopService();
+          const statusRes = await fetch('http://127.0.0.1:8899/download/status').catch(() => null);
+          const statusJson = statusRes ? await statusRes.json().catch(() => null) : null;
+          if (!statusJson || !(Number(statusJson.activeCount) > 0)) {
+            await TorrentStreamerModule.stopService();
+          }
         } catch {
           // Ignored
         }
