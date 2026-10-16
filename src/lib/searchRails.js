@@ -4,6 +4,12 @@
 // pure and network-free so the ordering rules — the part that was actually
 // wrong — are testable without a fetch.
 
+import {
+  MAJOR_THEATRICAL_DISTRIBUTOR_REGEX,
+  STREAMING_ONLY_DISTRIBUTOR_REGEX,
+  VALID_MPA_RATINGS,
+} from './wikidataTheatrical.js';
+
 /** Items shown in a rail. */
 export const RAIL_LIMIT = 10;
 
@@ -19,11 +25,18 @@ export const RAIL_FULL_LIMIT = 40;
 export const NOW_PLAYING_REGION = 'US';
 
 /**
- * TMDb's now-playing window is full of one-screen limited releases carrying a
- * 9.0 off fourteen votes. Without a floor those outrank the wide release the
- * user is actually asking about.
+ * Fallback vote threshold for un-enriched items.
  */
 export const NOW_PLAYING_MIN_VOTES = 150;
+
+/** Minimum days between US theatrical premiere and digital/streaming release for normal runs. */
+export const MIN_THEATRICAL_WINDOW_DAYS = 28;
+
+/** Maximum age in days from today for an active wide theatrical release. */
+export const MAX_THEATRICAL_AGE_DAYS = 60;
+
+/** Maximum age in days from today for a movie's primary release date (eliminates re-releases). */
+export const MAX_PRIMARY_AGE_DAYS = 90;
 
 function railKey(item) {
   return `${item.mediaType || 'movie'}:${item.tmdbId}`;
@@ -97,16 +110,206 @@ export function interleaveByPopularity(movies = [], shows = []) {
   return out;
 }
 
+/** Helper to calculate offset date string in YYYY-MM-DD. */
+export function getOffsetDateYmd(baseYmd, offsetDays) {
+  const d = new Date(baseYmd + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Evaluate whether a candidate title represents a genuine, high-quality
+ * normal or long US theatrical release, filtering out streaming originals,
+ * short/day-and-date digital drops, catalog re-releases, and unverified micro-releases.
+ *
+ * @param {object} item               TMDb candidate item
+ * @param {object} [tmdbDetail]       Full TMDb movie detail including release_dates and watch/providers
+ * @param {object} [wikidataDetail]   Wikidata metadata (distributors, netflixId, appleId, mpaCert, budget, etc.)
+ * @param {object} [options]          Tuning thresholds (today, minWindowDays, wideLookbackDays, region)
+ * @returns {{
+ *   passed: boolean,
+ *   reason?: string,
+ *   usWideDate?: string,
+ *   earliestDigitalDate?: string | null,
+ *   windowDays?: number | null,
+ *   inExclusiveTheatricalWindow?: boolean,
+ *   budget?: number,
+ *   revenue?: number,
+ *   mpaCert?: string | null,
+ * }}
+ */
+export function evaluateTheatricalCandidate(
+  item = {},
+  tmdbDetail = {},
+  wikidataDetail = {},
+  options = {},
+) {
+  const today = options.today || new Date().toISOString().slice(0, 10);
+  const wideLookback =
+    options.wideLookback ||
+    getOffsetDateYmd(today, -(options.wideLookbackDays || MAX_THEATRICAL_AGE_DAYS));
+  const primaryLookback =
+    options.primaryLookback ||
+    getOffsetDateYmd(today, -(options.primaryLookbackDays || MAX_PRIMARY_AGE_DAYS));
+  const minWindowDays = options.minWindowDays ?? MIN_THEATRICAL_WINDOW_DAYS;
+
+  // 1. Primary release date must be within primary lookback and not in the future
+  const primaryDate = item.releaseDate || item.release_date || tmdbDetail.release_date || '';
+  if (primaryDate && (primaryDate < primaryLookback || primaryDate > today)) {
+    return { passed: false, reason: 'primary_out_of_window', primaryDate };
+  }
+
+  // 2. Extract US release dates
+  const region = options.region || NOW_PLAYING_REGION;
+  const usReleases =
+    (tmdbDetail.release_dates?.results || []).find((r) => r.iso_3166_1 === region)
+      ?.release_dates || [];
+
+  const type3Dates = usReleases
+    .filter((r) => r.type === 3)
+    .map((r) => (r.release_date || '').slice(0, 10))
+    .filter(Boolean)
+    .sort();
+
+  const usWideDate = type3Dates.find((dt) => dt >= wideLookback && dt <= today) || null;
+  if (!usWideDate) {
+    return { passed: false, reason: 'no_recent_wide_theatrical' };
+  }
+
+  // 3. Exclude if already on US subscription streaming (flatrate)
+  const usWp =
+    tmdbDetail['watch/providers']?.results?.[region] || tmdbDetail.watchProviders || {};
+  const flatrate = (usWp.flatrate || []).map((p) => p.provider_name || p).filter(Boolean);
+  if (flatrate.length > 0) {
+    return { passed: false, reason: 'on_subscription_streaming', flatrate };
+  }
+
+  // 4. Wikidata streaming check
+  const wdDistributors = wikidataDetail.distributors || [];
+  const prodCompanies = (tmdbDetail.production_companies || []).map((c) => c.name || '');
+  const hasMajorTheatricalDist =
+    wdDistributors.some((d) => MAJOR_THEATRICAL_DISTRIBUTOR_REGEX.test(d)) ||
+    prodCompanies.some((c) => MAJOR_THEATRICAL_DISTRIBUTOR_REGEX.test(c));
+
+  const hasStreamerOnlyDist =
+    wdDistributors.length > 0 &&
+    wdDistributors.every((d) => STREAMING_ONLY_DISTRIBUTOR_REGEX.test(d));
+
+  const hasStreamerIdWithoutMajor = Boolean(
+    (wikidataDetail.netflixId || wikidataDetail.appleId || wikidataDetail.disneyId) &&
+      !hasMajorTheatricalDist,
+  );
+
+  if (hasStreamerOnlyDist || hasStreamerIdWithoutMajor) {
+    return { passed: false, reason: 'streaming_original' };
+  }
+
+  // 5. Short theatrical window check
+  const digitalEntries = usReleases.filter((r) => r.type === 4 || r.type === 5);
+  const digitalDates = digitalEntries
+    .map((r) => (r.release_date || '').slice(0, 10))
+    .filter(Boolean)
+    .sort();
+
+  const earliestDigitalDate =
+    digitalDates.find((dt) => dt >= usWideDate) || digitalDates[0] || null;
+  const windowDays =
+    usWideDate && earliestDigitalDate
+      ? Math.round(
+          (new Date(earliestDigitalDate + 'T00:00:00Z') -
+            new Date(usWideDate + 'T00:00:00Z')) /
+            86400000,
+        )
+      : null;
+
+  if (windowDays !== null && windowDays < minWindowDays) {
+    return { passed: false, reason: 'short_theatrical_window', windowDays };
+  }
+
+  // 6. Old festival holdovers on Wikidata
+  const currentYear = parseInt(today.slice(0, 4), 10);
+  if (wikidataDetail.minPubYear && wikidataDetail.minPubYear < currentYear - 1) {
+    return {
+      passed: false,
+      reason: 'old_festival_holdover',
+      minPubYear: wikidataDetail.minPubYear,
+    };
+  }
+
+  // 7. Scale & legitimacy verification
+  const hasUsMpaRating = usReleases.some((r) =>
+    VALID_MPA_RATINGS.has(String(r.certification || '').toUpperCase()),
+  );
+  const budget = Math.max(tmdbDetail.budget || 0, wikidataDetail.budget || 0, item.budget || 0);
+  const revenue = Math.max(
+    tmdbDetail.revenue || 0,
+    wikidataDetail.boxOffice || 0,
+    item.revenue || 0,
+  );
+  const voteCount = item.voteCount ?? item.vote_count ?? tmdbDetail.vote_count ?? 0;
+
+  const isVerifiedTheatrical = Boolean(
+    wikidataDetail.mpaCert ||
+      hasMajorTheatricalDist ||
+      (hasUsMpaRating && (budget >= 2_000_000 || revenue >= 1_000_000 || voteCount >= 50)) ||
+      voteCount >= 150,
+  );
+
+  if (!isVerifiedTheatrical) {
+    return { passed: false, reason: 'unverified_theatrical_scale' };
+  }
+
+  // 8. Determine if currently in exclusive theatrical window
+  const rent = (usWp.rent || []).map((p) => p.provider_name || p).filter(Boolean);
+  const inExclusiveTheatricalWindow = Boolean(
+    (!earliestDigitalDate || earliestDigitalDate > today) && rent.length === 0,
+  );
+
+  return {
+    passed: true,
+    usWideDate,
+    earliestDigitalDate,
+    windowDays,
+    inExclusiveTheatricalWindow,
+    budget,
+    revenue,
+    mpaCert: wikidataDetail.mpaCert || null,
+  };
+}
+
+/**
+ * Rank theatrical items: exclusive theatrical window first, then by popularity.
+ */
+export function rankTheatricalItems(items = [], limit = RAIL_LIMIT) {
+  const usable = dedupeRailItems(items);
+  return [...usable]
+    .sort((a, b) => {
+      const aExclusive = Boolean(a.inExclusiveTheatricalWindow);
+      const bExclusive = Boolean(b.inExclusiveTheatricalWindow);
+      if (aExclusive !== bExclusive) return aExclusive ? -1 : 1;
+      return (b.popularity || 0) - (a.popularity || 0);
+    })
+    .slice(0, limit);
+}
+
 /**
  * Order the theatrical rail: drop the long tail of thinly-voted limited
  * releases, then sort by popularity — "what is drawing an audience right now"
  * is the question a Now Playing rail answers, not "what has the highest mean".
+ *
+ * If items carry theatrical verification flags (inExclusiveTheatricalWindow),
+ * uses rankTheatricalItems.
  *
  * If the floor would leave the rail short, it is dropped rather than shipping a
  * three-poster rail; an under-voted rail still beats an empty one.
  */
 export function selectNowPlaying(items = [], limit = RAIL_LIMIT, minVotes = NOW_PLAYING_MIN_VOTES) {
   const usable = dedupeRailItems(items);
+
+  if (usable.some((item) => item.inExclusiveTheatricalWindow !== undefined)) {
+    return rankTheatricalItems(usable, limit);
+  }
+
   const meetsFloor = usable.filter((item) => (item.voteCount || 0) >= minVotes);
   const pool = meetsFloor.length >= limit ? meetsFloor : usable;
 
