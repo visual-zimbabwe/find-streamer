@@ -4,9 +4,11 @@ import {
   NOW_PLAYING_MIN_VOTES,
   RAIL_LIMIT,
   dedupeRailItems,
+  evaluateTheatricalCandidate,
   formatWatchers,
   interleaveByPopularity,
   interleaveByTrendingRank,
+  rankTheatricalItems,
   selectNowPlaying,
 } from '../src/lib/searchRails.js';
 
@@ -154,4 +156,131 @@ test('watchers format is short enough for a badge', () => {
   assert.equal(formatWatchers(1200), '1.2k watching');
   assert.equal(formatWatchers(2000), '2k watching');
   assert.equal(formatWatchers(15400), '15k watching');
+});
+
+test('evaluateTheatricalCandidate approves legitimate US wide theatrical release', () => {
+  const item = { tmdbId: 101, title: 'Studio Epic', popularity: 120, voteCount: 40 };
+  const tmdbDetail = {
+    release_date: '2026-10-01',
+    release_dates: {
+      results: [
+        {
+          iso_3166_1: 'US',
+          release_dates: [
+            { type: 3, release_date: '2026-10-01T00:00:00.000Z', certification: 'PG-13' },
+          ],
+        },
+      ],
+    },
+    'watch/providers': { results: { US: { flatrate: [], rent: [] } } },
+    production_companies: [{ name: 'Paramount Pictures' }],
+    budget: 80000000,
+  };
+  const wikidataDetail = {
+    mpaCert: '56047',
+    distributors: ['Paramount Pictures'],
+  };
+
+  const evalResult = evaluateTheatricalCandidate(item, tmdbDetail, wikidataDetail, {
+    today: '2026-10-16',
+  });
+
+  assert.equal(evalResult.passed, true);
+  assert.equal(evalResult.inExclusiveTheatricalWindow, true);
+  assert.equal(evalResult.usWideDate, '2026-10-01');
+});
+
+test('evaluateTheatricalCandidate rejects straight-to-streaming original (Netflix)', () => {
+  const item = { tmdbId: 102, title: 'Streamer Drop', popularity: 250, voteCount: 300 };
+  const tmdbDetail = {
+    release_date: '2026-10-09',
+    release_dates: {
+      results: [
+        {
+          iso_3166_1: 'US',
+          release_dates: [
+            { type: 2, release_date: '2026-10-09T00:00:00.000Z', note: 'Limited' },
+            { type: 4, release_date: '2026-10-09T00:00:00.000Z', note: 'Netflix' },
+          ],
+        },
+      ],
+    },
+    'watch/providers': { results: { US: { flatrate: [{ provider_name: 'Netflix' }] } } },
+  };
+  const wikidataDetail = {
+    netflixId: '81757047',
+    distributors: [],
+  };
+
+  const evalResult = evaluateTheatricalCandidate(item, tmdbDetail, wikidataDetail, {
+    today: '2026-10-16',
+  });
+
+  assert.equal(evalResult.passed, false);
+});
+
+test('evaluateTheatricalCandidate rejects short theatrical window (< 28 days)', () => {
+  const item = { tmdbId: 103, title: 'Quick Turnaround', popularity: 100, voteCount: 200 };
+  const tmdbDetail = {
+    release_date: '2026-09-10',
+    release_dates: {
+      results: [
+        {
+          iso_3166_1: 'US',
+          release_dates: [
+            { type: 3, release_date: '2026-09-10T00:00:00.000Z', certification: 'R' },
+            { type: 4, release_date: '2026-09-29T00:00:00.000Z' }, // 19 days
+          ],
+        },
+      ],
+    },
+    'watch/providers': { results: { US: { flatrate: [] } } },
+  };
+  const wikidataDetail = { mpaCert: '55875' };
+
+  const evalResult = evaluateTheatricalCandidate(item, tmdbDetail, wikidataDetail, {
+    today: '2026-10-16',
+  });
+
+  assert.equal(evalResult.passed, false);
+  assert.equal(evalResult.reason, 'short_theatrical_window');
+  assert.equal(evalResult.windowDays, 19);
+});
+
+test('evaluateTheatricalCandidate rejects old catalog re-releases', () => {
+  const item = { tmdbId: 104, title: 'Classic Blockbuster', popularity: 90, voteCount: 20000 };
+  const tmdbDetail = {
+    release_date: '2019-04-26', // Decades/years old
+    release_dates: {
+      results: [
+        {
+          iso_3166_1: 'US',
+          release_dates: [
+            { type: 3, release_date: '2026-09-25T00:00:00.000Z', note: 'Re-release' },
+          ],
+        },
+      ],
+    },
+    'watch/providers': { results: { US: { flatrate: [{ provider_name: 'Disney Plus' }] } } },
+  };
+
+  const evalResult = evaluateTheatricalCandidate(item, tmdbDetail, {}, {
+    today: '2026-10-16',
+  });
+
+  assert.equal(evalResult.passed, false);
+  assert.equal(evalResult.reason, 'primary_out_of_window');
+});
+
+test('rankTheatricalItems puts exclusive theatrical titles ahead of PVOD titles', () => {
+  const exclusive = { tmdbId: 1, inExclusiveTheatricalWindow: true, popularity: 50 };
+  const onPvod = { tmdbId: 2, inExclusiveTheatricalWindow: false, popularity: 200 };
+  const exclusiveBig = { tmdbId: 3, inExclusiveTheatricalWindow: true, popularity: 150 };
+
+  const ranked = rankTheatricalItems([exclusive, onPvod, exclusiveBig]);
+
+  assert.deepEqual(
+    ranked.map((x) => x.tmdbId),
+    [3, 1, 2],
+  );
 });

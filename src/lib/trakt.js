@@ -3,7 +3,7 @@
 // Register a FREE app at https://trakt.tv/oauth/applications/new to get your
 // Client ID, then paste it below. The app only needs Read access.
 //
-import { recordRateQuota429, recordRateQuotaFromResponse } from './apiRateQuota';
+import { recordRateQuota429, recordRateQuotaFromResponse } from './apiRateQuota.js';
 
 const TRAKT_CLIENT_ID = 'e7246bfdab489b1f604eb6bfbed9518c7402a3476fad3edb50537228fde96ef9';
 const TRAKT_BASE = 'https://api.trakt.tv';

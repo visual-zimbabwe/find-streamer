@@ -1,10 +1,14 @@
-import { fetchTraktTrending } from './trakt';
+import { fetchTraktTrending } from './trakt.js';
 import {
   discoverTitles,
   enrichTraktItems,
+  fetchMovieTheatricalDetail,
+  fetchNowPlayingCandidates,
   fetchNowPlayingMovies,
+  fetchTmdbTrendingTitles,
   fetchTopMovieCollectionRows,
-} from './tmdb';
+} from './tmdb.js';
+import { fetchWikidataTheatricalBatch } from './wikidataTheatrical.js';
 import {
   HOME_SPOTLIGHT_MAX,
   appendUniqueSpotlight,
@@ -16,8 +20,9 @@ import {
   RAIL_FULL_LIMIT,
   RAIL_LIMIT,
   dedupeRailItems,
-  interleaveByPopularity,
+  evaluateTheatricalCandidate,
   interleaveByTrendingRank,
+  rankTheatricalItems,
   selectNowPlaying,
 } from './searchRails.js';
 import { resolveRatingValue } from './ratings.js';
@@ -204,19 +209,7 @@ export async function buildHomeSpotlight(watchlist = [], scope = 'all') {
  * under a source-neutral header rather than claiming it came from Trakt.
  */
 async function fetchTmdbPopularRail(limit) {
-  const perSide = Math.ceil(limit / 2) + 2;
-  const [movies, shows] = await Promise.all([
-    discoverTitles({ mediaType: 'movie', sortBy: 'popularity.desc', page: 1 }),
-    discoverTitles({ mediaType: 'tv', sortBy: 'popularity.desc', page: 1 }),
-  ]);
-
-  const ordered = dedupeRailItems(
-    interleaveByPopularity(
-      (movies.results || []).slice(0, perSide),
-      (shows.results || []).slice(0, perSide),
-    ),
-  );
-  return ordered.filter((item) => item.posterUrl).slice(0, limit);
+  return fetchTmdbTrendingTitles({ mediaType: 'all', timeWindow: 'week', limit });
 }
 
 /**
@@ -227,10 +220,9 @@ async function fetchTmdbPopularRail(limit) {
  * small buffer, so a poster-less item never costs a detail request). But Trakt
  * 403s on some networks, and an empty Trakt rail used to mean an empty section;
  * so on a Trakt failure *or* an empty Trakt result we cascade to TMDb
- * popularity, mirroring what Discover already does. The `source` lets the caller
- * drop the Trakt-only chrome (rank, live-watcher badge) when the data isn't
- * actually Trakt's. Only a double outage resolves empty — and that throws, so
- * the rail shows its honest error/retry state instead of silently vanishing.
+ * trending titles (with talk shows, news, and soaps excluded on the TV side).
+ * The `source` lets the caller drop the Trakt-only chrome (rank, live-watcher
+ * badge) when the data isn't actually Trakt's.
  */
 export async function fetchHomeTraktTrendingRail(limit = HOME_RAIL_LIMIT) {
   // A couple spare per side absorbs the items that turn out to have no poster.
@@ -244,9 +236,9 @@ export async function fetchHomeTraktTrendingRail(limit = HOME_RAIL_LIMIT) {
     const enriched = await enrichTraktItems(ordered.slice(0, limit + 4));
     const items = enriched.filter((item) => item.posterUrl).slice(0, limit);
     if (items.length > 0) return { items, source: 'trakt' };
-    // Trakt answered but nothing was usable → fall through to TMDb popularity.
+    // Trakt answered but nothing was usable → fall through to TMDb trending.
   } catch {
-    // Trakt failed (commonly 403) → TMDb popularity keeps the rail alive.
+    // Trakt failed (commonly 403) → TMDb trending keeps the rail alive.
   }
 
   const items = await fetchTmdbPopularRail(limit);
@@ -270,13 +262,67 @@ export async function fetchHomeTmdbRail(def) {
 }
 
 /**
- * Theatrical listings for {@link NOW_PLAYING_REGION}, ordered by popularity
- * behind a vote-count floor. The rail is answering "what can I go see", so an
- * unvoted festival pickup with a 9.0 is not the right top result.
+ * Theatrical listings for {@link NOW_PLAYING_REGION}.
+ *
+ * Verifies that each title has a genuine, normal/long wide theatrical release
+ * (using TMDb US release types/dates and watch providers) and cross-checks with
+ * Wikidata (MPA certificate, studio theatrical distributor, budget/box office)
+ * while excluding streaming-only originals (Netflix, Apple TV+, etc.), short windows,
+ * and catalog re-releases.
  */
 export async function fetchHomeNowPlayingRail(limit = RAIL_LIMIT) {
-  const list = await fetchNowPlayingMovies({ region: NOW_PLAYING_REGION });
-  return selectNowPlaying(list, limit);
+  try {
+    const candidates = await fetchNowPlayingCandidates({ region: NOW_PLAYING_REGION });
+    if (!candidates || candidates.length === 0) {
+      return [];
+    }
+
+    // Evaluate candidates up to top 35 (or limit + 25)
+    const evalPool = candidates.slice(0, Math.max(limit + 25, 35));
+    const tmdbIds = evalPool.map((c) => c.tmdbId);
+
+    // Parallel: Wikidata batch + TMDB detailed release/watch metadata
+    const [wikidataMap, tmdbDetails] = await Promise.all([
+      fetchWikidataTheatricalBatch(tmdbIds).catch(() => new Map()),
+      Promise.all(evalPool.map((c) => fetchMovieTheatricalDetail(c.tmdbId).catch(() => null))),
+    ]);
+
+    const verifiedItems = [];
+    for (let i = 0; i < evalPool.length; i++) {
+      const candidate = evalPool[i];
+      const tmdbDetail = tmdbDetails[i];
+      if (!tmdbDetail) continue;
+
+      const wikidataDetail = wikidataMap.get(String(candidate.tmdbId)) || {};
+      const evalResult = evaluateTheatricalCandidate(candidate, tmdbDetail, wikidataDetail, {
+        region: NOW_PLAYING_REGION,
+      });
+
+      if (evalResult.passed) {
+        verifiedItems.push({
+          ...candidate,
+          usWideDate: evalResult.usWideDate,
+          earliestDigitalDate: evalResult.earliestDigitalDate,
+          windowDays: evalResult.windowDays,
+          inExclusiveTheatricalWindow: evalResult.inExclusiveTheatricalWindow,
+          budget: evalResult.budget,
+          revenue: evalResult.revenue,
+          mpaCert: evalResult.mpaCert,
+        });
+      }
+    }
+
+    if (verifiedItems.length > 0) {
+      return rankTheatricalItems(verifiedItems, limit);
+    }
+
+    // Safe fallback if verified pool is empty (e.g. unexpected sparse network data)
+    return selectNowPlaying(candidates, limit);
+  } catch {
+    // If pipeline encounters an unexpected error, fall back gracefully
+    const fallback = await fetchNowPlayingMovies({ region: NOW_PLAYING_REGION }).catch(() => []);
+    return selectNowPlaying(fallback, limit);
+  }
 }
 
 export async function fetchHomeCollectionRows() {

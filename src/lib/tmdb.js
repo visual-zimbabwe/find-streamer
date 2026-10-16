@@ -36,6 +36,7 @@ import {
   serviceKey,
 } from './providerAvailability';
 import { partitionFilmographyCredits } from './actorFilmographyModel';
+import { getOffsetDateYmd, interleaveByPopularity, dedupeRailItems } from './searchRails';
 
 export { SERVICE_LABELS };
 
@@ -1313,43 +1314,167 @@ export async function getTvShowNextEpisode(tmdbId) {
  *
  * @param {{ region?: string }} [options]
  */
-export async function fetchNowPlayingMovies({ region = 'US' } = {}) {
-  const [page1, page2] = await Promise.all([
-    tmdbGet('/movie/now_playing', { language: 'en-US', region, page: 1 }),
-    tmdbGet('/movie/now_playing', { language: 'en-US', region, page: 2 }),
+const TMDB_EXCLUDED_TV_GENRES = new Set([10767, 10763, 10764, 10766]); // Talk, News, Reality, Soap
+
+function mapTmdbItem(item, mediaType = 'movie') {
+  const dateValue = item.release_date || item.first_air_date || '';
+  return {
+    mediaType: item.media_type || mediaType,
+    tmdbId: item.id,
+    title: item.title || item.name || '(Untitled)',
+    year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+    releaseDate: dateValue || null,
+    synopsis: (item.overview || '').trim() || 'No synopsis available.',
+    posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+    backdropUrl: item.backdrop_path
+      ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+      : null,
+    ratingValue: item.vote_average || 0,
+    rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+    popularity: item.popularity || 0,
+    voteCount: item.vote_count || 0,
+    genreIds: item.genre_ids || [],
+  };
+}
+
+/**
+ * Fetch candidate movies playing in theatres for the given region.
+ * Combines TMDb's /movie/now_playing with /discover/movie (filtered to wide release_type=3),
+ * deduplicating and pre-filtering to drop catalog re-releases (> 90 days old) and unreleased titles.
+ *
+ * @param {{ region?: string, wideLookbackDays?: number, primaryLookbackDays?: number }} [options]
+ */
+export async function fetchNowPlayingCandidates({
+  region = 'US',
+  wideLookbackDays = 60,
+  primaryLookbackDays = 90,
+} = {}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const wideLookback = getOffsetDateYmd(today, -wideLookbackDays);
+  const primaryLookback = getOffsetDateYmd(today, -primaryLookbackDays);
+
+  const [np1, np2, disc1, disc2] = await Promise.all([
+    tmdbGet('/movie/now_playing', { language: 'en-US', region, page: 1 }).catch(() => ({
+      results: [],
+    })),
+    tmdbGet('/movie/now_playing', { language: 'en-US', region, page: 2 }).catch(() => ({
+      results: [],
+    })),
+    tmdbGet('/discover/movie', {
+      language: 'en-US',
+      region,
+      with_release_type: 3,
+      'release_date.gte': wideLookback,
+      'release_date.lte': today,
+      'primary_release_date.gte': primaryLookback,
+      sort_by: 'popularity.desc',
+      include_adult: false,
+      page: 1,
+    }).catch(() => ({ results: [] })),
+    tmdbGet('/discover/movie', {
+      language: 'en-US',
+      region,
+      with_release_type: 3,
+      'release_date.gte': wideLookback,
+      'release_date.lte': today,
+      'primary_release_date.gte': primaryLookback,
+      sort_by: 'popularity.desc',
+      include_adult: false,
+      page: 2,
+    }).catch(() => ({ results: [] })),
   ]);
 
-  const raw = [...(page1.results || []), ...(page2.results || [])];
+  const raw = [
+    ...(np1.results || []),
+    ...(np2.results || []),
+    ...(disc1.results || []),
+    ...(disc2.results || []),
+  ];
 
-  // Deduplicate by id
   const seen = new Set();
-  const unique = raw.filter((item) => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
+  const preFiltered = raw
+    .filter((item) => {
+      if (!item?.id || seen.has(item.id)) return false;
+      seen.add(item.id);
+      if (!item.poster_path) return false;
+      const relDate = item.release_date || '';
+      if (relDate && (relDate < primaryLookback || relDate > today)) return false;
+      return true;
+    })
+    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
 
-  // Sort highest rating first
-  unique.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+  return preFiltered.map((item) => mapTmdbItem(item, 'movie'));
+}
 
-  return unique.map((item) => {
-    const dateValue = item.release_date || '';
-    return {
-      mediaType: 'movie',
-      tmdbId: item.id,
-      title: item.title || '(Untitled)',
-      year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
-      synopsis: (item.overview || '').trim() || 'No synopsis available.',
-      posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-      backdropUrl: item.backdrop_path
-        ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
-        : null,
-      ratingValue: item.vote_average || 0,
-      rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
-      popularity: item.popularity || 0,
-      voteCount: item.vote_count || 0,
-    };
+/**
+ * Fetch full movie detail including US release_dates and watch/providers.
+ * Cached automatically via tmdbGet.
+ *
+ * @param {number|string} tmdbId
+ */
+export async function fetchMovieTheatricalDetail(tmdbId) {
+  return tmdbGet(`/movie/${tmdbId}`, {
+    language: 'en-US',
+    append_to_response: 'release_dates,watch/providers',
   });
+}
+
+/**
+ * Fetch high-velocity trending titles from TMDb for the week.
+ * Filters out talk shows, news, reality, and soap operas from the TV side
+ * to prevent daily episode churn from flooding the trending rail.
+ *
+ * @param {{ mediaType?: 'all'|'movie'|'tv', timeWindow?: 'day'|'week', limit?: number }} [options]
+ */
+export async function fetchTmdbTrendingTitles({
+  mediaType = 'all',
+  timeWindow = 'week',
+  limit = 20,
+} = {}) {
+  if (mediaType === 'movie') {
+    const data = await tmdbGet(`/trending/movie/${timeWindow}`, { language: 'en-US' });
+    return (data.results || [])
+      .map((m) => mapTmdbItem(m, 'movie'))
+      .filter((x) => x.posterUrl)
+      .slice(0, limit);
+  }
+
+  if (mediaType === 'tv') {
+    const data = await tmdbGet(`/trending/tv/${timeWindow}`, { language: 'en-US' });
+    const clean = (data.results || []).filter(
+      (show) => !show.genre_ids?.some((g) => TMDB_EXCLUDED_TV_GENRES.has(g)),
+    );
+    return clean
+      .map((t) => mapTmdbItem(t, 'tv'))
+      .filter((x) => x.posterUrl)
+      .slice(0, limit);
+  }
+
+  const perSide = Math.ceil(limit / 2) + 2;
+  const [movieData, tvData] = await Promise.all([
+    tmdbGet(`/trending/movie/${timeWindow}`, { language: 'en-US' }).catch(() => ({ results: [] })),
+    tmdbGet(`/trending/tv/${timeWindow}`, { language: 'en-US' }).catch(() => ({ results: [] })),
+  ]);
+
+  const cleanShows = (tvData.results || []).filter(
+    (show) => !show.genre_ids?.some((g) => TMDB_EXCLUDED_TV_GENRES.has(g)),
+  );
+
+  const movies = (movieData.results || []).map((m) => mapTmdbItem(m, 'movie'));
+  const shows = cleanShows.map((t) => mapTmdbItem(t, 'tv'));
+
+  const interleaved = dedupeRailItems(
+    interleaveByPopularity(movies.slice(0, perSide), shows.slice(0, perSide)),
+  );
+
+  return interleaved.filter((item) => item.posterUrl).slice(0, limit);
+}
+
+/**
+ * Backward-compatible helper for callers expecting now-playing candidates.
+ */
+export async function fetchNowPlayingMovies(options = {}) {
+  return fetchNowPlayingCandidates(options);
 }
 
 async function getHomeCollectionRowFromSeed(seed) {
