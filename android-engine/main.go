@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -66,37 +68,38 @@ var (
 const MaxDownloadQuotaBytes = int64(75) * 1024 * 1024 * 1024 // 75 GB
 
 type DownloadEntry struct {
-	ID             string  `json:"id"`
-	InfoHash       string  `json:"infoHash"`
-	Magnet         string  `json:"magnet"`
-	FileIdx        int     `json:"fileIdx"`
-	Title          string  `json:"title"`
-	ReleaseName    string  `json:"releaseName"`
-	MediaType      string  `json:"mediaType"`
-	TmdbID         int     `json:"tmdbId"`
-	ImdbID         string  `json:"imdbId"`
-	Year           string  `json:"year"`
-	PosterURL      string  `json:"posterUrl"`
-	Season         int     `json:"season,omitempty"`
-	Episode        int     `json:"episode,omitempty"`
-	EpisodeTitle   string  `json:"episodeTitle,omitempty"`
-	Quality        string  `json:"quality,omitempty"`
-	Codec          string  `json:"codec,omitempty"`
-	FilePath       string  `json:"filePath"`
-	RelativePath   string  `json:"relativePath"`
-	RootDir        string  `json:"rootDir"`
-	Filename       string  `json:"filename"`
-	SubtitleURL    string  `json:"subtitleUrl,omitempty"`
-	SubtitlePath   string  `json:"subtitlePath,omitempty"`
-	TotalBytes     int64   `json:"totalBytes"`
-	CompletedBytes int64   `json:"completedBytes"`
-	Progress       float64 `json:"progress"`
-	SpeedBps       int64   `json:"speedBps"`
-	Peers          int     `json:"peers"`
-	State          string  `json:"state"` // "resolving", "downloading", "paused", "completed", "error"
-	ErrorMsg       string  `json:"error,omitempty"`
-	CreatedAt      int64   `json:"createdAt"`
-	CompletedAt    int64   `json:"completedAt,omitempty"`
+	ID             string            `json:"id"`
+	InfoHash       string            `json:"infoHash"`
+	Magnet         string            `json:"magnet"`
+	FileIdx        int               `json:"fileIdx"`
+	Title          string            `json:"title"`
+	ReleaseName    string            `json:"releaseName"`
+	MediaType      string            `json:"mediaType"`
+	TmdbID         int               `json:"tmdbId"`
+	ImdbID         string            `json:"imdbId"`
+	Year           string            `json:"year"`
+	PosterURL      string            `json:"posterUrl"`
+	Season         int               `json:"season,omitempty"`
+	Episode        int               `json:"episode,omitempty"`
+	EpisodeTitle   string            `json:"episodeTitle,omitempty"`
+	EpisodeTitles  map[string]string `json:"episodeTitles,omitempty"`
+	Quality        string            `json:"quality,omitempty"`
+	Codec          string            `json:"codec,omitempty"`
+	FilePath       string            `json:"filePath"`
+	RelativePath   string            `json:"relativePath"`
+	RootDir        string            `json:"rootDir"`
+	Filename       string            `json:"filename"`
+	SubtitleURL    string            `json:"subtitleUrl,omitempty"`
+	SubtitlePath   string            `json:"subtitlePath,omitempty"`
+	TotalBytes     int64             `json:"totalBytes"`
+	CompletedBytes int64             `json:"completedBytes"`
+	Progress       float64           `json:"progress"`
+	SpeedBps       int64             `json:"speedBps"`
+	Peers          int               `json:"peers"`
+	State          string            `json:"state"` // "resolving", "downloading", "paused", "completed", "error"
+	ErrorMsg       string            `json:"error,omitempty"`
+	CreatedAt      int64             `json:"createdAt"`
+	CompletedAt    int64             `json:"completedAt,omitempty"`
 
 	lastBytes      int64
 	lastSampleTime time.Time
@@ -123,6 +126,140 @@ func isVideoExt(name string) bool {
 	return false
 }
 
+var (
+	reSxE      = regexp.MustCompile(`(?i)\bs(\d{1,2})[\s._-]*e(\d{1,3})\b`)
+	reNxN      = regexp.MustCompile(`(?i)\b(\d{1,2})x(\d{1,3})\b`)
+	reSeasonEp = regexp.MustCompile(`(?i)\bseason[\s._-]*(\d{1,2})[\s._-]*episode[\s._-]*(\d{1,3})\b`)
+	reEpOnly   = regexp.MustCompile(`(?i)\b(?:ep|episode|e)[\s._-]*(\d{1,3})\b`)
+)
+
+func parseSeasonEpisodeFromName(name string, defaultSeason int) (int, int, bool) {
+	if m := reSxE.FindStringSubmatch(name); len(m) == 3 {
+		s, _ := strconv.Atoi(m[1])
+		e, _ := strconv.Atoi(m[2])
+		if s > 0 && e > 0 {
+			return s, e, true
+		}
+	}
+	if m := reNxN.FindStringSubmatch(name); len(m) == 3 {
+		s, _ := strconv.Atoi(m[1])
+		e, _ := strconv.Atoi(m[2])
+		if s > 0 && e > 0 {
+			return s, e, true
+		}
+	}
+	if m := reSeasonEp.FindStringSubmatch(name); len(m) == 3 {
+		s, _ := strconv.Atoi(m[1])
+		e, _ := strconv.Atoi(m[2])
+		if s > 0 && e > 0 {
+			return s, e, true
+		}
+	}
+	if defaultSeason > 0 {
+		if m := reEpOnly.FindStringSubmatch(name); len(m) == 2 {
+			e, _ := strconv.Atoi(m[1])
+			if e > 0 && e < 200 && e != 264 && e != 265 {
+				return defaultSeason, e, true
+			}
+		}
+	}
+	return 0, 0, false
+}
+
+type seasonPackFileTarget struct {
+	Episode int
+	FileIdx int
+	File    *torrent.File
+}
+
+func extractSeasonPackFiles(t *torrent.Torrent, targetSeason int) []seasonPackFileTarget {
+	files := t.Files()
+	type candidate struct {
+		idx     int
+		file    *torrent.File
+		season  int
+		episode int
+		matched bool
+	}
+	var candidates []candidate
+	hasExplicitMatch := false
+
+	for idx, f := range files {
+		p := f.Path()
+		if !isVideoExt(p) {
+			continue
+		}
+		lower := strings.ToLower(filepath.ToSlash(p))
+		baseLower := strings.ToLower(filepath.Base(p))
+		if strings.Contains(baseLower, "sample") || strings.Contains(lower, "/sample/") || strings.Contains(lower, "/extras/") || strings.Contains(lower, "/featurettes/") {
+			continue
+		}
+		if f.Length() < 5*1024*1024 {
+			continue
+		}
+
+		s, e, ok := parseSeasonEpisodeFromName(filepath.Base(p), targetSeason)
+		if !ok {
+			s, e, ok = parseSeasonEpisodeFromName(p, targetSeason)
+		}
+		if ok && (targetSeason <= 0 || s == targetSeason) && e > 0 {
+			hasExplicitMatch = true
+			candidates = append(candidates, candidate{
+				idx:     idx,
+				file:    f,
+				season:  s,
+				episode: e,
+				matched: true,
+			})
+		} else if !ok {
+			candidates = append(candidates, candidate{
+				idx:     idx,
+				file:    f,
+				season:  targetSeason,
+				episode: 0,
+				matched: false,
+			})
+		}
+	}
+
+	if hasExplicitMatch {
+		byEp := make(map[int]candidate)
+		for _, c := range candidates {
+			if !c.matched || c.episode <= 0 {
+				continue
+			}
+			if existing, exists := byEp[c.episode]; !exists || c.file.Length() > existing.file.Length() {
+				byEp[c.episode] = c
+			}
+		}
+		results := make([]seasonPackFileTarget, 0, len(byEp))
+		for _, c := range byEp {
+			results = append(results, seasonPackFileTarget{
+				Episode: c.episode,
+				FileIdx: c.idx,
+				File:    c.file,
+			})
+		}
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].Episode < results[j].Episode
+		})
+		return results
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].file.Path() < candidates[j].file.Path()
+	})
+	results := make([]seasonPackFileTarget, 0, len(candidates))
+	for i, c := range candidates {
+		results = append(results, seasonPackFileTarget{
+			Episode: i + 1,
+			FileIdx: c.idx,
+			File:    c.file,
+		})
+	}
+	return results
+}
+
 func getLargestVideoFile(t *torrent.Torrent) (*torrent.File, int) {
 	var largest *torrent.File
 	largestIdx := -1
@@ -145,6 +282,34 @@ func getLargestVideoFile(t *torrent.Torrent) (*torrent.File, int) {
 		}
 	}
 	return largest, largestIdx
+}
+
+func selectTargetVideoFile(t *torrent.Torrent, fileIdx int, season int, episode int) (*torrent.File, int) {
+	files := t.Files()
+	if fileIdx >= 0 && fileIdx < len(files) {
+		return files[fileIdx], fileIdx
+	}
+	if season > 0 && episode > 0 {
+		for idx, f := range files {
+			if !isVideoExt(f.Path()) {
+				continue
+			}
+			s, e, ok := parseSeasonEpisodeFromName(filepath.Base(f.Path()), season)
+			if !ok {
+				s, e, ok = parseSeasonEpisodeFromName(f.Path(), season)
+			}
+			if ok && s == season && e == episode {
+				return f, idx
+			}
+		}
+	}
+	if season > 0 && episode == 0 {
+		packFiles := extractSeasonPackFiles(t, season)
+		if len(packFiles) > 0 {
+			return packFiles[0].File, packFiles[0].FileIdx
+		}
+	}
+	return getLargestVideoFile(t)
 }
 
 func isProtectedInfoHash(infoHash string) bool {
@@ -200,6 +365,13 @@ func loadDownloadsIndex() {
 		}
 		entry.SpeedBps = 0
 		entry.Peers = 0
+		if entry.Season > 0 && entry.Episode == 0 && entry.Magnet != "" {
+			// Legacy unexpanded season pack: re-resolve and expand into all season episodes
+			entry.FileIdx = -1
+			entry.State = "resolving"
+			downloads[entry.ID] = entry
+			continue
+		}
 		if entry.State == "completed" {
 			if entry.FilePath != "" {
 				if fi, statErr := os.Stat(entry.FilePath); statErr == nil && fi.Size() > 0 {
@@ -350,20 +522,16 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var targetFile *torrent.File
-	fileIdxStr := r.URL.Query().Get("fileIdx")
-	if fileIdxStr != "" {
-		var idx int
-		if _, err := fmt.Sscanf(fileIdxStr, "%d", &idx); err == nil {
-			files := t.Files()
-			if idx >= 0 && idx < len(files) {
-				targetFile = files[idx]
-			}
+	fileIdx := -1
+	if fileIdxStr := r.URL.Query().Get("fileIdx"); fileIdxStr != "" {
+		if parsed, err := strconv.Atoi(fileIdxStr); err == nil {
+			fileIdx = parsed
 		}
 	}
-	if targetFile == nil {
-		targetFile, _ = getLargestVideoFile(t)
-	}
+	season, _ := strconv.Atoi(r.URL.Query().Get("season"))
+	episode, _ := strconv.Atoi(r.URL.Query().Get("episode"))
+
+	targetFile, _ := selectTargetVideoFile(t, fileIdx, season, episode)
 	if targetFile == nil {
 		logError("streamHandler: no video file found in torrent")
 		http.Error(w, "no video file found in torrent", http.StatusNotFound)
@@ -404,6 +572,24 @@ func buildDownloadID(imdbID string, tmdbID int, season int, episode int, infoHas
 	return base
 }
 
+func cacheSubtitleForDownload(imdb string, s int, e int, rel string, dlID string) {
+	if imdb == "" || dlID == "" {
+		return
+	}
+	go func() {
+		cachedPath, filename, _, subErr := resolveAndCacheSubtitle(imdb, s, e, rel)
+		if subErr == nil && filename != "" {
+			downloadsLock.Lock()
+			if cur, ok := downloads[dlID]; ok {
+				cur.SubtitleURL = fmt.Sprintf("http://127.0.0.1:%d/subtitles/%s", listenPort, filename)
+				cur.SubtitlePath = cachedPath
+				saveDownloadsIndexLocked()
+			}
+			downloadsLock.Unlock()
+		}
+	}()
+}
+
 func activateDownloadEntry(entry *DownloadEntry) {
 	go func() {
 		t, err := getOrCreateTorrent(entry.Magnet, true)
@@ -416,25 +602,15 @@ func activateDownloadEntry(entry *DownloadEntry) {
 			return
 		}
 
+		infoHash := strings.ToLower(t.InfoHash().HexString())
 		downloadsLock.Lock()
-		entry.InfoHash = t.InfoHash().HexString()
+		entry.InfoHash = infoHash
 		saveDownloadsIndexLocked()
 		downloadsLock.Unlock()
 
-		// Pre-cache English subtitle in the background so offline playback has subtitles ready
-		if entry.ImdbID != "" {
-			go func(imdb string, s int, e int, rel string, dlID string) {
-				cachedPath, filename, _, subErr := resolveAndCacheSubtitle(imdb, s, e, rel)
-				if subErr == nil && filename != "" {
-					downloadsLock.Lock()
-					if cur, ok := downloads[dlID]; ok {
-						cur.SubtitleURL = fmt.Sprintf("http://127.0.0.1:%d/subtitles/%s", listenPort, filename)
-						cur.SubtitlePath = cachedPath
-						saveDownloadsIndexLocked()
-					}
-					downloadsLock.Unlock()
-				}
-			}(entry.ImdbID, entry.Season, entry.Episode, entry.ReleaseName, entry.ID)
+		// Pre-cache English subtitle for single movie or single episode immediately
+		if entry.ImdbID != "" && !(entry.Season > 0 && entry.Episode == 0 && entry.FileIdx < 0) {
+			cacheSubtitleForDownload(entry.ImdbID, entry.Season, entry.Episode, entry.ReleaseName, entry.ID)
 		}
 
 		select {
@@ -457,15 +633,134 @@ func activateDownloadEntry(entry *DownloadEntry) {
 			return
 		}
 
-		var targetFile *torrent.File
-		files := t.Files()
-		if cur.FileIdx >= 0 && cur.FileIdx < len(files) {
-			targetFile = files[cur.FileIdx]
-		} else {
-			var resolvedIdx int
-			targetFile, resolvedIdx = getLargestVideoFile(t)
-			cur.FileIdx = resolvedIdx
+		// Season Pack expansion: when Season > 0 and Episode == 0 (no single fileIdx specified),
+		// expand into individual download entries for every episode in the season pack!
+		if cur.Season > 0 && cur.Episode == 0 && cur.FileIdx < 0 {
+			packTargets := extractSeasonPackFiles(t, cur.Season)
+			if len(packTargets) > 0 {
+				var totalNeeded int64
+				for _, pt := range packTargets {
+					rem := pt.File.Length() - pt.File.BytesCompleted()
+					if rem > 0 {
+						totalNeeded += rem
+					}
+				}
+				used := computeUsedBytesLocked() - cur.CompletedBytes
+				if used < 0 {
+					used = 0
+				}
+				if used+totalNeeded > MaxDownloadQuotaBytes {
+					cur.State = "error"
+					cur.ErrorMsg = "Insufficient Trova storage (75 GB limit reached). Delete a download to free space."
+					saveDownloadsIndexLocked()
+					downloadsLock.Unlock()
+					if !isProtectedInfoHash(infoHash) {
+						t.Drop()
+					}
+					return
+				}
+
+				type subTask struct {
+					epNum int
+					rel   string
+					dlID  string
+				}
+				var subTasks []subTask
+				var filesToDownload []*torrent.File
+
+				for _, pt := range packTargets {
+					epID := buildDownloadID(cur.ImdbID, cur.TmdbID, cur.Season, pt.Episode, infoHash, pt.FileIdx)
+					epEntry, epExists := downloads[epID]
+					if !epExists {
+						epEntry = &DownloadEntry{
+							ID:        epID,
+							CreatedAt: time.Now().Unix(),
+						}
+						downloads[epID] = epEntry
+					}
+					epEntry.InfoHash = infoHash
+					epEntry.Magnet = cur.Magnet
+					epEntry.FileIdx = pt.FileIdx
+					epEntry.Title = cur.Title
+					epEntry.ReleaseName = cur.ReleaseName
+					epEntry.MediaType = "tv"
+					epEntry.TmdbID = cur.TmdbID
+					epEntry.ImdbID = cur.ImdbID
+					epEntry.Year = cur.Year
+					epEntry.PosterURL = cur.PosterURL
+					epEntry.Season = cur.Season
+					epEntry.Episode = pt.Episode
+					if cur.EpisodeTitles != nil {
+						if epTitle, ok := cur.EpisodeTitles[strconv.Itoa(pt.Episode)]; ok && epTitle != "" {
+							epEntry.EpisodeTitle = epTitle
+						}
+					}
+					epEntry.Quality = cur.Quality
+					epEntry.Codec = cur.Codec
+
+					relPath := pt.File.Path()
+					parts := strings.Split(filepath.ToSlash(relPath), "/")
+					epEntry.RelativePath = relPath
+					epEntry.RootDir = parts[0]
+					epEntry.FilePath = filepath.Join(cachePath, relPath)
+					epEntry.Filename = filepath.Base(relPath)
+					epEntry.TotalBytes = pt.File.Length()
+					epEntry.CompletedBytes = pt.File.BytesCompleted()
+					if epEntry.TotalBytes > 0 {
+						epEntry.Progress = float64(epEntry.CompletedBytes) / float64(epEntry.TotalBytes)
+					}
+					epEntry.lastBytes = epEntry.CompletedBytes
+					epEntry.lastSampleTime = time.Now()
+					epEntry.ErrorMsg = ""
+
+					if epEntry.TotalBytes > 0 && epEntry.CompletedBytes >= epEntry.TotalBytes {
+						epEntry.State = "completed"
+						epEntry.Progress = 1.0
+						epEntry.SpeedBps = 0
+						if epEntry.CompletedAt == 0 {
+							epEntry.CompletedAt = time.Now().Unix()
+						}
+					} else {
+						epEntry.State = "downloading"
+						filesToDownload = append(filesToDownload, pt.File)
+					}
+
+					if cur.ImdbID != "" {
+						subTasks = append(subTasks, subTask{
+							epNum: pt.Episode,
+							rel:   epEntry.Filename,
+							dlID:  epID,
+						})
+					}
+				}
+
+				// Remove placeholder sXXe00 entry once expanded into sXXe01..sXXeNN
+				delete(downloads, cur.ID)
+				saveDownloadsIndexLocked()
+				imdbForSubs := cur.ImdbID
+				seasonForSubs := cur.Season
+				downloadsLock.Unlock()
+
+				for _, st := range subTasks {
+					cacheSubtitleForDownload(imdbForSubs, seasonForSubs, st.epNum, st.rel, st.dlID)
+				}
+
+				for i, f := range filesToDownload {
+					f.Download()
+					if i == 0 {
+						f.SetPriority(torrent.PiecePriorityHigh)
+					}
+				}
+				logInfo("Expanded season pack '%s' S%02d into %d episode downloads (%d active)", cur.Title, seasonForSubs, len(packTargets), len(filesToDownload))
+				if len(filesToDownload) == 0 && !isProtectedInfoHash(infoHash) {
+					t.Drop()
+				}
+				return
+			}
 		}
+
+		targetFile, resolvedIdx := selectTargetVideoFile(t, cur.FileIdx, cur.Season, cur.Episode)
+		cur.FileIdx = resolvedIdx
 
 		if targetFile == nil {
 			cur.State = "error"
@@ -485,7 +780,7 @@ func activateDownloadEntry(entry *DownloadEntry) {
 			cur.ErrorMsg = "Insufficient Trova storage (75 GB limit reached). Delete a download to free space."
 			saveDownloadsIndexLocked()
 			downloadsLock.Unlock()
-			if !isProtectedInfoHash(t.InfoHash().HexString()) {
+			if !isProtectedInfoHash(infoHash) {
 				t.Drop()
 			}
 			return
@@ -514,7 +809,7 @@ func activateDownloadEntry(entry *DownloadEntry) {
 			cur.CompletedAt = time.Now().Unix()
 			saveDownloadsIndexLocked()
 			downloadsLock.Unlock()
-			if !isProtectedInfoHash(t.InfoHash().HexString()) {
+			if !isProtectedInfoHash(infoHash) {
 				t.Drop()
 			}
 			return
@@ -547,6 +842,8 @@ func runDownloadMonitor() {
 		downloadsLock.Lock()
 		changed := false
 		var completedHashes []string
+		lowestActiveByHash := make(map[string]*torrent.File)
+		lowestEpNumByHash := make(map[string]int)
 
 		for _, d := range downloads {
 			if d.State != "downloading" {
@@ -564,13 +861,7 @@ func runDownloadMonitor() {
 				continue
 			}
 
-			files := matchedTorrent.Files()
-			var targetFile *torrent.File
-			if d.FileIdx >= 0 && d.FileIdx < len(files) {
-				targetFile = files[d.FileIdx]
-			} else {
-				targetFile, _ = getLargestVideoFile(matchedTorrent)
-			}
+			targetFile, _ := selectTargetVideoFile(matchedTorrent, d.FileIdx, d.Season, d.Episode)
 			if targetFile == nil {
 				continue
 			}
@@ -612,8 +903,18 @@ func runDownloadMonitor() {
 				d.Peers = 0
 				d.CompletedAt = now.Unix()
 				completedHashes = append(completedHashes, d.InfoHash)
-				logInfo("Download completed: %s (%d bytes)", d.Title, d.TotalBytes)
+				logInfo("Download completed: %s S%02dE%02d (%d bytes)", d.Title, d.Season, d.Episode, d.TotalBytes)
+			} else if d.Episode > 0 && d.InfoHash != "" {
+				hashKey := strings.ToLower(d.InfoHash)
+				if prevEp, exists := lowestEpNumByHash[hashKey]; !exists || d.Episode < prevEp {
+					lowestEpNumByHash[hashKey] = d.Episode
+					lowestActiveByHash[hashKey] = targetFile
+				}
 			}
+		}
+
+		for _, priorityFile := range lowestActiveByHash {
+			priorityFile.SetPriority(torrent.PiecePriorityHigh)
 		}
 
 		saveCounter++
@@ -640,22 +941,23 @@ func downloadStartHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	var payload struct {
-		ID           string `json:"id"`
-		Magnet       string `json:"magnet"`
-		InfoHash     string `json:"infoHash"`
-		FileIdx      *int   `json:"fileIdx"`
-		Title        string `json:"title"`
-		ReleaseName  string `json:"releaseName"`
-		MediaType    string `json:"mediaType"`
-		TmdbID       int    `json:"tmdbId"`
-		ImdbID       string `json:"imdbId"`
-		Year         string `json:"year"`
-		PosterURL    string `json:"posterUrl"`
-		Season       int    `json:"season"`
-		Episode      int    `json:"episode"`
-		EpisodeTitle string `json:"episodeTitle"`
-		Quality      string `json:"quality"`
-		Codec        string `json:"codec"`
+		ID            string            `json:"id"`
+		Magnet        string            `json:"magnet"`
+		InfoHash      string            `json:"infoHash"`
+		FileIdx       *int              `json:"fileIdx"`
+		Title         string            `json:"title"`
+		ReleaseName   string            `json:"releaseName"`
+		MediaType     string            `json:"mediaType"`
+		TmdbID        int               `json:"tmdbId"`
+		ImdbID        string            `json:"imdbId"`
+		Year          string            `json:"year"`
+		PosterURL     string            `json:"posterUrl"`
+		Season        int               `json:"season"`
+		Episode       int               `json:"episode"`
+		EpisodeTitle  string            `json:"episodeTitle"`
+		EpisodeTitles map[string]string `json:"episodeTitles"`
+		Quality       string            `json:"quality"`
+		Codec         string            `json:"codec"`
 	}
 
 	if r.Method == http.MethodPost && r.Body != nil {
@@ -754,6 +1056,9 @@ func downloadStartHandler(w http.ResponseWriter, r *http.Request) {
 	if payload.EpisodeTitle != "" {
 		entry.EpisodeTitle = payload.EpisodeTitle
 	}
+	if len(payload.EpisodeTitles) > 0 {
+		entry.EpisodeTitles = payload.EpisodeTitles
+	}
 	if payload.Quality != "" {
 		entry.Quality = payload.Quality
 	}
@@ -809,35 +1114,68 @@ func downloadPauseHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	id := r.URL.Query().Get("id")
-	if id == "" {
-		http.Error(w, `{"status":false,"error":"missing id"}`, http.StatusBadRequest)
+	infoHash := strings.TrimSpace(r.URL.Query().Get("infoHash"))
+	if id == "" && infoHash == "" {
+		http.Error(w, `{"status":false,"error":"missing id or infoHash"}`, http.StatusBadRequest)
 		return
 	}
 
 	downloadsLock.Lock()
-	entry, ok := downloads[id]
-	if !ok {
+	var matched []*DownloadEntry
+	if id != "" {
+		if entry, ok := downloads[id]; ok {
+			matched = append(matched, entry)
+		}
+	} else {
+		for _, entry := range downloads {
+			if strings.EqualFold(entry.InfoHash, infoHash) {
+				matched = append(matched, entry)
+			}
+		}
+	}
+
+	if len(matched) == 0 {
 		downloadsLock.Unlock()
 		http.Error(w, `{"status":false,"error":"download not found"}`, http.StatusNotFound)
 		return
 	}
-	if entry.State != "completed" {
-		entry.State = "paused"
-		entry.SpeedBps = 0
-		entry.Peers = 0
-		saveDownloadsIndexLocked()
+
+	var hash string
+	var pausedFileIndices []int
+	for _, entry := range matched {
+		if entry.InfoHash != "" {
+			hash = entry.InfoHash
+		}
+		if entry.State != "completed" {
+			entry.State = "paused"
+			entry.SpeedBps = 0
+			entry.Peers = 0
+			if entry.FileIdx >= 0 {
+				pausedFileIndices = append(pausedFileIndices, entry.FileIdx)
+			}
+		}
 	}
-	hash := entry.InfoHash
+	saveDownloadsIndexLocked()
 	downloadsLock.Unlock()
 
-	if hash != "" && !isProtectedInfoHash(hash) {
+	if hash != "" {
+		stillProtected := isProtectedInfoHash(hash)
 		clientLock.Lock()
 		client := tClient
 		clientLock.Unlock()
 		if client != nil {
 			for _, t := range client.Torrents() {
 				if strings.EqualFold(t.InfoHash().HexString(), hash) {
-					t.Drop()
+					if !stillProtected {
+						t.Drop()
+					} else if t.Info() != nil {
+						files := t.Files()
+						for _, idx := range pausedFileIndices {
+							if idx >= 0 && idx < len(files) {
+								files[idx].Cancel()
+							}
+						}
+					}
 				}
 			}
 		}
@@ -845,7 +1183,7 @@ func downloadPauseHandler(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":   true,
-		"download": entry,
+		"download": matched[0],
 	})
 }
 
@@ -854,37 +1192,51 @@ func downloadResumeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	id := r.URL.Query().Get("id")
-	if id == "" {
-		http.Error(w, `{"status":false,"error":"missing id"}`, http.StatusBadRequest)
+	infoHash := strings.TrimSpace(r.URL.Query().Get("infoHash"))
+	if id == "" && infoHash == "" {
+		http.Error(w, `{"status":false,"error":"missing id or infoHash"}`, http.StatusBadRequest)
 		return
 	}
 
 	downloadsLock.Lock()
-	entry, ok := downloads[id]
-	if !ok {
+	var matched []*DownloadEntry
+	if id != "" {
+		if entry, ok := downloads[id]; ok {
+			matched = append(matched, entry)
+		}
+	} else {
+		for _, entry := range downloads {
+			if strings.EqualFold(entry.InfoHash, infoHash) {
+				matched = append(matched, entry)
+			}
+		}
+	}
+
+	if len(matched) == 0 {
 		downloadsLock.Unlock()
 		http.Error(w, `{"status":false,"error":"download not found"}`, http.StatusNotFound)
 		return
 	}
-	if entry.State == "completed" {
-		downloadsLock.Unlock()
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"status":   true,
-			"download": entry,
-		})
-		return
+
+	var toActivate []*DownloadEntry
+	for _, entry := range matched {
+		if entry.State != "completed" {
+			entry.State = "resolving"
+			entry.ErrorMsg = ""
+			entry.lastSampleTime = time.Now()
+			toActivate = append(toActivate, entry)
+		}
 	}
-	entry.State = "resolving"
-	entry.ErrorMsg = ""
-	entry.lastSampleTime = time.Now()
 	saveDownloadsIndexLocked()
 	downloadsLock.Unlock()
 
-	activateDownloadEntry(entry)
+	for _, entry := range toActivate {
+		activateDownloadEntry(entry)
+	}
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":   true,
-		"download": entry,
+		"download": matched[0],
 	})
 }
 
@@ -893,24 +1245,52 @@ func downloadDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	id := r.URL.Query().Get("id")
-	if id == "" {
-		http.Error(w, `{"status":false,"error":"missing id"}`, http.StatusBadRequest)
+	infoHash := strings.TrimSpace(r.URL.Query().Get("infoHash"))
+	if id == "" && infoHash == "" {
+		http.Error(w, `{"status":false,"error":"missing id or infoHash"}`, http.StatusBadRequest)
 		return
 	}
 
 	downloadsLock.Lock()
-	entry, ok := downloads[id]
-	if !ok {
+	var toDelete []*DownloadEntry
+	if id != "" {
+		if entry, ok := downloads[id]; ok {
+			toDelete = append(toDelete, entry)
+		}
+	} else {
+		for _, entry := range downloads {
+			if strings.EqualFold(entry.InfoHash, infoHash) {
+				toDelete = append(toDelete, entry)
+			}
+		}
+	}
+
+	if len(toDelete) == 0 {
 		downloadsLock.Unlock()
 		json.NewEncoder(w).Encode(map[string]interface{}{"status": true})
 		return
 	}
-	delete(downloads, id)
 
-	hash := entry.InfoHash
-	filePath := entry.FilePath
-	rootDir := entry.RootDir
-	subPath := entry.SubtitlePath
+	var hash string
+	var rootDir string
+	var filePaths []string
+	var subPaths []string
+
+	for _, entry := range toDelete {
+		delete(downloads, entry.ID)
+		if entry.InfoHash != "" {
+			hash = entry.InfoHash
+		}
+		if entry.RootDir != "" {
+			rootDir = entry.RootDir
+		}
+		if entry.FilePath != "" {
+			filePaths = append(filePaths, entry.FilePath)
+		}
+		if entry.SubtitlePath != "" {
+			subPaths = append(subPaths, entry.SubtitlePath)
+		}
+	}
 
 	sharedHash := false
 	for _, other := range downloads {
@@ -936,8 +1316,8 @@ func downloadDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if filePath != "" {
-		_ = os.Remove(filePath)
+	for _, fp := range filePaths {
+		_ = os.Remove(fp)
 	}
 	if !sharedHash && rootDir != "" && cachePath != "" {
 		targetRoot := filepath.Join(cachePath, rootDir)
@@ -945,8 +1325,8 @@ func downloadDeleteHandler(w http.ResponseWriter, r *http.Request) {
 			_ = os.RemoveAll(targetRoot)
 		}
 	}
-	if subPath != "" {
-		_ = os.Remove(subPath)
+	for _, sp := range subPaths {
+		_ = os.Remove(sp)
 	}
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1346,6 +1726,19 @@ func InitTorrentEngine(storageDir *C.char, port C.int) C.int {
 
 	serverOnce.Do(func() {
 		go runDownloadMonitor()
+		go func() {
+			downloadsLock.Lock()
+			var toActivate []*DownloadEntry
+			for _, d := range downloads {
+				if d.State == "resolving" {
+					toActivate = append(toActivate, d)
+				}
+			}
+			downloadsLock.Unlock()
+			for _, d := range toActivate {
+				activateDownloadEntry(d)
+			}
+		}()
 
 		mux := http.NewServeMux()
 		mux.HandleFunc("/stream", streamHandler)

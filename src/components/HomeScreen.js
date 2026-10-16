@@ -226,33 +226,60 @@ export function HomeScreen({
     usedBytes,
     playDownloaded,
     pauseDownload,
+    pauseByInfoHash,
     resumeDownload,
+    resumeByInfoHash,
     deleteDownload,
+    deleteByInfoHash,
     formatBytes,
     formatSpeed,
   } = useDownloads();
 
   const downloadedRow = useMemo(() => {
     if (!Array.isArray(downloads) || downloads.length === 0) return null;
-    const items = downloads
-      .filter((d) => {
-        if (mediaFilter && d.mediaType !== mediaFilter) return false;
-        return true;
-      })
-      .map((d) => ({
-        id: `dl_${d.id}`,
+    const filtered = downloads.filter((d) => {
+      if (mediaFilter && d.mediaType !== mediaFilter) return false;
+      return true;
+    });
+    if (filtered.length === 0) return null;
+
+    const groups = new Map();
+    filtered.forEach((d) => {
+      const seasonNum = Number(d.season) || 0;
+      if (seasonNum > 0) {
+        const seriesKey = d.imdbId || d.tmdbId || d.infoHash || d.title || d.id;
+        const groupKey = `tv_${seriesKey}_s${seasonNum}`;
+        if (!groups.has(groupKey)) {
+          groups.set(groupKey, []);
+        }
+        groups.get(groupKey).push(d);
+      } else {
+        groups.set(`movie_${d.id}`, [d]);
+      }
+    });
+
+    const items = [];
+    groups.forEach((groupEntries, groupKey) => {
+      groupEntries.sort((a, b) => (Number(a.episode) || 0) - (Number(b.episode) || 0));
+      const d = groupEntries[0];
+      const isMultiEp = groupEntries.length > 1 || (Number(d.season) > 0 && Number(d.episode) === 0);
+      items.push({
+        id: `dl_${groupKey}`,
         tmdbId: d.tmdbId || undefined,
         imdbId: d.imdbId || undefined,
-        title:
-          d.season > 0 && d.episode > 0
-            ? `${d.title} S${String(d.season).padStart(2, '0')}E${String(d.episode).padStart(2, '0')}`
-            : d.title || 'Downloaded Video',
+        title: isMultiEp
+          ? `${d.title} · S${String(d.season).padStart(2, '0')}`
+          : d.season > 0 && d.episode > 0
+          ? `${d.title} S${String(d.season).padStart(2, '0')}E${String(d.episode).padStart(2, '0')}`
+          : d.title || 'Downloaded Video',
         year: d.year || '',
         mediaType: d.mediaType || 'movie',
         posterUrl: d.posterUrl || null,
         downloadEntry: d,
-      }));
-    if (items.length === 0) return null;
+        downloadEntries: groupEntries,
+      });
+    });
+
     return {
       category: {
         id: 'downloaded_offline_row',
@@ -439,13 +466,291 @@ export function HomeScreen({
   const openDownloadedItemSheet = useCallback(
     (railItem) => {
       const dl = railItem?.downloadEntry;
-      if (!dl) {
+      const entries =
+        Array.isArray(railItem?.downloadEntries) && railItem.downloadEntries.length > 0
+          ? railItem.downloadEntries
+          : dl
+          ? [dl]
+          : [];
+      if (!dl || entries.length === 0) {
         onSelectItem?.(railItem);
         return;
       }
       Haptics.selectionAsync();
+      const isMultiEpisode = entries.length > 1;
+
       bottomSheet.show(
         (sheetId) => {
+          if (isMultiEpisode) {
+            const completedEps = entries.filter((e) => e.state === 'completed');
+            const activeEps = entries.filter(
+              (e) => e.state === 'downloading' || e.state === 'resolving',
+            );
+            const pausedEps = entries.filter((e) => e.state === 'paused' || e.state === 'error');
+            const totalBytes = entries.reduce((sum, e) => sum + (e.totalBytes || 0), 0);
+            const completedBytes = entries.reduce((sum, e) => sum + (e.completedBytes || 0), 0);
+            const speedBps = entries.reduce((sum, e) => sum + (e.speedBps || 0), 0);
+            const pct = totalBytes > 0 ? Math.round((completedBytes / totalBytes) * 100) : 0;
+
+            return (
+              <View style={styles.downloadedSheetWrap}>
+                <View style={styles.downloadedSheetHeader}>
+                  <MediaArtwork
+                    uri={dl.posterUrl}
+                    style={styles.downloadedSheetPoster}
+                    accessibilityLabel={`${railItem.title} poster`}
+                    title={railItem.title}
+                    instant
+                  />
+                  <View style={styles.downloadedSheetMetaCol}>
+                    <Text
+                      style={[
+                        styles.downloadedSheetTitle,
+                        { color: colors.onSurface, ...typography.titleMd },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {`${dl.title} · Season ${dl.season}`}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.downloadedSheetSub,
+                        { color: colors.onSurfaceVariant, ...typography.labelSm },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {`${entries.length} episodes in pack`}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.downloadedSheetSub,
+                        { color: GOLD_ACCENT, ...typography.labelSm },
+                      ]}
+                    >
+                      {completedEps.length === entries.length
+                        ? `${entries.length} episodes · ${formatBytes(
+                            totalBytes || completedBytes,
+                          )} · Ready offline`
+                        : activeEps.length > 0
+                        ? `Downloading ${completedEps.length}/${entries.length} episodes (${pct}%) · ${formatBytes(
+                            completedBytes,
+                          )}${totalBytes > 0 ? ` / ${formatBytes(totalBytes)}` : ''}${
+                            speedBps > 0 ? ` · ${formatSpeed(speedBps)}` : ''
+                          }`
+                        : `Paused (${completedEps.length}/${entries.length} episodes ready) · ${formatBytes(
+                            completedBytes,
+                          )}`}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.downloadedSheetActions}>
+                  {activeEps.length > 0 && dl.infoHash && (
+                    <TouchableOpacity
+                      style={styles.downloadedActionBtn}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        pauseByInfoHash(dl.infoHash);
+                        bottomSheet.dismiss(sheetId);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.downloadedSecondaryText,
+                          { color: colors.onSurface, ...typography.labelMd },
+                        ]}
+                      >
+                        Pause All
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {activeEps.length === 0 && pausedEps.length > 0 && dl.infoHash && (
+                    <TouchableOpacity
+                      style={styles.downloadedActionBtn}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        resumeByInfoHash(dl.infoHash, railItem.title);
+                        bottomSheet.dismiss(sheetId);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.downloadedPrimaryText,
+                          { color: GOLD_ACCENT, ...typography.labelMd },
+                        ]}
+                      >
+                        Resume All
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {dl.infoHash && (
+                    <TouchableOpacity
+                      style={styles.downloadedActionBtn}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        deleteByInfoHash(dl.infoHash);
+                        bottomSheet.dismiss(sheetId);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.downloadedSecondaryText,
+                          { color: colors.onSurfaceVariant, ...typography.labelMd },
+                        ]}
+                      >
+                        Delete Season Pack
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {(dl.tmdbId || dl.imdbId) && (
+                    <TouchableOpacity
+                      style={styles.downloadedActionBtn}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        bottomSheet.dismiss(sheetId);
+                        onSelectItem?.({
+                          id: dl.tmdbId || dl.imdbId,
+                          tmdbId: dl.tmdbId || undefined,
+                          imdbId: dl.imdbId || undefined,
+                          title: dl.title,
+                          year: dl.year,
+                          mediaType: dl.mediaType || 'tv',
+                          posterUrl: dl.posterUrl,
+                        });
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.downloadedSecondaryText,
+                          { color: colors.onSurface, ...typography.labelMd },
+                        ]}
+                      >
+                        Open Title Page
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <View style={styles.downloadedEpisodesList}>
+                  {entries.map((epItem) => {
+                    const epDone = epItem.state === 'completed';
+                    const epActive =
+                      epItem.state === 'downloading' || epItem.state === 'resolving';
+                    const epPaused = epItem.state === 'paused' || epItem.state === 'error';
+                    const epLabel = `Episode ${String(epItem.episode || 1).padStart(2, '0')}${
+                      epItem.episodeTitle ? ` · ${epItem.episodeTitle}` : ''
+                    }`;
+
+                    return (
+                      <View key={epItem.id} style={styles.downloadedEpisodeRow}>
+                        <Text
+                          style={[
+                            styles.downloadedEpisodeTitle,
+                            { color: colors.onSurface, ...typography.labelMd },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {epLabel}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.downloadedSheetSub,
+                            {
+                              color: epDone ? GOLD_ACCENT : colors.onSurfaceVariant,
+                              ...typography.labelSm,
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {epDone
+                            ? `${formatBytes(
+                                epItem.totalBytes || epItem.completedBytes,
+                              )} · Ready offline`
+                            : epActive
+                            ? `Downloading ${Math.round(
+                                (epItem.progress || 0) * 100,
+                              )}% · ${formatBytes(epItem.completedBytes)}${
+                                epItem.totalBytes > 0
+                                  ? ` / ${formatBytes(epItem.totalBytes)}`
+                                  : ''
+                              }`
+                            : `Paused at ${Math.round((epItem.progress || 0) * 100)}%`}
+                        </Text>
+                        <View style={styles.downloadedSheetActions}>
+                          {(epDone || epItem.completedBytes > 0) && (
+                            <TouchableOpacity
+                              style={styles.downloadedActionBtn}
+                              onPress={() => {
+                                Haptics.selectionAsync();
+                                bottomSheet.dismiss(sheetId);
+                                playDownloaded(epItem);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.downloadedPrimaryText,
+                                  { color: GOLD_ACCENT, ...typography.labelSm },
+                                ]}
+                              >
+                                {epDone ? 'Play Downloaded' : 'Play Now'}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                          {epPaused && (
+                            <TouchableOpacity
+                              style={styles.downloadedActionBtn}
+                              onPress={() => {
+                                Haptics.selectionAsync();
+                                resumeDownload(epItem.id, epLabel);
+                                bottomSheet.dismiss(sheetId);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.downloadedPrimaryText,
+                                  { color: GOLD_ACCENT, ...typography.labelSm },
+                                ]}
+                              >
+                                Resume
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity
+                            style={styles.downloadedActionBtn}
+                            onPress={() => {
+                              Haptics.selectionAsync();
+                              deleteDownload(epItem.id);
+                              bottomSheet.dismiss(sheetId);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.downloadedSecondaryText,
+                                { color: colors.onSurfaceVariant, ...typography.labelSm },
+                              ]}
+                            >
+                              Delete
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          }
+
           const isCompleted = dl.state === 'completed';
           const isActive = dl.state === 'downloading' || dl.state === 'resolving';
           const isPaused = dl.state === 'paused' || dl.state === 'error';
@@ -598,8 +903,8 @@ export function HomeScreen({
           title: 'Downloaded on Device',
           centerTitle: true,
           showCloseButton: false,
-          size: 'medium',
-          scrollable: false,
+          size: isMultiEpisode ? 'large' : 'medium',
+          scrollable: isMultiEpisode,
         },
       );
     },
@@ -611,8 +916,11 @@ export function HomeScreen({
       formatSpeed,
       playDownloaded,
       pauseDownload,
+      pauseByInfoHash,
       resumeDownload,
+      resumeByInfoHash,
       deleteDownload,
+      deleteByInfoHash,
       onSelectItem,
     ],
   );
@@ -660,6 +968,12 @@ export function HomeScreen({
               ? (film) => film.awardYear || null
               : category.isDownloadedRail
               ? (film) => {
+                  const entries = film.downloadEntries;
+                  if (Array.isArray(entries) && entries.length > 1) {
+                    const done = entries.filter((e) => e.state === 'completed').length;
+                    if (done === entries.length) return `${entries.length} Eps`;
+                    return `${done}/${entries.length} Eps`;
+                  }
                   const dl = film.downloadEntry;
                   if (!dl) return null;
                   if (dl.state === 'completed') return 'Ready';
@@ -879,6 +1193,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   downloadedSecondaryText: {
+    fontWeight: '700',
+  },
+  downloadedEpisodesList: {
+    gap: 14,
+    marginTop: 4,
+  },
+  downloadedEpisodeRow: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    gap: 4,
+    paddingVertical: 4,
+  },
+  downloadedEpisodeTitle: {
     fontWeight: '700',
   },
 });

@@ -116,6 +116,10 @@ export async function refreshDownloadsStatus() {
           if (TorrentStreamerModule?.stopService) {
             TorrentStreamerModule.stopService().catch(() => {});
           }
+        } else if (prevActive === 0 && nextActive > 0 && Platform.OS === 'android') {
+          if (TorrentStreamerModule?.startService) {
+            TorrentStreamerModule.startService('Downloading media...').catch(() => {});
+          }
         }
       }
     }
@@ -185,6 +189,36 @@ export function findDownloadForMedia({ imdbId, tmdbId, season, episode, infoHash
   );
 }
 
+export function findSeasonDownloads({ imdbId, tmdbId, season, infoHash } = {}) {
+  const { downloads } = storeState;
+  if (!Array.isArray(downloads) || downloads.length === 0) return [];
+
+  const cleanImdb = String(imdbId || '').trim().toLowerCase();
+  const numTmdb = Number(tmdbId) || 0;
+  const numSeason = Number(season) || 0;
+  const cleanHash = String(infoHash || '').trim().toLowerCase();
+
+  const matched = downloads.filter((d) => {
+    if (cleanHash && String(d.infoHash || '').toLowerCase() === cleanHash) {
+      if (numSeason > 0 && Number(d.season || 0) > 0) {
+        return Number(d.season || 0) === numSeason;
+      }
+      return true;
+    }
+    if (!cleanHash && numSeason > 0) {
+      const matchImdb = cleanImdb && String(d.imdbId || '').trim().toLowerCase() === cleanImdb;
+      const matchTmdb = numTmdb > 0 && Number(d.tmdbId || 0) === numTmdb;
+      if ((matchImdb || matchTmdb) && Number(d.season || 0) === numSeason) {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  matched.sort((a, b) => (Number(a.episode) || 0) - (Number(b.episode) || 0));
+  return matched;
+}
+
 export async function startDownload(params) {
   const {
     magnet,
@@ -200,6 +234,7 @@ export async function startDownload(params) {
     season,
     episode,
     episodeTitle,
+    episodeTitles,
     quality,
     codec,
   } = params || {};
@@ -238,6 +273,7 @@ export async function startDownload(params) {
         season: Number(season) || 0,
         episode: Number(episode) || 0,
         episodeTitle: episodeTitle || '',
+        episodeTitles: episodeTitles || undefined,
         quality: quality || '',
         codec: codec || '',
       }),
@@ -249,7 +285,12 @@ export async function startDownload(params) {
       return null;
     }
 
-    toastiva.success(`Downloading ${title || 'video'}...`);
+    const isSeasonPack = Number(season) > 0 && (!episode || Number(episode) === 0);
+    toastiva.success(
+      isSeasonPack
+        ? `Downloading ${title || 'Season'} Season ${season} pack...`
+        : `Downloading ${title || 'video'}...`
+    );
     await refreshDownloadsStatus();
     ensurePollingLoop();
     return data.download;
@@ -263,6 +304,20 @@ export async function pauseDownload(id) {
   if (!id) return false;
   try {
     const res = await fetch(`${ENGINE_BASE_URL}/download/pause?id=${encodeURIComponent(id)}`);
+    const data = await res.json().catch(() => null);
+    await refreshDownloadsStatus();
+    return Boolean(data?.status);
+  } catch {
+    return false;
+  }
+}
+
+export async function pauseByInfoHash(infoHash) {
+  if (!infoHash) return false;
+  try {
+    const res = await fetch(
+      `${ENGINE_BASE_URL}/download/pause?infoHash=${encodeURIComponent(infoHash)}`
+    );
     const data = await res.json().catch(() => null);
     await refreshDownloadsStatus();
     return Boolean(data?.status);
@@ -291,12 +346,49 @@ export async function resumeDownload(id, title) {
   }
 }
 
+export async function resumeByInfoHash(infoHash, title) {
+  if (!infoHash) return false;
+  if (Platform.OS === 'android' && TorrentStreamerModule?.startService) {
+    try {
+      await TorrentStreamerModule.startService(`Downloading: ${title || 'Media'}`);
+    } catch {
+      // ignore
+    }
+  }
+  try {
+    const res = await fetch(
+      `${ENGINE_BASE_URL}/download/resume?infoHash=${encodeURIComponent(infoHash)}`
+    );
+    const data = await res.json().catch(() => null);
+    await refreshDownloadsStatus();
+    ensurePollingLoop();
+    return Boolean(data?.status);
+  } catch {
+    return false;
+  }
+}
+
 export async function deleteDownload(id) {
   if (!id) return false;
   try {
     const res = await fetch(`${ENGINE_BASE_URL}/download/delete?id=${encodeURIComponent(id)}`);
     const data = await res.json().catch(() => null);
     toastiva.info('Download deleted');
+    await refreshDownloadsStatus();
+    return Boolean(data?.status);
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteByInfoHash(infoHash) {
+  if (!infoHash) return false;
+  try {
+    const res = await fetch(
+      `${ENGINE_BASE_URL}/download/delete?infoHash=${encodeURIComponent(infoHash)}`
+    );
+    const data = await res.json().catch(() => null);
+    toastiva.info('Season downloads deleted');
     await refreshDownloadsStatus();
     return Boolean(data?.status);
   } catch {
@@ -339,15 +431,24 @@ export function useDownloads() {
     [state.downloads]
   );
 
+  const getSeasonDownloads = useCallback(
+    (query) => findSeasonDownloads(query),
+    [state.downloads]
+  );
+
   return {
     ...state,
     startDownload,
     pauseDownload,
+    pauseByInfoHash,
     resumeDownload,
+    resumeByInfoHash,
     deleteDownload,
+    deleteByInfoHash,
     playDownloaded,
     refreshDownloadsStatus,
     getForMedia,
+    getSeasonDownloads,
     formatBytes,
     formatSpeed,
   };

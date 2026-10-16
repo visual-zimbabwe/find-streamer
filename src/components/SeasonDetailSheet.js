@@ -72,10 +72,14 @@ export function SeasonDetailSheetContent({
     usedBytes,
     startDownload,
     pauseDownload,
+    pauseByInfoHash,
     resumeDownload,
+    resumeByInfoHash,
     deleteDownload,
+    deleteByInfoHash,
     playDownloaded,
     getForMedia,
+    getSeasonDownloads,
     formatBytes,
     formatSpeed,
   } = useDownloads();
@@ -121,6 +125,15 @@ export function SeasonDetailSheetContent({
   }, [seriesTitle, season?.seasonNumber, imdbId]);
 
   const topSeasonPack = seasonPacks[0] || null;
+  const seasonDownloads = getSeasonDownloads({
+    imdbId,
+    tmdbId: seriesTmdbId,
+    season: season?.seasonNumber,
+  });
+  const seasonCompletedCount = seasonDownloads.filter((d) => d.state === 'completed').length;
+  const seasonActiveCount = seasonDownloads.filter(
+    (d) => d.state === 'downloading' || d.state === 'resolving',
+  ).length;
 
   // Stream launch helper (auto opens mpv.android with auto-play in landscape)
   const handleLaunchStream = useCallback(
@@ -143,6 +156,16 @@ export function SeasonDetailSheetContent({
       if (!source?.magnetUrl) return;
       Haptics.selectionAsync();
       const epNum = ep?.episodeNumber || 0;
+      const episodeTitles =
+        !ep && episodes.length
+          ? episodes.reduce((acc, item) => {
+              if (item?.episodeNumber && item?.name) {
+                acc[String(item.episodeNumber)] = item.name;
+              }
+              return acc;
+            }, {})
+          : undefined;
+
       await startDownload({
         magnet: source.magnetUrl,
         infoHash: source.infoHash,
@@ -157,12 +180,14 @@ export function SeasonDetailSheetContent({
         season: season?.seasonNumber || 0,
         episode: epNum,
         episodeTitle: ep?.name || '',
+        episodeTitles,
         quality: source.attributes?.resolution || '',
         codec: source.attributes?.codec || '',
       });
     },
     [
       startDownload,
+      episodes,
       seriesTitle,
       seriesTmdbId,
       imdbId,
@@ -297,7 +322,11 @@ export function SeasonDetailSheetContent({
               ]}
               numberOfLines={1}
             >
-              {seasonPackLoading
+              {seasonActiveCount > 0
+                ? `Downloading ${seasonCompletedCount}/${seasonDownloads.length} episodes to device...`
+                : seasonCompletedCount > 0
+                ? `${seasonCompletedCount} of ${seasonDownloads.length} episodes downloaded · Ready offline`
+                : seasonPackLoading
                 ? 'Searching peer swarms for season pack...'
                 : topSeasonPack
                 ? `${topSeasonPack.attributes?.resolution} · ${topSeasonPack.formattedSize} · ${topSeasonPack.seeders} seeds`
@@ -327,13 +356,32 @@ export function SeasonDetailSheetContent({
               </Text>
             ) : (
               seasonPacks.slice(0, 3).map((pack) => {
-                const packDownload = getForMedia({
+                const packEntries = getSeasonDownloads({
                   infoHash: pack.infoHash,
-                  fileIdx: pack.fileIdx,
+                  season: season.seasonNumber,
                 });
-                const isPackCompleted = packDownload?.state === 'completed';
-                const isPackActive =
-                  packDownload?.state === 'downloading' || packDownload?.state === 'resolving';
+                const completedPackEps = packEntries.filter((d) => d.state === 'completed');
+                const activePackEps = packEntries.filter(
+                  (d) => d.state === 'downloading' || d.state === 'resolving',
+                );
+                const pausedPackEps = packEntries.filter(
+                  (d) => d.state === 'paused' || d.state === 'error',
+                );
+                const isPackCompleted =
+                  packEntries.length > 0 && completedPackEps.length === packEntries.length;
+                const isPackActive = activePackEps.length > 0;
+                const isPackPaused = !isPackActive && pausedPackEps.length > 0;
+
+                const packTotalBytes = packEntries.reduce((s, d) => s + (d.totalBytes || 0), 0);
+                const packCompletedBytes = packEntries.reduce(
+                  (s, d) => s + (d.completedBytes || 0),
+                  0,
+                );
+                const packSpeedBps = packEntries.reduce((s, d) => s + (d.speedBps || 0), 0);
+                const packPct =
+                  packTotalBytes > 0
+                    ? Math.round((packCompletedBytes / packTotalBytes) * 100)
+                    : 0;
 
                 return (
                   <View key={pack.infoHash} style={styles.sourceItem}>
@@ -383,15 +431,41 @@ export function SeasonDetailSheetContent({
                           {pack.formattedSize}
                         </Text>
                       </View>
+                      {packEntries.length > 0 ? (
+                        <Text
+                          style={[
+                            styles.episodeDownloadStatus,
+                            {
+                              color: isPackCompleted ? GOLD_ACCENT : colors.onSurfaceVariant,
+                              ...typography.labelSm,
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {isPackCompleted
+                            ? `${completedPackEps.length} episodes downloaded · ${formatBytes(
+                                packTotalBytes || packCompletedBytes,
+                              )} · Ready offline`
+                            : isPackActive
+                            ? `Downloading ${completedPackEps.length}/${
+                                packEntries.length
+                              } episodes (${packPct}%) · ${formatBytes(packCompletedBytes)}${
+                                packTotalBytes > 0 ? ` / ${formatBytes(packTotalBytes)}` : ''
+                              }${packSpeedBps > 0 ? ` · ${formatSpeed(packSpeedBps)}` : ''}`
+                            : `Paused (${completedPackEps.length}/${
+                                packEntries.length
+                              } episodes ready) · ${formatBytes(packCompletedBytes)}`}
+                        </Text>
+                      ) : null}
                     </View>
 
                     <View style={styles.sourceActionsRow}>
                       <TouchableOpacity
                         style={styles.streamPrimaryBtn}
                         onPress={() => {
-                          if (isPackCompleted) {
+                          if (completedPackEps.length > 0) {
                             Haptics.selectionAsync();
-                            playDownloaded(packDownload);
+                            playDownloaded(completedPackEps[0]);
                           } else {
                             handleLaunchStream(pack.magnetUrl, pack.name, pack.fileIdx);
                           }
@@ -399,7 +473,9 @@ export function SeasonDetailSheetContent({
                         activeOpacity={0.7}
                       >
                         <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-                          {isPackCompleted ? 'Play Downloaded' : 'Play Season'}
+                          {completedPackEps.length > 0
+                            ? `Play Episode ${completedPackEps[0].episode || 1}`
+                            : 'Play Season'}
                         </Text>
                       </TouchableOpacity>
 
@@ -408,7 +484,7 @@ export function SeasonDetailSheetContent({
                           style={styles.streamSecondaryBtn}
                           onPress={() => {
                             Haptics.selectionAsync();
-                            deleteDownload(packDownload.id);
+                            deleteByInfoHash(pack.infoHash);
                           }}
                           activeOpacity={0.7}
                         >
@@ -418,7 +494,7 @@ export function SeasonDetailSheetContent({
                               { color: colors.onSurfaceVariant, ...typography.labelSm },
                             ]}
                           >
-                            Delete Download
+                            Delete Season Pack
                           </Text>
                         </TouchableOpacity>
                       ) : isPackActive ? (
@@ -427,7 +503,7 @@ export function SeasonDetailSheetContent({
                             style={styles.streamSecondaryBtn}
                             onPress={() => {
                               Haptics.selectionAsync();
-                              pauseDownload(packDownload.id);
+                              pauseByInfoHash(pack.infoHash);
                             }}
                             activeOpacity={0.7}
                           >
@@ -437,14 +513,14 @@ export function SeasonDetailSheetContent({
                                 { color: GOLD_ACCENT, ...typography.labelSm },
                               ]}
                             >
-                              {`Downloading ${Math.round((packDownload.progress || 0) * 100)}% · Pause`}
+                              Pause Pack
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.streamSecondaryBtn}
                             onPress={() => {
                               Haptics.selectionAsync();
-                              deleteDownload(packDownload.id);
+                              deleteByInfoHash(pack.infoHash);
                             }}
                             activeOpacity={0.7}
                           >
@@ -454,7 +530,44 @@ export function SeasonDetailSheetContent({
                                 { color: colors.onSurfaceVariant, ...typography.labelSm },
                               ]}
                             >
-                              Cancel
+                              Cancel Pack
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : isPackPaused ? (
+                        <>
+                          <TouchableOpacity
+                            style={styles.streamSecondaryBtn}
+                            onPress={() => {
+                              Haptics.selectionAsync();
+                              resumeByInfoHash(pack.infoHash, `${seriesTitle} ${season.name}`);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.streamSecondaryText,
+                                { color: GOLD_ACCENT, ...typography.labelSm },
+                              ]}
+                            >
+                              Resume Pack
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.streamSecondaryBtn}
+                            onPress={() => {
+                              Haptics.selectionAsync();
+                              deleteByInfoHash(pack.infoHash);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.streamSecondaryText,
+                                { color: colors.onSurfaceVariant, ...typography.labelSm },
+                              ]}
+                            >
+                              Delete Pack
                             </Text>
                           </TouchableOpacity>
                         </>
@@ -470,7 +583,7 @@ export function SeasonDetailSheetContent({
                               { color: colors.onSurface, ...typography.labelSm },
                             ]}
                           >
-                            Download
+                            Download Season
                           </Text>
                         </TouchableOpacity>
                       )}
