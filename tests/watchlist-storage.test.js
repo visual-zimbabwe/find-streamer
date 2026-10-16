@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
 
-const { loadWatchlist, saveWatchlist } = require(
+const { loadWatchlist, saveWatchlist, loadRailSortPrefs, saveRailSortPrefs } = require(
   path.join(__dirname, '..', 'src', 'lib', 'storage.js'),
 );
 const { buildDefaultPrepopulatedWatchlist } = require(
@@ -328,4 +328,25 @@ test('normalizeWatchlistItems preserves soundtracks field', () => {
   const normalized = normalizeWatchlistItems([item]);
   assert.equal(normalized.length, 1);
   assert.deepEqual(normalized[0].soundtracks, item.soundtracks);
+});
+
+test('rail sort preferences round-trip through storage and default to empty', async () => {
+  const storage = createMemoryStorage();
+  const initial = await loadRailSortPrefs(storage);
+  assert.deepEqual(initial, {});
+
+  const prefs = {
+    favorites: 'year',
+    watch_next: 'rating',
+    cannes: 'year',
+  };
+
+  await saveRailSortPrefs(prefs, storage);
+  const loaded = await loadRailSortPrefs(storage);
+  assert.deepEqual(loaded, prefs);
+
+  // Survives corrupt payload
+  await storage.setItem('find-streamer/rail-sort-prefs', 'invalid-json{{{');
+  const fallback = await loadRailSortPrefs(storage);
+  assert.deepEqual(fallback, {});
 });
