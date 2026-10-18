@@ -69,17 +69,12 @@ import {
   RATING_DISTRIBUTION,
   YEAR_DISTRIBUTION,
 } from '../lib/discoverRanges';
-import { RangeSlider } from './RangeSlider';
+import { RatingFilterControl } from './RatingFilterControl';
+import { YearFilterControl } from './YearFilterControl';
+import { RuntimeFilterControl } from './RuntimeFilterControl';
 import { shouldPrefetchNextPage } from '../lib/discoverPagination';
 import { scale } from '../utils/responsive';
-import {
-  GOLD_ACCENT,
-  GOLD_DIM,
-  GRID_PAD,
-  GRID_GAP,
-  FADE_MS,
-  GRID_COL_W,
-} from '../theme/programme';
+import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, FADE_MS, GRID_COL_W } from '../theme/programme';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { GridPosterCard } from './GridPosterCard';
@@ -264,7 +259,12 @@ const PickerSectionHeader = React.memo(({ label, colors, typography }) => (
   <View style={pickerStyles.sectionHeader}>
     <Text
       style={[
-        { color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '800', letterSpacing: 1 },
+        {
+          color: colors.onSurfaceVariant,
+          ...typography.labelSm,
+          fontWeight: '800',
+          letterSpacing: 1,
+        },
       ]}
     >
       {label}
@@ -283,7 +283,10 @@ const SelectedChip = React.memo(({ label, onRemove, colors, typography, radii })
     accessibilityRole="button"
     accessibilityLabel={`Remove ${label}`}
   >
-    <Text style={[{ color: '#141414', ...typography.labelSm, fontWeight: '800' }]} numberOfLines={1}>
+    <Text
+      style={[{ color: '#141414', ...typography.labelSm, fontWeight: '800' }]}
+      numberOfLines={1}
+    >
       {label}
     </Text>
     <Ionicons name="close" size={13} color="#141414" style={{ marginLeft: 5 }} />
@@ -392,7 +395,8 @@ function SearchablePickerModal({
   );
 
   const getItemLayout = useCallback(
-    (_, index) => layout[index] || { length: PICKER_ITEM_HEIGHT, offset: PICKER_ITEM_HEIGHT * index, index },
+    (_, index) =>
+      layout[index] || { length: PICKER_ITEM_HEIGHT, offset: PICKER_ITEM_HEIGHT * index, index },
     [layout],
   );
 
@@ -424,7 +428,9 @@ function SearchablePickerModal({
             {/* Header: title (with a live selection count) + Clear (when any) + Done */}
             <View style={pickerStyles.sheetHeader}>
               <Text
-                style={[{ color: colors.onSurface, ...typography.titleMd, fontWeight: '700', flex: 1 }]}
+                style={[
+                  { color: colors.onSurface, ...typography.titleMd, fontWeight: '700', flex: 1 },
+                ]}
                 numberOfLines={1}
               >
                 {title}
@@ -442,7 +448,11 @@ function SearchablePickerModal({
                   accessibilityRole="button"
                   accessibilityLabel={`Clear ${title.toLowerCase()} selection`}
                 >
-                  <Text style={[{ color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' }]}>
+                  <Text
+                    style={[
+                      { color: colors.onSurfaceVariant, ...typography.labelSm, fontWeight: '700' },
+                    ]}
+                  >
                     Clear
                   </Text>
                 </TouchableOpacity>
@@ -916,22 +926,15 @@ export function DiscoverScreen({
           colors={c}
           typography={typography}
         />
-        <RangeSlider
-          min={RATING_MIN}
-          max={RATING_MAX}
-          step={RATING_STEP}
-          low={ratingLowFromFilters(vm.filters.minRating)}
-          high={ratingHighFromFilters(vm.filters.maxRating)}
+        <RatingFilterControl
+          minRating={vm.filters.minRating}
+          maxRating={vm.filters.maxRating}
           onChange={(lo, hi) => {
-            const { minRating, maxRating } = ratingFiltersFromRange(lo, hi);
-            vm.updateFilter('minRating', minRating);
-            vm.updateFilter('maxRating', maxRating);
+            vm.updateFilter('minRating', lo);
+            vm.updateFilter('maxRating', hi);
           }}
-          distribution={RATING_DISTRIBUTION}
           colors={c}
-          labelLow="Minimum rating"
-          labelHigh="Maximum rating"
-          formatValue={(n) => `${n} out of 10`}
+          typography={typography}
         />
       </View>
 
@@ -1018,22 +1021,15 @@ export function DiscoverScreen({
               colors={c}
               typography={typography}
             />
-            <RangeSlider
-              min={YEAR_MIN}
-              max={yearMax()}
-              step={1}
-              low={yearLowFromFilters(vm.filters.fromYear)}
-              high={yearHighFromFilters(vm.filters.toYear)}
-              onChange={(lo, hi) => {
-                const { fromYear, toYear } = yearFiltersFromRange(lo, hi);
-                vm.updateFilter('fromYear', fromYear);
-                vm.updateFilter('toYear', toYear);
+            <YearFilterControl
+              fromYear={vm.filters.fromYear}
+              toYear={vm.filters.toYear}
+              onChange={(fromY, toY) => {
+                vm.updateFilter('fromYear', fromY);
+                vm.updateFilter('toYear', toY);
               }}
-              distribution={YEAR_DISTRIBUTION}
               colors={c}
-              labelLow="Earliest year"
-              labelHigh="Latest year"
-              formatValue={(n) => String(n)}
+              typography={typography}
             />
           </View>
 
@@ -1048,21 +1044,15 @@ export function DiscoverScreen({
                   colors={c}
                   typography={typography}
                 />
-                <RangeSlider
-                  min={RUNTIME_MIN}
-                  max={RUNTIME_MAX}
-                  step={RUNTIME_STEP}
-                  low={runtimeLowFromFilters(vm.filters.minRuntime)}
-                  high={runtimeHighFromFilters(vm.filters.maxRuntime)}
-                  onChange={(lo, hi) => {
-                    const { minRuntime, maxRuntime } = runtimeFiltersFromRange(lo, hi);
-                    vm.updateFilter('minRuntime', minRuntime);
-                    vm.updateFilter('maxRuntime', maxRuntime);
+                <RuntimeFilterControl
+                  minRuntime={vm.filters.minRuntime}
+                  maxRuntime={vm.filters.maxRuntime}
+                  onChange={(minR, maxR) => {
+                    vm.updateFilter('minRuntime', minR);
+                    vm.updateFilter('maxRuntime', maxR);
                   }}
                   colors={c}
-                  labelLow="Minimum runtime"
-                  labelHigh="Maximum runtime"
-                  formatValue={(n) => `${n} minutes`}
+                  typography={typography}
                 />
               </View>
             </>
@@ -1203,8 +1193,7 @@ export function DiscoverScreen({
             style={[
               styles.searchBtn,
               {
-                backgroundColor:
-                  zeroMatches && !vm.loading ? c.surfaceContainerHigh : GOLD_ACCENT,
+                backgroundColor: zeroMatches && !vm.loading ? c.surfaceContainerHigh : GOLD_ACCENT,
                 borderRadius: radii.md,
                 borderWidth: zeroMatches && !vm.loading ? StyleSheet.hairlineWidth : 0,
                 borderColor: GOLD_DIM,
@@ -1471,7 +1460,9 @@ function GenreFilterSection({
         >
           <Ionicons name="checkmark" size={11} color="#141414" />
         </View>
-        <Text style={[genreStyles.legendText, { color: c.onSurfaceVariant, ...typography.labelSm }]}>
+        <Text
+          style={[genreStyles.legendText, { color: c.onSurfaceVariant, ...typography.labelSm }]}
+        >
           Tap to include
         </Text>
         <View
@@ -1488,7 +1479,9 @@ function GenreFilterSection({
         >
           <Ionicons name="close" size={11} color={c.onSurfaceVariant} />
         </View>
-        <Text style={[genreStyles.legendText, { color: c.onSurfaceVariant, ...typography.labelSm }]}>
+        <Text
+          style={[genreStyles.legendText, { color: c.onSurfaceVariant, ...typography.labelSm }]}
+        >
           Hold to exclude
         </Text>
       </View>
@@ -1638,7 +1631,12 @@ function GenreFilterSection({
         />
         <Text
           style={[
-            { color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', letterSpacing: 0.8 },
+            {
+              color: c.onSurfaceVariant,
+              ...typography.labelSm,
+              fontWeight: '700',
+              letterSpacing: 0.8,
+            },
           ]}
         >
           SMART FILTERS
@@ -1699,7 +1697,11 @@ function GenreFilterSection({
                 <View style={{ flex: 1 }}>
                   <Text
                     style={[
-                      { color: inc || exc ? stateColor : c.onSurface, ...typography.bodyMd, fontWeight: '700' },
+                      {
+                        color: inc || exc ? stateColor : c.onSurface,
+                        ...typography.bodyMd,
+                        fontWeight: '700',
+                      },
                       exc && styles.chipTextExcluded,
                     ]}
                   >
@@ -1716,12 +1718,19 @@ function GenreFilterSection({
               <View
                 style={[
                   genreStyles.smartTagBadge,
-                  { backgroundColor: inc || exc ? stateColor : c.surfaceContainerHigh, borderRadius: radii.sm },
+                  {
+                    backgroundColor: inc || exc ? stateColor : c.surfaceContainerHigh,
+                    borderRadius: radii.sm,
+                  },
                 ]}
               >
                 <Text
                   style={[
-                    { color: inc || exc ? c.onPrimary : c.onSurfaceVariant, fontSize: 10, fontWeight: '800' },
+                    {
+                      color: inc || exc ? c.onPrimary : c.onSurfaceVariant,
+                      fontSize: 10,
+                      fontWeight: '800',
+                    },
                   ]}
                 >
                   {stateLabel}
@@ -1733,7 +1742,11 @@ function GenreFilterSection({
               <View
                 style={[
                   genreStyles.smartTagInfo,
-                  { backgroundColor: stateColor + '10', borderRadius: radii.sm, borderLeftColor: stateColor },
+                  {
+                    backgroundColor: stateColor + '10',
+                    borderRadius: radii.sm,
+                    borderLeftColor: stateColor,
+                  },
                 ]}
               >
                 <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
@@ -1771,7 +1784,13 @@ function buildResultsView({ vm, colors: c, typography, radii }) {
     enrichingResults,
   } = vm;
 
-  const empty = { gridData: [], headerNode: null, emptyNode: null, footerNode: null, showAirDay: false };
+  const empty = {
+    gridData: [],
+    headerNode: null,
+    emptyNode: null,
+    footerNode: null,
+    showAirDay: false,
+  };
 
   // Only skeleton on a first search. A refine keeps the previous grid on screen
   // (see search() — it no longer blanks results) and swaps under an inline
@@ -1923,7 +1942,12 @@ function buildResultsView({ vm, colors: c, typography, radii }) {
             <SkeletonBlock style={styles.enrichmentDot} />
             <Text
               style={[
-                { color: c.onSurfaceVariant, ...typography.labelSm, fontWeight: '700', marginLeft: 6 },
+                {
+                  color: c.onSurfaceVariant,
+                  ...typography.labelSm,
+                  fontWeight: '700',
+                  marginLeft: 6,
+                },
               ]}
             >
               updating

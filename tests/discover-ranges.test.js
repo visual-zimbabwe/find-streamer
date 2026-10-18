@@ -18,6 +18,10 @@ import {
   formatRatingRange,
   formatYearRange,
   formatRuntimeRange,
+  formatRuntimeHours,
+  getYearMode,
+  getRuntimeMode,
+  getRatingMode,
 } from '../src/lib/discoverRanges.js';
 
 test('rating: reads the shipped default (7 – 10.0) as [7, 10]', () => {
@@ -119,4 +123,44 @@ test('readout: runtime', () => {
   assert.equal(formatRuntimeRange('90', '180'), '90 – 180 min');
   assert.equal(formatRuntimeRange('90', ''), '90+ min');
   assert.equal(formatRuntimeRange('', '120'), 'Up to 120 min');
+});
+
+test('readout: exact year, runtime and rating', () => {
+  assert.equal(formatYearRange('1999', '1999'), '1999');
+  assert.equal(formatRuntimeRange('105', '105'), '105 min');
+  assert.equal(formatRatingRange('7.3', '7.3'), '7.3');
+});
+
+test('formatRuntimeHours formats minutes into hours and minutes', () => {
+  assert.equal(formatRuntimeHours(45), '45m');
+  assert.equal(formatRuntimeHours(60), '1h');
+  assert.equal(formatRuntimeHours(90), '1h 30m');
+  assert.equal(formatRuntimeHours(105), '1h 45m');
+  assert.equal(formatRuntimeHours(120), '2h');
+  assert.equal(formatRuntimeHours(150), '2h 30m');
+});
+
+test('getYearMode detects mode correctly', () => {
+  assert.equal(getYearMode('', ''), 'ANY');
+  assert.equal(getYearMode('1999', '1999'), 'EXACT');
+  assert.equal(getYearMode('2010', ''), 'AFTER');
+  assert.equal(getYearMode('', '1980'), 'BEFORE');
+  assert.equal(getYearMode('1980', '1990'), 'BETWEEN');
+});
+
+test('getRuntimeMode detects mode correctly', () => {
+  assert.equal(getRuntimeMode('', ''), 'ANY');
+  assert.equal(getRuntimeMode('', '90'), 'UNDER');
+  assert.equal(getRuntimeMode('120', ''), 'OVER');
+  assert.equal(getRuntimeMode('90', '120'), 'BETWEEN');
+});
+
+test('getRatingMode detects presets and custom', () => {
+  assert.equal(getRatingMode('0', '10.0'), 'ANY');
+  assert.equal(getRatingMode('6.0', '10.0'), '6.0+');
+  assert.equal(getRatingMode('7', '10.0'), '7.0+');
+  assert.equal(getRatingMode('7.0', '10.0'), '7.0+');
+  assert.equal(getRatingMode('8.0', '10.0'), '8.0+');
+  assert.equal(getRatingMode('7.3', '10.0'), 'CUSTOM');
+  assert.equal(getRatingMode('6.5', '8.5'), 'CUSTOM');
 });
