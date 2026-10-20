@@ -6,6 +6,7 @@ import {
   getCurrentTabId,
   navigateToTabRoot,
 } from '../navigation/navigationRef';
+import { useBottomSheet } from '../components/StackBottomSheet';
 
 /**
  * Owns navigation-adjacent UI state (home media filter, collections sub-view +
@@ -33,6 +34,7 @@ export function useAppNavigation({
   const [homeMediaFilter, setHomeMediaFilter] = useState(null); // 'movie' | 'tv' | null
   const [collectionsSubView, setCollectionsSubView] = useState('franchises');
   const [collectionsImdbTab, setCollectionsImdbTab] = useState('movie');
+  const bottomSheet = useBottomSheet();
 
   const openCollections = useCallback((initialSubView = 'franchises') => {
     setCollectionsSubView(initialSubView || 'franchises');
@@ -92,6 +94,9 @@ export function useAppNavigation({
 
   useEffect(() => {
     const onBackPress = () => {
+      if (bottomSheet?.hasOpenSheet) {
+        return bottomSheet.dismissTopSheet();
+      }
       if (!navigationRef.isReady()) return false;
 
       const rootState = navigationRef.getRootState();
@@ -117,7 +122,7 @@ export function useAppNavigation({
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [error, goBack, results.length]);
+  }, [bottomSheet, error, goBack, results.length]);
 
   const handleTabPress = useCallback((tab) => {
     if (tab === 'home') {

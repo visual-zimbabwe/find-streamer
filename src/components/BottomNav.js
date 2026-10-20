@@ -26,7 +26,7 @@ const TABS = [
 const TAB_COUNT = TABS.length;
 const TAB_W = SCREEN_W / TAB_COUNT;
 const INDICATOR_W = scale(44);
-const MARQUEE_ROW_H = scale(54);
+const MARQUEE_ROW_H = scale(58);
 const INDICATOR_MS = 280;
 const LABEL_MS = 220;
 const EASE_INDICATOR = Easing.out(Easing.cubic);
@@ -73,7 +73,7 @@ export function BottomNav({ activeTab, onTabPress, fixed = false, hidden = false
   }));
 
   const marqueeGlass = colors.glass;
-  const inactiveColor = 'rgba(245, 245, 247, 0.42)';
+  const inactiveColor = 'rgba(245, 245, 247, 0.65)';
 
   return (
     <Animated.View
@@ -124,15 +124,17 @@ export function BottomNav({ activeTab, onTabPress, fixed = false, hidden = false
                 <View style={[styles.tabCellInner, selected && styles.tabCellInnerActive]}>
                   <Ionicons
                     name={selected ? tab.iconActive : tab.icon}
-                    size={selected ? scale(20) : scale(22)}
+                    size={scale(20)}
                     color={selected ? GOLD_ACCENT : inactiveColor}
                   />
-                  {selected ? (
-                    <TabLabel
-                      label={tab.label}
-                      textStyle={[styles.tabLabel, typography.labelSm, styles.tabLabelActive]}
-                    />
-                  ) : null}
+                  <TabLabel
+                    label={tab.label}
+                    textStyle={[
+                      styles.tabLabel,
+                      typography.labelSm,
+                      selected ? styles.tabLabelActive : { color: inactiveColor },
+                    ]}
+                  />
                 </View>
               </Pressable>
             );
@@ -218,9 +220,9 @@ const styles = StyleSheet.create({
     marginTop: scale(2),
   },
   tabLabel: {
-    fontSize: scale(9),
+    fontSize: scale(10.5),
     fontWeight: '700',
-    letterSpacing: 1.1,
+    letterSpacing: 0.9,
     paddingEnd: 2,
     textTransform: 'uppercase',
     textAlign: 'center',

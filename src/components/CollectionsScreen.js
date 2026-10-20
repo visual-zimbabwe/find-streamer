@@ -14,6 +14,7 @@ import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { FranchiseRailsView } from './FranchiseRailsView';
 import { AwardsRailsView } from './AwardsRailsView';
 import { HomeTopNav } from './HomeTopNav';
+import { useBottomSheet } from './StackBottomSheet';
 import { GOLD_ACCENT, GRID_PAD } from '../theme/programme';
 
 function ImdbRankedRow({
@@ -69,6 +70,7 @@ function ImdbPageHeader({ count, mediaTab, onBack }) {
             icon="arrow-back"
             iconSize={20}
             size={36}
+            variant="clear"
             onPress={onBack}
             accessibilityLabel="Back to collections"
           />
@@ -99,6 +101,7 @@ export function CollectionsScreen({
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const insets = useSafeAreaInsets();
+  const bottomSheet = useBottomSheet();
   const headerScrolledRef = useRef(false);
   const [headerScrolled, setHeaderScrolled] = useState(false);
 
@@ -150,6 +153,9 @@ export function CollectionsScreen({
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (bottomSheet?.hasOpenSheet) {
+        return bottomSheet.dismissTopSheet();
+      }
       if (subView === 'imdb' || subView === 'awards') {
         onSubViewChange?.('franchises');
         return true;
@@ -157,7 +163,7 @@ export function CollectionsScreen({
       return false;
     });
     return () => sub.remove();
-  }, [subView, onSubViewChange]);
+  }, [bottomSheet, subView, onSubViewChange]);
 
   const handleHeaderScroll = useCallback((event) => {
     const y = event?.nativeEvent?.contentOffset?.y ?? 0;

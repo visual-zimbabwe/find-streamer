@@ -40,6 +40,9 @@ function AppShellInner({ rootNavState }) {
         return;
       }
       handleTabPress(tab);
+      if (tab === 'search') {
+        requestSearchFocus();
+      }
     },
     [activeTab, focusedRoute, handleTabPress, requestSearchFocus],
   );

@@ -59,8 +59,11 @@ function SearchMainScreen() {
   // to type" gesture. Arriving from another tab deliberately does not focus:
   // the idle rails are the point of the landing state.
   useEffect(() => {
-    if (!searchFocusSignal) return;
-    focusSearchInput();
+    if (!searchFocusSignal) return undefined;
+    const timer = setTimeout(() => {
+      focusSearchInput();
+    }, 60);
+    return () => clearTimeout(timer);
   }, [searchFocusSignal, focusSearchInput]);
 
   // Clearing is a prelude to typing again, never an exit — so the ✕ hands the

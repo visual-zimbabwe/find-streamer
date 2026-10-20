@@ -65,7 +65,7 @@ export const SearchField = forwardRef(function SearchField(
         <TextInput
           ref={inputRef}
           style={[styles.input, { color: colors.onSurface, ...typography.bodyLg }]}
-          placeholder="Search for a movie, show"
+          placeholder="Search movies, shows, or actors"
           placeholderTextColor={colors.onSurfaceVariant}
           value={value}
           onChangeText={onChangeText}
@@ -76,7 +76,7 @@ export const SearchField = forwardRef(function SearchField(
           autoCorrect={false}
           autoCapitalize="words"
           autoComplete="off"
-          accessibilityLabel="Search for a movie or show"
+          accessibilityLabel="Search movies, shows, or actors"
           accessibilityState={{ busy: Boolean(busy) }}
         />
         <View style={styles.trailSlot}>

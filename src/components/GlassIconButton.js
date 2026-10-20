@@ -57,7 +57,7 @@ export const GlassIconButton = React.forwardRef(function GlassIconButton(
     iconSize: customIconSize,
     iconColor: customIconColor,
     size = 'md',
-    variant = 'glass',
+    variant = 'clear',
     active = false,
     activeIconColor = GOLD_ACCENT,
     backgroundColor: customBg,

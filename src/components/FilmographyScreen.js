@@ -1,11 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,9 +20,15 @@ import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { GlassIconButton } from './GlassIconButton';
 import { ContentRail } from './ContentRail';
-import { partitionFilmographyCredits } from '../lib/actorFilmographyModel';
+import { partitionFilmographyCredits, sortFilmographyCredits } from '../lib/actorFilmographyModel';
 import { franchiseCountLabel, franchiseTileMeta, releaseStateFor } from '../lib/franchise';
 import { scale } from '../utils/responsive';
+
+const FILMOGRAPHY_SORT_OPTIONS = [
+  { key: 'newest', label: 'Newest' },
+  { key: 'rating', label: 'Top Rated' },
+  { key: 'popular', label: 'Popular' },
+];
 
 export function FilmographyScreen({
   personName,
@@ -56,6 +64,7 @@ export function FilmographyScreen({
 
   const isCompany = role === 'company';
   const isCollection = role === 'collection';
+  const [sortMode, setSortMode] = useState('newest');
 
   // Release order is the spine of a collection, and it has to survive the rails:
   // the badge states a film's place in the WHOLE set, not its cell position.
@@ -78,12 +87,23 @@ export function FilmographyScreen({
 
   // Resolve role rails for talent (partitioned by Acting, Directing, Writing, Music)
   const resolvedRails = useMemo(() => {
-    if (rails && rails.length > 0) return rails;
-    if (isCollection || isCompany) return null;
-    if (!results || results.length === 0) return [];
-    const { rails: derived } = partitionFilmographyCredits({ cast: results, crew: [] }, role, 30);
-    return derived;
-  }, [rails, results, isCollection, isCompany, role]);
+    let baseRails = null;
+    if (rails && rails.length > 0) {
+      baseRails = rails;
+    } else if (!isCollection && !isCompany && results && results.length > 0) {
+      const { rails: derived } = partitionFilmographyCredits({ cast: results, crew: [] }, role, 30);
+      baseRails = derived;
+    }
+    if (!baseRails) return null;
+    return baseRails.map((rail) => {
+      const sourcePool = rail.allCredits || rail.data || rail.credits || [];
+      const sorted = sortFilmographyCredits(sourcePool, sortMode).slice(0, 30);
+      return {
+        ...rail,
+        data: sorted,
+      };
+    });
+  }, [rails, results, isCollection, isCompany, role, sortMode]);
 
   const atmosphereColors = [colors.surfaceContainerHigh, colors.background];
   const hasRails = resolvedRails && resolvedRails.length > 0;
@@ -101,6 +121,7 @@ export function FilmographyScreen({
           <GlassIconButton
             icon="arrow-back"
             iconSize={22}
+            variant="clear"
             onPress={onBack}
             accessibilityLabel="Go back"
           />
@@ -197,6 +218,41 @@ export function FilmographyScreen({
 
         <ProgrammeHairline style={styles.headerHairline} />
 
+        {!loading && hasRails && !isCompany && !isCollection ? (
+          <View style={styles.sortPillRow} accessibilityRole="tablist">
+            {FILMOGRAPHY_SORT_OPTIONS.map((opt) => {
+              const selected = sortMode === opt.key;
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={styles.sortPill}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setSortMode(opt.key);
+                  }}
+                  activeOpacity={0.75}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`Sort filmography by ${opt.label}`}
+                >
+                  <Text
+                    style={[
+                      typography.labelSm,
+                      styles.sortPillText,
+                      {
+                        color: selected ? GOLD_ACCENT : colors.onSurfaceVariant,
+                        fontWeight: selected ? '800' : '600',
+                      },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : null}
+
         {loading ? (
           <View style={styles.skeletonContainer}>
             <ContentRailSkeleton posterCount={4} />
@@ -231,7 +287,7 @@ export function FilmographyScreen({
               variant="section"
               bleed
               showMediaType={false}
-              showTitle={false}
+              showTitle={true}
               showCaption
               onSelectItem={onSelectItem}
               getItemMetaText={(item) =>
@@ -364,6 +420,25 @@ const styles = StyleSheet.create({
   headerHairline: {
     marginHorizontal: GRID_PAD,
     marginBottom: scale(12),
+  },
+  sortPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: scale(20),
+    paddingHorizontal: GRID_PAD,
+    marginBottom: scale(10),
+  },
+  sortPill: {
+    minHeight: scale(32),
+    paddingHorizontal: scale(4),
+    paddingVertical: scale(6),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sortPillText: {
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   skeletonContainer: {
     paddingVertical: scale(8),

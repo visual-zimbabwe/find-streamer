@@ -38,6 +38,7 @@ export function WhereToWatchSection({
   colors,
   typography,
   showHeader = false,
+  onPlayNow,
 }) {
   const [serviceFilter, setServiceFilter] = useState(null);
   const [showAllCountries, setShowAllCountries] = useState(false);
@@ -103,7 +104,7 @@ export function WhereToWatchSection({
     } else if (serviceFilter) {
       detail = `Not on ${filterLabel} here`;
     } else {
-      detail = 'Not free to stream here right now';
+      detail = 'Not on subscription services here right now';
     }
     homeStatus = { streamsHere, detail };
   }
@@ -125,7 +126,6 @@ export function WhereToWatchSection({
 
       {allRows.length === 0 ? (
         <View style={styles.availabilityEmpty}>
-          <Ionicons name="earth-outline" size={22} color={colors.onSurfaceVariant} />
           <View style={styles.availabilityEmptyBody}>
             <Text
               style={[
@@ -133,18 +133,38 @@ export function WhereToWatchSection({
                 { color: colors.onSurface, ...typography.bodyMd },
               ]}
             >
-              Not free to stream anywhere right now.
+              Not on major subscription services right now.
             </Text>
-            <Text
-              style={[
-                styles.availabilityEmptyText,
-                { color: colors.onSurfaceVariant, ...typography.labelSm },
-              ]}
-            >
-              {`Trova tracks subscription and ad-supported catalogues on ${joinWithOr(
-                Object.values(SERVICE_LABELS),
-              )}. Rentals and purchases aren't included.`}
-            </Text>
+            {isTv ? (
+              <Text
+                style={[
+                  styles.availabilityEmptyText,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                {`Select a season in the Seasons tab to stream directly in Trova. Subscription tracking covers ${joinWithOr(
+                  Object.values(SERVICE_LABELS),
+                )}.`}
+              </Text>
+            ) : (
+              <Text
+                style={[
+                  styles.availabilityEmptyText,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                {'Use '}
+                <Text
+                  style={{ color: GOLD_ACCENT, fontWeight: '700' }}
+                  onPress={onPlayNow}
+                >
+                  Play Now
+                </Text>
+                {` above to stream directly in Trova. Subscription tracking covers ${joinWithOr(
+                  Object.values(SERVICE_LABELS),
+                )}.`}
+              </Text>
+            )}
           </View>
         </View>
       ) : (

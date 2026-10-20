@@ -34,7 +34,6 @@ const TopMatchFeature = memo(function TopMatchFeature({
   typography,
   radii,
   saved,
-  yearBadge,
   onPress,
   onToggleWatchlist,
 }) {
@@ -45,13 +44,15 @@ const TopMatchFeature = memo(function TopMatchFeature({
         colors={colors}
         typography={typography}
         radii={radii}
-        showCaption={false}
-        yearBadge={yearBadge}
+        showCaption={true}
+        showTitle={true}
+        showMediaType={true}
+        yearBadge={null}
         posterSize="w780"
         // The visible "TOP MATCH" eyebrow is gone with the rest of the caption
         // stack, so the label has to carry what it used to say — otherwise a
         // screen reader hears this and a grid card as the same thing.
-        accessibilityLabel={`Top match: ${item.title}. Open details.`}
+        accessibilityLabel={`Top match: ${item.title}${item.year && item.year !== 'N/A' ? ` (${item.year})` : ''}. Open details.`}
         saved={saved}
         onToggleWatchlist={onToggleWatchlist}
         onPress={onPress}
@@ -134,12 +135,25 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
   // the screen splits them rather than the search abandoning itself whenever a
   // person happened to rank first.
   const { people, titles, leadsWithPerson } = partitionSearchResults(matches);
-  const topMatch = titles[0];
-  const others = titles.slice(1);
+  // When a person is the #1 match (e.g. "Jason Statham"), do not promote an
+  // obscure documentary/novelty title as a giant hero poster directly under the
+  // person card — render titles in the "Also Matched" grid instead.
+  const showHeroFeature = Boolean(titles[0]) && !leadsWithPerson;
+  const topMatch = showHeroFeature ? titles[0] : null;
+  const others = showHeroFeature ? titles.slice(1) : titles;
   const savedIds = new Set(watchlistIds);
-  // The year caption is gone, so a year only appears where the posters alone
-  // cannot separate two results — "Dune" 1984 beside "Dune" 2021.
-  const collisions = collidingTitleNames(titles);
+
+  const subtitleParts = [];
+  if (people.length > 0 && leadsWithPerson) {
+    subtitleParts.push(`${people.length} ${people.length === 1 ? 'PERSON' : 'PEOPLE'}`);
+  }
+  if (titles.length > 0) {
+    subtitleParts.push(`${titles.length} ${titles.length === 1 ? 'TITLE' : 'TITLES'}`);
+  }
+  if (people.length > 0 && !leadsWithPerson) {
+    subtitleParts.push(`${people.length} ${people.length === 1 ? 'PERSON' : 'PEOPLE'}`);
+  }
+  const subtitleLabel = `${subtitleParts.join(' · ')} FOUND`;
 
   const peopleBlock = (
     <PeopleBlock
@@ -157,16 +171,12 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
 
       <ProgrammeSectionHeader
         eyebrow="Results"
-        title={titles.length > 0 ? 'Top Matches' : 'People'}
-        subtitle={
-          titles.length > 0
-            ? `${titles.length} ${titles.length === 1 ? 'TITLE' : 'TITLES'} FOUND`
-            : `${people.length} ${people.length === 1 ? 'PERSON' : 'PEOPLE'} FOUND`
-        }
+        title={titles.length > 0 || leadsWithPerson ? 'Top Matches' : 'People'}
+        subtitle={subtitleLabel}
         titleUppercase
       />
 
-      {/* When the best answer overall was a person — "Tom Hanks" — they lead. */}
+      {/* When the best answer overall was a person — "Jason Statham" — they lead. */}
       {leadsWithPerson ? peopleBlock : null}
 
       {topMatch ? (
@@ -176,7 +186,6 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
           typography={typography}
           radii={radii}
           saved={savedIds.has(watchlistEntryKey(topMatch))}
-          yearBadge={yearBadgeFor(topMatch, collisions)}
           onPress={() => onSelect(topMatch)}
           onToggleWatchlist={onToggleWatchlist}
         />
@@ -198,8 +207,10 @@ export function MatchResults({ matches, onSelect, onToggleWatchlist, watchlistId
                 colors={colors}
                 typography={typography}
                 radii={radii}
-                showCaption={false}
-                yearBadge={yearBadgeFor(item, collisions)}
+                showCaption={true}
+                showTitle={true}
+                showMediaType={true}
+                yearBadge={null}
                 saved={savedIds.has(watchlistEntryKey(item))}
                 onPress={() => onSelect(item)}
                 onToggleWatchlist={onToggleWatchlist}

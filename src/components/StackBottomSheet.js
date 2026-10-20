@@ -34,6 +34,7 @@ import React, {
 } from 'react';
 import {
   Animated,
+  BackHandler,
   Easing,
   Keyboard,
   Platform,
@@ -54,7 +55,8 @@ import { GOLD_ACCENT, GOLD_DIM } from '../theme/programme';
 import { GlassIconButton } from './GlassIconButton';
 
 const SIZE_HEIGHT_RATIO = {
-  small: 0.40,
+  compact: 0.42,
+  small: 0.44,
   medium: 0.62,
   large: 0.78,
   full: 0.90,
@@ -83,6 +85,17 @@ export function useBottomSheet() {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function BottomSheetProvider({ children }) {
   const [sheets, setSheets] = useState([]);
+  const dismissHandlersRef = useRef(new Map());
+
+  const registerDismissHandler = useCallback((id, fn) => {
+    if (!id) return () => {};
+    dismissHandlersRef.current.set(id, fn);
+    return () => {
+      if (dismissHandlersRef.current.get(id) === fn) {
+        dismissHandlersRef.current.delete(id);
+      }
+    };
+  }, []);
 
   const show = useCallback((content, options = {}) => {
     const id = Math.random().toString(36).slice(2, 9);
@@ -119,25 +132,82 @@ export function BottomSheetProvider({ children }) {
     });
   }, []);
 
+  const updateOptions = useCallback((id, optionsPatch) => {
+    setSheets((prev) => {
+      let found = false;
+      const next = prev.map((sheet) => {
+        if (sheet.id !== id) return sheet;
+        found = true;
+        return {
+          ...sheet,
+          options: {
+            ...sheet.options,
+            ...optionsPatch,
+          },
+        };
+      });
+      return found ? next : prev;
+    });
+  }, []);
+
   const dismiss = useCallback((id) => {
     Keyboard.dismiss();
+    dismissHandlersRef.current.delete(id);
     setSheets((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
+  const dismissTopSheet = useCallback(() => {
+    if (sheets.length === 0) return false;
+    const top = sheets[sheets.length - 1];
+    if (!top) return false;
+    const animatedDismiss = dismissHandlersRef.current.get(top.id);
+    if (typeof animatedDismiss === 'function') {
+      animatedDismiss();
+    } else {
+      dismiss(top.id);
+      top.options?.onClose?.();
+    }
+    return true;
+  }, [sheets, dismiss]);
+
   const dismissAll = useCallback(() => {
     Keyboard.dismiss();
+    dismissHandlersRef.current.clear();
     setSheets([]);
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS !== 'android' || sheets.length === 0) return undefined;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      return dismissTopSheet();
+    });
+    return () => sub.remove();
+  }, [sheets.length, dismissTopSheet]);
+
+  const contextValue = useMemo(
+    () => ({
+      sheets,
+      hasOpenSheet: sheets.length > 0,
+      show,
+      update,
+      updateOptions,
+      dismiss,
+      dismissTopSheet,
+      dismissAll,
+      registerDismissHandler,
+    }),
+    [sheets, show, update, updateOptions, dismiss, dismissTopSheet, dismissAll, registerDismissHandler],
+  );
+
   return (
-    <BottomSheetCtx.Provider value={{ sheets, show, update, dismiss, dismissAll }}>
+    <BottomSheetCtx.Provider value={contextValue}>
       {children}
     </BottomSheetCtx.Provider>
   );
 }
 
 // ─── Individual Sheet ─────────────────────────────────────────────────────────
-function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
+function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss, registerDismissHandler }) {
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const { height: windowHeight } = useWindowDimensions();
@@ -344,6 +414,11 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
     sheetHeight,
   ]);
 
+  useEffect(() => {
+    if (!registerDismissHandler) return undefined;
+    return registerDismissHandler(sheet.id, dismissWithAnimation);
+  }, [registerDismissHandler, sheet.id, dismissWithAnimation]);
+
   const gestureStartY = useRef(0);
   const pan = useRef(
     PanResponder.create({
@@ -385,8 +460,9 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
   const { eyebrow, title, subtitle } = sheet.options;
   const centerTitle =
     sheet.options.centerTitle ?? (!eyebrow && !subtitle && !!title);
+  // Always provide a visible close button unless explicitly disabled on a custom headerless sheet
   const showCloseButton =
-    sheet.options.showCloseButton ?? !centerTitle;
+    sheet.options.showCloseButton === undefined ? true : Boolean(sheet.options.showCloseButton || centerTitle);
   const showHeader = eyebrow || title || subtitle || showCloseButton;
 
   return (
@@ -412,15 +488,36 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
 
       {showHeader && centerTitle ? (
         <View style={sheetStyles.centeredHeaderWrap}>
-          <Text
-            style={[
-              sheetStyles.centeredTitle,
-              { color: colors.onSurface, ...typography.titleMedium, fontWeight: '700' },
-            ]}
-            numberOfLines={1}
-          >
-            {title}
-          </Text>
+          <View style={sheetStyles.centeredHeaderRow}>
+            <Text
+              style={[
+                sheetStyles.centeredTitle,
+                { color: colors.onSurface, ...typography.titleMedium, fontWeight: '700' },
+              ]}
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+            {showCloseButton && (
+              <TouchableOpacity
+                style={sheetStyles.centeredCloseBtn}
+                onPress={dismissWithAnimation}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close sheet"
+              >
+                <Text
+                  style={[
+                    typography.labelSm,
+                    { color: colors.onSurfaceVariant, fontWeight: '700' },
+                  ]}
+                >
+                  Close
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <View
             style={[
               sheetStyles.headerRule,
@@ -461,14 +558,22 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
               )}
             </View>
             {showCloseButton && (
-              <GlassIconButton
-                icon="close"
-                size={36}
-                iconSize={20}
-                variant="surface"
+              <TouchableOpacity
                 onPress={dismissWithAnimation}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
                 accessibilityLabel="Close sheet"
-              />
+              >
+                <Text
+                  style={[
+                    typography.labelSm,
+                    { color: colors.onSurfaceVariant, fontWeight: '700' },
+                  ]}
+                >
+                  Close
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
           <View
@@ -538,7 +643,7 @@ function Sheet({ sheet, index, totalSheets, backdropOpacity, onDismiss }) {
 
 // ─── Portal (renders all sheets + shared backdrop) ────────────────────────────
 export function BottomSheetPortal() {
-  const { sheets, dismiss } = useBottomSheet();
+  const { sheets, dismiss, dismissTopSheet, registerDismissHandler } = useBottomSheet();
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -555,7 +660,7 @@ export function BottomSheetPortal() {
 
   const handleDismissTop = () => {
     if (sheets.length > 0) {
-      dismiss(sheets[sheets.length - 1].id);
+      dismissTopSheet();
     }
   };
 
@@ -592,6 +697,7 @@ export function BottomSheetPortal() {
             totalSheets={sheets.length}
             backdropOpacity={depth === 0 ? backdropOpacity : undefined}
             onDismiss={dismiss}
+            registerDismissHandler={registerDismissHandler}
           />
         );
       })}
@@ -634,11 +740,26 @@ const sheetStyles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: scale(2),
     flexShrink: 0,
+    width: '100%',
+  },
+  centeredHeaderRow: {
+    width: '100%',
+    minHeight: scale(36),
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginBottom: scale(10),
   },
   centeredTitle: {
     textAlign: 'center',
-    paddingHorizontal: scale(20),
-    marginBottom: scale(10),
+    paddingHorizontal: scale(56),
+  },
+  centeredCloseBtn: {
+    position: 'absolute',
+    right: H_PAD,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',

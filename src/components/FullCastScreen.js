@@ -100,6 +100,7 @@ export function FullCastScreen({ title, cast = [], crew = [], onPersonPress, onB
           <GlassIconButton
             icon="arrow-back"
             iconSize={22}
+            variant="clear"
             onPress={onBack}
             accessibilityLabel="Go back"
           />
