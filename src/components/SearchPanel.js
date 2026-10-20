@@ -39,7 +39,11 @@ export function SearchPanel({
   const { theme } = useTheme();
   const { colors, typography, radii } = theme;
   const visibleTypeResults = typeResults ? typeResults.slice(0, SEARCH_PANEL_MAX_ROWS) : [];
-  const { people: panelPeople, titles: panelTitles } = partitionSearchResults(visibleTypeResults);
+  const {
+    people: panelPeople,
+    titles: panelTitles,
+    leadsWithPerson,
+  } = partitionSearchResults(visibleTypeResults);
   const hasRecentViewed = recentViewed && recentViewed.length > 0;
   const trimmedValue = (value || '').trim();
   // Below the minimum the controller never fires a request, so the panel must
@@ -138,12 +142,18 @@ export function SearchPanel({
             </View>
           ) : (
             <>
-              {/*
-                Titles are posters, people are rows. A person has no poster and
-                is a route to a filmography rather than something to watch, so
-                the row — with its circular portrait — is still the right shape
-                for them; it is only the titles that stopped needing a caption.
-              */}
+              {leadsWithPerson &&
+                panelPeople.map((item, index) => (
+                  <SearchResultRow
+                    key={`person-${item.personId ?? item.tmdbId}`}
+                    item={item}
+                    showDivider={index < panelPeople.length - 1 || panelTitles.length > 0}
+                    colors={colors}
+                    typography={typography}
+                    radii={radii}
+                    onPress={() => onTypeSelect && onTypeSelect(item)}
+                  />
+                ))}
               <SearchPosterGrid
                 items={panelTitles}
                 colors={colors}
@@ -151,17 +161,18 @@ export function SearchPanel({
                 radii={radii}
                 onSelect={(item) => onTypeSelect && onTypeSelect(item)}
               />
-              {panelPeople.map((item, index) => (
-                <SearchResultRow
-                  key={`person-${item.personId ?? item.tmdbId}`}
-                  item={item}
-                  showDivider={index < panelPeople.length - 1}
-                  colors={colors}
-                  typography={typography}
-                  radii={radii}
-                  onPress={() => onTypeSelect && onTypeSelect(item)}
-                />
-              ))}
+              {!leadsWithPerson &&
+                panelPeople.map((item, index) => (
+                  <SearchResultRow
+                    key={`person-${item.personId ?? item.tmdbId}`}
+                    item={item}
+                    showDivider={index < panelPeople.length - 1}
+                    colors={colors}
+                    typography={typography}
+                    radii={radii}
+                    onPress={() => onTypeSelect && onTypeSelect(item)}
+                  />
+                ))}
             </>
           )}
         </View>

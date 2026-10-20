@@ -26,7 +26,6 @@ import { collidingTitleNames, yearBadgeFor } from '../lib/searchRanker';
 export function SearchPosterGrid({ items, colors, typography, radii, onSelect }) {
   if (!items?.length) return null;
 
-  const collisions = collidingTitleNames(items);
   // A trailing partial row has to stay left-aligned rather than spreading.
   const fillers =
     (SEARCH_PANEL_COLUMNS - (items.length % SEARCH_PANEL_COLUMNS)) % SEARCH_PANEL_COLUMNS;
@@ -40,8 +39,10 @@ export function SearchPosterGrid({ items, colors, typography, radii, onSelect })
           colors={colors}
           typography={typography}
           radii={radii}
-          showCaption={false}
-          yearBadge={yearBadgeFor(item, collisions)}
+          showCaption={true}
+          showTitle={true}
+          showMediaType={false}
+          yearBadge={null}
           posterSize="w342"
           style={styles.cell}
           posterStyle={styles.cellPoster}

@@ -443,7 +443,7 @@ export function ResultView({
   const { theme } = useTheme();
   const { typography, radii } = theme;
   const insets = useSafeAreaInsets();
-  const { show: showSheet, dismiss: dismissSheet } = useBottomSheet();
+  const { show: showSheet, dismiss: dismissSheet, updateOptions: updateSheetOptions } = useBottomSheet();
   const shareCardRef = useRef(null);
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -1125,25 +1125,30 @@ export function ResultView({
   const handleMovieStreamPress = useCallback(() => {
     Haptics.selectionAsync();
     showSheet(
-      <MovieStreamSheetContent
-        movieTitle={result?.title}
-        movieYear={result?.year}
-        tmdbId={result?.tmdbId}
-        imdbId={result?.imdbId}
-        posterUrl={result?.posterUrl}
-        runtimeMinutes={result?.runtimeMinutes}
-        genres={result?.genres}
-        ratingValue={result?.tmdbRating || result?.omdbRatings?.imdbScore}
-        rows={result?.rows}
-        providerSummary={result?.providerSummary}
-        colors={colors}
-        typography={typography}
-      />,
+      (sheetId) => (
+        <MovieStreamSheetContent
+          movieTitle={result?.title}
+          movieYear={result?.year}
+          tmdbId={result?.tmdbId}
+          imdbId={result?.imdbId}
+          posterUrl={result?.posterUrl}
+          runtimeMinutes={result?.runtimeMinutes}
+          genres={result?.genres}
+          ratingValue={result?.tmdbRating || result?.omdbRatings?.imdbScore}
+          rows={result?.rows}
+          providerSummary={result?.providerSummary}
+          colors={colors}
+          typography={typography}
+          onSizeChange={(nextSize) => {
+            updateSheetOptions?.(sheetId, { size: nextSize });
+          }}
+        />
+      ),
       {
         title: result?.title || 'Play Now',
         centerTitle: true,
         showCloseButton: false,
-        size: 'large',
+        size: 'compact',
         scrollable: false,
         dismissOnBackdrop: true,
       },
@@ -1163,6 +1168,7 @@ export function ResultView({
     colors,
     typography,
     showSheet,
+    updateSheetOptions,
   ]);
 
   // Gated on focus. Native-driven and cheap, but an 18s loop that never stops
@@ -1452,6 +1458,7 @@ export function ResultView({
   const totalPeopleCount = peopleSections.crewPeople.length + peopleSections.castPeople.length;
   /** Rails stay capped; the full list is a destination, not an expansion. */
   const visibleCastPeople = peopleSections.castPeople.slice(0, RAIL_PERSON_CAP);
+  const topBilledCast = peopleSections.castPeople.slice(0, 3);
   const visibleCrewPeople = peopleSections.crewPeople.slice(0, RAIL_PERSON_CAP);
   const hasMorePeople =
     Boolean(onSeeAllPeople) &&
@@ -1531,15 +1538,6 @@ export function ResultView({
           outputRange: [1, 0.65, 0.05],
           extrapolate: 'clamp',
         }),
-        transform: [
-          {
-            translateY: scrollY.interpolate({
-              inputRange: [0, HERO_HEIGHT],
-              outputRange: [0, HERO_HEIGHT * 0.12],
-              extrapolate: 'clamp',
-            }),
-          },
-        ],
       };
   const meshA = {
     backgroundColor: meshColors[0],
@@ -1990,6 +1988,40 @@ export function ResultView({
                 {displaySynopsis}
               </Text>
             )}
+
+            {topBilledCast.length > 0 && (
+              <View style={styles.starringRow}>
+                <Text
+                  style={[
+                    styles.starringLabel,
+                    { color: colors.onSurfaceVariant, ...typography.labelSm },
+                  ]}
+                >
+                  Starring:{' '}
+                </Text>
+                {topBilledCast.map((person, index) => (
+                  <TouchableOpacity
+                    key={person.id || person.name || index}
+                    onPress={() => handlePersonPressWithFallback(person, 'cast')}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${person.name}${
+                      person.character ? `, as ${person.character}` : ''
+                    }`}
+                  >
+                    <Text
+                      style={[
+                        styles.starringName,
+                        { color: colors.onSurface, ...typography.labelSm },
+                      ]}
+                    >
+                      {person.name}
+                      {index < topBilledCast.length - 1 ? ', ' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
 
           {/* ─── Detail Tabs (Netflix-grade content segmentation) ─── */}
@@ -2045,6 +2077,7 @@ export function ResultView({
                   colors={colors}
                   typography={typography}
                   showHeader={false}
+                  onPlayNow={!isTv ? handleMovieStreamPress : undefined}
                 />
               ) : loading ? (
                 <View style={styles.section}>
@@ -2895,11 +2928,23 @@ const styles = StyleSheet.create({
     // Lowered from 40 to reclaim headroom for a wrapped second pill line (rare
     // now that language/country moved to Details, but reachable at large system
     // font scales) and to close some of the dead space above the first section.
-    bottom: 12,
+    bottom: 18,
     left: 24,
     right: 24,
     justifyContent: 'flex-end',
-    overflow: 'hidden',
+  },
+  starringRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginTop: 12,
+    rowGap: 4,
+  },
+  starringLabel: {
+    fontWeight: '600',
+  },
+  starringName: {
+    fontWeight: '700',
   },
   heroMetaStack: {
     gap: 10,

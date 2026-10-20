@@ -103,6 +103,104 @@ export function isRankablePersonDepartment(department) {
 }
 
 /**
+ * Extract an optional 4-digit release year hint (`1900`–`2039`) from a multi-word
+ * query so searches like `"Mutiny 2026"` or `"Mutiny (2026)"` can query TMDb for
+ * `"Mutiny"` and promote the 2026 release to rank #1.
+ *
+ * A single-token year query like `"1917"` or `"2012"` is left intact as a title
+ * query with `yearHint: null` so films named after years still match normally.
+ *
+ * @param {string | null | undefined} query
+ * @returns {{ rawQuery: string, titleQuery: string, yearHint: string | null, tokens: string[] }}
+ */
+export function parseCompoundSearchQuery(query) {
+  const rawQuery = (query || '').trim();
+  const allTokens = normalizeSearchText(rawQuery).split(/\s+/).filter(Boolean);
+  if (allTokens.length < 2) {
+    return {
+      rawQuery,
+      titleQuery: rawQuery,
+      yearHint: null,
+      tokens: allTokens,
+    };
+  }
+
+  let yearHint = null;
+  const nonYearTokens = [];
+  for (const token of allTokens) {
+    if (!yearHint && /^(19\d{2}|20[0-3]\d)$/.test(token)) {
+      yearHint = token;
+    } else {
+      nonYearTokens.push(token);
+    }
+  }
+
+  if (!yearHint || nonYearTokens.length === 0) {
+    return {
+      rawQuery,
+      titleQuery: rawQuery,
+      yearHint: null,
+      tokens: allTokens,
+    };
+  }
+
+  const stripped = rawQuery
+    .replace(new RegExp(`[([\\s]*\\b${yearHint}\\b[)\\]\\s]*`, 'g'), ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return {
+    rawQuery,
+    titleQuery: stripped || nonYearTokens.join(' '),
+    yearHint,
+    tokens: nonYearTokens,
+  };
+}
+
+/**
+ * Generate candidate `(titlePart, personPart)` token splits for multi-word
+ * queries like `"Mutiny Jason Statham"`, `"Jason Statham Mutiny"`, or
+ * `"Mutiny Statham"` when `/search/multi` returns no direct matches.
+ *
+ * @param {string | null | undefined} query
+ * @returns {Array<{ titlePart: string, personPart: string, yearHint: string | null }>}
+ */
+export function buildCompoundPersonTitleSplits(query) {
+  const { tokens, yearHint } = parseCompoundSearchQuery(query);
+  if (tokens.length < 2 || tokens.length > 6) return [];
+
+  const splits = [];
+  const seen = new Set();
+  const addSplit = (titleTokens, personTokens) => {
+    if (!titleTokens.length || !personTokens.length) return;
+    const titlePart = titleTokens.join(' ');
+    const personPart = personTokens.join(' ');
+    if (titlePart.length < MIN_SEARCH_QUERY_LENGTH || personPart.length < MIN_SEARCH_QUERY_LENGTH) {
+      return;
+    }
+    const key = `${titlePart}::${personPart}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    splits.push({ titlePart, personPart, yearHint });
+  };
+
+  // 1. Title followed by 2-word person name (e.g. "mutiny jason statham")
+  if (tokens.length >= 3) {
+    addSplit(tokens.slice(0, -2), tokens.slice(-2));
+  }
+  // 2. Title followed by 1-word person surname/mononym (e.g. "mutiny statham")
+  addSplit(tokens.slice(0, -1), tokens.slice(-1));
+  // 3. 2-word person name followed by title (e.g. "jason statham mutiny")
+  if (tokens.length >= 3) {
+    addSplit(tokens.slice(2), tokens.slice(0, 2));
+  }
+  // 4. 1-word person name followed by title (e.g. "statham mutiny")
+  addSplit(tokens.slice(1), tokens.slice(0, 1));
+
+  return splits;
+}
+
+/**
  * Order a mixed list of mapped candidates (titles and people together).
  *
  * People share the pool rather than being appended after the titles: measured
@@ -115,7 +213,7 @@ export function isRankablePersonDepartment(department) {
  *
  * Pure and stable: equal candidates keep their incoming order.
  *
- * @template {{ title?: string | null, popularity?: number | null }} T
+ * @template {{ title?: string | null, year?: string | null, popularity?: number | null }} T
  * @param {T[]} candidates
  * @param {string} query
  * @returns {T[]} a new array; the input is not mutated
@@ -124,14 +222,33 @@ export function rankSearchCandidates(candidates, query) {
   const normalizedQuery = normalizeSearchText(query);
   if (!Array.isArray(candidates) || candidates.length === 0) return [];
 
+  const { titleQuery, yearHint } = parseCompoundSearchQuery(query);
+  const normalizedTitleQuery = yearHint ? normalizeSearchText(titleQuery) : normalizedQuery;
+
   return candidates
-    .map((candidate, index) => ({
-      candidate,
-      index,
-      tier: searchMatchTier(candidate?.title, normalizedQuery),
-      popularity: Number(candidate?.popularity) || 0,
-    }))
+    .map((candidate, index) => {
+      const rawTier = searchMatchTier(candidate?.title, normalizedQuery);
+      const strippedTier =
+        yearHint && normalizedTitleQuery
+          ? searchMatchTier(candidate?.title, normalizedTitleQuery)
+          : rawTier;
+      const tier = Math.min(rawTier, strippedTier);
+      const matchesYearHint =
+        Boolean(yearHint) &&
+        tier <= 2 &&
+        String(candidate?.year || '') === String(yearHint);
+      return {
+        candidate,
+        index,
+        tier,
+        matchesYearHint: matchesYearHint ? 1 : 0,
+        popularity: Number(candidate?.popularity) || 0,
+      };
+    })
     .sort((a, b) => {
+      if (a.matchesYearHint !== b.matchesYearHint) {
+        return b.matchesYearHint - a.matchesYearHint;
+      }
       if (a.tier !== b.tier) return a.tier - b.tier;
       if (a.popularity !== b.popularity) return b.popularity - a.popularity;
       return a.index - b.index;

@@ -364,11 +364,15 @@ export function HomeScreen({
 
   const hasHeroItems = heroPool.length > 0;
 
-  // Android back: peel the filter off before leaving Home — first the language,
-  // then the availability filter, then the media-type filter.
+  // Android back: close any open bottom sheet first, then peel the filter off
+  // before leaving Home — first the language, then the availability filter, then
+  // the media-type filter.
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (bottomSheet?.hasOpenSheet) {
+        return bottomSheet.dismissTopSheet();
+      }
       if (homeLanguage) {
         setHomeLanguage(null);
         return true;
@@ -385,7 +389,7 @@ export function HomeScreen({
       return false;
     });
     return () => sub.remove();
-  }, [homeLanguage, whereActive, mediaFilter, onMediaFilterChange]);
+  }, [bottomSheet, homeLanguage, whereActive, mediaFilter, onMediaFilterChange]);
 
   const openLanguageSheet = useCallback(() => {
     Haptics.selectionAsync();

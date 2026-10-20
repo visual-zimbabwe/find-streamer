@@ -14,8 +14,12 @@ import { hasAdaptationKeyword, hasSourceMaterialCredit } from './basedOn';
 import {
   SEARCH_PANEL_MAX_ROWS,
   SEARCH_RESULTS_MAX,
+  buildCompoundPersonTitleSplits,
   isRankablePersonDepartment,
+  normalizeSearchText,
+  parseCompoundSearchQuery,
   rankSearchCandidates,
+  searchMatchTier,
 } from './searchRanker';
 import {
   ABSOLUTE_MIN_RAIL_VOTES,
@@ -246,6 +250,169 @@ function mapSearchPayload(data) {
     .filter(Boolean);
 }
 
+function dedupeSearchCandidates(candidates) {
+  const seen = new Set();
+  const out = [];
+  for (const item of candidates) {
+    if (!item) continue;
+    const key =
+      item.resultType === 'person'
+        ? `person:${item.personId ?? item.tmdbId}`
+        : `media:${item.mediaType}:${item.tmdbId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+/**
+ * Resolve compound `Title + Person` or `Person + Title` queries (e.g.,
+ * `"Mutiny Jason Statham"`, `"Jason Statham Mutiny"`, `"Mutiny Statham"`)
+ * when TMDb's `/search/multi` returns no direct matches.
+ */
+async function resolveCompoundPersonTitleCandidates(query) {
+  const splits = buildCompoundPersonTitleSplits(query);
+  if (!splits.length) return [];
+
+  const splitMatches = await Promise.all(
+    splits.slice(0, 4).map(async ({ titlePart, personPart, yearHint }) => {
+      try {
+        const personSearch = await tmdbGet('/search/person', {
+          query: personPart,
+          include_adult: false,
+          language: 'en-US',
+          page: 1,
+        });
+        const normalizedPersonPart = normalizeSearchText(personPart);
+        const topPersonRaw = (personSearch?.results || []).find(
+          (p) =>
+            isRankablePersonDepartment(p?.known_for_department) &&
+            searchMatchTier(p?.name, normalizedPersonPart) <= 1,
+        );
+        if (!topPersonRaw?.id) return null;
+
+        const credits = await tmdbGet(`/person/${topPersonRaw.id}/combined_credits`, {
+          language: 'en-US',
+        });
+        const allCredits = [
+          ...(Array.isArray(credits?.cast) ? credits.cast : []),
+          ...(Array.isArray(credits?.crew) ? credits.crew : []),
+        ];
+        const normalizedTitlePart = normalizeSearchText(titlePart);
+        const matchedCredits = [];
+        const seenCreditKeys = new Set();
+
+        for (const raw of allCredits) {
+          const mediaType = raw?.media_type;
+          if (mediaType !== 'movie' && mediaType !== 'tv') continue;
+          const rawTitle = raw?.title || raw?.name || '';
+          const tier = searchMatchTier(rawTitle, normalizedTitlePart);
+          if (tier > 2) continue;
+          const key = `${mediaType}:${raw.id}`;
+          if (seenCreditKeys.has(key)) continue;
+          seenCreditKeys.add(key);
+          const mapped = mapSearchMediaItem(raw);
+          const matchesYear = Boolean(yearHint) && String(mapped.year) === String(yearHint);
+          matchedCredits.push({
+            mapped,
+            tier,
+            matchesYear: matchesYear ? 1 : 0,
+            popularity: Number(mapped.popularity) || 0,
+            voteCount: Number(raw.vote_count) || 0,
+          });
+        }
+
+        if (!matchedCredits.length) return null;
+
+        matchedCredits.sort((a, b) => {
+          if (a.matchesYear !== b.matchesYear) return b.matchesYear - a.matchesYear;
+          if (a.tier !== b.tier) return a.tier - b.tier;
+          if (a.popularity !== b.popularity) return b.popularity - a.popularity;
+          return b.voteCount - a.voteCount;
+        });
+
+        const personCandidate = mapSearchPersonItem(topPersonRaw);
+        return {
+          bestTier: matchedCredits[0].tier,
+          bestYearMatch: matchedCredits[0].matchesYear,
+          personPopularity: Number(topPersonRaw.popularity) || 0,
+          items: [
+            ...matchedCredits.map((entry) => entry.mapped),
+            ...(personCandidate ? [personCandidate] : []),
+          ],
+        };
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  const validSplits = splitMatches.filter(Boolean);
+  if (!validSplits.length) return [];
+
+  validSplits.sort((a, b) => {
+    if (a.bestYearMatch !== b.bestYearMatch) return b.bestYearMatch - a.bestYearMatch;
+    if (a.bestTier !== b.bestTier) return a.bestTier - b.bestTier;
+    return b.personPopularity - a.personPopularity;
+  });
+
+  return dedupeSearchCandidates(validSplits.flatMap((entry) => entry.items));
+}
+
+async function fetchAndRankSearchCandidates(query) {
+  const { titleQuery, yearHint } = parseCompoundSearchQuery(query);
+
+  const requests = [
+    tmdbGet('/search/multi', {
+      query,
+      include_adult: false,
+      language: 'en-US',
+      page: 1,
+    }),
+  ];
+
+  // When the user includes a release year (e.g. "Mutiny 2026"), TMDb's
+  // `/search/multi` returns 0 results for the combined string. Query the
+  // stripped title in parallel and let `rankSearchCandidates` promote the
+  // matching year to #1.
+  if (yearHint && titleQuery && titleQuery.toLowerCase() !== query.trim().toLowerCase()) {
+    requests.push(
+      tmdbGet('/search/multi', {
+        query: titleQuery,
+        include_adult: false,
+        language: 'en-US',
+        page: 1,
+      }).catch(() => ({ results: [] })),
+    );
+  }
+
+  const payloads = await Promise.all(requests);
+  const directCandidates = dedupeSearchCandidates(
+    payloads.flatMap((payload) => mapSearchPayload(payload)),
+  );
+
+  const normalizedCheck = normalizeSearchText(titleQuery || query);
+  const hasStrongDirectMatch = directCandidates.some(
+    (c) => searchMatchTier(c?.title, normalizedCheck) <= 2,
+  );
+
+  if (directCandidates.length > 0 && hasStrongDirectMatch) {
+    return rankSearchCandidates(directCandidates, query);
+  }
+
+  // Fallback for "Title + Actor" / "Actor + Title" queries (e.g. "Mutiny Jason Statham")
+  const compoundCandidates = await resolveCompoundPersonTitleCandidates(query);
+  if (compoundCandidates.length > 0) {
+    return dedupeSearchCandidates([
+      ...compoundCandidates,
+      ...rankSearchCandidates(directCandidates, query),
+    ]);
+  }
+
+  return rankSearchCandidates(directCandidates, query);
+}
+
 /**
  * The submitted search.
  *
@@ -259,19 +426,12 @@ function mapSearchPayload(data) {
  * only answer.
  */
 export async function searchTitleCandidates(query) {
-  const data = await tmdbGet('/search/multi', {
-    query,
-    include_adult: false,
-    language: 'en-US',
-    page: 1,
-  });
-
-  const candidates = mapSearchPayload(data);
-  if (!candidates.length) {
+  const ranked = await fetchAndRankSearchCandidates(query);
+  if (!ranked.length) {
     throw createAppError(`We couldn't find any matches for "${query}".`, 'NO_RESULTS', { query });
   }
 
-  return rankSearchCandidates(candidates, query).slice(0, SEARCH_RESULTS_MAX);
+  return ranked.slice(0, SEARCH_RESULTS_MAX);
 }
 
 function personRoleForDepartment(department) {
@@ -452,14 +612,8 @@ export async function fetchTitleCollection(result) {
  * the visible rows at all (measured: 77.2% -> 79.0% reachable).
  */
 export async function searchLiveCandidates(query) {
-  const data = await tmdbGet('/search/multi', {
-    query,
-    include_adult: false,
-    language: 'en-US',
-    page: 1,
-  });
-
-  return rankSearchCandidates(mapSearchPayload(data), query).slice(0, SEARCH_PANEL_MAX_ROWS);
+  const ranked = await fetchAndRankSearchCandidates(query);
+  return ranked.slice(0, SEARCH_PANEL_MAX_ROWS);
 }
 
 export async function searchPersonByName(name) {

@@ -41,9 +41,12 @@ export function MovieStreamSheetContent({
   providerSummary,
   colors,
   typography,
+  onSizeChange,
 }) {
   const [streams, setStreams] = useState([]);
   const [streamsLoading, setStreamsLoading] = useState(true);
+  const [launchingStreamKey, setLaunchingStreamKey] = useState(null);
+  const [showReleases, setShowReleases] = useState(false);
 
   const {
     usedBytes,
@@ -58,6 +61,12 @@ export function MovieStreamSheetContent({
   } = useDownloads();
 
   const movieDownload = getForMedia({ imdbId, tmdbId });
+  const hasDownload = Boolean(movieDownload);
+
+  useEffect(() => {
+    const nextSize = showReleases ? 'large' : hasDownload ? 'medium' : 'compact';
+    onSizeChange?.(nextSize);
+  }, [showReleases, hasDownload, onSizeChange]);
 
   // Fetch peer swarms for the movie
   useEffect(() => {
@@ -84,15 +93,30 @@ export function MovieStreamSheetContent({
 
   const topStream = streams[0] || null;
 
+  // Opportunistically warm up the top peer swarm while the sheet is open
+  useEffect(() => {
+    if (topStream?.magnetUrl && topStream.seeders > 0) {
+      fetch(
+        `http://127.0.0.1:8899/preload?magnet=${encodeURIComponent(topStream.magnetUrl)}`,
+      ).catch(() => {});
+    }
+  }, [topStream?.magnetUrl, topStream?.seeders]);
+
   const handleLaunch = useCallback(
-    async (magnetUrl, releaseName, fileIdx, seeders = 1) => {
+    async (magnetUrl, releaseName, fileIdx, seeders = 1, streamKey = 'autoplay') => {
+      if (launchingStreamKey) return;
       Haptics.selectionAsync();
       if (seeders === 0) {
         toastiva.info('Warning: Swarm has 0 seeders. Buffering may fail.');
       }
-      await launchStream({ magnetUrl, title: releaseName, fileIdx, imdbId });
+      setLaunchingStreamKey(streamKey);
+      try {
+        await launchStream({ magnetUrl, title: releaseName, fileIdx, imdbId });
+      } finally {
+        setLaunchingStreamKey(null);
+      }
     },
-    [imdbId],
+    [imdbId, launchingStreamKey],
   );
 
   const handleStartDownload = useCallback(
@@ -270,7 +294,7 @@ export function MovieStreamSheetContent({
         </View>
       ) : null}
 
-      {/* Auto Play Best Stream Header */}
+      {/* Primary Stream Action */}
       <View style={styles.autoPlayContainer}>
         <TouchableOpacity
           style={styles.autoPlayHeader}
@@ -285,16 +309,38 @@ export function MovieStreamSheetContent({
               toastiva.info('No active peers found in swarm');
               return;
             }
-            handleLaunch(topStream.magnetUrl, topStream.name, topStream.fileIdx, topStream.seeders);
+            handleLaunch(
+              topStream.magnetUrl,
+              topStream.name,
+              topStream.fileIdx,
+              topStream.seeders,
+              'autoplay',
+            );
           }}
-          activeOpacity={topStream || movieDownload?.state === 'completed' ? 0.7 : 1}
-          disabled={!topStream && movieDownload?.state !== 'completed'}
+          activeOpacity={
+            (topStream || movieDownload?.state === 'completed') && !launchingStreamKey ? 0.7 : 1
+          }
+          disabled={
+            Boolean(launchingStreamKey) || (!topStream && movieDownload?.state !== 'completed')
+          }
+          accessibilityRole="button"
+          accessibilityLabel={
+            launchingStreamKey
+              ? 'Starting stream and loading subtitles'
+              : movieDownload?.state === 'completed'
+              ? 'Play Downloaded in Landscape'
+              : 'Play Best Stream in Landscape'
+          }
         >
           <View style={styles.autoPlayTextCol}>
-            <Text style={[styles.autoPlayTitle, { color: GOLD_ACCENT, ...typography.labelMd }]}>
-              {movieDownload?.state === 'completed'
-                ? 'Play Downloaded (Landscape)'
-                : 'Auto Play (Landscape)'}
+            <Text style={[styles.autoPlayTitle, { color: GOLD_ACCENT, ...typography.labelLg }]}>
+              {launchingStreamKey === 'autoplay'
+                ? 'Starting Stream...'
+                : movieDownload?.state === 'completed'
+                ? 'Play Downloaded'
+                : topStream?.attributes?.resolution
+                ? `Play Best Stream (${topStream.attributes.resolution})`
+                : 'Play Best Stream'}
             </Text>
             <Text
               style={[
@@ -303,7 +349,9 @@ export function MovieStreamSheetContent({
               ]}
               numberOfLines={1}
             >
-              {movieDownload?.state === 'completed'
+              {launchingStreamKey === 'autoplay'
+                ? 'Connecting to peer swarm & fetching subtitles...'
+                : movieDownload?.state === 'completed'
                 ? `${formatBytes(movieDownload.totalBytes || movieDownload.completedBytes)} · Stored on device`
                 : streamsLoading
                 ? 'Searching peer swarms for verified releases...'
@@ -311,52 +359,70 @@ export function MovieStreamSheetContent({
                 ? 'No releases found'
                 : topStream.seeders === 0
                 ? 'No active seeders in peer swarm'
-                : `${topStream.attributes?.resolution} · ${topStream.formattedSize} · ${topStream.seeders} seeds`}
+                : `Opens in landscape · ${topStream.formattedSize} · ${topStream.seeders} seeds`}
             </Text>
           </View>
-          {streamsLoading && movieDownload?.state !== 'completed' ? (
+          {(streamsLoading && movieDownload?.state !== 'completed') ||
+          launchingStreamKey === 'autoplay' ? (
             <ActivityIndicator size="small" color={GOLD_ACCENT} />
           ) : null}
         </TouchableOpacity>
       </View>
 
-      {/* Streams Header */}
-      <View style={styles.sectionHeaderRow}>
-        <Text style={[styles.sectionTitle, typography.labelMd, { color: GOLD_ACCENT }]}>
-          {streams.length > 0 ? `Available Releases (${streams.length})` : 'Available Releases'}
-        </Text>
-        <Text style={[styles.storageText, typography.labelSm, { color: colors.onSurfaceVariant }]}>
-          {formatBytes(usedBytes)} / 75 GB used
-        </Text>
-      </View>
+      {/* Collapsible Advanced Releases Toggle */}
+      {!streamsLoading && streams.length > 0 ? (
+        <TouchableOpacity
+          style={styles.releasesToggleRow}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setShowReleases((prev) => !prev);
+          }}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={
+            showReleases
+              ? `Hide available releases (${streams.length})`
+              : `Choose another release (${streams.length})`
+          }
+        >
+          <View style={styles.releasesToggleTextCol}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                typography.labelMd,
+                { color: showReleases ? GOLD_ACCENT : colors.onSurface },
+              ]}
+            >
+              {`Choose Another Release (${streams.length})`}
+            </Text>
+            <Text
+              style={[styles.storageText, typography.labelSm, { color: colors.onSurfaceVariant }]}
+              numberOfLines={1}
+            >
+              {`All qualities & offline downloads · ${formatBytes(usedBytes)} / 75 GB used`}
+            </Text>
+          </View>
+          <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
+            {showReleases ? 'Hide' : 'Show'}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       {/* Streams List */}
-      <View style={styles.streamsContainer}>
-        {streamsLoading ? (
-          <View style={styles.loaderCenter}>
-            <ActivityIndicator size="small" color={GOLD_ACCENT} />
-            <Text
-              style={[
-                styles.loaderText,
-                { color: colors.onSurfaceVariant, ...typography.labelSm },
-              ]}
-            >
-              Searching peer swarms for releases...
-            </Text>
-          </View>
-        ) : !streams.length ? (
-          <View style={styles.emptyStreams}>
-            <Text
-              style={[
-                styles.emptyStreamsText,
-                { color: colors.onSurfaceVariant, ...typography.bodyMd },
-              ]}
-            >
-              No releases found for this movie.
-            </Text>
-          </View>
-        ) : (
-          streams.map((item) => {
+      {!streamsLoading && !streams.length ? (
+        <View style={styles.emptyStreams}>
+          <Text
+            style={[
+              styles.emptyStreamsText,
+              { color: colors.onSurfaceVariant, ...typography.bodyMd },
+            ]}
+          >
+            No releases found for this movie.
+          </Text>
+        </View>
+      ) : showReleases ? (
+        <View style={styles.streamsContainer}>
+          {streams.map((item) => {
             const itemDownload = getForMedia({
               infoHash: item.infoHash,
               fileIdx: item.fileIdx,
@@ -429,13 +495,24 @@ export function MovieStreamSheetContent({
                         Haptics.selectionAsync();
                         playDownloaded(itemDownload);
                       } else {
-                        handleLaunch(item.magnetUrl, item.name, item.fileIdx, item.seeders);
+                        handleLaunch(
+                          item.magnetUrl,
+                          item.name,
+                          item.fileIdx,
+                          item.seeders,
+                          item.infoHash || item.magnetUrl,
+                        );
                       }
                     }}
+                    disabled={Boolean(launchingStreamKey)}
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.streamPrimaryText, { color: GOLD_ACCENT, ...typography.labelSm }]}>
-                      {isItemCompleted ? 'Play Downloaded' : 'Play Now'}
+                      {launchingStreamKey === (item.infoHash || item.magnetUrl)
+                        ? 'Starting...'
+                        : isItemCompleted
+                        ? 'Play Downloaded'
+                        : 'Play Now'}
                     </Text>
                   </TouchableOpacity>
 
@@ -550,9 +627,9 @@ export function MovieStreamSheetContent({
                 </View>
               </View>
             );
-          })
-        )}
-      </View>
+          })}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -565,7 +642,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 14,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   poster: {
     borderRadius: 8,
@@ -606,7 +683,7 @@ const styles = StyleSheet.create({
   autoPlayContainer: {
     backgroundColor: 'transparent',
     borderWidth: 0,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   autoPlayHeader: {
     alignItems: 'center',
@@ -633,6 +710,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 10,
+  },
+  releasesToggleRow: {
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingVertical: 6,
+  },
+  releasesToggleTextCol: {
+    flex: 1,
+    gap: 2,
   },
   sectionTitle: {
     fontWeight: '700',

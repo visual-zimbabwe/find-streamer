@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import {
   MIN_SEARCH_QUERY_LENGTH,
   SEARCH_PANEL_MAX_ROWS,
+  buildCompoundPersonTitleSplits,
   isRankablePersonDepartment,
   isSearchableQuery,
   normalizeSearchText,
   collidingTitleNames,
+  parseCompoundSearchQuery,
   partitionSearchResults,
   rankSearchCandidates,
   searchMatchTier,
@@ -229,4 +231,51 @@ test('a non-colliding result is never given a year, even inside a set that has o
   ];
   const collisions = collidingTitleNames(items);
   assert.equal(yearBadgeFor(items[2], collisions), null);
+});
+
+test('parseCompoundSearchQuery extracts a 4-digit year hint from multi-word queries', () => {
+  assert.deepEqual(parseCompoundSearchQuery('Mutiny 2026'), {
+    rawQuery: 'Mutiny 2026',
+    titleQuery: 'Mutiny',
+    yearHint: '2026',
+    tokens: ['mutiny'],
+  });
+  assert.deepEqual(parseCompoundSearchQuery('Mutiny (2026)'), {
+    rawQuery: 'Mutiny (2026)',
+    titleQuery: 'Mutiny',
+    yearHint: '2026',
+    tokens: ['mutiny'],
+  });
+  // Single-word year titles like "1917" remain intact with no yearHint
+  assert.deepEqual(parseCompoundSearchQuery('1917'), {
+    rawQuery: '1917',
+    titleQuery: '1917',
+    yearHint: null,
+    tokens: ['1917'],
+  });
+});
+
+test('rankSearchCandidates promotes the matching release year when query includes a year hint', () => {
+  const candidates = [
+    title('Mutiny on the Bounty', 45, { year: '1962' }),
+    title('Mutiny', 18, { year: '1952' }),
+    title('Mutiny', 25, { year: '2026' }),
+    title('Mutiny', 30, { year: '2024' }),
+  ];
+  const ranked = rankSearchCandidates(candidates, 'Mutiny 2026');
+  assert.equal(ranked[0].title, 'Mutiny');
+  assert.equal(ranked[0].year, '2026');
+});
+
+test('buildCompoundPersonTitleSplits generates title + actor splits in both orders', () => {
+  const splits = buildCompoundPersonTitleSplits('Mutiny Jason Statham');
+  assert.ok(
+    splits.some((s) => s.titlePart === 'mutiny' && s.personPart === 'jason statham'),
+    'should include mutiny + jason statham',
+  );
+  const reverseSplits = buildCompoundPersonTitleSplits('Jason Statham Mutiny');
+  assert.ok(
+    reverseSplits.some((s) => s.titlePart === 'mutiny' && s.personPart === 'jason statham'),
+    'should include jason statham + mutiny',
+  );
 });

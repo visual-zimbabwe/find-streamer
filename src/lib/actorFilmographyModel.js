@@ -243,16 +243,66 @@ export function normalizeCreditItem(item, roleType) {
   };
 }
 
+export function isNonActingSelfAppearance(item) {
+  const character = String(item?.character || item?.roleMeta || '').trim();
+  if (!character) return false;
+  return /\b(self|himself|herself|archive footage|uncredited)\b/i.test(character);
+}
+
+/**
+ * Sort normalized credit items by `'newest'`, `'rating'`, or `'popular'`.
+ */
+export function sortFilmographyCredits(credits, sortBy = 'rating') {
+  if (!Array.isArray(credits) || !credits.length) return [];
+  const copy = [...credits];
+  if (sortBy === 'newest') {
+    copy.sort((a, b) => {
+      const yA = Number(a.rawYear || a.year) || 0;
+      const yB = Number(b.rawYear || b.year) || 0;
+      if (yB !== yA) return yB - yA;
+      const vA = Number(a.voteCount) || 0;
+      const vB = Number(b.voteCount) || 0;
+      if (vB !== vA) return vB - vA;
+      return (Number(b.ratingValue) || 0) - (Number(a.ratingValue) || 0);
+    });
+    return copy;
+  }
+  if (sortBy === 'popular') {
+    copy.sort((a, b) => {
+      const vA = Number(a.voteCount) || 0;
+      const vB = Number(b.voteCount) || 0;
+      if (vB !== vA) return vB - vA;
+      const rA = Number(a.ratingValue) || 0;
+      const rB = Number(b.ratingValue) || 0;
+      if (rB !== rA) return rB - rA;
+      return (Number(b.rawYear || b.year) || 0) - (Number(a.rawYear || a.year) || 0);
+    });
+    return copy;
+  }
+  // Default: 'rating'
+  copy.sort((a, b) => {
+    const rA = Number(a.ratingValue) || 0;
+    const rB = Number(b.ratingValue) || 0;
+    if (rB !== rA) return rB - rA;
+    const vA = Number(a.voteCount) || 0;
+    const vB = Number(b.voteCount) || 0;
+    if (vB !== vA) return vB - vA;
+    return (Number(b.rawYear || b.year) || 0) - (Number(a.rawYear || a.year) || 0);
+  });
+  return copy;
+}
+
 /**
  * Deduplicates and sorts credit items within a role bucket.
  * Drops obscure entries (vote_count < 5) unless the total is small.
+ * Excludes non-acting "as Self" / "archive footage" appearances from Acting rails.
  * Sorts primarily by rating descending, then vote count and release year.
  */
 export function dedupeAndSortCredits(items, roleType, minVoteCount = 5) {
   if (!Array.isArray(items) || !items.length) return [];
 
   // Filter to valid movie/tv entries
-  const valid = items.filter(
+  const validMedia = items.filter(
     (item) =>
       item &&
       (item.id || item.tmdbId) &&
@@ -262,6 +312,13 @@ export function dedupeAndSortCredits(items, roleType, minVoteCount = 5) {
         item.mediaType === 'tv' ||
         !item.media_type),
   );
+
+  // Exclude "as Self" making-of documentaries and archive footage from Acting rails
+  const nonSelf =
+    roleType === ROLE_ACTING
+      ? validMedia.filter((item) => !isNonActingSelfAppearance(item))
+      : validMedia;
+  const valid = nonSelf.length >= 3 ? nonSelf : validMedia;
 
   // If filtering by vote_count leaves enough items (>= 3), apply it; otherwise keep all
   const filtered = valid.filter((item) => (item.vote_count ?? item.voteCount ?? 0) >= minVoteCount);
@@ -358,6 +415,7 @@ export function partitionFilmographyCredits(combinedData, primaryRole = 'cast', 
         icon: ROLE_CONFIG[roleKey]?.icon || 'film-outline',
         count: credits.length,
         totalCount: credits.length,
+        allCredits: credits,
         data: credits.slice(0, maxPerRail),
       });
     }

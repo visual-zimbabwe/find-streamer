@@ -40,6 +40,10 @@ export async function launchStream({
       }
     }
 
+    // Provide immediate feedback so the user knows their tap registered while
+    // the background service, swarm preload, and subtitle fetch complete.
+    toastiva.info('Starting stream & loading subtitles...');
+
     // Keep background stream server active with an Android ForegroundService
     if (TorrentStreamerModule?.startService) {
       try {
@@ -50,9 +54,17 @@ export async function launchStream({
     }
 
     // Prime swarm metadata in background when streaming live from magnet
+    let preloadPromise = Promise.resolve();
     if (!downloadId && magnetUrl) {
       try {
-        fetch(`http://127.0.0.1:8899/preload?magnet=${encodeURIComponent(magnetUrl)}`).catch(() => {});
+        const preloadController = new AbortController();
+        const preloadTimeout = setTimeout(() => preloadController.abort(), 1500);
+        preloadPromise = fetch(
+          `http://127.0.0.1:8899/preload?magnet=${encodeURIComponent(magnetUrl)}`,
+          { signal: preloadController.signal },
+        )
+          .catch(() => {})
+          .finally(() => clearTimeout(preloadTimeout));
       } catch {
         // Preload is opportunistic
       }
@@ -70,7 +82,7 @@ export async function launchStream({
         if (title) query += `&title=${encodeURIComponent(title)}`;
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const timeoutId = setTimeout(() => controller.abort(), 3200);
         const subRes = await fetch(query, { signal: controller.signal }).catch(() => null);
         clearTimeout(timeoutId);
 
@@ -85,6 +97,8 @@ export async function launchStream({
         console.log('[launchStream] Subtitle fetch error:', subErr);
       }
     }
+
+    await preloadPromise;
 
     // Clean up any lingering listener from a previous stream
     if (activePlayerCleanup) {

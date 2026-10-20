@@ -14,6 +14,8 @@ import {
   normalizeCreditItem,
   dedupeAndSortCredits,
   partitionFilmographyCredits,
+  isNonActingSelfAppearance,
+  sortFilmographyCredits,
 } from '../src/lib/actorFilmographyModel.js';
 
 test('resolvePrimaryRoleType maps raw roles to canonical types', () => {
@@ -268,5 +270,25 @@ test('normalizeCreditItem supports already-normalized items preserving mediaType
   assert.equal(output.posterUrl, 'https://image.tmdb.org/t/p/w500/zgZRJZvZn5cpsWAB0zMUdad3iZd.jpg');
   assert.equal(output.backdropUrl, 'https://image.tmdb.org/t/p/original/vIioWssbxRtEkIzgj8r0pCWYkYM.jpg');
   assert.equal(output.roleMeta, 'as Mabel');
+});
+
+test('dedupeAndSortCredits filters out non-acting self and archive appearances from Acting rails', () => {
+  assert.equal(isNonActingSelfAppearance({ character: 'Self' }), true);
+  assert.equal(isNonActingSelfAppearance({ character: 'Deckard Shaw (archive footage) (uncredited)' }), true);
+  assert.equal(isNonActingSelfAppearance({ character: 'Cole Reed' }), false);
+
+  const items = [
+    { id: 1, media_type: 'movie', title: 'Lock, Stock', character: 'Bacon', vote_average: 8.1, vote_count: 7000, release_date: '1998-08-28' },
+    { id: 2, media_type: 'movie', title: 'Making of Expendables', character: 'Self', vote_average: 8.0, vote_count: 15, release_date: '2010-08-01' },
+    { id: 3, media_type: 'movie', title: 'Snatch', character: 'Turkish', vote_average: 7.8, vote_count: 10000, release_date: '2000-09-01' },
+    { id: 4, media_type: 'movie', title: 'Mutiny', character: 'Cole Reed', vote_average: 7.6, vote_count: 918, release_date: '2026-08-19' },
+  ];
+
+  const acting = dedupeAndSortCredits(items, ROLE_ACTING);
+  assert.equal(acting.some((c) => c.title === 'Making of Expendables'), false);
+  assert.equal(acting.length, 3);
+
+  const byNewest = sortFilmographyCredits(acting, 'newest');
+  assert.equal(byNewest[0].title, 'Mutiny');
 });
 
