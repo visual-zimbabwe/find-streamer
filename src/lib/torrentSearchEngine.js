@@ -694,10 +694,14 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
     const aDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(a.name) ? -100 : 0;
     const bDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(b.name) ? -100 : 0;
 
+    // Boost releases with embedded English or multi-subtitles
+    const aSubBonus = /\b(esub|esubs|eng\.sub|english\.sub|multisubs?|multi-subs?|vostfr)\b/i.test(a.name) ? 25 : 0;
+    const bSubBonus = /\b(esub|esubs|eng\.sub|english\.sub|multisubs?|multi-subs?|vostfr)\b/i.test(b.name) ? 25 : 0;
+
     const aWeight =
-      a.score * 30 + Math.min(a.seeders, 300) * 30 + resolutionBonus(a.attributes?.resolution) + aDubOnly;
+      a.score * 30 + Math.min(a.seeders, 300) * 30 + resolutionBonus(a.attributes?.resolution) + aDubOnly + aSubBonus;
     const bWeight =
-      b.score * 30 + Math.min(b.seeders, 300) * 30 + resolutionBonus(b.attributes?.resolution) + bDubOnly;
+      b.score * 30 + Math.min(b.seeders, 300) * 30 + resolutionBonus(b.attributes?.resolution) + bDubOnly + bSubBonus;
     return bWeight - aWeight;
   });
 
@@ -889,10 +893,14 @@ export async function searchMovieTorrents({ title, year, imdbId }) {
     const aDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(a.name) ? -100 : 0;
     const bDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(b.name) ? -100 : 0;
 
+    // Boost releases with embedded English or multi-subtitles
+    const aSubBonus = /\b(esub|esubs|eng\.sub|english\.sub|multisubs?|multi-subs?|vostfr)\b/i.test(a.name) ? 25 : 0;
+    const bSubBonus = /\b(esub|esubs|eng\.sub|english\.sub|multisubs?|multi-subs?|vostfr)\b/i.test(b.name) ? 25 : 0;
+
     const aWeight =
-      a.score * 30 + Math.min(a.seeders, 300) * 30 + resolutionBonus(a.attributes?.resolution) + aSizeBonus + aDubOnly;
+      a.score * 30 + Math.min(a.seeders, 300) * 30 + resolutionBonus(a.attributes?.resolution) + aSizeBonus + aDubOnly + aSubBonus;
     const bWeight =
-      b.score * 30 + Math.min(b.seeders, 300) * 30 + resolutionBonus(b.attributes?.resolution) + bSizeBonus + bDubOnly;
+      b.score * 30 + Math.min(b.seeders, 300) * 30 + resolutionBonus(b.attributes?.resolution) + bSizeBonus + bDubOnly + bSubBonus;
     return bWeight - aWeight;
   });
 

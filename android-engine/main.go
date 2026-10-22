@@ -16,12 +16,12 @@ import "C"
 import (
 	"archive/zip"
 	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -572,12 +572,12 @@ func buildDownloadID(imdbID string, tmdbID int, season int, episode int, infoHas
 	return base
 }
 
-func cacheSubtitleForDownload(imdb string, s int, e int, rel string, dlID string) {
-	if imdb == "" || dlID == "" {
+func cacheSubtitleForDownload(imdb string, s int, e int, rel string, mediaTitle string, tmdbId string, dlID string) {
+	if (imdb == "" && mediaTitle == "") || dlID == "" {
 		return
 	}
 	go func() {
-		cachedPath, filename, _, subErr := resolveAndCacheSubtitle(imdb, s, e, rel)
+		cachedPath, filename, _, subErr := resolveAndCacheSubtitle(imdb, s, e, rel, mediaTitle, tmdbId)
 		if subErr == nil && filename != "" {
 			downloadsLock.Lock()
 			if cur, ok := downloads[dlID]; ok {
@@ -609,8 +609,12 @@ func activateDownloadEntry(entry *DownloadEntry) {
 		downloadsLock.Unlock()
 
 		// Pre-cache English subtitle for single movie or single episode immediately
-		if entry.ImdbID != "" && !(entry.Season > 0 && entry.Episode == 0 && entry.FileIdx < 0) {
-			cacheSubtitleForDownload(entry.ImdbID, entry.Season, entry.Episode, entry.ReleaseName, entry.ID)
+		if (entry.ImdbID != "" || entry.Title != "") && !(entry.Season > 0 && entry.Episode == 0 && entry.FileIdx < 0) {
+			tmdbStr := ""
+			if entry.TmdbID > 0 {
+				tmdbStr = strconv.Itoa(entry.TmdbID)
+			}
+			cacheSubtitleForDownload(entry.ImdbID, entry.Season, entry.Episode, entry.ReleaseName, entry.Title, tmdbStr, entry.ID)
 		}
 
 		select {
@@ -739,10 +743,15 @@ func activateDownloadEntry(entry *DownloadEntry) {
 				saveDownloadsIndexLocked()
 				imdbForSubs := cur.ImdbID
 				seasonForSubs := cur.Season
+				titleForSubs := cur.Title
+				tmdbForSubs := ""
+				if cur.TmdbID > 0 {
+					tmdbForSubs = strconv.Itoa(cur.TmdbID)
+				}
 				downloadsLock.Unlock()
 
 				for _, st := range subTasks {
-					cacheSubtitleForDownload(imdbForSubs, seasonForSubs, st.epNum, st.rel, st.dlID)
+					cacheSubtitleForDownload(imdbForSubs, seasonForSubs, st.epNum, st.rel, titleForSubs, tmdbForSubs, st.dlID)
 				}
 
 				for i, f := range filesToDownload {
@@ -1390,20 +1399,52 @@ type SubdlResponse struct {
 	} `json:"subtitles"`
 }
 
-type OsSubtitle struct {
-	SubLanguageID   string `json:"SubLanguageID"`
-	SubDownloadLink string `json:"SubDownloadLink"`
-	SubFileName     string `json:"SubFileName"`
+type OsV3Subtitle struct {
+	ID               string `json:"id"`
+	URL              string `json:"url"`
+	Lang             string `json:"lang"`
+	SubtitleFileName string `json:"subtitleFileName"`
+	MovieReleaseName string `json:"movieReleaseName"`
 }
 
-func fetchFromSubdl(cleanImdb string, season int, episode int, releaseName string) ([]byte, error) {
+type OsV3Response struct {
+	Subtitles []OsV3Subtitle `json:"subtitles"`
+}
+
+func sanitizeSubtitleFilename(s string) string {
+	reg := regexp.MustCompile(`[^a-zA-Z0-9_\-]+`)
+	cleaned := reg.ReplaceAllString(strings.TrimSpace(s), "_")
+	cleaned = strings.Trim(cleaned, "_")
+	if len(cleaned) > 40 {
+		cleaned = cleaned[:40]
+	}
+	if cleaned == "" {
+		cleaned = "media"
+	}
+	return cleaned
+}
+
+func fetchFromSubdl(cleanImdb string, season int, episode int, releaseName string, mediaTitle string, tmdbId string) ([]byte, error) {
 	client := &http.Client{Timeout: 8 * time.Second}
 
-	reqUrl := fmt.Sprintf("https://api.subdl.com/api/v1/subtitles?api_key=%s&imdb_id=%s&languages=EN", subdlApiKey, cleanImdb)
+	var reqUrl string
+	if cleanImdb != "" {
+		reqUrl = fmt.Sprintf("https://api.subdl.com/api/v1/subtitles?api_key=%s&imdb_id=%s&languages=EN", subdlApiKey, cleanImdb)
+	} else if tmdbId != "" {
+		reqUrl = fmt.Sprintf("https://api.subdl.com/api/v1/subtitles?api_key=%s&tmdb_id=%s&languages=EN", subdlApiKey, tmdbId)
+	} else if mediaTitle != "" {
+		cleanFilm := strings.TrimSpace(mediaTitle)
+		reqUrl = fmt.Sprintf("https://api.subdl.com/api/v1/subtitles?api_key=%s&film_name=%s&languages=EN", subdlApiKey, url.QueryEscape(cleanFilm))
+	} else {
+		return nil, fmt.Errorf("no search parameter for SubDL")
+	}
+
 	if season > 0 && episode > 0 {
 		reqUrl += fmt.Sprintf("&season_number=%d&episode_number=%d&type=tv", season, episode)
 	} else if season > 0 {
 		reqUrl += fmt.Sprintf("&season_number=%d&type=tv", season)
+	} else if cleanImdb == "" && tmdbId == "" {
+		reqUrl += "&type=movie"
 	}
 
 	resp, err := client.Get(reqUrl)
@@ -1522,22 +1563,20 @@ func fetchFromSubdl(cleanImdb string, season int, episode int, releaseName strin
 	return io.ReadAll(rc)
 }
 
-func fetchFromOpenSubtitles(cleanImdb string, season int, episode int) ([]byte, error) {
-	client := &http.Client{Timeout: 8 * time.Second}
-	cleanDigits := strings.TrimPrefix(strings.TrimSpace(cleanImdb), "tt")
-
+func fetchFromOpenSubtitlesV3(cleanImdb string, season int, episode int, releaseName string) ([]byte, error) {
+	client := &http.Client{Timeout: 6 * time.Second}
 	var reqUrl string
 	if season > 0 && episode > 0 {
-		reqUrl = fmt.Sprintf("https://rest.opensubtitles.org/search/episode-%d/imdbid-%s/season-%d/sublanguageid-eng", episode, cleanDigits, season)
+		reqUrl = fmt.Sprintf("https://opensubtitles-v3.strem.io/subtitles/series/%s:%d:%d.json", cleanImdb, season, episode)
 	} else {
-		reqUrl = fmt.Sprintf("https://rest.opensubtitles.org/search/imdbid-%s/sublanguageid-eng", cleanDigits)
+		reqUrl = fmt.Sprintf("https://opensubtitles-v3.strem.io/subtitles/movie/%s.json", cleanImdb)
 	}
 
 	req, err := http.NewRequest("GET", reqUrl, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "TrovaPlayer v1.0")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 13; Trova)")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -1545,73 +1584,327 @@ func fetchFromOpenSubtitles(cleanImdb string, season int, episode int) ([]byte, 
 	}
 	defer resp.Body.Close()
 
-	var list []OsSubtitle
-	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("opensubtitles-v3 returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
 		return nil, err
 	}
 
-	if len(list) == 0 || list[0].SubDownloadLink == "" {
-		return nil, fmt.Errorf("no English subtitles found on OpenSubtitles")
+	var parsed OsV3Response
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return nil, err
 	}
 
-	dlResp, err := client.Get(list[0].SubDownloadLink)
+	var bestSub *OsV3Subtitle
+	bestScore := -1
+	normTarget := strings.ToLower(releaseName)
+
+	for i := range parsed.Subtitles {
+		sub := &parsed.Subtitles[i]
+		lowerLang := strings.ToLower(sub.Lang)
+		lowerName := strings.ToLower(sub.SubtitleFileName + " " + sub.MovieReleaseName)
+		isEng := lowerLang == "eng" || strings.HasPrefix(lowerLang, "en")
+
+		if !isEng {
+			continue
+		}
+
+		score := 10
+		if lowerLang == "eng" {
+			score += 20
+		}
+		if len(normTarget) > 0 {
+			tokens := strings.FieldsFunc(normTarget, func(r rune) bool {
+				return r == '.' || r == ' ' || r == '-' || r == '_'
+			})
+			for _, tok := range tokens {
+				if len(tok) >= 3 && strings.Contains(lowerName, tok) {
+					score += 5
+				}
+			}
+		}
+
+		if score > bestScore {
+			bestScore = score
+			bestSub = sub
+		}
+	}
+
+	if bestSub == nil || bestSub.URL == "" {
+		return nil, fmt.Errorf("no English subtitles found on OpenSubtitles v3")
+	}
+
+	dlReq, err := http.NewRequest("GET", bestSub.URL, nil)
+	if err != nil {
+		return nil, err
+	}
+	dlReq.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 13; Trova)")
+
+	dlResp, err := client.Do(dlReq)
 	if err != nil {
 		return nil, err
 	}
 	defer dlResp.Body.Close()
 
-	gzReader, err := gzip.NewReader(dlResp.Body)
+	if dlResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to download subtitle file: status %d", dlResp.StatusCode)
+	}
+
+	data, err := io.ReadAll(dlResp.Body)
 	if err != nil {
 		return nil, err
 	}
-	defer gzReader.Close()
-
-	return io.ReadAll(gzReader)
+	if len(data) < 50 || !strings.Contains(string(data), "-->") {
+		return nil, fmt.Errorf("invalid srt content (%d bytes)", len(data))
+	}
+	return data, nil
 }
 
-func resolveAndCacheSubtitle(imdb string, season int, episode int, releaseName string) (string, string, string, error) {
+func fetchFromSubtitleCat(mediaTitle string, season int, episode int, releaseName string) ([]byte, error) {
+	client := &http.Client{Timeout: 7 * time.Second}
+
+	cleanTitle := strings.TrimSpace(mediaTitle)
+	if cleanTitle == "" && releaseName != "" {
+		cleanTitle = releaseName
+	}
+	if cleanTitle == "" {
+		return nil, fmt.Errorf("no title provided for SubtitleCat")
+	}
+
+	var query string
+	if season > 0 && episode > 0 {
+		query = fmt.Sprintf("%s S%02dE%02d", cleanTitle, season, episode)
+	} else {
+		query = cleanTitle
+	}
+
+	searchUrl := fmt.Sprintf("https://www.subtitlecat.com/index.php?search=%s", url.QueryEscape(query))
+	req, err := http.NewRequest("GET", searchUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 13; Trova)")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	htmlBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	html := string(htmlBytes)
+
+	reSubLink := regexp.MustCompile(`href=["'](/?subs/[^"']+\.html)["']`)
+	matches := reSubLink.FindAllStringSubmatch(html, -1)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no subtitle pages found on SubtitleCat for query %q", query)
+	}
+
+	var detailPagePath string
+	epTag := fmt.Sprintf("S%02dE%02d", season, episode)
+	for _, m := range matches {
+		link := m[1]
+		if season > 0 && episode > 0 {
+			if strings.Contains(strings.ToUpper(link), strings.ToUpper(epTag)) {
+				detailPagePath = link
+				break
+			}
+		} else {
+			detailPagePath = link
+			break
+		}
+	}
+	if detailPagePath == "" {
+		detailPagePath = matches[0][1]
+	}
+
+	if !strings.HasPrefix(detailPagePath, "/") {
+		detailPagePath = "/" + detailPagePath
+	}
+	detailUrl := "https://www.subtitlecat.com" + detailPagePath
+
+	detailReq, err := http.NewRequest("GET", detailUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	detailReq.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 13; Trova)")
+
+	detailResp, err := client.Do(detailReq)
+	if err != nil {
+		return nil, err
+	}
+	defer detailResp.Body.Close()
+
+	detailHtmlBytes, err := io.ReadAll(detailResp.Body)
+	if err != nil {
+		return nil, err
+	}
+	detailHtml := string(detailHtmlBytes)
+
+	var srtDownloadPath string
+	reEnDownload := regexp.MustCompile(`id=["']download_en["'][^>]*href=["']([^"']+)["']`)
+	if m := reEnDownload.FindStringSubmatch(detailHtml); len(m) > 1 {
+		srtDownloadPath = m[1]
+	} else {
+		reEnDownloadRev := regexp.MustCompile(`href=["']([^"']+)["'][^>]*id=["']download_en["']`)
+		if m := reEnDownloadRev.FindStringSubmatch(detailHtml); len(m) > 1 {
+			srtDownloadPath = m[1]
+		}
+	}
+
+	if srtDownloadPath == "" {
+		reSrtEn := regexp.MustCompile(`href=["'](/?subs/[^"']+-en\.srt)["']`)
+		if m := reSrtEn.FindStringSubmatch(detailHtml); len(m) > 1 {
+			srtDownloadPath = m[1]
+		}
+	}
+
+	if srtDownloadPath == "" {
+		reSrtOrig := regexp.MustCompile(`href=["'](/?subs/[^"']+-orig\.srt)["']`)
+		if m := reSrtOrig.FindStringSubmatch(detailHtml); len(m) > 1 {
+			srtDownloadPath = m[1]
+		}
+	}
+
+	if srtDownloadPath == "" {
+		return nil, fmt.Errorf("no English srt download link found on page %s", detailUrl)
+	}
+
+	if !strings.HasPrefix(srtDownloadPath, "http") {
+		if !strings.HasPrefix(srtDownloadPath, "/") {
+			srtDownloadPath = "/" + srtDownloadPath
+		}
+		srtDownloadPath = "https://www.subtitlecat.com" + srtDownloadPath
+	}
+
+	u, err := url.Parse(srtDownloadPath)
+	if err == nil {
+		u.RawQuery = u.Query().Encode()
+		srtDownloadPath = u.String()
+	}
+
+	dlReq, err := http.NewRequest("GET", srtDownloadPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	dlReq.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 13; Trova)")
+
+	dlResp, err := client.Do(dlReq)
+	if err != nil {
+		return nil, err
+	}
+	defer dlResp.Body.Close()
+
+	if dlResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download srt failed with status %d from %s", dlResp.StatusCode, srtDownloadPath)
+	}
+
+	srtData, err := io.ReadAll(dlResp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(srtData) < 50 || !strings.Contains(string(srtData), "-->") {
+		return nil, fmt.Errorf("downloaded content is not valid srt (%d bytes)", len(srtData))
+	}
+
+	return srtData, nil
+}
+
+func resolveAndCacheSubtitle(imdb string, season int, episode int, releaseName string, mediaTitle string, tmdbId string) (string, string, string, error) {
 	cleanImdb := strings.TrimSpace(imdb)
 	if !strings.HasPrefix(cleanImdb, "tt") && len(cleanImdb) > 0 {
 		cleanImdb = "tt" + cleanImdb
 	}
 
+	var baseKey string
+	if cleanImdb != "" {
+		baseKey = cleanImdb
+	} else if cleanMedia := sanitizeSubtitleFilename(mediaTitle); cleanMedia != "" && cleanMedia != "media" {
+		baseKey = cleanMedia
+	} else if cleanRel := sanitizeSubtitleFilename(releaseName); cleanRel != "" {
+		baseKey = cleanRel
+	} else {
+		baseKey = "sub"
+	}
+
 	var filename string
 	if season > 0 && episode > 0 {
-		filename = fmt.Sprintf("%s_s%d_e%d.srt", cleanImdb, season, episode)
+		filename = fmt.Sprintf("%s_s%d_e%d.srt", baseKey, season, episode)
 	} else if season > 0 {
-		filename = fmt.Sprintf("%s_s%d.srt", cleanImdb, season)
+		filename = fmt.Sprintf("%s_s%d.srt", baseKey, season)
 	} else {
-		filename = fmt.Sprintf("%s.srt", cleanImdb)
+		filename = fmt.Sprintf("%s.srt", baseKey)
 	}
 
 	subDir := filepath.Join(cachePath, "subtitles")
 	os.MkdirAll(subDir, 0755)
 	cachedPath := filepath.Join(subDir, filename)
 
-	if fi, err := os.Stat(cachedPath); err == nil && fi.Size() > 0 {
+	if fi, err := os.Stat(cachedPath); err == nil && fi.Size() > 50 {
 		return cachedPath, filename, "cache", nil
 	}
 
-	// 1. Primary: SubDL
-	srtBytes, err := fetchFromSubdl(cleanImdb, season, episode, releaseName)
-	if err == nil && len(srtBytes) > 0 {
-		if writeErr := os.WriteFile(cachedPath, srtBytes, 0644); writeErr == nil {
-			logInfo("Cached English subtitle from SubDL for %s (%d bytes)", filename, len(srtBytes))
-			return cachedPath, filename, "subdl", nil
+	// 1. Primary: SubDL by IMDb ID
+	if cleanImdb != "" {
+		srtBytes, err := fetchFromSubdl(cleanImdb, season, episode, releaseName, "", "")
+		if err == nil && len(srtBytes) > 50 {
+			if writeErr := os.WriteFile(cachedPath, srtBytes, 0644); writeErr == nil {
+				logInfo("Cached English subtitle from SubDL (imdb) for %s (%d bytes)", filename, len(srtBytes))
+				return cachedPath, filename, "subdl", nil
+			}
+		} else {
+			logInfo("SubDL (imdb) fetch failed: %v", err)
 		}
-	} else {
-		logInfo("SubDL fetch failed or no English subs: %v", err)
 	}
 
-	// 2. Fallback: OpenSubtitles
-	srtBytes, err = fetchFromOpenSubtitles(cleanImdb, season, episode)
-	if err == nil && len(srtBytes) > 0 {
-		if writeErr := os.WriteFile(cachedPath, srtBytes, 0644); writeErr == nil {
-			logInfo("Cached English subtitle from OpenSubtitles for %s (%d bytes)", filename, len(srtBytes))
-			return cachedPath, filename, "opensubtitles", nil
+	// 2. Secondary: OpenSubtitles v3 (Stremio Official Subtitles addon endpoint)
+	if cleanImdb != "" {
+		srtBytes, err := fetchFromOpenSubtitlesV3(cleanImdb, season, episode, releaseName)
+		if err == nil && len(srtBytes) > 50 {
+			if writeErr := os.WriteFile(cachedPath, srtBytes, 0644); writeErr == nil {
+				logInfo("Cached English subtitle from OpenSubtitles v3 for %s (%d bytes)", filename, len(srtBytes))
+				return cachedPath, filename, "opensubtitles-v3", nil
+			}
+		} else {
+			logInfo("OpenSubtitles v3 fetch failed: %v", err)
 		}
-	} else {
-		logInfo("OpenSubtitles fetch failed or no English subs: %v", err)
+	}
+
+	// 3. Tertiary: SubDL by TMDb ID or media title
+	if tmdbId != "" || mediaTitle != "" {
+		srtBytes, err := fetchFromSubdl("", season, episode, releaseName, mediaTitle, tmdbId)
+		if err == nil && len(srtBytes) > 50 {
+			if writeErr := os.WriteFile(cachedPath, srtBytes, 0644); writeErr == nil {
+				logInfo("Cached English subtitle from SubDL (title/tmdb) for %s (%d bytes)", filename, len(srtBytes))
+				return cachedPath, filename, "subdl-title", nil
+			}
+		} else {
+			logInfo("SubDL (title/tmdb) fetch failed: %v", err)
+		}
+	}
+
+	// 4. Quaternary: SubtitleCat scraper fallback (crucial for foreign/niche titles like Sambre)
+	queryTitle := mediaTitle
+	if queryTitle == "" {
+		queryTitle = releaseName
+	}
+	if queryTitle != "" {
+		srtBytes, err := fetchFromSubtitleCat(queryTitle, season, episode, releaseName)
+		if err == nil && len(srtBytes) > 50 {
+			if writeErr := os.WriteFile(cachedPath, srtBytes, 0644); writeErr == nil {
+				logInfo("Cached English subtitle from SubtitleCat for %s (%d bytes)", filename, len(srtBytes))
+				return cachedPath, filename, "subtitlecat", nil
+			}
+		} else {
+			logInfo("SubtitleCat fetch failed: %v", err)
+		}
 	}
 
 	return "", "", "", fmt.Errorf("no English subtitles found for %s", filename)
@@ -1637,7 +1930,7 @@ func subtitleFileHandler(w http.ResponseWriter, r *http.Request) {
 
 	base := strings.TrimSuffix(filename, filepath.Ext(filename))
 	parts := strings.Split(base, "_")
-	imdb := parts[0]
+	imdbOrTitle := parts[0]
 	season := 0
 	episode := 0
 	for _, p := range parts[1:] {
@@ -1648,7 +1941,14 @@ func subtitleFileHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cachedPath, _, _, err := resolveAndCacheSubtitle(imdb, season, episode, "")
+	var imdb, mediaTitle string
+	if strings.HasPrefix(imdbOrTitle, "tt") {
+		imdb = imdbOrTitle
+	} else {
+		mediaTitle = imdbOrTitle
+	}
+
+	cachedPath, _, _, err := resolveAndCacheSubtitle(imdb, season, episode, "", mediaTitle, "")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -1662,16 +1962,18 @@ func subtitleFetchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	imdb := r.URL.Query().Get("imdb")
-	if imdb == "" {
-		http.Error(w, `{"status":false,"error":"missing imdb parameter"}`, http.StatusBadRequest)
-		return
-	}
-
 	season, _ := strconv.Atoi(r.URL.Query().Get("season"))
 	episode, _ := strconv.Atoi(r.URL.Query().Get("episode"))
 	title := r.URL.Query().Get("title")
+	mediaTitle := r.URL.Query().Get("mediaTitle")
+	tmdbId := r.URL.Query().Get("tmdbId")
 
-	cachedPath, filename, source, err := resolveAndCacheSubtitle(imdb, season, episode, title)
+	if imdb == "" && mediaTitle == "" && title == "" {
+		http.Error(w, `{"status":false,"error":"missing media identifiers"}`, http.StatusBadRequest)
+		return
+	}
+
+	cachedPath, filename, source, err := resolveAndCacheSubtitle(imdb, season, episode, title, mediaTitle, tmdbId)
 	if err != nil {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{
