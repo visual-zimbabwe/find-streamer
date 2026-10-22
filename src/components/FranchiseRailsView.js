@@ -125,7 +125,6 @@ function CollectionRail({
             },
           ]}
           onPress={() => {
-            Haptics.selectionAsync();
             onSaveCollection(row);
           }}
           activeOpacity={0.8}

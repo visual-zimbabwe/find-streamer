@@ -30,6 +30,7 @@ function formatMovieRuntime(minutes) {
  */
 export function MovieStreamSheetContent({
   movieTitle,
+  originalTitle,
   movieYear,
   tmdbId,
   imdbId,
@@ -115,6 +116,7 @@ export function MovieStreamSheetContent({
           magnetUrl,
           title: releaseName,
           mediaTitle: movieTitle,
+          originalTitle,
           year: movieYear,
           tmdbId,
           fileIdx,
@@ -124,7 +126,7 @@ export function MovieStreamSheetContent({
         setLaunchingStreamKey(null);
       }
     },
-    [imdbId, launchingStreamKey, movieTitle, movieYear, tmdbId],
+    [imdbId, launchingStreamKey, movieTitle, originalTitle, movieYear, tmdbId],
   );
 
   const handleStartDownload = useCallback(

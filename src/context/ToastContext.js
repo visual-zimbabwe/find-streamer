@@ -77,6 +77,7 @@ export function ToastProvider({ children }) {
         type,
         icon: toastData.icon,
         duration,
+        haptic: toastData.haptic,
       });
 
       timeoutRef.current = setTimeout(() => {

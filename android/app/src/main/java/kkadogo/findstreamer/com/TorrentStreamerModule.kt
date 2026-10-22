@@ -72,6 +72,7 @@ class TorrentStreamerModule(reactContext: ReactApplicationContext) :
                     val subArray = arrayOf<Parcelable>(subUri)
                     putExtra("subs", subArray)
                     putExtra("subs.enable", subArray)
+                    putExtra("subtitles_location", subtitleUri)
                 }
             }
             context.startActivity(intent)

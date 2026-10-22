@@ -645,6 +645,8 @@ async function getTitleMetadata(mediaType, tmdbId) {
 
   const dateValue = data.release_date || data.first_air_date || '';
   const year = dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A';
+  const originalTitle =
+    data.original_name || data.original_title || data.name || data.title || null;
   const genres = (data.genres || [])
     .map((genre) => genre.name)
     .filter(Boolean)
@@ -701,6 +703,7 @@ async function getTitleMetadata(mediaType, tmdbId) {
     rating,
     runtimeMinutes,
     imdbId,
+    originalTitle,
     // ISO 639-1 original language — so saving from the detail screen captures the
     // code for Discover's personalized language Quick Picks (mirrors the discover
     // and search mappers). Distinct from the Wikidata `originalLanguage` NAMES.
@@ -1834,6 +1837,7 @@ export async function getTitleMatchById(mediaType, tmdbId) {
     mediaType,
     tmdbId: data.id,
     title: data.title || data.name || '(Untitled)',
+    originalTitle: data.original_name || data.original_title || null,
     year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
     synopsis: (data.overview || '').trim() || 'No synopsis available.',
     posterUrl: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,

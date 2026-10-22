@@ -47,6 +47,7 @@ function formatAirDate(airDate) {
 export function SeasonDetailSheetContent({
   season,
   seriesTitle,
+  originalTitle,
   seriesTmdbId,
   imdbId,
   seriesYear,
@@ -143,6 +144,7 @@ export function SeasonDetailSheetContent({
         magnetUrl,
         title: releaseName,
         mediaTitle: seriesTitle,
+        originalTitle,
         year: seriesYear,
         tmdbId: seriesTmdbId,
         fileIdx,
@@ -151,7 +153,7 @@ export function SeasonDetailSheetContent({
         episode: episodeNum,
       });
     },
-    [imdbId, season?.seasonNumber, seriesTitle, seriesYear, seriesTmdbId],
+    [imdbId, season?.seasonNumber, seriesTitle, originalTitle, seriesYear, seriesTmdbId],
   );
 
   const handleStartEpisodeDownload = useCallback(

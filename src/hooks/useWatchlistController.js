@@ -268,12 +268,7 @@ export function useWatchlistController({ showToast }) {
         try {
           await saveWatchlist(next);
           if (successMessage) {
-            toastiva.success(successMessage);
-            // A committed save earns a firmer confirmation than the selection
-            // tick the bookmark already fired; removals/status flips do not.
-            if (/^Saved/.test(successMessage)) {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-            }
+            toastiva.success(successMessage, { haptic: false });
           }
           return normalized;
         } catch {
@@ -418,7 +413,7 @@ export function useWatchlistController({ showToast }) {
               watchlistRef.current = next;
               try {
                 await saveWatchlist(next);
-                toastiva.success('Removed from Library');
+                toastiva.success('Removed from Library', { haptic: false });
                 closeSheet();
               } catch {
                 setWatchlist(previous);
@@ -547,6 +542,7 @@ export function useWatchlistController({ showToast }) {
         showToast(successMessage, {
           title: 'Watchlist',
           icon: successIcon,
+          haptic: false,
         });
       } catch {
         setWatchlist(rollbackWatchlist);
@@ -666,9 +662,9 @@ export function useWatchlistController({ showToast }) {
           saveWatchlist(updatedWatchlist),
         ]);
         recordRecentDestinationId(assignedCollectionId);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         toastiva.success(
           `Saved ${collectionRow.items.length} films from ${collectionRow.title} to Library!`,
+          { haptic: false },
         );
       } catch (_err) {
         setWatchlistCollections(previousCollections);

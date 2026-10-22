@@ -21,6 +21,7 @@ export async function launchStream({
   magnetUrl,
   title,
   mediaTitle,
+  originalTitle,
   year,
   tmdbId,
   fileIdx,
@@ -85,6 +86,7 @@ export async function launchStream({
         if (episode != null) params.push(`episode=${episode}`);
         if (title) params.push(`title=${encodeURIComponent(title)}`);
         if (mediaTitle) params.push(`mediaTitle=${encodeURIComponent(mediaTitle)}`);
+        if (originalTitle) params.push(`originalTitle=${encodeURIComponent(originalTitle)}`);
         if (tmdbId) params.push(`tmdbId=${encodeURIComponent(String(tmdbId))}`);
         if (year) params.push(`year=${encodeURIComponent(String(year))}`);
 
@@ -180,15 +182,22 @@ export async function launchStream({
     }
 
     if (!playerLaunched) {
+      const intentExtra = {
+        title: title || 'Trova Stream',
+      };
+      if (subtitleUrl) {
+        intentExtra.subs = [subtitleUrl];
+        intentExtra['subs.enable'] = [subtitleUrl];
+        intentExtra.subtitles_location = subtitleUrl;
+      }
+
       try {
         await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
           data: streamUrl,
           type: 'video/*',
           packageName: 'is.xyz.mpv',
           className: 'is.xyz.mpv.MPVActivity',
-          extra: {
-            title: title || 'Trova Stream',
-          },
+          extra: intentExtra,
         });
         playerLaunched = true;
       } catch (mpvError) {
@@ -197,9 +206,7 @@ export async function launchStream({
           await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
             data: streamUrl,
             type: 'video/*',
-            extra: {
-              title: title || 'Trova Stream',
-            },
+            extra: intentExtra,
           });
           playerLaunched = true;
         } catch (genericError) {

@@ -1092,6 +1092,7 @@ export function ResultView({
         <SeasonDetailSheetContent
           season={season}
           seriesTitle={result?.title}
+          originalTitle={result?.originalTitle}
           seriesTmdbId={result?.tmdbId}
           imdbId={result?.imdbId}
           seriesYear={result?.year}
@@ -1128,6 +1129,7 @@ export function ResultView({
       (sheetId) => (
         <MovieStreamSheetContent
           movieTitle={result?.title}
+          originalTitle={result?.originalTitle}
           movieYear={result?.year}
           tmdbId={result?.tmdbId}
           imdbId={result?.imdbId}
@@ -2833,6 +2835,7 @@ export function ResultView({
             variant="clear"
             iconSize={24}
             active={isInWatchlist}
+            haptic="none"
             onPress={() => onToggleWatchlist(result)}
             disabled={loading}
             accessibilityLabel={
