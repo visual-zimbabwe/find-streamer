@@ -19,9 +19,19 @@ import {
   formatYearRange,
   formatRuntimeRange,
   formatRuntimeHours,
+  formatSeasonsRange,
+  formatSeasonsCountLabel,
+  seasonsLowFromFilters,
+  seasonsHighFromFilters,
+  seasonsFiltersFromRange,
+  SEASONS_MIN,
+  SEASONS_MAX,
   getYearMode,
   getRuntimeMode,
   getRatingMode,
+  getSeasonsMode,
+  getSeasonsSubMode,
+  matchesSeasonsRange,
 } from '../src/lib/discoverRanges.js';
 
 test('rating: reads the shipped default (7 – 10.0) as [7, 10]', () => {
@@ -163,4 +173,67 @@ test('getRatingMode detects presets and custom', () => {
   assert.equal(getRatingMode('8.0', '10.0'), '8.0+');
   assert.equal(getRatingMode('7.3', '10.0'), 'CUSTOM');
   assert.equal(getRatingMode('6.5', '8.5'), 'CUSTOM');
+});
+
+test('seasons: empty maps to [SEASONS_MIN, SEASONS_MAX] and writes back empty', () => {
+  assert.equal(seasonsLowFromFilters(''), SEASONS_MIN);
+  assert.equal(seasonsHighFromFilters(''), SEASONS_MAX);
+  assert.deepEqual(seasonsFiltersFromRange(SEASONS_MIN, SEASONS_MAX), {
+    minSeasons: '',
+    maxSeasons: '',
+  });
+});
+
+test('seasons: formatSeasonsRange formats exact, long, capped, and range bounds', () => {
+  assert.equal(formatSeasonsRange('', ''), 'Any seasons');
+  assert.equal(formatSeasonsRange('1', '1'), '1 season');
+  assert.equal(formatSeasonsRange('3', '3'), '3 seasons');
+  assert.equal(formatSeasonsRange('5', ''), '5+ seasons');
+  assert.equal(formatSeasonsRange('', '3'), 'Up to 3 seasons');
+  assert.equal(formatSeasonsRange('2', '5'), '2 – 5 seasons');
+  assert.equal(formatSeasonsCountLabel(1), '1 season');
+  assert.equal(formatSeasonsCountLabel(3), '3 seasons');
+  assert.equal(formatSeasonsCountLabel(0), null);
+});
+
+test('seasons: getSeasonsMode and getSeasonsSubMode detect presets and sub-modes', () => {
+  assert.equal(getSeasonsMode('', ''), 'ANY');
+  assert.equal(getSeasonsMode('1', '1'), '1');
+  assert.equal(getSeasonsMode('2', '2'), '2');
+  assert.equal(getSeasonsMode('3', '3'), '3');
+  assert.equal(getSeasonsMode('5', ''), '5+');
+  assert.equal(getSeasonsMode('4', '4'), 'CUSTOM');
+  assert.equal(getSeasonsMode('2', '6'), 'CUSTOM');
+  assert.equal(getSeasonsMode('8', ''), 'CUSTOM');
+
+  assert.equal(getSeasonsSubMode('4', '4'), 'EXACT');
+  assert.equal(getSeasonsSubMode('5', ''), 'OVER');
+  assert.equal(getSeasonsSubMode('', '3'), 'UNDER');
+  assert.equal(getSeasonsSubMode('2', '6'), 'BETWEEN');
+});
+
+test('seasons: matchesSeasonsRange filters TV show season counts accurately', () => {
+  assert.equal(matchesSeasonsRange(1, '', ''), true);
+  assert.equal(matchesSeasonsRange(null, '', ''), true);
+
+  // Exact 1 season
+  assert.equal(matchesSeasonsRange(1, '1', '1'), true);
+  assert.equal(matchesSeasonsRange(2, '1', '1'), false);
+
+  // Exact 3 seasons
+  assert.equal(matchesSeasonsRange(3, '3', '3'), true);
+  assert.equal(matchesSeasonsRange(2, '3', '3'), false);
+  assert.equal(matchesSeasonsRange(4, '3', '3'), false);
+
+  // Long seasons (5+)
+  assert.equal(matchesSeasonsRange(5, '5', ''), true);
+  assert.equal(matchesSeasonsRange(12, '5', ''), true);
+  assert.equal(matchesSeasonsRange(4, '5', ''), false);
+
+  // Between 2 and 4 seasons
+  assert.equal(matchesSeasonsRange(1, '2', '4'), false);
+  assert.equal(matchesSeasonsRange(2, '2', '4'), true);
+  assert.equal(matchesSeasonsRange(3, '2', '4'), true);
+  assert.equal(matchesSeasonsRange(4, '2', '4'), true);
+  assert.equal(matchesSeasonsRange(5, '2', '4'), false);
 });

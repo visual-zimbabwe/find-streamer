@@ -23,6 +23,10 @@ export const RUNTIME_MIN = 0;
 export const RUNTIME_MAX = 360; // 6h covers the entire practical catalogue
 export const RUNTIME_STEP = 5;
 
+export const SEASONS_MIN = 1;
+export const SEASONS_MAX = 25;
+export const SEASONS_STEP = 1;
+
 // ── Rating ────────────────────────────────────────────────────────────────────
 // Rating always has a range (0–10); there is no "unset" thumb. An empty/zero
 // low maps to the RATING_MIN extreme, an empty/high-max maps to RATING_MAX.
@@ -100,6 +104,31 @@ export function runtimeFiltersFromRange(low, high) {
   };
 }
 
+// ── Seasons (TV only) ───────────────────────────────────────────────────────
+export function seasonsLowFromFilters(minSeasons) {
+  const n = toNum(minSeasons);
+  if (n == null || n <= 0) return SEASONS_MIN;
+  return clamp(Math.round(n), SEASONS_MIN, SEASONS_MAX);
+}
+
+export function seasonsHighFromFilters(maxSeasons) {
+  const n = toNum(maxSeasons);
+  if (n == null || n <= 0) return SEASONS_MAX;
+  return clamp(Math.round(n), SEASONS_MIN, SEASONS_MAX);
+}
+
+export function seasonsFiltersFromRange(low, high) {
+  const lo = Math.max(SEASONS_MIN, Math.round(low));
+  const hi = Math.max(SEASONS_MIN, Math.round(high));
+  if (lo <= SEASONS_MIN && hi >= SEASONS_MAX) {
+    return { minSeasons: '', maxSeasons: '' };
+  }
+  return {
+    minSeasons: String(lo),
+    maxSeasons: hi >= SEASONS_MAX ? '' : String(hi),
+  };
+}
+
 // ── Readouts (the legible active-state the section headers show) ──────────────
 
 // Trim a one-decimal rating for display: 7.0 → "7", 6.5 → "6.5", 7.3 → "7.3".
@@ -142,6 +171,35 @@ export function formatRuntimeRange(minRuntime, maxRuntime) {
   if (high >= RUNTIME_MAX) return `${low}+ min`;
   if (low <= RUNTIME_MIN) return `Up to ${high} min`;
   return `${low} – ${high} min`;
+}
+
+export function formatSeasonsRange(minSeasons, maxSeasons) {
+  const minVal = toNum(minSeasons);
+  const maxVal = toNum(maxSeasons);
+  const hasMin = minVal != null && minVal > 0;
+  const hasMax = maxVal != null && maxVal > 0;
+  if (!hasMin && !hasMax) return 'Any seasons';
+
+  const low = hasMin ? Math.round(minVal) : SEASONS_MIN;
+  const high = hasMax ? Math.round(maxVal) : SEASONS_MAX;
+
+  if (hasMin && hasMax && low === high) {
+    return low === 1 ? '1 season' : `${low} seasons`;
+  }
+  if (hasMin && !hasMax) {
+    return `${low}+ seasons`;
+  }
+  if (!hasMin && hasMax) {
+    return high === 1 ? '1 season' : `Up to ${high} seasons`;
+  }
+  return `${low} – ${high} seasons`;
+}
+
+export function formatSeasonsCountLabel(numberOfSeasons) {
+  const n = toNum(numberOfSeasons);
+  if (n == null || n <= 0) return null;
+  const count = Math.round(n);
+  return count === 1 ? '1 season' : `${count} seasons`;
 }
 
 /** Format minutes into human-readable hours and minutes (e.g. 105 -> "1h 45m", 90 -> "1h 30m", 120 -> "2h") */
@@ -210,6 +268,65 @@ export function getRatingMode(minRating, maxRating) {
   if ((min === 7.0 || min === 7) && isCeil) return '7.0+';
   if (min === 8.0 && isCeil) return '8.0+';
   return 'CUSTOM';
+}
+
+export const SEASONS_PRESETS = [
+  { id: 'ANY', label: 'Any', min: '', max: '' },
+  { id: '1', label: '1', min: '1', max: '1' },
+  { id: '2', label: '2', min: '2', max: '2' },
+  { id: '3', label: '3', min: '3', max: '3' },
+  { id: '5+', label: '5+ (Long)', min: '5', max: '' },
+  { id: 'CUSTOM', label: 'Custom', min: null, max: null },
+];
+
+export const SEASONS_SUB_MODES = [
+  { id: 'EXACT', label: 'Exact' },
+  { id: 'OVER', label: 'At least' },
+  { id: 'UNDER', label: 'Up to' },
+  { id: 'BETWEEN', label: 'Between' },
+];
+
+export function getSeasonsMode(minSeasons, maxSeasons) {
+  const minVal = toNum(minSeasons);
+  const maxVal = toNum(maxSeasons);
+  const hasMin = minVal != null && minVal > 0;
+  const hasMax = maxVal != null && maxVal > 0;
+
+  if (!hasMin && !hasMax) return 'ANY';
+  const min = hasMin ? Math.round(minVal) : null;
+  const max = hasMax ? Math.round(maxVal) : null;
+
+  if (min === 1 && max === 1) return '1';
+  if (min === 2 && max === 2) return '2';
+  if (min === 3 && max === 3) return '3';
+  if (min === 5 && !hasMax) return '5+';
+  return 'CUSTOM';
+}
+
+export function getSeasonsSubMode(minSeasons, maxSeasons) {
+  const minVal = toNum(minSeasons);
+  const maxVal = toNum(maxSeasons);
+  const hasMin = minVal != null && minVal > 0;
+  const hasMax = maxVal != null && maxVal > 0;
+
+  if (hasMin && hasMax && Math.round(minVal) === Math.round(maxVal)) return 'EXACT';
+  if (hasMin && !hasMax) return 'OVER';
+  if (!hasMin && hasMax) return 'UNDER';
+  if (hasMin && hasMax) return 'BETWEEN';
+  return 'EXACT';
+}
+
+export function matchesSeasonsRange(numberOfSeasons, minSeasons, maxSeasons) {
+  const min = toNum(minSeasons);
+  const max = toNum(maxSeasons);
+  const hasMin = min != null && min > 0;
+  const hasMax = max != null && max > 0;
+  if (!hasMin && !hasMax) return true;
+  const count = toNum(numberOfSeasons);
+  if (count == null || count <= 0) return false;
+  if (hasMin && count < Math.round(min)) return false;
+  if (hasMax && count > Math.round(max)) return false;
+  return true;
 }
 
 // ── Ambient distributions (rec 5) ─────────────────────────────────────────────

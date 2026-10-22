@@ -18,44 +18,184 @@
  *  - Known TMDB language imprecision: https://github.com/Radarr/Radarr/issues/7788
  */
 
+// ─── Canonical Regional Language Code Sets ────────────────────────────────────
+
+/**
+ * All 23 non-English official working languages of the 27 European Union member
+ * states, plus national/co-official EU languages with TMDB catalog coverage
+ * (Luxembourgish, Catalan, Basque, Galician). Strictly excludes English ('en').
+ */
+export const EU_LANGUAGE_CODES = [
+  'bg', // Bulgarian (Bulgaria)
+  'hr', // Croatian (Croatia)
+  'cs', // Czech (Czechia)
+  'da', // Danish (Denmark)
+  'nl', // Dutch (Netherlands, Belgium)
+  'et', // Estonian (Estonia)
+  'fi', // Finnish (Finland)
+  'fr', // French (France, Belgium, Luxembourg)
+  'de', // German (Germany, Austria, Belgium, Luxembourg)
+  'el', // Greek (Greece, Cyprus)
+  'hu', // Hungarian (Hungary)
+  'ga', // Irish (Ireland)
+  'it', // Italian (Italy)
+  'lv', // Latvian (Latvia)
+  'lt', // Lithuanian (Lithuania)
+  'mt', // Maltese (Malta)
+  'pl', // Polish (Poland)
+  'pt', // Portuguese (Portugal)
+  'ro', // Romanian (Romania)
+  'sk', // Slovak (Slovakia)
+  'sl', // Slovenian (Slovenia)
+  'es', // Spanish (Spain)
+  'sv', // Swedish (Sweden, Finland)
+  'lb', // Luxembourgish (Luxembourg)
+  'ca', // Catalan (Spain)
+  'eu', // Basque (Spain, France)
+  'gl', // Galician (Spain)
+];
+
+/**
+ * Languages of Middle Eastern countries.
+ */
+export const MIDDLE_EAST_LANGUAGE_CODES = [
+  'ar', // Arabic
+  'fa', // Persian / Farsi
+  'tr', // Turkish
+  'he', // Hebrew
+  'ku', // Kurdish
+];
+
+/**
+ * Languages of East, South, Southeast, and Central Asian countries.
+ */
+export const ASIA_LANGUAGE_CODES = [
+  'ko', // Korean
+  'ja', // Japanese
+  'zh', // Mandarin Chinese
+  'cn', // Cantonese
+  'hi', // Hindi
+  'ta', // Tamil
+  'te', // Telugu
+  'ml', // Malayalam
+  'kn', // Kannada
+  'bn', // Bengali
+  'mr', // Marathi
+  'pa', // Punjabi
+  'gu', // Gujarati
+  'or', // Odia
+  'as', // Assamese
+  'ur', // Urdu
+  'si', // Sinhala
+  'ne', // Nepali
+  'th', // Thai
+  'vi', // Vietnamese
+  'id', // Indonesian
+  'ms', // Malay
+  'tl', // Tagalog / Filipino
+  'km', // Khmer
+  'lo', // Lao
+  'my', // Burmese
+  'mn', // Mongolian
+  'bo', // Tibetan
+  'kk', // Kazakh
+  'uz', // Uzbek
+];
+
+/**
+ * Languages of African countries.
+ */
+export const AFRICA_LANGUAGE_CODES = [
+  'af', // Afrikaans
+  'sw', // Swahili
+  'am', // Amharic
+  'so', // Somali
+  'wo', // Wolof
+  'yo', // Yoruba
+  'ig', // Igbo
+  'ha', // Hausa
+  'zu', // Zulu
+  'xh', // Xhosa
+  'st', // Sotho
+  'tn', // Tswana
+  'sn', // Shona
+  'rw', // Kinyarwanda
+  'rn', // Kirundi
+  'lg', // Luganda
+  'ny', // Chichewa
+  'mg', // Malagasy
+  'ti', // Tigrinya
+  'om', // Oromo
+  'ak', // Akan
+  'tw', // Twi
+  'bm', // Bambara
+  'ee', // Ewe
+  'ff', // Fulah
+  'ln', // Lingala
+];
+
+/**
+ * Nordic / Scandinavian languages.
+ */
+export const NORDIC_LANGUAGE_CODES = [
+  'da', // Danish
+  'sv', // Swedish
+  'no', // Norwegian
+  'nb', // Norwegian Bokmål
+  'nn', // Norwegian Nynorsk
+  'fi', // Finnish
+  'is', // Icelandic
+];
+
+/**
+ * Latin American primary languages.
+ */
+export const LATIN_AMERICA_LANGUAGE_CODES = [
+  'es', // Spanish
+  'pt', // Portuguese
+];
+
 // ─── Region Presets ───────────────────────────────────────────────────────────
 
 export const REGION_PRESETS = [
+  {
+    id: 'eu',
+    label: 'European Union',
+    emoji: '',
+    description:
+      'All 23 non-English official EU languages (French, Spanish, German, Italian, Danish, Swedish, Dutch, Polish, Portuguese, Greek, Czech, Finnish, Hungarian, Romanian, Irish, Maltese, and more).',
+    codes: EU_LANGUAGE_CODES,
+    smartFilter: false,
+  },
   {
     id: 'europe',
     label: 'Europe',
     emoji: '',
     description:
       'French, Spanish, German, Italian, Portuguese, Russian, Polish, Dutch, Swedish, Norwegian, Danish, Finnish, Czech, Romanian, Greek, Hungarian, Ukrainian',
-    // Note: Catalan (ca), Basque (eu), Galician (gl), Welsh (cy) omitted — minimal
-    // TMDB coverage. Serbian/Croatian share content under 'hr'/'sr' but TMDB often
-    // conflates them; including both for best coverage.
     codes: [
-      'fr',
-      'es',
-      'de',
-      'it',
-      'pt',
+      ...EU_LANGUAGE_CODES,
       'ru',
-      'pl',
-      'nl',
-      'sv',
       'no',
-      'da',
-      'fi',
-      'cs',
-      'ro',
-      'el',
-      'hu',
+      'nb',
+      'nn',
+      'is',
       'uk',
-      'hr',
       'sr',
-      'sk',
-      'bg',
-      'lt',
-      'lv',
-      'et',
+      'bs',
+      'sq',
+      'mk',
+      'be',
+      'cy',
     ],
+    smartFilter: false,
+  },
+  {
+    id: 'nordic',
+    label: 'Nordic',
+    emoji: '',
+    description: 'Danish, Swedish, Norwegian, Finnish, Icelandic',
+    codes: NORDIC_LANGUAGE_CODES,
     smartFilter: false,
   },
   {
@@ -64,32 +204,7 @@ export const REGION_PRESETS = [
     emoji: '',
     description:
       'Korean, Japanese, Mandarin Chinese, Cantonese, Hindi, Tamil, Telugu, Malayalam, Kannada, Bengali, Marathi, Punjabi, Sinhala, Nepali, Urdu, Thai, Vietnamese, Indonesian, Malay, Tagalog/Filipino',
-    // Combines East Asia, South Asia, and Southeast Asia.
-    // Note: TMDB uses 'zh' for Mandarin and 'cn' is sometimes used for Cantonese.
-    // Many Indian regional languages have sparse TMDB entries; the main
-    // industry languages (hi, ta, te, ml, kn) have solid coverage.
-    codes: [
-      'ko',
-      'ja',
-      'zh',
-      'cn',
-      'hi',
-      'ta',
-      'te',
-      'ml',
-      'kn',
-      'bn',
-      'mr',
-      'pa',
-      'si',
-      'ne',
-      'ur',
-      'th',
-      'vi',
-      'id',
-      'ms',
-      'tl',
-    ],
+    codes: ASIA_LANGUAGE_CODES,
     smartFilter: true,
     smartFilterNote:
       "TMDB uses 'zh' broadly for Chinese content. Mandarin and Cantonese titles may be mixed. Results tagged with 'cn' (Cantonese) are included for broader coverage.",
@@ -98,11 +213,8 @@ export const REGION_PRESETS = [
     id: 'middle_east',
     label: 'Middle East',
     emoji: '',
-    description: 'Arabic, Persian/Farsi, Turkish, Hebrew',
-    // Note: Arabic ('ar') covers a broad dialectal space. TMDB's 'ar' maps to MSA
-    // and is imperfect for regional dialect content (Egyptian, Levantine, Gulf).
-    // Labeled as smart filter to signal this limitation.
-    codes: ['ar', 'fa', 'tr', 'he'],
+    description: 'Arabic, Persian/Farsi, Turkish, Hebrew, Kurdish',
+    codes: MIDDLE_EAST_LANGUAGE_CODES,
     smartFilter: true,
     smartFilterNote:
       'Arabic content uses a broad regional code — results may include films from any Arabic-speaking country.',
@@ -111,10 +223,9 @@ export const REGION_PRESETS = [
     id: 'africa',
     label: 'Africa',
     emoji: '',
-    description: 'Afrikaans, Swahili, Amharic, Somali, Wolof, Yoruba, Igbo, Hausa, Zulu, Xhosa',
-    // Note: Many Sub-Saharan African languages have very limited TMDB coverage.
-    // This preset is a best-effort approximation and is marked as a smart filter.
-    codes: ['af', 'sw', 'am', 'so', 'wo', 'yo', 'ig', 'ha', 'zu', 'xh'],
+    description:
+      'Afrikaans, Swahili, Amharic, Somali, Wolof, Yoruba, Igbo, Hausa, Zulu, Xhosa, Sotho, Tswana, Shona, Kinyarwanda, Twi, and more',
+    codes: AFRICA_LANGUAGE_CODES,
     smartFilter: true,
     smartFilterNote: 'African language content has limited TMDB coverage. Results may be sparse.',
   },
@@ -123,12 +234,10 @@ export const REGION_PRESETS = [
     label: 'Latin America',
     emoji: '',
     description: 'Spanish (Latin American), Portuguese (Brazilian)',
-    // Note: TMDB does not differentiate between Spanish variants (es covers both
-    // Spain and Latin America). Use Origin Country filter for precision.
-    codes: ['es', 'pt'],
+    codes: LATIN_AMERICA_LANGUAGE_CODES,
     smartFilter: true,
     smartFilterNote:
-      'Spanish covers both Spain and Latin America. Use Origin Country (TV) for regional precision.',
+      'Spanish covers both Spain and Latin America. Origin Country scopes results to Latin American nations.',
   },
   {
     id: 'north_america',
@@ -223,6 +332,8 @@ export const SPECIAL_PRESETS = [
  * user activates a language preset on the TV view.
  */
 export const LANGUAGE_TO_COUNTRY_PRESET = {
+  eu: 'eu',
+  nordic: 'nordic',
   europe: 'europe',
   asia: 'asia',
   middle_east: 'middle_east',
@@ -237,78 +348,41 @@ export const LANGUAGE_TO_COUNTRY_PRESET = {
  * A curated, stable list of ISO 639-1 codes representing the major
  * non-English content-producing languages on TMDB.
  *
- * This is used by the "Exclude English" / "Non-English Only" presets
- * as a workaround for TMDB's lack of a native `without_original_language`
- * parameter. Using this curated list instead of fetching all ~180+ TMDB
- * language codes avoids URL-length issues (414 errors) and keeps the query
- * semantically meaningful.
+ * This is used by the "Exclude English" / "Non-English" filter and language
+ * exclusion set-algebra as a server-side solution for TMDB's lack of a native
+ * `without_original_language` parameter.
  *
  * The list is the union of all codes across REGION_PRESETS, minus 'en'.
  */
-export const NON_ENGLISH_CODES = [
-  // Europe
-  'fr',
-  'es',
-  'de',
-  'it',
-  'pt',
-  'ru',
-  'pl',
-  'nl',
-  'sv',
-  'no',
-  'da',
-  'fi',
-  'cs',
-  'ro',
-  'el',
-  'hu',
-  'uk',
-  'hr',
-  'sr',
-  'sk',
-  'bg',
-  'lt',
-  'lv',
-  'et',
-  // Asia
-  'ko',
-  'ja',
-  'zh',
-  'cn',
-  'hi',
-  'ta',
-  'te',
-  'ml',
-  'kn',
-  'bn',
-  'mr',
-  'pa',
-  'si',
-  'ne',
-  'ur',
-  'th',
-  'vi',
-  'id',
-  'ms',
-  'tl',
-  // Middle East
-  'ar',
-  'fa',
-  'tr',
-  'he',
-  // Africa
-  'af',
-  'sw',
-  'am',
-  'so',
-  'wo',
-  'yo',
-  'ig',
-  'ha',
-  'zu',
-  'xh',
-];
+export const NON_ENGLISH_CODES = Array.from(
+  new Set([
+    ...EU_LANGUAGE_CODES,
+    ...NORDIC_LANGUAGE_CODES,
+    'ru',
+    'uk',
+    'sr',
+    'bs',
+    'sq',
+    'mk',
+    'be',
+    'cy',
+    'ka',
+    'hy',
+    'az',
+    ...ASIA_LANGUAGE_CODES,
+    ...MIDDLE_EAST_LANGUAGE_CODES,
+    ...AFRICA_LANGUAGE_CODES,
+    ...LATIN_AMERICA_LANGUAGE_CODES,
+  ]),
+).filter((code) => code !== 'en');
+
+/**
+ * Complete discover language universe ('en' + all curated non-English codes).
+ * Used when the user excludes specific languages or regions without specifying
+ * a narrower positive language set, so TMDB's `with_original_language` receives
+ * the exact complement server-side.
+ */
+export const ALL_DISCOVER_LANGUAGE_CODES = ['en', ...NON_ENGLISH_CODES];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -27,10 +27,13 @@ import {
   PickerListSkeleton,
   SkeletonBlock,
 } from './SkeletonLoaders';
-import { INTENT_PRESETS, intentPresetActive } from '../lib/languagePresets';
 import { resolveLanguageLabel } from '../lib/languages';
-import { AIR_DATE_SORT } from '../lib/tvAiringFilter';
-import { SMART_FILTERS } from '../lib/smartFilters';
+import { translateSortByForMediaType } from '../lib/tvAiringFilter';
+import {
+  REGION_QUICK_PICK_FILTERS,
+  VIBE_QUICK_PICK_FILTERS,
+  isSmartFilterApplicableToMediaType,
+} from '../lib/smartFilters';
 import {
   buildPickerSections,
   pushRecent,
@@ -44,7 +47,14 @@ import {
   loadRecentCountryCodes,
   saveRecentCountryCodes,
 } from '../lib/discoverRecentsStorage';
-import { GENRE_STATE, genreStateFor, smartTagStateFor, reduceTriState } from '../lib/genreTriState';
+import {
+  GENRE_STATE,
+  genreStateFor,
+  smartTagStateFor,
+  languageStateFor,
+  airingStateFor,
+  reduceTriState,
+} from '../lib/genreTriState';
 import {
   RATING_MIN,
   RATING_MAX,
@@ -66,12 +76,15 @@ import {
   formatRatingRange,
   formatYearRange,
   formatRuntimeRange,
+  formatSeasonsRange,
+  formatSeasonsCountLabel,
   RATING_DISTRIBUTION,
   YEAR_DISTRIBUTION,
 } from '../lib/discoverRanges';
 import { RatingFilterControl } from './RatingFilterControl';
 import { YearFilterControl } from './YearFilterControl';
 import { RuntimeFilterControl } from './RuntimeFilterControl';
+import { SeasonsFilterControl } from './SeasonsFilterControl';
 import { shouldPrefetchNextPage } from '../lib/discoverPagination';
 import { scale } from '../utils/responsive';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, FADE_MS, GRID_COL_W } from '../theme/programme';
@@ -97,16 +110,10 @@ const SORT_OPTIONS_TV = [
 
 const AIR_DATE_SORT_OPTION = { value: 'air_date.asc', label: 'Air Date' };
 
-// A front-door Quick Pick for "what's on this week" — one tap flips to TV,
-// enables the airing filter, and defaults the sort to chronological. Like every
-// Quick Pick it's a stateless patch, so tapping it again clears all three keys
-// back to their defaults and its highlight is derived by intentPresetActive.
-const AIRING_QUICK_PICK = {
-  id: 'airing-this-week',
-  label: 'Airing this week',
-  icon: 'calendar-outline',
-  patch: { mediaType: 'tv', airingThisWeek: true, sortBy: AIR_DATE_SORT },
-};
+// Default Quick Pick languages when the user's Highly Recommend list is empty,
+// ensuring English, French, and Danish are always one tap/hold away.
+const DEFAULT_QUICK_PICK_LANGUAGE_CODES = ['en', 'fr', 'da'];
+const DOCUMENTARY_GENRE_ID = 99;
 
 // Resolve an ISO 639-1 code to a human label using the TMDB language list the vm
 // already loads; falls back to the resolved language name before that list arrives.
@@ -128,48 +135,6 @@ function buildMultiLabel(items, selectedCodes, emptyLabel, noun) {
 
 function FilterDivider() {
   return <ProgrammeHairline style={styles.filterHairline} />;
-}
-
-function AiringThisWeekChip({ active, onToggle, colors, typography, radii }) {
-  return (
-    <TouchableOpacity
-      style={[
-        styles.chip,
-        { borderRadius: radii.md },
-        active
-          ? { backgroundColor: GOLD_ACCENT }
-          : {
-              backgroundColor: colors.glass,
-              borderWidth: 1,
-              borderColor: GOLD_DIM,
-            },
-      ]}
-      onPress={() => {
-        Haptics.selectionAsync();
-        onToggle();
-      }}
-      activeOpacity={0.8}
-      accessibilityRole="switch"
-      accessibilityLabel="Airing this week"
-      accessibilityHint="Shows only TV titles with an episode airing in the next 7 days"
-      accessibilityState={{ selected: active }}
-    >
-      <Ionicons
-        name="calendar-outline"
-        size={14}
-        color={active ? '#141414' : colors.onSurfaceVariant}
-        style={{ marginRight: 6 }}
-      />
-      <Text
-        style={[
-          styles.chipTextUpper,
-          { color: active ? '#141414' : colors.onSurfaceVariant, ...typography.labelSm },
-        ]}
-      >
-        Airing this week
-      </Text>
-    </TouchableOpacity>
-  );
 }
 
 function MediaTypeTabs({ mediaType, onChange, colors, typography }) {
@@ -609,23 +574,29 @@ export function DiscoverScreen({
     ? vm.filters.sortBy
     : 'popularity.desc';
 
-  // Quick Picks: one language chip per top language in the Highly Recommend list
-  // (personalized), then the static Documentary shortcut. Each is a stateless
-  // patch, so it flows through the same applyIntentPreset/intentPresetActive
-  // engine the old curated presets used. When the recommend list has no language
-  // data yet, the row degrades to just Documentary — never blank.
-  const quickPickPresets = useMemo(() => {
-    const languagePresets = recommendedLanguageCodes.map((code) => ({
-      id: `lang:${code}`,
+  // Personalized top languages from Highly Recommend (falling back to English,
+  // French, Danish so those favourites are always immediately reachable).
+  const quickPickLanguages = useMemo(() => {
+    const baseCodes =
+      Array.isArray(recommendedLanguageCodes) && recommendedLanguageCodes.length > 0
+        ? recommendedLanguageCodes
+        : DEFAULT_QUICK_PICK_LANGUAGE_CODES;
+    // Ensure English, French, Danish are always present alongside personalized top picks
+    const mergedCodes = [...new Set([...baseCodes, ...DEFAULT_QUICK_PICK_LANGUAGE_CODES])];
+    return mergedCodes.map((code) => ({
+      code,
       label: labelForLanguageCode(code, vm.languages),
-      icon: 'language-outline',
-      patch: { languageCodes: [code], excludeEnglish: false },
     }));
-    // "Airing this week" leads the row as a first-class browse entry point (it's
-    // the marquee "what's on now" intent), then the personalized language chips,
-    // then the static Documentary shortcut.
-    return [AIRING_QUICK_PICK, ...languagePresets, ...INTENT_PRESETS];
   }, [recommendedLanguageCodes, vm.languages]);
+
+  // Vibes & Formats quick picks applicable to the active mediaType (Movies vs Shows).
+  const vibeQuickPicks = useMemo(
+    () =>
+      VIBE_QUICK_PICK_FILTERS.filter((f) =>
+        isSmartFilterApplicableToMediaType(f.key, vm.filters.mediaType),
+      ),
+    [vm.filters.mediaType],
+  );
 
   // Suggested languages for the picker's pinned group: the user's own top
   // languages first (the same signal Quick Picks runs on), then the static
@@ -638,24 +609,77 @@ export function DiscoverScreen({
   );
 
   const selectedLanguageCodes = vm.filters.languageCodes || [];
+  const excludedLanguageCodes = vm.filters.excludeLanguageCodes || [];
   const selectedOriginCountries = vm.filters.originCountries || [];
-  const langLabel = buildMultiLabel(
-    vm.languages,
-    selectedLanguageCodes,
-    'Any Language',
-    'languages',
-  );
-  const countryLabel = buildMultiLabel(
-    vm.countries,
-    selectedOriginCountries,
-    'Any Country',
-    'countries',
+  const includeSmartTags = vm.filters.includeSmartTags || [];
+  const excludeSmartTags = vm.filters.excludeSmartTags || [];
+
+  const activeRegionTags = useMemo(
+    () =>
+      REGION_QUICK_PICK_FILTERS.filter(
+        (f) => includeSmartTags.includes(f.key) || excludeSmartTags.includes(f.key),
+      ),
+    [includeSmartTags, excludeSmartTags],
   );
 
-  // Language / country control state (inline, no nested sheet).
-  const languageActive = selectedLanguageCodes.length > 0 || !!vm.filters.excludeEnglish;
-  const languageLabel = vm.filters.excludeEnglish ? 'Non-English' : langLabel;
-  const countryActive = selectedOriginCountries.length > 0;
+  const languageActive =
+    selectedLanguageCodes.length > 0 ||
+    excludedLanguageCodes.length > 0 ||
+    !!vm.filters.excludeEnglish ||
+    activeRegionTags.length > 0;
+
+  const languageLabel = useMemo(() => {
+    const parts = [];
+    activeRegionTags.forEach((f) => {
+      const isEx = excludeSmartTags.includes(f.key);
+      parts.push(isEx ? `Not ${f.label}` : f.label);
+    });
+    if (vm.filters.excludeEnglish && !includeSmartTags.includes('non_english')) {
+      parts.push('Non-English');
+    }
+    if (selectedLanguageCodes.length > 0) {
+      parts.push(buildMultiLabel(vm.languages, selectedLanguageCodes, '', 'languages'));
+    }
+    if (excludedLanguageCodes.length > 0) {
+      const exLabel = buildMultiLabel(vm.languages, excludedLanguageCodes, '', 'languages');
+      parts.push(`Not ${exLabel}`);
+    }
+    if (parts.length === 0) return 'Any Language';
+    return parts.join(' · ');
+  }, [
+    activeRegionTags,
+    excludeSmartTags,
+    includeSmartTags,
+    vm.filters.excludeEnglish,
+    selectedLanguageCodes,
+    excludedLanguageCodes,
+    vm.languages,
+  ]);
+
+  const activeCountryScopedTags = useMemo(
+    () =>
+      REGION_QUICK_PICK_FILTERS.filter(
+        (f) =>
+          Array.isArray(f.originCountries) &&
+          f.originCountries.length > 0 &&
+          (includeSmartTags.includes(f.key) || excludeSmartTags.includes(f.key)),
+      ),
+    [includeSmartTags, excludeSmartTags],
+  );
+
+  const countryActive = selectedOriginCountries.length > 0 || activeCountryScopedTags.length > 0;
+  const countryLabel = useMemo(() => {
+    const parts = [];
+    activeCountryScopedTags.forEach((f) => {
+      const isEx = excludeSmartTags.includes(f.key);
+      parts.push(isEx ? `Not ${f.label}` : `${f.label} (${f.originCountries.length})`);
+    });
+    if (selectedOriginCountries.length > 0) {
+      parts.push(buildMultiLabel(vm.countries, selectedOriginCountries, '', 'countries'));
+    }
+    if (parts.length === 0) return 'Any Country';
+    return parts.join(' · ');
+  }, [activeCountryScopedTags, excludeSmartTags, selectedOriginCountries, vm.countries]);
 
   const advancedCriteriaActive =
     !!vm.filters.fromYear ||
@@ -664,26 +688,49 @@ export function DiscoverScreen({
     !!vm.filters.maxRuntime ||
     vm.filters.sortBy !== 'popularity.desc';
 
-  // Load genres when mediaType changes; reset genre selections that might not apply
+  // Load genres when mediaType changes; reset genre selections that use disjoint
+  // Movie/TV IDs while preserving universal Quick Picks (languages, regions,
+  // anime, books, true story, stand-up, hidden gems) and translating sortBy.
   useEffect(() => {
     vm.loadGenres(vm.filters.mediaType);
     const previousMediaType = previousMediaTypeRef.current;
     if (previousMediaType !== vm.filters.mediaType) {
-      vm.updateFilter('genreIds', []);
-      vm.updateFilter('excludeGenreIds', []);
-      vm.updateFilter('excludeSmartTags', []);
-      vm.updateFilter('includeSmartTags', []);
-      // Origin countries are universal ISO codes valid for both media types, so a
-      // country selection now survives a movie⇄TV switch (the filter applies to
-      // both). Genres, by contrast, use disjoint id sets and must reset.
-      if (vm.filters.mediaType === 'tv') {
+      const nextMediaType = vm.filters.mediaType;
+      // Preserve Documentary (id 99 is identical on both Movie and TV in TMDB)
+      vm.updateFilter(
+        'genreIds',
+        (vm.filters.genreIds || []).filter((id) => id === DOCUMENTARY_GENRE_ID),
+      );
+      vm.updateFilter(
+        'excludeGenreIds',
+        (vm.filters.excludeGenreIds || []).filter((id) => id === DOCUMENTARY_GENRE_ID),
+      );
+      vm.updateFilter(
+        'includeSmartTags',
+        (vm.filters.includeSmartTags || []).filter((key) =>
+          isSmartFilterApplicableToMediaType(key, nextMediaType),
+        ),
+      );
+      vm.updateFilter(
+        'excludeSmartTags',
+        (vm.filters.excludeSmartTags || []).filter((key) =>
+          isSmartFilterApplicableToMediaType(key, nextMediaType),
+        ),
+      );
+      if (nextMediaType === 'tv') {
         vm.updateFilter('minRuntime', '');
         vm.updateFilter('maxRuntime', '');
+      } else {
+        vm.updateFilter('airingThisWeek', false);
+        vm.updateFilter('excludeAiringThisWeek', false);
+        vm.updateFilter('minSeasons', '');
+        vm.updateFilter('maxSeasons', '');
       }
-      if (vm.filters.mediaType === 'tv' && vm.filters.sortBy === 'revenue.desc') {
-        vm.updateFilter('sortBy', 'popularity.desc');
+      const nextSort = translateSortByForMediaType(vm.filters.sortBy, nextMediaType);
+      if (nextSort !== vm.filters.sortBy) {
+        vm.updateFilter('sortBy', nextSort);
       }
-      previousMediaTypeRef.current = vm.filters.mediaType;
+      previousMediaTypeRef.current = nextMediaType;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vm.filters.mediaType]);
@@ -765,21 +812,44 @@ export function DiscoverScreen({
     const target = reduceTriState(current, gesture);
     if (target === current) return;
     if (target === GENRE_STATE.INCLUDE) {
-      vm.toggleIncludeSmartTag(key); // neutral \u2192 include
+      vm.toggleIncludeSmartTag(key); // neutral -> include
     } else if (target === GENRE_STATE.EXCLUDE) {
-      vm.toggleSmartTag(key); // neutral / include \u2192 exclude
+      vm.toggleSmartTag(key); // neutral / include -> exclude
     } else if (current === GENRE_STATE.INCLUDE) {
-      vm.toggleIncludeSmartTag(key); // include \u2192 neutral
+      vm.toggleIncludeSmartTag(key); // include -> neutral
     } else {
-      vm.toggleSmartTag(key); // exclude \u2192 neutral
+      vm.toggleSmartTag(key); // exclude -> neutral
     }
+  };
+
+  // Same two-gesture grammar for individual Quick Pick languages (English, French, Danish, …).
+  const applyLanguageQuickPick = (code, gesture) => {
+    const current = languageStateFor(code, vm.filters);
+    const target = reduceTriState(current, gesture);
+    if (target === current) return;
+    if (target === GENRE_STATE.INCLUDE) {
+      rememberRecentLanguage(code);
+      vm.toggleIncludeLanguage(code);
+    } else if (target === GENRE_STATE.EXCLUDE) {
+      vm.toggleExcludeLanguage(code);
+    } else if (current === GENRE_STATE.INCLUDE) {
+      vm.toggleIncludeLanguage(code);
+    } else {
+      vm.toggleExcludeLanguage(code);
+    }
+  };
+
+  // Same two-gesture grammar for "Airing this week" schedule Quick Pick.
+  const applyAiringQuickPick = (gesture) => {
+    const current = airingStateFor(vm.filters);
+    const target = reduceTriState(current, gesture);
+    if (target === current) return;
+    vm.setAiringState(target);
   };
 
   const clearGenreFilters = () => {
     vm.updateFilter('genreIds', []);
     vm.updateFilter('excludeGenreIds', []);
-    vm.updateFilter('excludeSmartTags', []);
-    vm.updateFilter('includeSmartTags', []);
   };
 
   const filterSurface = colors.glass;
@@ -867,11 +937,16 @@ export function DiscoverScreen({
       />
 
       <View style={styles.filterBand}>
-        <SectionLabel label="Quick picks" colors={c} typography={typography} />
-        <IntentPresetRow
-          presets={quickPickPresets}
+        <QuickPicksSection
+          languages={quickPickLanguages}
+          regionFilters={REGION_QUICK_PICK_FILTERS}
+          vibeFilters={vibeQuickPicks}
           filters={vm.filters}
-          onApply={vm.applyIntentPreset}
+          onApplyLanguage={applyLanguageQuickPick}
+          onApplySmartTag={applySmartTag}
+          onApplyAiring={applyAiringQuickPick}
+          onApplyGenre={applyGenre}
+          onClearAll={vm.clearQuickPicks}
           colors={c}
           typography={typography}
           radii={radii}
@@ -880,24 +955,6 @@ export function DiscoverScreen({
 
       <FilterDivider />
 
-      {vm.filters.mediaType === 'tv' && (
-        <>
-          <View style={styles.filterBand}>
-            <SectionLabel label="Schedule" colors={c} typography={typography} />
-            <View style={styles.hChipRow}>
-              <AiringThisWeekChip
-                active={vm.filters.airingThisWeek}
-                onToggle={() => vm.setAiringThisWeek(!vm.filters.airingThisWeek)}
-                colors={c}
-                typography={typography}
-                radii={radii}
-              />
-            </View>
-          </View>
-          <FilterDivider />
-        </>
-      )}
-
       <View style={styles.filterBand}>
         <GenreFilterSection
           genres={vm.genres}
@@ -905,10 +962,7 @@ export function DiscoverScreen({
           genreIds={vm.filters.genreIds}
           genreLogic={vm.filters.genreLogic}
           excludeGenreIds={vm.filters.excludeGenreIds}
-          includeSmartTags={vm.filters.includeSmartTags}
-          excludeSmartTags={vm.filters.excludeSmartTags}
           onApplyGenre={applyGenre}
-          onApplySmartTag={applySmartTag}
           onUpdateGenreLogic={(v) => vm.updateFilter('genreLogic', v)}
           onClearAll={clearGenreFilters}
           colors={c}
@@ -937,6 +991,31 @@ export function DiscoverScreen({
           typography={typography}
         />
       </View>
+
+      {vm.filters.mediaType === 'tv' && (
+        <>
+          <FilterDivider />
+
+          <View style={styles.filterBand}>
+            <SectionLabel
+              label="Seasons"
+              value={formatSeasonsRange(vm.filters.minSeasons, vm.filters.maxSeasons)}
+              colors={c}
+              typography={typography}
+            />
+            <SeasonsFilterControl
+              minSeasons={vm.filters.minSeasons}
+              maxSeasons={vm.filters.maxSeasons}
+              onChange={(minS, maxS) => {
+                vm.updateFilter('minSeasons', minS);
+                vm.updateFilter('maxSeasons', maxS);
+              }}
+              colors={c}
+              typography={typography}
+            />
+          </View>
+        </>
+      )}
 
       <FilterDivider />
 
@@ -1230,59 +1309,308 @@ export function DiscoverScreen({
   );
 }
 
-// ─── Intent Preset Row ─────────────────────────────────────────────────────────
-// One-tap "quick picks". The chips are now personalized: a language chip per
-// top language in the user's Highly Recommend list, followed by the static
-// Documentary shortcut. Each chip is still a thin patch over the filter
-// primitives; activeness is derived from the live filters, so a chip lights up
-// whenever the filters already match it — no separate state to drift.
+// ─── Shared Tri-State Legend & Quick Pick Chip ────────────────────────────────
+// Maps each gesture to the exact chip styling it produces:
+//   TAP  → Gold pill with checkmark (Included)
+//   HOLD → Struck-out muted grey pill with close icon (Excluded)
 
-function IntentPresetRow({ presets, filters, onApply, colors: c, typography, radii }) {
+function GestureLegendRow({ colors: c, typography, radii }) {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.presetRow}
+    <View style={genreStyles.legendRow}>
+      <View
+        style={[
+          genreStyles.legendSwatch,
+          { backgroundColor: GOLD_ACCENT, borderRadius: radii.full },
+        ]}
+      >
+        <Ionicons name="checkmark" size={11} color="#141414" />
+      </View>
+      <Text style={[genreStyles.legendText, { color: c.onSurfaceVariant, ...typography.labelSm }]}>
+        Tap to include
+      </Text>
+      <View
+        style={[
+          genreStyles.legendSwatch,
+          {
+            backgroundColor: c.onSurfaceVariant + '22',
+            borderRadius: radii.full,
+            borderWidth: 1,
+            borderColor: c.onSurfaceVariant + '66',
+            marginLeft: 18,
+          },
+        ]}
+      >
+        <Ionicons name="close" size={11} color={c.onSurfaceVariant} />
+      </View>
+      <Text style={[genreStyles.legendText, { color: c.onSurfaceVariant, ...typography.labelSm }]}>
+        Hold to exclude
+      </Text>
+    </View>
+  );
+}
+
+function TriStateQuickPickChip({
+  label,
+  state,
+  onGesture,
+  accessibilityCategory = 'quick pick',
+  colors: c,
+  typography,
+  radii,
+}) {
+  const included = state === GENRE_STATE.INCLUDE;
+  const excluded = state === GENRE_STATE.EXCLUDE;
+
+  let chipBg = c.surfaceContainerHigh;
+  let chipBorder = { borderWidth: 1, borderColor: GOLD_DIM };
+  let textColor = c.onSurfaceVariant;
+  let icon = null;
+  let iconColor = null;
+
+  if (included) {
+    chipBg = GOLD_ACCENT;
+    chipBorder = {};
+    textColor = '#141414';
+    icon = 'checkmark';
+    iconColor = '#141414';
+  } else if (excluded) {
+    chipBg = c.onSurfaceVariant + '22';
+    chipBorder = { borderWidth: 1, borderColor: c.onSurfaceVariant + '66' };
+    textColor = c.onSurfaceVariant;
+    icon = 'close';
+    iconColor = c.onSurfaceVariant;
+  }
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.chip,
+        { borderRadius: radii.full, backgroundColor: chipBg },
+        chipBorder,
+      ]}
+      onPress={() => {
+        Haptics.selectionAsync();
+        onGesture('tap');
+      }}
+      onLongPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onGesture('hold');
+      }}
+      delayLongPress={220}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={`${label} ${accessibilityCategory}${
+        included ? ', included' : excluded ? ', excluded' : ''
+      }`}
+      accessibilityHint="Tap to include, long-press to exclude"
+      accessibilityState={{ selected: included || excluded }}
+      accessibilityActions={[{ name: 'longpress', label: excluded ? 'Clear' : 'Exclude' }]}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'longpress') onGesture('hold');
+      }}
     >
-      {presets.map((preset) => {
-        const active = intentPresetActive(preset, filters);
-        return (
+      {icon && (
+        <Ionicons name={icon} size={12} color={iconColor} style={{ marginRight: 3 }} />
+      )}
+      <Text
+        style={[
+          styles.chipText,
+          { color: textColor, ...typography.labelSm },
+          excluded && styles.chipTextExcluded,
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Quick Picks Section ───────────────────────────────────────────────────────
+// Unified two-gesture tri-state grammar across:
+//   1. Languages & Regions (English, French, Danish, …, Non-English, European Union,
+//      Middle East, Asian, African, Nordic, Latin America)
+//   2. Vibes & Formats (Airing this week, Miniseries / Under 100m, Anime,
+//      Based on a Book, True Story, Stand-Up, Hidden Gems, Documentary)
+
+function QuickPicksSection({
+  languages,
+  regionFilters,
+  vibeFilters,
+  filters,
+  onApplyLanguage,
+  onApplySmartTag,
+  onApplyAiring,
+  onApplyGenre,
+  onClearAll,
+  colors: c,
+  typography,
+  radii,
+}) {
+  const documentaryState = genreStateFor(DOCUMENTARY_GENRE_ID, filters);
+  const airingState = airingStateFor(filters);
+
+  const hasAnyQuickPick =
+    (filters.languageCodes && filters.languageCodes.length > 0) ||
+    (filters.excludeLanguageCodes && filters.excludeLanguageCodes.length > 0) ||
+    !!filters.excludeEnglish ||
+    (filters.includeSmartTags && filters.includeSmartTags.length > 0) ||
+    (filters.excludeSmartTags && filters.excludeSmartTags.length > 0) ||
+    !!filters.airingThisWeek ||
+    !!filters.excludeAiringThisWeek ||
+    documentaryState !== GENRE_STATE.NEUTRAL;
+
+  // Build concise descriptions for any active smart tags so the user can see
+  // exactly how regional & vibe filters scope the query (e.g. EU's 23 non-English
+  // languages + 27 EU member states).
+  const activeSmartSummaries = useMemo(() => {
+    const items = [];
+    const allSmart = [...regionFilters, ...vibeFilters];
+    allSmart.forEach((f) => {
+      if (filters.includeSmartTags?.includes(f.key)) {
+        items.push({ key: f.key, label: f.label, text: f.includeDescription, included: true });
+      } else if (filters.excludeSmartTags?.includes(f.key)) {
+        items.push({ key: f.key, label: f.label, text: f.excludeDescription, included: false });
+      }
+    });
+    return items;
+  }, [regionFilters, vibeFilters, filters.includeSmartTags, filters.excludeSmartTags]);
+
+  return (
+    <View>
+      <View style={styles.sectionRow}>
+        <SectionLabel label="Quick picks" colors={c} typography={typography} />
+        {hasAnyQuickPick && (
           <TouchableOpacity
-            key={preset.id}
-            style={[
-              styles.presetCard,
-              { borderRadius: radii.lg },
-              active
-                ? { backgroundColor: GOLD_ACCENT, borderColor: GOLD_ACCENT }
-                : { backgroundColor: c.surfaceContainerHigh, borderColor: GOLD_DIM },
-            ]}
             onPress={() => {
               Haptics.selectionAsync();
-              onApply(preset);
+              onClearAll();
+              if (documentaryState !== GENRE_STATE.NEUTRAL) {
+                onApplyGenre(
+                  DOCUMENTARY_GENRE_ID,
+                  documentaryState === GENRE_STATE.INCLUDE ? 'tap' : 'hold',
+                );
+              }
             }}
-            activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel={`${preset.label} quick pick`}
-            accessibilityState={{ selected: active }}
+            accessibilityLabel="Clear all quick picks"
           >
-            <Ionicons
-              name={preset.icon}
-              size={16}
-              color={active ? '#141414' : GOLD_ACCENT}
-              style={{ marginRight: 7 }}
-            />
-            <Text
-              style={[
-                styles.presetLabel,
-                { color: active ? '#141414' : c.onSurface, ...typography.labelSm },
-              ]}
-            >
-              {preset.label}
-            </Text>
+            <Text style={[{ color: GOLD_ACCENT, ...typography.labelSm }]}>Clear all</Text>
           </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+        )}
+      </View>
+
+      <GestureLegendRow colors={c} typography={typography} radii={radii} />
+
+      {/* Sub-group 1: Languages & Regions */}
+      <Text
+        style={[
+          styles.quickPickSubheader,
+          { color: c.onSurfaceVariant, ...typography.labelSm },
+        ]}
+      >
+        LANGUAGES & REGIONS
+      </Text>
+      <View style={styles.chipWrap}>
+        {regionFilters.map((region) => (
+          <TriStateQuickPickChip
+            key={region.key}
+            label={region.label}
+            state={smartTagStateFor(region.key, filters)}
+            onGesture={(gesture) => onApplySmartTag(region.key, gesture)}
+            accessibilityCategory="region filter"
+            colors={c}
+            typography={typography}
+            radii={radii}
+          />
+        ))}
+        {languages.map((lang) => (
+          <TriStateQuickPickChip
+            key={`lang:${lang.code}`}
+            label={lang.label}
+            state={languageStateFor(lang.code, filters)}
+            onGesture={(gesture) => onApplyLanguage(lang.code, gesture)}
+            accessibilityCategory="language filter"
+            colors={c}
+            typography={typography}
+            radii={radii}
+          />
+        ))}
+      </View>
+
+      {/* Sub-group 2: Vibes & Formats */}
+      <Text
+        style={[
+          styles.quickPickSubheader,
+          { color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 10 },
+        ]}
+      >
+        VIBES & FORMATS
+      </Text>
+      <View style={styles.chipWrap}>
+        <TriStateQuickPickChip
+          key="airing-this-week"
+          label="Airing this week"
+          state={airingState}
+          onGesture={onApplyAiring}
+          accessibilityCategory="schedule filter"
+          colors={c}
+          typography={typography}
+          radii={radii}
+        />
+        {vibeFilters.map((vibe) => (
+          <TriStateQuickPickChip
+            key={vibe.key}
+            label={vibe.label}
+            state={smartTagStateFor(vibe.key, filters)}
+            onGesture={(gesture) => onApplySmartTag(vibe.key, gesture)}
+            accessibilityCategory="vibe filter"
+            colors={c}
+            typography={typography}
+            radii={radii}
+          />
+        ))}
+        <TriStateQuickPickChip
+          key="genre:documentary"
+          label="Documentary"
+          state={documentaryState}
+          onGesture={(gesture) => onApplyGenre(DOCUMENTARY_GENRE_ID, gesture)}
+          accessibilityCategory="genre filter"
+          colors={c}
+          typography={typography}
+          radii={radii}
+        />
+      </View>
+
+      {activeSmartSummaries.length > 0 && (
+        <View style={{ marginTop: 6 }}>
+          {activeSmartSummaries.map((item) => {
+            const accentColor = item.included ? GOLD_ACCENT : c.onSurfaceVariant;
+            return (
+              <View
+                key={item.key}
+                style={[
+                  genreStyles.smartTagInfo,
+                  {
+                    backgroundColor: accentColor + '10',
+                    borderRadius: radii.sm,
+                    borderLeftColor: accentColor,
+                    marginLeft: 0,
+                    marginBottom: 6,
+                  },
+                ]}
+              >
+                <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
+                  <Text style={{ color: item.included ? GOLD_ACCENT : c.onSurface, fontWeight: '700' }}>
+                    {`${item.label}: `}
+                  </Text>
+                  {item.text}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -1417,21 +1745,14 @@ function GenreFilterSection({
   genreIds,
   genreLogic,
   excludeGenreIds,
-  includeSmartTags,
-  excludeSmartTags,
   onApplyGenre,
-  onApplySmartTag,
   onUpdateGenreLogic,
   onClearAll,
   colors: c,
   typography,
   radii,
 }) {
-  const hasAnySelection =
-    genreIds.length > 0 ||
-    excludeGenreIds.length > 0 ||
-    includeSmartTags.length > 0 ||
-    excludeSmartTags.length > 0;
+  const hasAnySelection = genreIds.length > 0 || excludeGenreIds.length > 0;
 
   return (
     <View>
@@ -1451,40 +1772,7 @@ function GenreFilterSection({
 
       {/* ── Legend: the single explainer for the section — maps each gesture to
           the exact chip styling it produces (a struck grey chip = excluded). ── */}
-      <View style={genreStyles.legendRow}>
-        <View
-          style={[
-            genreStyles.legendSwatch,
-            { backgroundColor: GOLD_ACCENT, borderRadius: radii.full },
-          ]}
-        >
-          <Ionicons name="checkmark" size={11} color="#141414" />
-        </View>
-        <Text
-          style={[genreStyles.legendText, { color: c.onSurfaceVariant, ...typography.labelSm }]}
-        >
-          Tap to include
-        </Text>
-        <View
-          style={[
-            genreStyles.legendSwatch,
-            {
-              backgroundColor: c.onSurfaceVariant + '22',
-              borderRadius: radii.full,
-              borderWidth: 1,
-              borderColor: c.onSurfaceVariant + '66',
-              marginLeft: 18,
-            },
-          ]}
-        >
-          <Ionicons name="close" size={11} color={c.onSurfaceVariant} />
-        </View>
-        <Text
-          style={[genreStyles.legendText, { color: c.onSurfaceVariant, ...typography.labelSm }]}
-        >
-          Hold to exclude
-        </Text>
-      </View>
+      <GestureLegendRow colors={c} typography={typography} radii={radii} />
 
       {/* ── AND / OR logic — governs how included genres combine. Only shown with
           2+ included genres, where the combinator actually changes results. ── */}
@@ -1620,143 +1908,6 @@ function GenreFilterSection({
           })}
         </View>
       )}
-
-      {/* ── Smart filters (Anime, …) — same two-gesture grammar ── */}
-      <View style={genreStyles.smartTagsHeader}>
-        <Ionicons
-          name="sparkles-outline"
-          size={13}
-          color={c.onSurfaceVariant}
-          style={{ marginRight: 6 }}
-        />
-        <Text
-          style={[
-            {
-              color: c.onSurfaceVariant,
-              ...typography.labelSm,
-              fontWeight: '700',
-              letterSpacing: 0.8,
-            },
-          ]}
-        >
-          SMART FILTERS
-        </Text>
-      </View>
-
-      {SMART_FILTERS.map((tag) => {
-        const inc = includeSmartTags.includes(tag.key);
-        const exc = excludeSmartTags.includes(tag.key);
-        // Exclude uses a neutral grey, never c.error — a chosen filter is not a
-        // fault. Include stays gold.
-        const stateColor = inc ? GOLD_ACCENT : c.onSurfaceVariant;
-        const stateLabel = inc ? 'INCLUDE' : exc ? 'EXCLUDE' : 'OFF';
-        const rowBg = inc
-          ? GOLD_ACCENT + '18'
-          : exc
-            ? c.onSurfaceVariant + '18'
-            : c.surfaceContainerHigh;
-        const rowBorder = inc
-          ? GOLD_ACCENT
-          : exc
-            ? c.onSurfaceVariant + '66'
-            : c.outlineVariant + '40';
-        const rowIcon = inc ? 'sparkles' : exc ? 'close-circle' : 'sparkles-outline';
-        return (
-          <View key={tag.key}>
-            <TouchableOpacity
-              style={[
-                genreStyles.smartTagChip,
-                { borderRadius: radii.md, backgroundColor: rowBg, borderColor: rowBorder },
-              ]}
-              onPress={() => {
-                Haptics.selectionAsync();
-                onApplySmartTag(tag.key, 'tap');
-              }}
-              onLongPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                onApplySmartTag(tag.key, 'hold');
-              }}
-              delayLongPress={220}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={`${tag.label} smart filter, ${stateLabel.toLowerCase()}`}
-              accessibilityHint="Tap to include, long-press to exclude"
-              accessibilityState={{ selected: inc || exc }}
-              accessibilityActions={[{ name: 'longpress', label: exc ? 'Clear' : 'Exclude' }]}
-              onAccessibilityAction={(e) => {
-                if (e.nativeEvent.actionName === 'longpress') onApplySmartTag(tag.key, 'hold');
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                <Ionicons
-                  name={rowIcon}
-                  size={18}
-                  color={inc || exc ? stateColor : c.onSurfaceVariant}
-                  style={{ marginRight: 8 }}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[
-                      {
-                        color: inc || exc ? stateColor : c.onSurface,
-                        ...typography.bodyMd,
-                        fontWeight: '700',
-                      },
-                      exc && styles.chipTextExcluded,
-                    ]}
-                  >
-                    {tag.label}
-                  </Text>
-                  <Text
-                    style={[{ color: c.onSurfaceVariant, ...typography.labelSm, marginTop: 2 }]}
-                    numberOfLines={2}
-                  >
-                    Smart filter · not a TMDB genre
-                  </Text>
-                </View>
-              </View>
-              <View
-                style={[
-                  genreStyles.smartTagBadge,
-                  {
-                    backgroundColor: inc || exc ? stateColor : c.surfaceContainerHigh,
-                    borderRadius: radii.sm,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    {
-                      color: inc || exc ? c.onPrimary : c.onSurfaceVariant,
-                      fontSize: 10,
-                      fontWeight: '800',
-                    },
-                  ]}
-                >
-                  {stateLabel}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {(inc || exc) && (
-              <View
-                style={[
-                  genreStyles.smartTagInfo,
-                  {
-                    backgroundColor: stateColor + '10',
-                    borderRadius: radii.sm,
-                    borderLeftColor: stateColor,
-                  },
-                ]}
-              >
-                <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
-                  {inc ? tag.includeDescription : tag.excludeDescription}
-                </Text>
-              </View>
-            )}
-          </View>
-        );
-      })}
     </View>
   );
 }
@@ -2117,7 +2268,12 @@ function DiscoverCard({
   // Ratings trail the lead; under the airing filter the lead is the air day,
   // rendered gold + bold so the grid reads as a chronological agenda rather than
   // a poster wall with a date buried in grey.
+  const seasonsLabel =
+    item.mediaType === 'tv' && item.numberOfSeasons
+      ? formatSeasonsCountLabel(item.numberOfSeasons)
+      : null;
   const restParts = [
+    seasonsLabel,
     imdbRating ? `IMDb ${imdbRating}` : null,
     rottenTomatoes ? `RT ${rottenTomatoes}` : null,
   ].filter(Boolean);
@@ -2419,9 +2575,32 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     fontSize: scale(12),
   },
+  quickPickSubheader: {
+    fontWeight: '700',
+    letterSpacing: 0.9,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+    textTransform: 'uppercase',
+    fontSize: scale(10),
+  },
+  quickPickChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    minHeight: 42,
+  },
 
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 7, minHeight: 48, justifyContent: 'center' },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   chipText: { fontWeight: '700' },
   chipTextExcluded: { textDecorationLine: 'line-through' },
   chipTextUpper: {

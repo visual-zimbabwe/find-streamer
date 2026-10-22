@@ -42,6 +42,37 @@ export function smartTagStateFor(key, filters = {}) {
 }
 
 /**
+ * Current tri-state of an individual ISO 639-1 language code given the live filters.
+ * @param {string} code
+ * @param {{ languageCodes?: any[], excludeLanguageCodes?: any[], excludeEnglish?: boolean }} filters
+ * @returns {'neutral'|'include'|'exclude'}
+ */
+export function languageStateFor(code, filters = {}) {
+  if (Array.isArray(filters.languageCodes) && filters.languageCodes.includes(code)) {
+    return GENRE_STATE.INCLUDE;
+  }
+  if (Array.isArray(filters.excludeLanguageCodes) && filters.excludeLanguageCodes.includes(code)) {
+    return GENRE_STATE.EXCLUDE;
+  }
+  if (code === 'en' && filters.excludeEnglish) {
+    return GENRE_STATE.EXCLUDE;
+  }
+  return GENRE_STATE.NEUTRAL;
+}
+
+/**
+ * Current tri-state of the "Airing this week" schedule quick pick.
+ * @param {{ airingThisWeek?: boolean, excludeAiringThisWeek?: boolean }} filters
+ * @returns {'neutral'|'include'|'exclude'}
+ */
+export function airingStateFor(filters = {}) {
+  if (filters.mediaType && filters.mediaType !== 'tv') return GENRE_STATE.NEUTRAL;
+  if (filters.airingThisWeek) return GENRE_STATE.INCLUDE;
+  if (filters.excludeAiringThisWeek) return GENRE_STATE.EXCLUDE;
+  return GENRE_STATE.NEUTRAL;
+}
+
+/**
  * The next state for a gesture. Tap toggles include (and clears an exclude);
  * hold toggles exclude (from any state, and clears back to neutral). Exclude is
  * therefore always ONE hold away — never routed through include first.
