@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { NativeModules, Platform } from 'react-native';
-import { toastiva } from 'toastiva';
+import { trovaToast as toastiva } from './trovaToast';
 import { launchStream } from './streamLauncher';
 
 const { TorrentStreamerModule } = NativeModules;

@@ -8,6 +8,8 @@ import { BottomNav } from '../components/BottomNav';
 import { StatePanel } from '../components/StatePanel';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { BottomSheetPortal, useBottomSheet } from '../components/StackBottomSheet';
+import { TrovaAlertPortal } from '../components/TrovaAlert';
+import { TrovaToastPortal } from '../components/TrovaToast';
 import { HeroTransitionProvider } from '../components/HeroTransition';
 import { useStatus, useSearch, useNav } from '../context/domainContexts';
 import { RootTabs } from './RootTabs';
@@ -103,6 +105,8 @@ function AppShellInner({ rootNavState }) {
           hidden={sheets.length > 0}
         />
         <BottomSheetPortal />
+        <TrovaAlertPortal />
+        <TrovaToastPortal />
       </HeroTransitionProvider>
     </View>
   );

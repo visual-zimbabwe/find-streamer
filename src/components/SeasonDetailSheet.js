@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { toastiva } from 'toastiva';
+import { trovaToast as toastiva } from '../lib/trovaToast';
 import { GOLD_ACCENT } from '../theme/programme';
 import { MediaArtwork } from './MediaArtwork';
 import { ProgrammeEyebrowLabel } from './ProgrammeSectionHeader';

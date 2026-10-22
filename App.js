@@ -22,7 +22,8 @@ import { Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrop
 import { Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { PlayfairDisplay_700Bold_Italic } from '@expo-google-fonts/playfair-display';
 import { useDiscoverViewModel } from './src/lib/discoverViewModel';
-import { ToastivaProvider } from 'toastiva';
+import { ToastProvider } from './src/context/ToastContext';
+import { AlertProvider } from './src/context/AlertContext';
 import { BottomNavVisibilityProvider } from './src/context/BottomNavVisibilityContext';
 import { LaunchGate } from './src/components/LaunchGate';
 import { useToast } from './src/hooks/useToast';
@@ -42,13 +43,15 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <SafeAreaProvider>
-          <ToastivaProvider position="top-center">
-            <BottomSheetProvider>
-              <BottomNavVisibilityProvider>
-                <MobileApp />
-              </BottomNavVisibilityProvider>
-            </BottomSheetProvider>
-          </ToastivaProvider>
+          <ToastProvider>
+            <AlertProvider>
+              <BottomSheetProvider>
+                <BottomNavVisibilityProvider>
+                  <MobileApp />
+                </BottomNavVisibilityProvider>
+              </BottomSheetProvider>
+            </AlertProvider>
+          </ToastProvider>
         </SafeAreaProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

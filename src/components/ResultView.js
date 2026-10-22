@@ -10,7 +10,6 @@ import {
   Linking,
   Image,
   Share,
-  Alert,
   Platform,
 } from 'react-native';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -26,7 +25,8 @@ import { ProgressiveBlur } from './ProgressiveBlur';
 import * as Haptics from 'expo-haptics';
 import ViewShot from 'react-native-view-shot';
 import * as ExpoSharing from 'expo-sharing';
-import { toastiva } from 'toastiva';
+import { trovaToast as toastiva } from '../lib/trovaToast';
+import { trovaAlert } from '../context/AlertContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { usePosterTheme } from '../lib/usePosterTheme';
 import { MediaArtwork } from './MediaArtwork';
@@ -1064,13 +1064,13 @@ export function ResultView({
         if (found && found.id) {
           onPersonPress(found.id, person.name, role);
         } else {
-          Alert.alert(
+          trovaAlert(
             'Person Not Found',
             `We couldn't find a filmography for "${person.name}" on TMDb.`,
           );
         }
       } catch (err) {
-        Alert.alert(
+        trovaAlert(
           'Search Failed',
           'Unable to search for this person. Please check your connection.',
         );
@@ -1271,14 +1271,14 @@ export function ResultView({
 
   const handleShareConfirm = useCallback(async () => {
     if (!shareCardRef.current) {
-      Alert.alert('Share failed', 'The share card is not ready yet. Please try again.');
+      trovaAlert('Share failed', 'The share card is not ready yet. Please try again.');
       return;
     }
 
     const painted = await waitForCardReady();
     if (!painted) {
       // Better to say so than to ship a PNG with holes in it.
-      Alert.alert(
+      trovaAlert(
         'Share failed',
         'Artwork for the card is still loading. Check your connection and try again.',
       );
@@ -1291,7 +1291,7 @@ export function ResultView({
     try {
       uri = await shareCardRef.current.capture();
     } catch {
-      Alert.alert('Share failed', 'Unable to generate the share card. Please try again.');
+      trovaAlert('Share failed', 'Unable to generate the share card. Please try again.');
       return;
     }
 
@@ -1306,7 +1306,7 @@ export function ResultView({
       if (confirmed) toastiva.success('Shared successfully');
     } catch (err) {
       if (err?.message !== 'User did not share') {
-        Alert.alert('Share failed', 'Unable to share the card. Please try again.');
+        trovaAlert('Share failed', 'Unable to share the card. Please try again.');
       }
     }
   }, [waitForCardReady, deliverShare, dismissSheet]);

@@ -195,6 +195,7 @@ export const theme = {
   colors: { ...trovaDark },
   spacing,
   radii,
+  fonts,
   typography,
 };
 

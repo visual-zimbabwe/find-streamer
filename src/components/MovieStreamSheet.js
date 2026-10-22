@@ -13,7 +13,7 @@ import { MediaArtwork } from './MediaArtwork';
 import { searchMovieTorrents } from '../lib/torrentSearchEngine';
 import { launchStream } from '../lib/streamLauncher';
 import { useDownloads } from '../lib/downloadManager';
-import { toastiva } from 'toastiva';
+import { trovaToast as toastiva } from '../lib/trovaToast';
 
 function formatMovieRuntime(minutes) {
   if (!minutes || minutes <= 0) return null;
