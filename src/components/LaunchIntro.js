@@ -56,9 +56,9 @@ const WORDMARK_ASPECT = TROVA_WORDMARK_ASPECT;
 export function LaunchIntro({ canDismiss, onLayout, onSequenceComplete, onDismiss, onSkip }) {
   const palette = useMemo(
     () => ({
-      background: '#000000',
+      background: '#040301',
       mist: ['rgba(212, 168, 83, 0)', 'rgba(212, 168, 83, 0.14)', 'rgba(212, 168, 83, 0)'],
-      vignette: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)'],
+      vignette: ['rgba(0,0,0,0)', 'rgba(4,3,1,0.55)'],
     }),
     [],
   );

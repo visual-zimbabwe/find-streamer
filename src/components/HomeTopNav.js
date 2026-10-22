@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../theme/ThemeProvider';
 import { scale } from '../utils/responsive';
 import { GOLD_ACCENT } from '../theme/programme';
-import { fonts } from '../theme/tokens';
+import { fonts, goldScale } from '../theme/tokens';
 
 const NAV_SETS = {
   home: [
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   homeWordmark: {
-    color: '#fff',
+    color: goldScale[1],
     fontFamily: fonts.wordmark,
     fontSize: 30,
     lineHeight: 36,
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   typePillText: {
-    color: 'rgba(255,255,255,0.76)',
+    color: 'rgba(254, 251, 246, 0.76)',
     fontSize: 13,
     lineHeight: 16,
     fontWeight: '700',
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 5,
   },
   typePillTextSelected: {
-    color: '#fff',
+    color: goldScale[1],
     fontWeight: '900',
   },
 
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   programmeWordmarkLight: {
-    color: '#fff',
+    color: goldScale[1],
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 8,
@@ -285,10 +285,10 @@ const styles = StyleSheet.create({
     fontSize: scale(11),
   },
   programmeTabTextLight: {
-    color: 'rgba(255,255,255,0.72)',
+    color: 'rgba(254, 251, 246, 0.72)',
   },
   programmeTabTextSelectedLight: {
-    color: '#fff',
+    color: goldScale[1],
     fontWeight: '800',
   },
   programmeTabUnderline: {

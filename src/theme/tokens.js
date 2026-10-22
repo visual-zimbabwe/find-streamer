@@ -115,32 +115,80 @@ export const typography = {
 const GOLD_DIM_SOLID = '#b58e46'; // darker gold for dim/pressed accent states
 const GOLD_ON = '#1a1204'; // near-black warm ink for content sitting on gold
 
+/**
+ * Gold scale — every step carries the brand gold's hue.
+ *
+ * Derived in OKLCH from GOLD_ACCENT (#D4A853 = L 0.755 · C 0.115 · H 81.9°).
+ * The step number is "ink": OKLCH lightness = 1 − step/100, so 1 is near-white
+ * and 95 is near-black. Hue is locked at 81.9° on every step; chroma peaks in
+ * the middle and tapers toward both ends so the extremes read as white/black
+ * with only a whisper of gold. The brand gold itself sits at ≈ step 25.
+ */
+export const goldScale = {
+  1: '#FEFBF6',
+  5: '#F5EEE1',
+  10: '#EADCC5',
+  20: '#D5BA8A',
+  30: '#BF984C',
+  40: '#9F792B',
+  50: '#7D5D1C',
+  60: '#5C430D',
+  70: '#3B2B07',
+  75: '#2B200A',
+  80: '#1B150A',
+  85: '#0F0B04',
+  90: '#040301',
+  95: '#010000',
+};
+
+/**
+ * Gold-tinted grays — same lightness steps and hue as `goldScale`, with chroma
+ * held low (≈ 0.004–0.015) so they read as neutral grays that are warm rather
+ * than cool. For structure: surfaces, outlines, secondary text.
+ */
+export const goldGrayScale = {
+  1: '#FDFBF9',
+  5: '#F1EEE9',
+  10: '#E1DDD7',
+  20: '#C2BDB5',
+  30: '#A39E94',
+  40: '#858076',
+  50: '#68635A',
+  60: '#4C473F',
+  70: '#312D27',
+  75: '#25211B',
+  80: '#191610',
+  85: '#0D0B07',
+  90: '#040302',
+  95: '#010000',
+};
+
 const trovaDark = {
-  background: '#000000',
-  surface: '#0B0B0B',
-  surfaceContainerLow: '#0B0B0B',
-  surfaceContainer: '#121212',
-  surfaceContainerHigh: '#1A1A1A',
-  surfaceContainerHighest: '#222222',
+  background: goldScale[90],
+  surface: goldGrayScale[85],
+  surfaceContainerLow: goldGrayScale[85],
+  surfaceContainer: goldGrayScale[80],
+  surfaceContainerHigh: goldGrayScale[80],
+  surfaceContainerHighest: goldGrayScale[75],
   primary: GOLD_ACCENT,
   primaryDim: GOLD_DIM_SOLID,
   primaryContainer: '#231b0e',
   onPrimary: GOLD_ON,
-  onSurface: '#f5f5f7',
-  onSurfaceVariant: '#8E8E93',
-  outlineVariant: '#3a3a3c',
+  onSurface: goldScale[5],
+  onSurfaceVariant: goldGrayScale[30],
+  outlineVariant: goldGrayScale[70],
   error: '#ff453a',
-  white: '#ffffff',
-  black: '#000000',
-  glass: 'rgba(12, 12, 14, 0.94)',
+  white: goldScale[1],
+  black: goldScale[95],
+  glass: 'rgba(13, 11, 7, 0.94)', // goldGrayScale[85] @ 0.94
 };
 
 /**
  * Trova is a dark-only app. There is no light palette and no runtime mode
  * switch: the gold-on-black marquee treatment is the product's identity, and
  * every surface, scrim, poster gradient and glass blur in the app is tuned
- * against a black background. A single frozen theme object means components can
- * read colors without ever branching on mode.
+ * against a warm gold-tinted background. A single frozen theme object means
+ * components can read colors without ever branching on mode.
  */
 export const theme = {
   mode: 'dark',
@@ -149,3 +197,6 @@ export const theme = {
   radii,
   typography,
 };
+
+/** Backwards-compatibility alias for the gold-tinted theme. */
+export const goldTintedTheme = theme;

@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { theme } from './tokens';
 
 /**
@@ -13,8 +13,13 @@ const ThemeContext = createContext(null);
 
 const THEME_VALUE = { theme };
 
-export function ThemeProvider({ children }) {
-  return <ThemeContext.Provider value={THEME_VALUE}>{children}</ThemeContext.Provider>;
+/**
+ * `theme` is optional: omitted at the app root (publishes the frozen default);
+ * passed by a nested provider to override colors for one subtree only.
+ */
+export function ThemeProvider({ children, theme: override }) {
+  const value = useMemo(() => (override ? { theme: override } : THEME_VALUE), [override]);
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {
