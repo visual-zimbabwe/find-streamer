@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
-import { toastiva } from 'toastiva';
+import { trovaToast as toastiva } from '../lib/trovaToast';
 import { useBottomSheet } from '../components/StackBottomSheet';
 import {
   WatchlistCollectionsSheet,

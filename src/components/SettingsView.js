@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  Pressable,
   View,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Platform,
 } from 'react-native';
@@ -18,6 +18,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useTheme } from '../theme/ThemeProvider';
+import { trovaAlert } from '../context/AlertContext';
+import { trovaToast } from '../context/ToastContext';
 import {
   mergeWatchlistsNoDuplicates,
   mergeCollectionsNoDuplicates,
@@ -292,6 +294,23 @@ export function SettingsView({
   const [backupBusy, setBackupBusy] = useState(false);
   const bottomNavScroll = useBottomNavScroll();
 
+  const handleVersionPress = useCallback(() => {
+    trovaAlert(
+      'System Diagnostics',
+      'Trova alert and notification systems are online and calibrated to the gold palette.',
+      [
+        { text: 'Dismiss', style: 'cancel' },
+        {
+          text: 'Trigger Toast',
+          style: 'default',
+          onPress: () => {
+            trovaToast.success('Trova gold capsule toast verified!', { title: 'SYSTEM' });
+          },
+        },
+      ],
+    );
+  }, []);
+
   const glassSurface = colors.glass;
   const atmosphereColors = useMemo(
     () => [colors.surfaceContainerHigh, colors.background],
@@ -301,7 +320,7 @@ export function SettingsView({
   const handleExportWatchlist = async () => {
     const baseDir = FileSystem.cacheDirectory;
     if (!baseDir) {
-      Alert.alert('Export unavailable', 'File storage is not available on this device.');
+      trovaAlert('Export unavailable', 'File storage is not available on this device.');
       return;
     }
 
@@ -316,7 +335,7 @@ export function SettingsView({
 
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        Alert.alert('Sharing unavailable', 'This device cannot open the system share sheet.');
+        trovaAlert('Sharing unavailable', 'This device cannot open the system share sheet.');
         return;
       }
 
@@ -325,8 +344,9 @@ export function SettingsView({
         dialogTitle: 'Export watchlist',
         UTI: 'public.json',
       });
+      trovaToast.success('Watchlist backup exported');
     } catch (err) {
-      Alert.alert('Export failed', err?.message || 'Could not export your watchlist.');
+      trovaAlert('Export failed', err?.message || 'Could not export your watchlist.');
     } finally {
       setBackupBusy(false);
     }
@@ -336,7 +356,7 @@ export function SettingsView({
     if (!persistWatchlistChange) return;
 
     if (mode === 'merge' && (!items || items.length === 0)) {
-      Alert.alert('Nothing to merge', 'This file contains no titles to add.');
+      trovaAlert('Nothing to merge', 'This file contains no titles to add.');
       return;
     }
 
@@ -372,27 +392,28 @@ export function SettingsView({
     const summary =
       n === 0
         ? 'This file contains no titles. You can still replace your watchlist to clear it.'
-        : `This file contains ${n} title${n === 1 ? '' : 's'}.`;
+        : `This backup contains ${n} title${n === 1 ? '' : 's'}.`;
 
-    Alert.alert('Import watchlist', `${summary}\n\nHow should it be applied?`, [
+    trovaAlert('Import Watchlist', `${summary}\n\nChoose how you would like to apply this file to your library:`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Merge',
+        style: 'default',
         onPress: () => {
           void applyImportedItems(items, 'merge', importedCollections);
         },
       },
       {
-        text: 'Replace',
+        text: 'Replace All',
         style: 'destructive',
         onPress: () => {
-          Alert.alert(
-            'Replace entire watchlist?',
-            'This removes all titles currently on this device and replaces them with the file.',
+          trovaAlert(
+            'Replace Library?',
+            'This removes all titles currently saved on this device and replaces them with the file.',
             [
               { text: 'Cancel', style: 'cancel' },
               {
-                text: 'Replace',
+                text: 'Replace All',
                 style: 'destructive',
                 onPress: () => {
                   void applyImportedItems(items, 'replace', importedCollections);
@@ -422,13 +443,13 @@ export function SettingsView({
       const parsed = parseWatchlistImportJson(text);
 
       if (!parsed.ok) {
-        Alert.alert('Could not import', parsed.error || 'Invalid file.');
+        trovaAlert('Could not import', parsed.error || 'Invalid file.');
         return;
       }
 
       promptImportMode(parsed.items, parsed.collections || []);
     } catch (err) {
-      Alert.alert('Import failed', err?.message || 'Could not read the selected file.');
+      trovaAlert('Import failed', err?.message || 'Could not read the selected file.');
     } finally {
       setBackupBusy(false);
     }
@@ -484,6 +505,14 @@ export function SettingsView({
             colors={colors}
             typography={typography}
           />
+          <PanelDivider />
+          <ActionRow
+            icon="notifications-outline"
+            label="Test alerts & toasts"
+            onPress={handleVersionPress}
+            colors={colors}
+            typography={typography}
+          />
         </GlassPanel>
 
         <ProgrammeHairline />
@@ -519,11 +548,17 @@ export function SettingsView({
           radii={radii}
         />
 
-        <View style={styles.footer}>
+        <TouchableOpacity
+          onPress={handleVersionPress}
+          activeOpacity={0.7}
+          style={styles.footer}
+          accessibilityRole="button"
+          accessibilityLabel="System Diagnostics"
+        >
           <Text style={[styles.version, { color: colors.onSurfaceVariant, ...typography.labelSm }]}>
             Trova v2.4.1 (Build 882)
           </Text>
-        </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );

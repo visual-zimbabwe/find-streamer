@@ -1,7 +1,7 @@
 import { AppState, Linking, NativeModules, Platform } from 'react-native';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { toastiva } from 'toastiva';
+import { trovaToast as toastiva } from './trovaToast';
 
 const { TorrentStreamerModule } = NativeModules;
 

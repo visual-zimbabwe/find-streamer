@@ -1,28 +1,31 @@
 import { useCallback } from 'react';
-import { toastiva } from 'toastiva';
+import { trovaToast } from '../context/ToastContext';
 
 /**
- * Thin wrapper around toastiva that maps the app's icon vocabulary onto the
- * appropriate toast severity. Returns a stable `showToast(message, options)`.
+ * Maps the app's icon and severity vocabulary onto Trova's spring capsule toast system.
+ * Returns a stable `showToast(message, options)`.
  */
 export function useToast() {
   const showToast = useCallback((message, options = {}) => {
     const icon = options.icon || 'alert-circle-outline';
-    const opts = { description: options.title };
+    const opts = { title: options.title, icon };
+
     if (
       icon === 'trash-outline' ||
       icon === 'checkmark-circle-outline' ||
       icon === 'bookmark-outline'
     ) {
-      toastiva.success(message, opts);
+      trovaToast.success(message, opts);
     } else if (icon === 'alert-circle-outline') {
-      toastiva.error(message, opts);
-    } else if (icon === 'mic-off-outline') {
-      toastiva.warning(message, opts);
+      trovaToast.error(message, opts);
+    } else if (icon === 'mic-off-outline' || icon === 'warning-outline') {
+      trovaToast.warning(message, opts);
     } else {
-      toastiva.info(message, opts);
+      trovaToast.info(message, opts);
     }
   }, []);
 
   return { showToast };
 }
+
+export { trovaToast };
