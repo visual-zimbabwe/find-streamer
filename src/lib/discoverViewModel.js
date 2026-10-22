@@ -20,7 +20,12 @@ import {
   effectiveDiscoverSortBy,
   enrichResultsWithAirDay,
   sortByAirDateAsc,
+  translateSortByForMediaType,
 } from './tvAiringFilter';
+import { REGION_QUICK_PICK_FILTERS } from './smartFilters';
+import { matchesSeasonsRange } from './discoverRanges';
+
+const REGION_SMART_TAG_KEYS = new Set(REGION_QUICK_PICK_FILTERS.map((f) => f.key));
 
 /**
  * Structural equality over the filter object. Both sides are plain objects built
@@ -32,6 +37,17 @@ function filtersEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+/**
+ * Compute a canonical JSON signature of all filter fields EXCEPT `sortBy`.
+ * Sort order is a presentation order over the exact same filtered set and must
+ * never change the number of matching titles.
+ */
+export function filterSignatureWithoutSort(f) {
+  if (!f) return '';
+  const { sortBy: _ignoredSortBy, ...rest } = f;
+  return JSON.stringify(rest);
+}
+
 const DEFAULT_FILTERS = {
   mediaType: 'movie',
   // ── Include genres ─────────────────────────────────────────────────────────
@@ -39,20 +55,23 @@ const DEFAULT_FILTERS = {
   genreLogic: 'AND',
   // ── Exclude genres (official TMDB genres) ──────────────────────────────────
   excludeGenreIds: [],
-  // ── Exclude smart tags (e.g. 'anime') ──────────────────────────────────────
+  // ── Exclude smart tags (e.g. 'anime', 'eu', 'non_english') ─────────────────
   excludeSmartTags: [],
-  // ── Include smart tags (e.g. 'anime') — the positive counterpart, so "find me
-  //    anime" is expressible, not just "hide anime". ────────────────────────────
+  // ── Include smart tags (e.g. 'anime', 'eu', 'non_english') ─────────────────
   includeSmartTags: [],
   // ── Optional filters ───────────────────────────────────────────────────────
   minRating: '7',
   maxRating: '10.0',
   languageCodes: [],
+  excludeLanguageCodes: [],
   originCountries: [],
+  excludeOriginCountries: [],
   fromYear: '',
   toYear: '',
   minRuntime: '',
   maxRuntime: '',
+  minSeasons: '',
+  maxSeasons: '',
   sortBy: 'popularity.desc',
   // ── Language preset (region shortcut) ─────────────────────────────────────
   // Stores the active preset id ('europe', 'east_asia', 'exclude_english', …)
@@ -68,6 +87,8 @@ const DEFAULT_FILTERS = {
   // TV only: keep only shows with an episode airing in the next 7 days. Applied
   // server-side via TMDb's air_date.gte/lte on /discover/tv (see discoverTitles).
   airingThisWeek: false,
+  // TV only: exclude currently airing shows (keep only ended/completed series).
+  excludeAiringThisWeek: false,
 };
 
 export function useDiscoverViewModel() {
@@ -94,6 +115,9 @@ export function useDiscoverViewModel() {
   const [previewCount, setPreviewCount] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const previewTokenRef = useRef(0);
+  // Canonical count cache keyed by filterSignatureWithoutSort(filters) so
+  // switching between any sort options never alters previewCount or totalResults.
+  const canonicalCountBySignatureRef = useRef(new Map());
 
   // Snapshot of the filters that produced the currently-shown results. Compared
   // against live `filters` to know whether the results on screen are stale.
@@ -176,13 +200,108 @@ export function useDiscoverViewModel() {
   // stomped. Turning it off reverts that implicit Air-Date default.
   const setAiringThisWeek = useCallback((next) => {
     setFilters((prev) => {
-      const patch = { ...prev, airingThisWeek: next };
+      const patch = {
+        ...prev,
+        airingThisWeek: next,
+        excludeAiringThisWeek: next ? false : prev.excludeAiringThisWeek,
+      };
       if (next && prev.sortBy === 'popularity.desc') {
         patch.sortBy = AIR_DATE_SORT;
       } else if (!next && prev.sortBy === AIR_DATE_SORT) {
         patch.sortBy = DEFAULT_FILTERS.sortBy;
       }
       return patch;
+    });
+    setValidationError(null);
+  }, []);
+
+  // Tri-state handler for "Airing this week" Quick Pick ('neutral' | 'include' | 'exclude').
+  // Selecting include or exclude automatically switches mediaType to 'tv' if needed.
+  const setAiringState = useCallback((targetState) => {
+    setFilters((prev) => {
+      if (targetState === 'include') {
+        return {
+          ...prev,
+          mediaType: 'tv',
+          airingThisWeek: true,
+          excludeAiringThisWeek: false,
+          sortBy:
+            prev.sortBy === 'popularity.desc'
+              ? AIR_DATE_SORT
+              : translateSortByForMediaType(prev.sortBy, 'tv'),
+        };
+      }
+      if (targetState === 'exclude') {
+        return {
+          ...prev,
+          mediaType: 'tv',
+          airingThisWeek: false,
+          excludeAiringThisWeek: true,
+          sortBy:
+            prev.sortBy === AIR_DATE_SORT
+              ? DEFAULT_FILTERS.sortBy
+              : translateSortByForMediaType(prev.sortBy, 'tv'),
+        };
+      }
+      return {
+        ...prev,
+        airingThisWeek: false,
+        excludeAiringThisWeek: false,
+        sortBy: prev.sortBy === AIR_DATE_SORT ? DEFAULT_FILTERS.sortBy : prev.sortBy,
+      };
+    });
+    setValidationError(null);
+  }, []);
+
+  // ── Include / Exclude Language Toggles (Tri-state) ─────────────────────────
+  const toggleIncludeLanguage = useCallback((code) => {
+    setFilters((prev) => {
+      const alreadyIncluded = prev.languageCodes.includes(code);
+      const nextIncluded = alreadyIncluded
+        ? prev.languageCodes.filter((c) => c !== code)
+        : [...prev.languageCodes, code];
+      const nextExcluded = (prev.excludeLanguageCodes || []).filter((c) => c !== code);
+      const nextIncludeSmartTags =
+        code === 'en' && !alreadyIncluded
+          ? prev.includeSmartTags.filter((t) => t !== 'non_english')
+          : prev.includeSmartTags;
+      return {
+        ...prev,
+        activePreset: null,
+        languageCodes: nextIncluded,
+        excludeLanguageCodes: nextExcluded,
+        excludeEnglish: code === 'en' && !alreadyIncluded ? false : prev.excludeEnglish,
+        includeSmartTags: nextIncludeSmartTags,
+      };
+    });
+    setValidationError(null);
+  }, []);
+
+  const toggleExcludeLanguage = useCallback((code) => {
+    setFilters((prev) => {
+      const currentEx = prev.excludeLanguageCodes || [];
+      const alreadyExcluded = currentEx.includes(code) || (code === 'en' && prev.excludeEnglish);
+      const nextExcluded = alreadyExcluded
+        ? currentEx.filter((c) => c !== code)
+        : [...currentEx.filter((c) => c !== code), code];
+      const nextIncluded = prev.languageCodes.filter((c) => c !== code);
+      const nextExcludeSmartTags =
+        code === 'en' && !alreadyExcluded
+          ? prev.excludeSmartTags.filter((t) => t !== 'non_english')
+          : prev.excludeSmartTags;
+      const nextIncludeSmartTags =
+        code === 'en' && alreadyExcluded
+          ? prev.includeSmartTags.filter((t) => t !== 'non_english')
+          : prev.includeSmartTags;
+      return {
+        ...prev,
+        activePreset: null,
+        languageCodes: nextIncluded,
+        excludeLanguageCodes: nextExcluded,
+        excludeEnglish: code === 'en' && alreadyExcluded ? false : prev.excludeEnglish,
+        excludeSmartTags: nextExcludeSmartTags,
+        includeSmartTags: nextIncludeSmartTags,
+      };
     });
     setValidationError(null);
   }, []);
@@ -222,19 +341,25 @@ export function useDiscoverViewModel() {
     setValidationError(null);
   }, []);
 
-  // ── Smart Tag Toggle ───────────────────────────────────────────────────────
+  // ── Smart Tag Toggle (Exclude) ─────────────────────────────────────────────
 
   const toggleSmartTag = useCallback((tag) => {
     setFilters((prev) => {
       const already = prev.excludeSmartTags.includes(tag);
+      const nextExcludeSmartTags = already
+        ? prev.excludeSmartTags.filter((t) => t !== tag)
+        : [...prev.excludeSmartTags, tag];
+      const nextIncludeSmartTags = prev.includeSmartTags.filter((t) => t !== tag);
+      // Excluding 'non_english' means English-only, so clear any explicit 'en' exclusion.
+      const clearEnExclusion = tag === 'non_english' && !already;
       return {
         ...prev,
-        excludeSmartTags: already
-          ? prev.excludeSmartTags.filter((t) => t !== tag)
-          : [...prev.excludeSmartTags, tag],
-        // A tag can only be in one group at a time — excluding it removes it from
-        // the include group.
-        includeSmartTags: prev.includeSmartTags.filter((t) => t !== tag),
+        excludeSmartTags: nextExcludeSmartTags,
+        includeSmartTags: nextIncludeSmartTags,
+        excludeLanguageCodes: clearEnExclusion
+          ? (prev.excludeLanguageCodes || []).filter((c) => c !== 'en')
+          : prev.excludeLanguageCodes || [],
+        excludeEnglish: clearEnExclusion ? false : prev.excludeEnglish,
       };
     });
     setValidationError(null);
@@ -245,13 +370,19 @@ export function useDiscoverViewModel() {
   const toggleIncludeSmartTag = useCallback((tag) => {
     setFilters((prev) => {
       const already = prev.includeSmartTags.includes(tag);
+      const nextIncludeSmartTags = already
+        ? prev.includeSmartTags.filter((t) => t !== tag)
+        : [...prev.includeSmartTags, tag];
+      const nextExcludeSmartTags = prev.excludeSmartTags.filter((t) => t !== tag);
+      // Including 'non_english' excludes English, so drop 'en' from explicit languageCodes.
+      const clearEnInclusion = tag === 'non_english' && !already;
       return {
         ...prev,
-        includeSmartTags: already
-          ? prev.includeSmartTags.filter((t) => t !== tag)
-          : [...prev.includeSmartTags, tag],
-        // Including it removes it from the exclude group.
-        excludeSmartTags: prev.excludeSmartTags.filter((t) => t !== tag),
+        includeSmartTags: nextIncludeSmartTags,
+        excludeSmartTags: nextExcludeSmartTags,
+        languageCodes: clearEnInclusion
+          ? prev.languageCodes.filter((c) => c !== 'en')
+          : prev.languageCodes,
       };
     });
     setValidationError(null);
@@ -322,14 +453,37 @@ export function useDiscoverViewModel() {
   }, []);
 
   /**
-   * Clear all language selection (preset + individual codes).
+   * Clear all language selection (preset + individual codes + region smart tags).
    */
   const clearPreset = useCallback(() => {
     setFilters((prev) => ({
       ...prev,
       activePreset: null,
       languageCodes: [],
+      excludeLanguageCodes: [],
       excludeEnglish: false,
+      includeSmartTags: prev.includeSmartTags.filter((t) => !REGION_SMART_TAG_KEYS.has(t)),
+      excludeSmartTags: prev.excludeSmartTags.filter((t) => !REGION_SMART_TAG_KEYS.has(t)),
+    }));
+    setPendingCountryLink(null);
+    setValidationError(null);
+  }, []);
+
+  /**
+   * Clear all Quick Picks (languages, regions, vibes/formats, and airing schedule).
+   */
+  const clearQuickPicks = useCallback(() => {
+    setFilters((prev) => ({
+      ...prev,
+      activePreset: null,
+      languageCodes: [],
+      excludeLanguageCodes: [],
+      excludeEnglish: false,
+      includeSmartTags: [],
+      excludeSmartTags: [],
+      airingThisWeek: false,
+      excludeAiringThisWeek: false,
+      sortBy: prev.sortBy === AIR_DATE_SORT ? DEFAULT_FILTERS.sortBy : prev.sortBy,
     }));
     setPendingCountryLink(null);
     setValidationError(null);
@@ -385,18 +539,25 @@ export function useDiscoverViewModel() {
   }, []);
 
   const resetFilters = useCallback(() => {
-    setFilters({
+    setFilters((prev) => ({
       ...DEFAULT_FILTERS,
+      mediaType: prev.mediaType,
       genreIds: [],
       excludeGenreIds: [],
       excludeSmartTags: [],
       includeSmartTags: [],
       languageCodes: [],
+      excludeLanguageCodes: [],
       originCountries: [],
+      excludeOriginCountries: [],
+      minSeasons: '',
+      maxSeasons: '',
       activePreset: null,
       excludeEnglish: false,
       activeCountryPreset: null,
-    });
+      airingThisWeek: false,
+      excludeAiringThisWeek: false,
+    }));
     setPendingCountryLink(null);
     setValidationError(null);
   }, []);
@@ -466,6 +627,12 @@ export function useDiscoverViewModel() {
     return parsed;
   }
 
+  function appliedSeasons(value) {
+    const parsed = parseInt(value, 10);
+    if (!value || isNaN(parsed) || parsed <= 0) return null;
+    return parsed;
+  }
+
   function validate(f) {
     const from = parseInt(f.fromYear, 10);
     const to = parseInt(f.toYear, 10);
@@ -499,6 +666,25 @@ export function useDiscoverViewModel() {
       return 'Min runtime cannot be greater than max runtime';
     }
 
+    if (f.minSeasons) {
+      const rawMinS = parseInt(f.minSeasons, 10);
+      if (isNaN(rawMinS) || rawMinS < 1 || rawMinS > 99) {
+        return 'Min seasons must be between 1 and 99.';
+      }
+    }
+    if (f.maxSeasons) {
+      const rawMaxS = parseInt(f.maxSeasons, 10);
+      if (isNaN(rawMaxS) || rawMaxS < 1 || rawMaxS > 99) {
+        return 'Max seasons must be between 1 and 99.';
+      }
+    }
+
+    const minSeasons = appliedSeasons(f.minSeasons);
+    const maxSeasons = appliedSeasons(f.maxSeasons);
+    if (minSeasons != null && maxSeasons != null && minSeasons > maxSeasons) {
+      return 'Min seasons cannot be greater than max seasons.';
+    }
+
     const ratingErr = validateRatingRange(f.minRating, f.maxRating);
     if (ratingErr) return ratingErr;
 
@@ -525,9 +711,25 @@ export function useDiscoverViewModel() {
       ...f,
       minRating: appliedRating(f.minRating),
       maxRating: appliedRating(f.maxRating),
+      minSeasons: f.mediaType === 'tv' ? appliedSeasons(f.minSeasons) : null,
+      maxSeasons: f.mediaType === 'tv' ? appliedSeasons(f.maxSeasons) : null,
       originCountries: effectiveOriginCountries(f),
-      sortBy: effectiveDiscoverSortBy(f.sortBy),
+      sortBy: effectiveDiscoverSortBy(f.sortBy, f.mediaType),
     };
+  }
+
+  function resolveCanonicalCount(f, rawTotalResults) {
+    const sig = filterSignatureWithoutSort(f);
+    const cache = canonicalCountBySignatureRef.current;
+    if (cache.has(sig)) {
+      return cache.get(sig);
+    }
+    if (cache.size >= 64) {
+      const oldestKey = cache.keys().next().value;
+      cache.delete(oldestKey);
+    }
+    cache.set(sig, rawTotalResults);
+    return rawTotalResults;
   }
 
   function dedupeAppend(previous, incoming) {
@@ -584,11 +786,17 @@ export function useDiscoverViewModel() {
           });
           const minRt = appliedRuntime(f?.minRuntime);
           const maxRt = appliedRuntime(f?.maxRuntime);
-          if (minRt == null && maxRt == null) return merged;
+          const minS = appliedSeasons(f?.minSeasons);
+          const maxS = appliedSeasons(f?.maxSeasons);
+          if (minRt == null && maxRt == null && minS == null && maxS == null) return merged;
           return merged.filter((item) => {
-            if (item.mediaType !== 'movie' || item.runtimeMinutes == null) return true;
-            if (minRt != null && item.runtimeMinutes < minRt) return false;
-            if (maxRt != null && item.runtimeMinutes > maxRt) return false;
+            if (item.mediaType === 'movie' && item.runtimeMinutes != null) {
+              if (minRt != null && item.runtimeMinutes < minRt) return false;
+              if (maxRt != null && item.runtimeMinutes > maxRt) return false;
+            }
+            if (item.mediaType === 'tv' && item.numberOfSeasons != null) {
+              if (!matchesSeasonsRange(item.numberOfSeasons, minS, maxS)) return false;
+            }
             return true;
           });
         });
@@ -629,8 +837,10 @@ export function useDiscoverViewModel() {
     try {
       const data = await discoverTitles({ ...buildDiscoverApiFilters(filters), page: 1 });
       if (token !== searchTokenRef.current) return; // stale
+      const canonicalTotal = resolveCanonicalCount(filters, data.totalResults);
       setResults(data.results);
-      setTotalResults(data.totalResults);
+      setTotalResults(canonicalTotal);
+      setPreviewCount(canonicalTotal);
       setTotalPages(data.totalPages);
       setCurrentPage(1);
       enrichVisibleResults(data.results, token, filters);
@@ -649,6 +859,8 @@ export function useDiscoverViewModel() {
   // Debounced, count-only /discover call on every settled filter change so the
   // Search button can say "Search · 1,240" before the user commits. Uses the same
   // buildDiscoverApiFilters pipeline the real search uses, so the number matches.
+  // Because sort order never alters the filter predicate, a pure sortBy change
+  // reuses the canonical count for the current filter signature immediately.
   useEffect(() => {
     // Invalid ranges → no meaningful count. The airing-this-week filter now has a
     // real, cheap count: its server-side air_date window returns a truthful
@@ -660,13 +872,22 @@ export function useDiscoverViewModel() {
       return;
     }
 
+    const sig = filterSignatureWithoutSort(filters);
+    if (canonicalCountBySignatureRef.current.has(sig)) {
+      previewTokenRef.current += 1;
+      setPreviewLoading(false);
+      setPreviewCount(canonicalCountBySignatureRef.current.get(sig));
+      return;
+    }
+
     const token = ++previewTokenRef.current;
     setPreviewLoading(true);
     const handle = setTimeout(async () => {
       try {
         const data = await discoverTitles({ ...buildDiscoverApiFilters(filters), page: 1 });
         if (token !== previewTokenRef.current) return;
-        setPreviewCount(data.totalResults);
+        const canonicalTotal = resolveCanonicalCount(filters, data.totalResults);
+        setPreviewCount(canonicalTotal);
       } catch {
         if (token !== previewTokenRef.current) return;
         setPreviewCount(null); // best-effort; never blocks the real search
@@ -715,6 +936,9 @@ export function useDiscoverViewModel() {
     filters,
     updateFilter,
     setAiringThisWeek,
+    setAiringState,
+    toggleIncludeLanguage,
+    toggleExcludeLanguage,
     toggleGenre,
     toggleExcludeGenre,
     toggleSmartTag,
@@ -723,6 +947,7 @@ export function useDiscoverViewModel() {
     applyIntentPreset,
     applyPreset,
     clearPreset,
+    clearQuickPicks,
     acceptCountryLink,
     dismissCountryLink,
     pendingCountryLink,

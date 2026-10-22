@@ -14,9 +14,96 @@
  *  - TMDB ISO 3166-1 country list: https://developer.themoviedb.org/reference/configuration-countries
  */
 
+// ─── Curated Regional Country Code Sets ───────────────────────────────────────
+
+/**
+ * All 27 current member states of the European Union (ISO 3166-1 alpha-2).
+ */
+export const EU_COUNTRY_CODES = [
+  'AT', // Austria
+  'BE', // Belgium
+  'BG', // Bulgaria
+  'HR', // Croatia
+  'CY', // Cyprus
+  'CZ', // Czech Republic
+  'DK', // Denmark
+  'EE', // Estonia
+  'FI', // Finland
+  'FR', // France
+  'DE', // Germany
+  'GR', // Greece
+  'HU', // Hungary
+  'IE', // Ireland
+  'IT', // Italy
+  'LV', // Latvia
+  'LT', // Lithuania
+  'LU', // Luxembourg
+  'MT', // Malta
+  'NL', // Netherlands
+  'PL', // Poland
+  'PT', // Portugal
+  'RO', // Romania
+  'SK', // Slovakia
+  'SI', // Slovenia
+  'ES', // Spain
+  'SE', // Sweden
+];
+
+export const NORDIC_COUNTRY_CODES = [
+  'DK', // Denmark
+  'FI', // Finland
+  'IS', // Iceland
+  'NO', // Norway
+  'SE', // Sweden
+];
+
+export const LATIN_AMERICA_COUNTRY_CODES = [
+  'MX', // Mexico
+  'BZ', // Belize
+  'CR', // Costa Rica
+  'SV', // El Salvador
+  'GT', // Guatemala
+  'HN', // Honduras
+  'NI', // Nicaragua
+  'PA', // Panama
+  'CU', // Cuba
+  'DO', // Dominican Republic
+  'HT', // Haiti
+  'JM', // Jamaica
+  'PR', // Puerto Rico
+  'TT', // Trinidad and Tobago
+  'AR', // Argentina
+  'BO', // Bolivia
+  'BR', // Brazil
+  'CL', // Chile
+  'CO', // Colombia
+  'EC', // Ecuador
+  'GY', // Guyana
+  'PY', // Paraguay
+  'PE', // Peru
+  'SR', // Suriname
+  'UY', // Uruguay
+  'VE', // Venezuela
+];
+
 // ─── Continent Presets ─────────────────────────────────────────────────────────
 
 export const COUNTRY_PRESETS = [
+  {
+    id: 'eu',
+    label: 'European Union',
+    emoji: '',
+    description:
+      'All 27 European Union member states: France, Germany, Italy, Spain, Denmark, Sweden, Poland, Netherlands, Ireland, Belgium, Austria, and more.',
+    codes: EU_COUNTRY_CODES,
+  },
+  {
+    id: 'nordic',
+    label: 'Nordic',
+    emoji: '',
+    description: 'Denmark, Sweden, Norway, Finland, and Iceland.',
+    codes: NORDIC_COUNTRY_CODES,
+  },
   {
     id: 'africa',
     label: 'Africa',

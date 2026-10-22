@@ -116,7 +116,28 @@ export async function enrichResultsWithAirDay(items = [], now = new Date()) {
   });
 }
 
-export function effectiveDiscoverSortBy(sortBy) {
+export function effectiveDiscoverSortBy(sortBy, mediaType) {
   if (sortBy === AIR_DATE_SORT) return 'popularity.desc';
-  return sortBy;
+  if (mediaType === 'tv') {
+    if (sortBy === 'primary_release_date.desc') return 'first_air_date.desc';
+    if (sortBy === 'primary_release_date.asc') return 'first_air_date.asc';
+    if (sortBy === 'revenue.desc') return 'popularity.desc';
+  } else if (mediaType === 'movie') {
+    if (sortBy === 'first_air_date.desc') return 'primary_release_date.desc';
+    if (sortBy === 'first_air_date.asc') return 'primary_release_date.asc';
+  }
+  return sortBy || 'popularity.desc';
+}
+
+export function translateSortByForMediaType(sortBy, nextMediaType) {
+  if (nextMediaType === 'tv') {
+    if (sortBy === 'primary_release_date.desc') return 'first_air_date.desc';
+    if (sortBy === 'primary_release_date.asc') return 'first_air_date.asc';
+    if (sortBy === 'revenue.desc') return 'popularity.desc';
+  } else if (nextMediaType === 'movie') {
+    if (sortBy === 'first_air_date.desc') return 'primary_release_date.desc';
+    if (sortBy === 'first_air_date.asc') return 'primary_release_date.asc';
+    if (sortBy === AIR_DATE_SORT) return 'popularity.desc';
+  }
+  return sortBy || 'popularity.desc';
 }

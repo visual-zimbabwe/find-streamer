@@ -4,8 +4,11 @@ import {
   GENRE_STATE,
   genreStateFor,
   smartTagStateFor,
+  languageStateFor,
+  airingStateFor,
   reduceTriState,
 } from '../src/lib/genreTriState.js';
+import { translateSortByForMediaType, effectiveDiscoverSortBy } from '../src/lib/tvAiringFilter.js';
 
 const { NEUTRAL, INCLUDE, EXCLUDE } = GENRE_STATE;
 
@@ -25,10 +28,50 @@ test('genreStateFor tolerates missing / undefined filter arrays', () => {
 });
 
 test('smartTagStateFor reads include / exclude / neutral off the filters', () => {
-  const filters = { includeSmartTags: ['anime'], excludeSmartTags: ['korean'] };
+  const filters = { includeSmartTags: ['anime', 'eu'], excludeSmartTags: ['korean', 'middle_east'] };
   assert.equal(smartTagStateFor('anime', filters), INCLUDE);
+  assert.equal(smartTagStateFor('eu', filters), INCLUDE);
   assert.equal(smartTagStateFor('korean', filters), EXCLUDE);
+  assert.equal(smartTagStateFor('middle_east', filters), EXCLUDE);
   assert.equal(smartTagStateFor('chinese', filters), NEUTRAL);
+});
+
+test('languageStateFor reads include / exclude / neutral for individual Quick Pick languages', () => {
+  const filters = { languageCodes: ['fr', 'da'], excludeLanguageCodes: ['en'] };
+  assert.equal(languageStateFor('fr', filters), INCLUDE);
+  assert.equal(languageStateFor('da', filters), INCLUDE);
+  assert.equal(languageStateFor('en', filters), EXCLUDE);
+  assert.equal(languageStateFor('de', filters), NEUTRAL);
+});
+
+test('airingStateFor reads include / exclude / neutral for Airing this week', () => {
+  assert.equal(airingStateFor({ mediaType: 'tv', airingThisWeek: true }), INCLUDE);
+  assert.equal(airingStateFor({ mediaType: 'tv', excludeAiringThisWeek: true }), EXCLUDE);
+  assert.equal(airingStateFor({ mediaType: 'movie', airingThisWeek: true }), NEUTRAL);
+  assert.equal(airingStateFor({ mediaType: 'tv' }), NEUTRAL);
+});
+
+// ─── Sort translation across Movie/TV tabs ────────────────────────────────────
+
+test('translateSortByForMediaType preserves Newest/Oldest across Movie and TV switches', () => {
+  assert.equal(
+    translateSortByForMediaType('primary_release_date.desc', 'tv'),
+    'first_air_date.desc',
+  );
+  assert.equal(
+    translateSortByForMediaType('primary_release_date.asc', 'tv'),
+    'first_air_date.asc',
+  );
+  assert.equal(
+    translateSortByForMediaType('first_air_date.desc', 'movie'),
+    'primary_release_date.desc',
+  );
+  assert.equal(
+    translateSortByForMediaType('first_air_date.asc', 'movie'),
+    'primary_release_date.asc',
+  );
+  assert.equal(translateSortByForMediaType('revenue.desc', 'tv'), 'popularity.desc');
+  assert.equal(effectiveDiscoverSortBy('primary_release_date.desc', 'tv'), 'first_air_date.desc');
 });
 
 // ─── reduceTriState: the whole 6-transition contract ───────────────────────────
@@ -54,10 +97,7 @@ test('HOLD on an excluded chip clears it (exclude → neutral)', () => {
 });
 
 test('excluding is never routed through include first', () => {
-  // Regression guard for the old cycle: from neutral, one gesture must be able to
-  // land on EXCLUDE without ever passing through INCLUDE.
   let state = NEUTRAL;
   state = reduceTriState(state, 'hold');
   assert.equal(state, EXCLUDE);
-  // and it never became INCLUDE on the way
 });

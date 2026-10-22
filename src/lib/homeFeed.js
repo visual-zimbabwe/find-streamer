@@ -165,6 +165,7 @@ async function appendFromTraktAndDiscover(pool, seen, scope) {
         mediaType,
         languageCodes: ['en'],
         sortBy: 'vote_average.desc',
+        minVoteCount: 200,
         page: 1,
       });
       appendUniqueSpotlight(
@@ -256,6 +257,7 @@ export async function fetchHomeTmdbRail(def) {
     genreIds: def.genreIds,
     languageCodes: def.languageCodes || [],
     sortBy: 'vote_average.desc',
+    minVoteCount: 200,
     page: 1,
   });
   return sortByTmdbRatingDesc(results).slice(0, HOME_RAIL_LIMIT);

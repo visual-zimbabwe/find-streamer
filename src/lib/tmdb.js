@@ -1,14 +1,11 @@
 import { recordRateQuota429, recordRateQuotaFromResponse } from './apiRateQuota';
 import { fetchOmdbRatings } from './omdb';
-import { NON_ENGLISH_CODES } from './languagePresets';
 import {
-  SMART_FILTER_KEYS,
-  smartFilterKeywordIds,
-  smartFilterLanguageCodes,
+  buildDiscoverQueryParams,
   isExcludedBySmartFilters,
 } from './smartFilters';
+import { matchesSeasonsRange } from './discoverRanges';
 import { createAppError, isRetryableStatus, retryWithBackoff } from './errors';
-import { getAiringWindow, formatLocalYmd } from './tvAiringFilter';
 import { rankTrailerCandidates } from './trailerPicker';
 import { hasAdaptationKeyword, hasSourceMaterialCredit } from './basedOn';
 import {
@@ -23,7 +20,6 @@ import {
 } from './searchRanker';
 import {
   ABSOLUTE_MIN_RAIL_VOTES,
-  MIN_RAIL_VOTES,
   RAIL_SIZE,
   creditsForPerson,
   rankCompanyCatalog,
@@ -106,7 +102,7 @@ class ConcurrencyLimiter {
   }
 }
 
-const tmdbLimiter = new ConcurrencyLimiter(3);
+const tmdbLimiter = new ConcurrencyLimiter(6);
 const _tmdbPromiseCache = new Map();
 /**
  * The cache used to evict only on failure, so every successful response was
@@ -1182,16 +1178,32 @@ async function getDiscoverDetails(mediaType, tmdbId) {
   try {
     const data =
       mediaType === 'tv'
-        ? await tmdbGet(`/tv/${tmdbId}/external_ids`)
+        ? await tmdbGet(`/tv/${tmdbId}`, {
+            language: 'en-US',
+            append_to_response: 'external_ids',
+          })
         : await tmdbGet(`/movie/${tmdbId}`, { language: 'en-US' });
-    const imdbId = data.imdb_id || null;
+    const imdbId = data.imdb_id || data.external_ids?.imdb_id || null;
     const runtimeMinutes =
-      typeof data.runtime === 'number' && data.runtime > 0 ? data.runtime : null;
-    const details = { imdbId, runtimeMinutes };
+      mediaType === 'tv'
+        ? (data.episode_run_time || []).find((v) => typeof v === 'number' && v > 0) || null
+        : typeof data.runtime === 'number' && data.runtime > 0
+          ? data.runtime
+          : null;
+    const rawSeasons =
+      mediaType === 'tv'
+        ? typeof data.number_of_seasons === 'number' && data.number_of_seasons > 0
+          ? data.number_of_seasons
+          : Array.isArray(data.seasons)
+            ? data.seasons.filter((s) => s.season_number > 0).length
+            : null
+        : null;
+    const numberOfSeasons = rawSeasons && rawSeasons > 0 ? rawSeasons : null;
+    const details = { imdbId, runtimeMinutes, numberOfSeasons };
     _discoverDetailsCache.set(cacheKey, details);
     return details;
   } catch {
-    const fallback = { imdbId: null, runtimeMinutes: null };
+    const fallback = { imdbId: null, runtimeMinutes: null, numberOfSeasons: null };
     _discoverDetailsCache.set(cacheKey, fallback);
     return fallback;
   }
@@ -1204,12 +1216,14 @@ export async function enrichDiscoverResults(items = []) {
     const details = await getDiscoverDetails(item.mediaType, item.tmdbId);
     const imdbId = item.imdbId || details.imdbId;
     const runtimeMinutes = item.runtimeMinutes ?? details.runtimeMinutes;
+    const numberOfSeasons = item.numberOfSeasons ?? details.numberOfSeasons ?? null;
     const omdbRatings = await fetchOmdbRatings(imdbId);
 
     return {
       ...item,
       imdbId,
       runtimeMinutes,
+      ...(numberOfSeasons != null ? { numberOfSeasons } : {}),
       omdbRatings,
       omdbEnriched: true,
     };
@@ -1246,176 +1260,177 @@ export async function enrichDiscoverResults(items = []) {
  *
  * Returns { results, totalResults, totalPages, page }
  */
-export async function discoverTitles(filters = {}) {
-  const {
-    mediaType = 'movie',
-    genreIds = [],
-    genreLogic = 'AND',
-    excludeGenreIds = [],
-    excludeSmartTags = [],
-    includeSmartTags = [],
-    minRating = null,
-    maxRating = null,
-    languageCodes = [],
-    originCountries = [],
-    fromYear = null,
-    toYear = null,
-    minRuntime = null,
-    maxRuntime = null,
-    sortBy = 'popularity.desc',
-    excludeEnglish = false,
-    airingThisWeek = false,
-    watchRegion = null,
-    watchProviders = [],
-    page = 1,
-  } = filters;
+function mapDiscoverRawItem(item, mediaType, extra = {}) {
+  const dateValue = item.release_date || item.first_air_date || '';
+  return {
+    mediaType,
+    tmdbId: item.id,
+    title: item.title || item.name || '(Untitled)',
+    year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
+    synopsis: (item.overview || '').trim() || 'No synopsis available.',
+    posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+    backdropUrl: item.backdrop_path
+      ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
+      : null,
+    ratingValue: item.vote_average || 0,
+    rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
+    ...(item.original_language
+      ? { originalLanguageCode: String(item.original_language).toLowerCase() }
+      : {}),
+    ...extra,
+  };
+}
 
-  const params = {
-    sort_by: sortBy,
-    // "Highest Rated" (vote_average.desc) with a trivial floor surfaces obscure
-    // 10-from-20-votes noise — the same defect the rails/company runs fixed. Reuse
-    // the rails' 200-vote floor for that sort; every other sort keeps the light
-    // discovery floor of 20 so counts stay generous.
-    'vote_count.gte': sortBy === 'vote_average.desc' ? MIN_RAIL_VOTES : 20,
-    include_adult: false,
-    page,
+export async function discoverTitles(filters = {}) {
+  const { mediaType = 'movie' } = filters;
+  const {
+    params,
+    excludedLanguageCodes,
+    excludedOriginCountries,
+    excludeKeys,
+  } = buildDiscoverQueryParams(filters);
+
+  const hasPostFetchExclude =
+    excludeKeys.length > 0 ||
+    excludedLanguageCodes.length > 0 ||
+    excludedOriginCountries.length > 0;
+
+  const filterRawItems = (items) =>
+    hasPostFetchExclude
+      ? items.filter(
+          (item) =>
+            !isExcludedBySmartFilters(item, excludeKeys, {
+              excludedLanguageCodes,
+              excludedOriginCountries,
+            }),
+        )
+      : items;
+
+  const minSeasons =
+    mediaType === 'tv' && filters.minSeasons != null && String(filters.minSeasons).trim() !== ''
+      ? parseInt(filters.minSeasons, 10)
+      : null;
+  const maxSeasons =
+    mediaType === 'tv' && filters.maxSeasons != null && String(filters.maxSeasons).trim() !== ''
+      ? parseInt(filters.maxSeasons, 10)
+      : null;
+  const hasSeasonsFilter =
+    mediaType === 'tv' &&
+    ((Number.isFinite(minSeasons) && minSeasons > 0) ||
+      (Number.isFinite(maxSeasons) && maxSeasons > 0));
+
+  if (!hasSeasonsFilter) {
+    const data = await tmdbGet(`/discover/${mediaType}`, params);
+    const filtered = filterRawItems(data.results || []);
+    const results = filtered.map((item) => mapDiscoverRawItem(item, mediaType));
+    const totalPages = data.total_pages || 1;
+    const adjustedTotal =
+      totalPages <= 1 ? results.length : Math.max(results.length, data.total_results || 0);
+
+    return {
+      results,
+      totalResults: adjustedTotal,
+      totalPages,
+      page: data.page || 1,
+    };
+  }
+
+  // ── TV Number-of-Seasons Filter Pipeline ──────────────────────────────────
+  // TMDb's /discover/tv list endpoint does not expose a server-side season-count
+  // parameter or include `number_of_seasons` on list items. We harvest 2 raw pages
+  // per logical Discover page (and expand to 4 raw pages on page 1 if the initial
+  // batch yields fewer than 6 matches), resolve `/tv/{id}` details in parallel via
+  // the in-memory `_discoverDetailsCache`, filter by `[minSeasons, maxSeasons]`,
+  // and compute an honest sample-scaled `totalResults`.
+  const requestedPage = Number(filters.page) || 1;
+  const rawPageStart = (requestedPage - 1) * 2 + 1;
+
+  const firstPageData = await tmdbGet(`/discover/tv`, { ...params, page: rawPageStart });
+  const rawTotalPages = firstPageData.total_pages || 1;
+  const rawTotalResults = firstPageData.total_results || 0;
+
+  let rawPagesScanned = 1;
+  const rawCandidates = [...(firstPageData.results || [])];
+
+  if (rawPageStart + 1 <= rawTotalPages) {
+    const secondPageData = await tmdbGet(`/discover/tv`, {
+      ...params,
+      page: rawPageStart + 1,
+    }).catch(() => ({ results: [] }));
+    rawCandidates.push(...(secondPageData.results || []));
+    rawPagesScanned += 1;
+  }
+
+  const seenIds = new Set();
+  const dedupeRaw = (list) =>
+    list.filter((item) => {
+      if (!item?.id || seenIds.has(item.id)) return false;
+      seenIds.add(item.id);
+      return true;
+    });
+
+  let candidates = filterRawItems(dedupeRaw(rawCandidates));
+  let matched = [];
+
+  const evaluateBatch = async (batch) => {
+    const enrichedBatch = await mapWithConcurrency(batch, 6, async (item) => {
+      const details = await getDiscoverDetails('tv', item.id);
+      return { item, details };
+    });
+    for (const { item, details } of enrichedBatch) {
+      if (matchesSeasonsRange(details.numberOfSeasons, minSeasons, maxSeasons)) {
+        matched.push(
+          mapDiscoverRawItem(item, 'tv', {
+            ...(details.numberOfSeasons != null ? { numberOfSeasons: details.numberOfSeasons } : {}),
+            ...(details.imdbId ? { imdbId: details.imdbId } : {}),
+            ...(details.runtimeMinutes != null ? { runtimeMinutes: details.runtimeMinutes } : {}),
+          }),
+        );
+      }
+    }
   };
 
-  if (watchRegion && watchProviders.length > 0) {
-    params.watch_region = watchRegion;
-    params.with_watch_providers = watchProviders.join('|');
-  }
+  await evaluateBatch(candidates);
 
-  // ── Include genres ──────────────────────────────────────────────────────────
-  if (genreIds.length > 0) {
-    const separator = genreLogic === 'OR' ? '|' : ',';
-    params.with_genres = genreIds.join(separator);
-  }
-
-  // ── Exclude genres (TMDB native support) ───────────────────────────────────
-  if (excludeGenreIds.length > 0) {
-    // TMDB: without_genres accepts comma-separated IDs (always AND-exclusion)
-    params.without_genres = excludeGenreIds.join(',');
-  }
-
-  // ── Include smart tags (native filters) ────────────────────────────────────
-  // Keyword-kind smart filters (Anime) map to `with_keywords`; language-kind
-  // ones (Korean/Japanese/Chinese/Bollywood) fold into `with_original_language`
-  // below, alongside the manual Language picker. All native, so counts stay exact.
-  const keywordIds = smartFilterKeywordIds(includeSmartTags);
-  if (keywordIds.length > 0) {
-    params.with_keywords = keywordIds.join(',');
-  }
-
-  if (minRating != null && minRating > 0) {
-    params['vote_average.gte'] = minRating;
-  }
-
-  if (maxRating != null && maxRating > 0) {
-    params['vote_average.lte'] = maxRating;
-  }
-
-  // Manual Language picker ∪ any included language-kind smart filters, so a
-  // Smart Filter and a picked language never silently overwrite one another.
-  const mergedLanguageCodes = Array.from(
-    new Set([...languageCodes, ...smartFilterLanguageCodes(includeSmartTags)]),
-  );
-  if (mergedLanguageCodes.length > 0) {
-    params.with_original_language = mergedLanguageCodes.join('|');
-  } else if (excludeEnglish) {
-    // TMDB has no native `without_original_language` parameter.
-    // We use NON_ENGLISH_CODES — a curated, stable union of all major
-    // non-English language codes across our region presets.
-    // This avoids the URL-length issues caused by joining all 180+ TMDB
-    // language codes and keeps the query semantically meaningful.
-    params.with_original_language = NON_ENGLISH_CODES.join('|');
-  }
-
-  // Origin country applies to movies and TV alike — TMDb's with_origin_country
-  // is supported on both /discover endpoints.
-  if (originCountries.length > 0) {
-    params.with_origin_country = originCountries.join('|');
-  }
-
-  if (mediaType === 'movie') {
-    if (fromYear) params['primary_release_date.gte'] = `${fromYear}-01-01`;
-    if (toYear) params['primary_release_date.lte'] = `${toYear}-12-31`;
-
-    const minRuntimeMinutes = parseInt(minRuntime, 10);
-    const maxRuntimeMinutes = parseInt(maxRuntime, 10);
-    if (minRuntime && !isNaN(minRuntimeMinutes) && minRuntimeMinutes > 0) {
-      params['with_runtime.gte'] = minRuntimeMinutes;
-    } else if (maxRuntime && !isNaN(maxRuntimeMinutes) && maxRuntimeMinutes > 0) {
-      // TMDb's with_runtime.lte alone matches items with 0/null runtimes in its index.
-      // Setting a floor of 1 minute prevents matching zero-runtime placeholders.
-      params['with_runtime.gte'] = 1;
-    }
-    if (maxRuntime && !isNaN(maxRuntimeMinutes) && maxRuntimeMinutes > 0) {
-      params['with_runtime.lte'] = maxRuntimeMinutes;
-    }
-  } else {
-    if (fromYear) params['first_air_date.gte'] = `${fromYear}-01-01`;
-    if (toYear) params['first_air_date.lte'] = `${toYear}-12-31`;
-
-    // "Airing this week" is a server-side episode-air-date window, not a
-    // client-side sieve over a popularity page. TMDb's air_date.gte/lte on
-    // /discover/tv match series with an EPISODE airing in the range, so the
-    // result set is catalog-complete, the total_results count is truthful, and
-    // pagination is native. (A best-effort per-show pass stamps the day label
-    // afterwards — see enrichResultsWithAirDay.)
-    if (airingThisWeek) {
-      const { start, end } = getAiringWindow();
-      params['air_date.gte'] = formatLocalYmd(start);
-      params['air_date.lte'] = formatLocalYmd(end);
+  // On page 1, if a narrow season count (e.g. exact 3 seasons or 10+ seasons)
+  // yielded fewer than 6 items in the first 2 raw pages and more pages exist,
+  // scan up to 2 additional raw pages so the grid is well-populated.
+  if (requestedPage === 1 && matched.length < 6 && rawTotalPages > rawPagesScanned) {
+    const extraPageNums = [3, 4].filter((p) => p <= rawTotalPages);
+    if (extraPageNums.length > 0) {
+      const extraPages = await Promise.all(
+        extraPageNums.map((p) =>
+          tmdbGet(`/discover/tv`, { ...params, page: p }).catch(() => ({ results: [] })),
+        ),
+      );
+      rawPagesScanned += extraPageNums.length;
+      const extraCandidates = filterRawItems(
+        dedupeRaw(extraPages.flatMap((p) => p.results || [])),
+      );
+      candidates = [...candidates, ...extraCandidates];
+      await evaluateBatch(extraCandidates);
     }
   }
 
-  const data = await tmdbGet(`/discover/${mediaType}`, params);
+  const checkedCount = candidates.length;
+  let estimatedTotal = matched.length;
+  if (rawPagesScanned < rawTotalPages && checkedCount > 0) {
+    if (matched.length > 0) {
+      const matchRatio = matched.length / checkedCount;
+      estimatedTotal = Math.max(matched.length, Math.round(rawTotalResults * matchRatio));
+    } else {
+      estimatedTotal = 0;
+    }
+  }
 
-  // Exclude-kind smart filters are applied post-fetch (TMDB has no native
-  // "without_original_language"/"without_keyword-that-we-want" for these), the
-  // same shape the Anime exclude always used — now generalized to every filter.
-  const excludeKeys = excludeSmartTags.filter((key) => SMART_FILTER_KEYS.includes(key));
-
-  const rawItems = data.results || [];
-  const filtered =
-    excludeKeys.length > 0
-      ? rawItems.filter((item) => !isExcludedBySmartFilters(item, excludeKeys))
-      : rawItems;
-
-  const results = filtered.map((item) => {
-    const dateValue = item.release_date || item.first_air_date || '';
-    return {
-      mediaType,
-      tmdbId: item.id,
-      title: item.title || item.name || '(Untitled)',
-      year: dateValue.length >= 4 ? dateValue.slice(0, 4) : 'N/A',
-      synopsis: (item.overview || '').trim() || 'No synopsis available.',
-      posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-      backdropUrl: item.backdrop_path
-        ? `https://image.tmdb.org/t/p/original${item.backdrop_path}`
-        : null,
-      ratingValue: item.vote_average || 0,
-      rating: typeof item.vote_average === 'number' ? `${item.vote_average.toFixed(1)}/10` : 'N/A',
-      // ISO 639-1 original language, captured so a saved title carries the code
-      // that powers Discover's personalized language Quick Picks. Absent → the
-      // field is omitted (not null) so the watchlist backfill can spot the gap.
-      ...(item.original_language
-        ? { originalLanguageCode: String(item.original_language).toLowerCase() }
-        : {}),
-    };
-  });
-
-  // Post-fetch exclusion may have removed items from the page, so adjust the
-  // reported count to avoid misleading the user.
-  const removedCount = rawItems.length - filtered.length;
-  const adjustedTotal = Math.max(0, (data.total_results || 0) - removedCount);
+  const logicalTotalPages =
+    rawPagesScanned >= rawTotalPages ? 1 : Math.max(1, Math.ceil(rawTotalPages / 2));
 
   return {
-    results,
-    totalResults: adjustedTotal,
-    totalPages: data.total_pages || 1,
-    page: data.page || 1,
+    results: matched,
+    totalResults: estimatedTotal,
+    totalPages: logicalTotalPages,
+    page: requestedPage,
   };
 }
 
