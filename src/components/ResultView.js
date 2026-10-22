@@ -2835,6 +2835,7 @@ export function ResultView({
             variant="clear"
             iconSize={24}
             active={isInWatchlist}
+            haptic="none"
             onPress={() => onToggleWatchlist(result)}
             disabled={loading}
             accessibilityLabel={

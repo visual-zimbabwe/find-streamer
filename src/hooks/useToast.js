@@ -8,7 +8,7 @@ import { trovaToast } from '../context/ToastContext';
 export function useToast() {
   const showToast = useCallback((message, options = {}) => {
     const icon = options.icon || 'alert-circle-outline';
-    const opts = { title: options.title, icon };
+    const opts = { title: options.title, icon, haptic: options.haptic };
 
     if (
       icon === 'trash-outline' ||

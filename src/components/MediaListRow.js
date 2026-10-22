@@ -171,13 +171,10 @@ export function MediaListRow({
   const frameRadius = imageRadius ?? preset.radius;
   const effectiveFallbackIcon = propFallbackIcon ?? itemResolved.fallbackIcon ?? preset.defaultIcon;
 
-  // Bookmark toggle handler with haptic feedback
+  // Bookmark toggle handler
   const handleToggleBookmark = useCallback(
     (e) => {
       e?.stopPropagation?.();
-      try {
-        Haptics.selectionAsync();
-      } catch {}
       onToggleBookmark?.(e);
     },
     [onToggleBookmark],

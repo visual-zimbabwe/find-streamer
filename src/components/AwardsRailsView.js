@@ -401,7 +401,6 @@ export function AwardsRailsView({
             },
           ]}
           onPress={() => {
-            Haptics.selectionAsync();
             onSaveCollection({
               id: cat.id,
               title: cat.fullName || cat.label,

@@ -184,7 +184,6 @@ export const GridPosterCard = memo(function GridPosterCard({
             ]}
             onPress={(event) => {
               event.stopPropagation?.();
-              Haptics.selectionAsync();
               onToggleWatchlist(item);
             }}
             accessibilityRole="button"

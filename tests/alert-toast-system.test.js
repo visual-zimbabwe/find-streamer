@@ -35,7 +35,7 @@ test('trovaToast dispatches success, error, warning, and info correctly', () => 
     events.push(toast);
   });
 
-  trovaToast.success('Saved to Watchlist', { title: 'LIBRARY' });
+  trovaToast.success('Saved to Watchlist', { title: 'LIBRARY', haptic: false });
   trovaToast.error('Network Error');
   trovaToast.warning('Low Seeders');
   trovaToast.info('Playback Started');
@@ -46,6 +46,7 @@ test('trovaToast dispatches success, error, warning, and info correctly', () => 
   assert.equal(events[0].message, 'Saved to Watchlist');
   assert.equal(events[0].title, 'LIBRARY');
   assert.equal(events[0].icon, 'checkmark-circle-outline');
+  assert.equal(events[0].haptic, false);
 
   assert.equal(events[1].type, 'error');
   assert.equal(events[1].message, 'Network Error');

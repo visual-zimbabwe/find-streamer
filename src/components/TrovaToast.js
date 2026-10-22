@@ -71,7 +71,7 @@ export function TrovaToastPortal() {
   const scaleAnim = useSharedValue(0.92);
 
   useEffect(() => {
-    if (toastVisible) {
+    if (toastVisible && activeToast?.haptic !== false && activeToast?.haptic !== 'none') {
       try {
         const type = activeToast?.type;
         if (type === 'success') {
