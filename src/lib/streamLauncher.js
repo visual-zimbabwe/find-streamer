@@ -20,6 +20,9 @@ let activePlayerCleanup = null;
 export async function launchStream({
   magnetUrl,
   title,
+  mediaTitle,
+  year,
+  tmdbId,
   fileIdx,
   imdbId,
   season,
@@ -47,7 +50,7 @@ export async function launchStream({
     // Keep background stream server active with an Android ForegroundService
     if (TorrentStreamerModule?.startService) {
       try {
-        await TorrentStreamerModule.startService(title || 'Trova Stream');
+        await TorrentStreamerModule.startService(mediaTitle || title || 'Trova Stream');
       } catch (serviceErr) {
         console.log('[launchStream] Foreground service start error:', serviceErr);
       }
@@ -73,16 +76,22 @@ export async function launchStream({
     // Use pre-cached offline subtitle URL if available, otherwise pre-fetch English subtitles
     let subtitleUrl = cachedSubtitleUrl || null;
     const hasEnglishSubs = /\b(esub|esubs|eng\.sub|english\.sub|en\.sub)\b/i.test(title || '');
-    if (!subtitleUrl && !hasEnglishSubs && imdbId) {
+    if (!subtitleUrl && !hasEnglishSubs && (imdbId || mediaTitle || title)) {
       try {
-        const cleanImdb = String(imdbId).trim();
-        let query = `http://127.0.0.1:8899/fetch-subtitle?imdb=${encodeURIComponent(cleanImdb)}`;
-        if (season != null) query += `&season=${season}`;
-        if (episode != null) query += `&episode=${episode}`;
-        if (title) query += `&title=${encodeURIComponent(title)}`;
+        const cleanImdb = imdbId ? String(imdbId).trim() : '';
+        const params = [];
+        if (cleanImdb) params.push(`imdb=${encodeURIComponent(cleanImdb)}`);
+        if (season != null) params.push(`season=${season}`);
+        if (episode != null) params.push(`episode=${episode}`);
+        if (title) params.push(`title=${encodeURIComponent(title)}`);
+        if (mediaTitle) params.push(`mediaTitle=${encodeURIComponent(mediaTitle)}`);
+        if (tmdbId) params.push(`tmdbId=${encodeURIComponent(String(tmdbId))}`);
+        if (year) params.push(`year=${encodeURIComponent(String(year))}`);
+
+        const query = `http://127.0.0.1:8899/fetch-subtitle?${params.join('&')}`;
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3200);
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
         const subRes = await fetch(query, { signal: controller.signal }).catch(() => null);
         clearTimeout(timeoutId);
 

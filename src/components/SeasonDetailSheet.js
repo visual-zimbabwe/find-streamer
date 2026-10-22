@@ -142,13 +142,16 @@ export function SeasonDetailSheetContent({
       await launchStream({
         magnetUrl,
         title: releaseName,
+        mediaTitle: seriesTitle,
+        year: seriesYear,
+        tmdbId: seriesTmdbId,
         fileIdx,
         imdbId,
         season: season?.seasonNumber,
         episode: episodeNum,
       });
     },
-    [imdbId, season?.seasonNumber],
+    [imdbId, season?.seasonNumber, seriesTitle, seriesYear, seriesTmdbId],
   );
 
   const handleStartEpisodeDownload = useCallback(

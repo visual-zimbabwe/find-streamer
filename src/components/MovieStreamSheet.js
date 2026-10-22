@@ -111,12 +111,20 @@ export function MovieStreamSheetContent({
       }
       setLaunchingStreamKey(streamKey);
       try {
-        await launchStream({ magnetUrl, title: releaseName, fileIdx, imdbId });
+        await launchStream({
+          magnetUrl,
+          title: releaseName,
+          mediaTitle: movieTitle,
+          year: movieYear,
+          tmdbId,
+          fileIdx,
+          imdbId,
+        });
       } finally {
         setLaunchingStreamKey(null);
       }
     },
-    [imdbId, launchingStreamKey],
+    [imdbId, launchingStreamKey, movieTitle, movieYear, tmdbId],
   );
 
   const handleStartDownload = useCallback(
