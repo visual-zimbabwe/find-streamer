@@ -10,7 +10,7 @@
     "userInterfaceStyle": "dark",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#040301"
     },
     "assetBundlePatterns": ["**/*"],
     "android": {

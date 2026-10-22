@@ -30,7 +30,10 @@ export function AppHeader({ onBack, showBack, transparent, centeredTitleOnly }) 
           </TouchableOpacity>
         )}
         {!showBack && centeredTitleOnly && (
-          <Text style={[styles.centeredWordmark, { color: '#fff' }]} accessibilityRole="header">
+          <Text
+            style={[styles.centeredWordmark, { color: colors.onSurface }]}
+            accessibilityRole="header"
+          >
             Trova
           </Text>
         )}

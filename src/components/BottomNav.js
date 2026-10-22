@@ -73,7 +73,7 @@ export function BottomNav({ activeTab, onTabPress, fixed = false, hidden = false
   }));
 
   const marqueeGlass = colors.glass;
-  const inactiveColor = 'rgba(245, 245, 247, 0.65)';
+  const inactiveColor = 'rgba(245, 238, 225, 0.65)';
 
   return (
     <Animated.View
@@ -92,7 +92,7 @@ export function BottomNav({ activeTab, onTabPress, fixed = false, hidden = false
           {
             height: shellH,
             backgroundColor: Platform.OS === 'android' ? marqueeGlass : 'transparent',
-            borderTopColor: 'rgba(255,255,255,0.06)',
+            borderTopColor: 'rgba(245, 238, 225, 0.06)',
           },
         ]}
       >

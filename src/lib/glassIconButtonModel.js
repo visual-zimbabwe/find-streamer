@@ -69,8 +69,8 @@ export function resolveGlassButtonColors({
   backgroundColor,
   borderColor,
 } = {}) {
-  const fallbackSurfaceHighest = colors?.surfaceContainerHighest || '#1e1e20';
-  const fallbackOnSurface = colors?.onSurface || '#f5f5f7';
+  const fallbackSurfaceHighest = colors?.surfaceContainerHighest || '#25211B';
+  const fallbackOnSurface = colors?.onSurface || '#F5EEE1';
 
   let resolvedBg;
   let resolvedBorder;
