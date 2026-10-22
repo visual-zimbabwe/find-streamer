@@ -191,3 +191,31 @@ test('enhanceMagnet includes extraTrackers when provided', () => {
   assert.ok(enhanced.includes(encodeURIComponent(custom)));
 });
 
+test('parseReleaseAttributes extracts audio badges for multi-audio, dubs, and foreign releases', () => {
+  const rutorRelease = parseReleaseAttributes(
+    'Sambre.S01E01.mkv',
+    'Самбра / Sambre [S01] (2023) WEBRip 1080p | P\nSambre.S01E01.mkv\n👤 0 💾 2.43 GB ⚙️ Rutor\n🇷🇺',
+  );
+  assert.ok(rutorRelease.audioBadge);
+  assert.equal(rutorRelease.audioBadge.text, '🇷🇺 Russian Dub');
+  assert.equal(rutorRelease.audioBadge.isDub, true);
+
+  const multiRelease = parseReleaseAttributes('Severance.S01E01.1080p.WEB.H264-MULTI.mkv');
+  assert.ok(multiRelease.audioBadge);
+  assert.equal(multiRelease.audioBadge.text, '🌐 Multi-Audio');
+  assert.equal(multiRelease.audioBadge.isDub, false);
+
+  const frenchRelease = parseReleaseAttributes('Sambre.S01E01.FRENCH.1080p.WEB.mkv');
+  assert.ok(frenchRelease.audioBadge);
+  assert.equal(frenchRelease.audioBadge.text, '🇫🇷 French Audio');
+  assert.equal(frenchRelease.audioBadge.isDub, false);
+
+  const italianRelease = parseReleaseAttributes('Film.2023.iTALiAN.1080p.mkv');
+  assert.ok(italianRelease.audioBadge);
+  assert.equal(italianRelease.audioBadge.text, '🇮🇹 Italian Audio');
+  assert.equal(italianRelease.audioBadge.isDub, true);
+
+  const cleanRelease = parseReleaseAttributes('Severance.S01E01.1080p.WEB-DL.DDP5.1.H.264-NTb.mkv');
+  assert.equal(cleanRelease.audioBadge, null);
+});
+

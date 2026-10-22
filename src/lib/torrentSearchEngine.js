@@ -131,8 +131,9 @@ export function enhanceMagnet(magnetOrHash, displayName = '', extraTrackers = []
  *   hasSubtitles: boolean;
  * }}
  */
-export function parseReleaseAttributes(name) {
-  const norm = (name || '').toLowerCase();
+export function parseReleaseAttributes(name, rawTitle = '') {
+  const norm = `${name || ''} ${rawTitle || ''}`.toLowerCase();
+  const combined = `${name || ''} ${rawTitle || ''}`;
 
   let resolution = 'HD';
   if (/\b(2160p|4k|uhd)\b/.test(norm)) resolution = '4K';
@@ -145,8 +146,32 @@ export function parseReleaseAttributes(name) {
   else if (/\b(x264|avc|h264|h\.264)\b/.test(norm)) codec = 'x264';
 
   const is10Bit = /\b(10bit|10-bit)\b/.test(norm);
-  const hasMultiAudio = /\b(multi|multisubs?|dual[\s-]audio)\b/.test(norm);
-  const hasSubtitles = /\b(esub|esubs|sub|subs|subbed)\b/.test(norm) || hasMultiAudio;
+  const hasMultiAudio = /\b(multi|multisubs?|dual[\s-]audio|multi[\s-]audio)\b/.test(norm);
+  const hasSubtitles = /\b(esub|esubs|sub|subs|subbed|vostfr)\b/.test(norm) || hasMultiAudio;
+
+  // Language / Audio Track Detection
+  let audioBadge = null;
+  if (hasMultiAudio) {
+    audioBadge = { text: '🌐 Multi-Audio', isDub: false, lang: 'multi' };
+  } else if (/(\u{1F1F7}\u{1F1FA}|🇷🇺|\brussian\b|\brus\b|rutor|rutracker|[\u0400-\u04FF])/u.test(combined)) {
+    audioBadge = { text: '🇷🇺 Russian Dub', isDub: true, lang: 'rus' };
+  } else if (/(\u{1F1EB}\u{1F1F7}|🇫🇷|\bfrench\b|\btruefrench\b|\bvff?\b|\bvfq\b|torrent9)/i.test(combined)) {
+    audioBadge = { text: '🇫🇷 French Audio', isDub: false, lang: 'fra' };
+  } else if (/(\u{1F1EE}\u{1F1F9}|🇮🇹|\bitalian\b|\bita\b|ilcorsaronero)/i.test(combined)) {
+    audioBadge = { text: '🇮🇹 Italian Audio', isDub: true, lang: 'ita' };
+  } else if (/(\u{1F1EA}\u{1F1F8}|🇪🇸|\bspanish\b|\bcastellano\b|\blatino\b|\besp\b|mejortorrent|cinecalidad)/i.test(combined)) {
+    audioBadge = { text: '🇪🇸 Spanish Audio', isDub: true, lang: 'spa' };
+  } else if (/(\u{1F1E9}\u{1F1EA}|🇩🇪|\bgerman\b|\bdeutsch\b)/i.test(combined)) {
+    audioBadge = { text: '🇩🇪 German Audio', isDub: true, lang: 'deu' };
+  } else if (/(\u{1F1E7}\u{1F1F7}|🇧🇷|\u{1F1F5}\u{1F1F9}|🇵🇹|\bportuguese\b|\bpt-br\b|bludv|micoleaodublado)/i.test(combined)) {
+    audioBadge = { text: '🇧🇷 Portuguese Audio', isDub: true, lang: 'por' };
+  } else if (/(\u{1F1EF}\u{1F1F5}|🇯🇵|\bjapanese\b|\bjpn\b|nyaasi|anidex)/i.test(combined)) {
+    audioBadge = { text: '🇯🇵 Japanese Audio', isDub: false, lang: 'jpn' };
+  } else if (/(\u{1F1F0}\u{1F1F7}|🇰🇷|\bkorean\b|\bkor\b)/i.test(combined)) {
+    audioBadge = { text: '🇰🇷 Korean Audio', isDub: false, lang: 'kor' };
+  } else if (/(\u{1F1EC}\u{1F1E7}|🇬🇧|\u{1F1FA}\u{1F1F8}|🇺🇸|\benglish\b|\beng\b)/i.test(combined)) {
+    audioBadge = { text: '🇬🇧 English Audio', isDub: false, lang: 'eng' };
+  }
 
   return {
     resolution,
@@ -154,6 +179,7 @@ export function parseReleaseAttributes(name) {
     is10Bit,
     hasMultiAudio,
     hasSubtitles,
+    audioBadge,
   };
 }
 
@@ -483,15 +509,43 @@ export function parseTorrentioSource(title) {
  *   episode?: number;
  * }>>}
  */
+export const TORRENTIO_PROVIDERS = [
+  'yts',
+  'eztv',
+  'rarbg',
+  '1337x',
+  'thepiratebay',
+  'kickasstorrents',
+  'torrentgalaxy',
+  'magnetdl',
+  'horriblesubs',
+  'nyaasi',
+  'tokyotosho',
+  'anidex',
+  'nekobt',
+  'rutor',
+  'rutracker',
+  'comando',
+  'bludv',
+  'micoleaodublado',
+  'torrent9',
+  'ilcorsaronero',
+  'mejortorrent',
+  'wolfmax4k',
+  'cinecalidad',
+  'besttorrents',
+].join(',');
+
 export async function fetchTorrentio({ imdbId, season, episode }) {
   try {
     if (!imdbId) return [];
     const cleanImdb = String(imdbId).startsWith('tt') ? String(imdbId) : `tt${imdbId}`;
     let url = '';
+    const prefix = `https://torrentio.strem.fun/providers=${TORRENTIO_PROVIDERS}`;
     if (season != null && episode != null) {
-      url = `https://torrentio.strem.fun/stream/series/${cleanImdb}:${season}:${episode}.json`;
+      url = `${prefix}/stream/series/${cleanImdb}:${season}:${episode}.json`;
     } else {
-      url = `https://torrentio.strem.fun/stream/movie/${cleanImdb}.json`;
+      url = `${prefix}/stream/movie/${cleanImdb}.json`;
     }
 
     const controller = new AbortController();
@@ -527,6 +581,7 @@ export async function fetchTorrentio({ imdbId, season, episode }) {
 
         return {
           name,
+          rawTitle: titleStr,
           infoHash: item.infoHash.toLowerCase(),
           seeders,
           size,
@@ -602,16 +657,30 @@ function resolutionBonus(res) {
  *   attributes: ReturnType<typeof parseReleaseAttributes>;
  * }>>}
  */
-export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episodeNumber, imdbId }) {
+export async function searchEpisodeTorrents({
+  seriesTitle,
+  originalTitle,
+  seasonNumber,
+  episodeNumber,
+  imdbId,
+}) {
   const sStr = String(seasonNumber).padStart(2, '0');
   const eStr = String(episodeNumber).padStart(2, '0');
   const epTag = `S${sStr}E${eStr}`;
   const query = `${seriesTitle} ${epTag}`;
 
   const cleanTitle = sanitizeQuery(seriesTitle);
+  const cleanOriginal =
+    originalTitle && originalTitle.toLowerCase() !== seriesTitle.toLowerCase()
+      ? sanitizeQuery(originalTitle)
+      : null;
+
   let cleanImdb = imdbId ? (String(imdbId).startsWith('tt') ? String(imdbId) : `tt${imdbId}`) : null;
   if (!cleanImdb && cleanTitle) {
     cleanImdb = await resolveImdbId(cleanTitle, 'series');
+  }
+  if (!cleanImdb && cleanOriginal) {
+    cleanImdb = await resolveImdbId(cleanOriginal, 'series');
   }
 
   // Concurrently query sources targeted at this specific episode
@@ -620,6 +689,14 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
     fetchApibay(`${cleanTitle} ${seasonNumber}x${eStr}`),
     fetchEztv({ imdbId: cleanImdb || imdbId, search: `${cleanTitle} ${epTag}` }),
   ];
+
+  if (cleanOriginal) {
+    queries.push(
+      fetchApibay(`${cleanOriginal} ${epTag}`),
+      fetchApibay(`${cleanOriginal} ${seasonNumber}x${eStr}`),
+      fetchEztv({ imdbId: cleanImdb || imdbId, search: `${cleanOriginal} ${epTag}` }),
+    );
+  }
 
   if (cleanImdb) {
     queries.push(
@@ -664,21 +741,29 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
       }
     }
 
-    let score = calculateMatchScore(item.name, cleanTitle, {
+    const scoreTitle = calculateMatchScore(item.name, cleanTitle, {
       season: seasonNumber,
       episode: episodeNumber,
     });
+    const scoreOrig = cleanOriginal
+      ? calculateMatchScore(item.name, cleanOriginal, {
+          season: seasonNumber,
+          episode: episodeNumber,
+        })
+      : 0;
+    let score = Math.max(scoreTitle, scoreOrig);
 
     if (score <= 0 && isTorrentioExact) {
       score = 80;
     }
 
     if (score > 0) {
+      const attributes = parseReleaseAttributes(item.name, item.rawTitle || '');
       scored.push({
         ...item,
         score,
         formattedSize: formatSize(item.size),
-        attributes: parseReleaseAttributes(item.name),
+        attributes,
       });
     }
   }
@@ -694,14 +779,32 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
     const aDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(a.name) ? -100 : 0;
     const bDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(b.name) ? -100 : 0;
 
+    const aDubPenalty = a.attributes?.audioBadge?.isDub ? -80 : 0;
+    const bDubPenalty = b.attributes?.audioBadge?.isDub ? -80 : 0;
+
+    const aMultiBonus = a.attributes?.hasMultiAudio || a.attributes?.audioBadge?.lang === 'multi' ? 40 : 0;
+    const bMultiBonus = b.attributes?.hasMultiAudio || b.attributes?.audioBadge?.lang === 'multi' ? 40 : 0;
+
     // Boost releases with embedded English or multi-subtitles
     const aSubBonus = /\b(esub|esubs|eng\.sub|english\.sub|multisubs?|multi-subs?|vostfr)\b/i.test(a.name) ? 25 : 0;
     const bSubBonus = /\b(esub|esubs|eng\.sub|english\.sub|multisubs?|multi-subs?|vostfr)\b/i.test(b.name) ? 25 : 0;
 
     const aWeight =
-      a.score * 30 + Math.min(a.seeders, 300) * 30 + resolutionBonus(a.attributes?.resolution) + aDubOnly + aSubBonus;
+      a.score * 30 +
+      Math.min(a.seeders, 300) * 30 +
+      resolutionBonus(a.attributes?.resolution) +
+      aDubOnly +
+      aDubPenalty +
+      aMultiBonus +
+      aSubBonus;
     const bWeight =
-      b.score * 30 + Math.min(b.seeders, 300) * 30 + resolutionBonus(b.attributes?.resolution) + bDubOnly + bSubBonus;
+      b.score * 30 +
+      Math.min(b.seeders, 300) * 30 +
+      resolutionBonus(b.attributes?.resolution) +
+      bDubOnly +
+      bDubPenalty +
+      bMultiBonus +
+      bSubBonus;
     return bWeight - aWeight;
   });
 
@@ -727,17 +830,30 @@ export async function searchEpisodeTorrents({ seriesTitle, seasonNumber, episode
  *   attributes: ReturnType<typeof parseReleaseAttributes>;
  * }>>}
  */
-export async function searchSeasonPackTorrents({ seriesTitle, seasonNumber, imdbId }) {
+export async function searchSeasonPackTorrents({ seriesTitle, originalTitle, seasonNumber, imdbId }) {
   const sStr = String(seasonNumber).padStart(2, '0');
   const cleanTitle = sanitizeQuery(seriesTitle);
+  const cleanOriginal =
+    originalTitle && originalTitle.toLowerCase() !== seriesTitle.toLowerCase()
+      ? sanitizeQuery(originalTitle)
+      : null;
 
-  const [apibaySeason, apibaySeries, eztvResults] = await Promise.all([
+  const queries = [
     fetchApibay(`${cleanTitle} Season ${seasonNumber}`),
     fetchApibay(`${cleanTitle} S${sStr}`),
     fetchEztv({ imdbId, search: `${cleanTitle} S${sStr}` }),
-  ]);
+  ];
 
-  const rawCandidates = [...apibaySeason, ...apibaySeries, ...eztvResults];
+  if (cleanOriginal) {
+    queries.push(
+      fetchApibay(`${cleanOriginal} Season ${seasonNumber}`),
+      fetchApibay(`${cleanOriginal} S${sStr}`),
+      fetchEztv({ imdbId, search: `${cleanOriginal} S${sStr}` }),
+    );
+  }
+
+  const resultsArrays = await Promise.all(queries);
+  const rawCandidates = resultsArrays.flat();
   const seen = new Set();
   const packs = [];
 
@@ -757,12 +873,17 @@ export async function searchSeasonPackTorrents({ seriesTitle, seasonNumber, imdb
     const isPack = isSeasonPack(item.name) || (item.source === 'eztv' && item.episode === 0);
     if (!isPack) continue;
 
-    const score = calculateMatchScore(item.name, cleanTitle, { season: seasonNumber });
+    const scoreTitle = calculateMatchScore(item.name, cleanTitle, { season: seasonNumber });
+    const scoreOrig = cleanOriginal
+      ? calculateMatchScore(item.name, cleanOriginal, { season: seasonNumber })
+      : 0;
+    const score = Math.max(scoreTitle, scoreOrig);
+
     packs.push({
       ...item,
       score,
       formattedSize: formatSize(item.size),
-      attributes: parseReleaseAttributes(item.name),
+      attributes: parseReleaseAttributes(item.name, item.rawTitle || ''),
     });
   }
 
@@ -770,7 +891,13 @@ export async function searchSeasonPackTorrents({ seriesTitle, seasonNumber, imdb
     const aHasSeeds = a.seeders > 0;
     const bHasSeeds = b.seeders > 0;
     if (aHasSeeds !== bHasSeeds) return aHasSeeds ? -1 : 1;
-    return b.seeders - a.seeders;
+
+    const aDubPenalty = a.attributes?.audioBadge?.isDub ? -60 : 0;
+    const bDubPenalty = b.attributes?.audioBadge?.isDub ? -60 : 0;
+    const aMultiBonus = a.attributes?.hasMultiAudio || a.attributes?.audioBadge?.lang === 'multi' ? 40 : 0;
+    const bMultiBonus = b.attributes?.hasMultiAudio || b.attributes?.audioBadge?.lang === 'multi' ? 40 : 0;
+
+    return b.seeders + bMultiBonus + bDubPenalty - (a.seeders + aMultiBonus + aDubPenalty);
   });
   return packs;
 }
@@ -795,13 +922,21 @@ export async function searchSeasonPackTorrents({ seriesTitle, seasonNumber, imdb
  *   attributes: ReturnType<typeof parseReleaseAttributes>;
  * }>>}
  */
-export async function searchMovieTorrents({ title, year, imdbId }) {
+export async function searchMovieTorrents({ title, originalTitle, year, imdbId }) {
   const cleanTitle = sanitizeQuery(title);
-  if (!cleanTitle && !imdbId) return [];
+  const cleanOriginal =
+    originalTitle && originalTitle.toLowerCase() !== title.toLowerCase()
+      ? sanitizeQuery(originalTitle)
+      : null;
+
+  if (!cleanTitle && !cleanOriginal && !imdbId) return [];
 
   let cleanImdb = imdbId ? (String(imdbId).startsWith('tt') ? String(imdbId) : `tt${imdbId}`) : null;
   if (!cleanImdb && cleanTitle) {
     cleanImdb = await resolveImdbId(cleanTitle, 'movie');
+  }
+  if (!cleanImdb && cleanOriginal) {
+    cleanImdb = await resolveImdbId(cleanOriginal, 'movie');
   }
 
   const queries = [];
@@ -814,6 +949,12 @@ export async function searchMovieTorrents({ title, year, imdbId }) {
   }
   if (cleanTitle) {
     queries.push(fetchApibay(cleanTitle, '200'));
+  }
+  if (cleanOriginal && year) {
+    queries.push(fetchApibay(`${cleanOriginal} ${year}`, '200'));
+  }
+  if (cleanOriginal) {
+    queries.push(fetchApibay(cleanOriginal, '200'));
   }
 
   const resultsArrays = await Promise.all(queries);
@@ -829,10 +970,17 @@ export async function searchMovieTorrents({ title, year, imdbId }) {
     const isTorrentioMatch = item.source?.startsWith('torrentio');
 
     // Filter and score using movie criteria
-    let score = calculateMatchScore(item.name, cleanTitle || title, {
+    const scoreTitle = calculateMatchScore(item.name, cleanTitle || title, {
       year,
       isMovie: true,
     });
+    const scoreOrig = cleanOriginal
+      ? calculateMatchScore(item.name, cleanOriginal, {
+          year,
+          isMovie: true,
+        })
+      : 0;
+    let score = Math.max(scoreTitle, scoreOrig);
 
     // If candidate came from Torrentio by exact IMDb lookup, ensure baseline score
     if (score <= 0 && isTorrentioMatch && cleanImdb) {
@@ -850,7 +998,7 @@ export async function searchMovieTorrents({ title, year, imdbId }) {
       ...item,
       score,
       formattedSize: formatSize(item.size),
-      attributes: parseReleaseAttributes(item.name),
+      attributes: parseReleaseAttributes(item.name, item.rawTitle || ''),
     });
   }
 
@@ -893,14 +1041,34 @@ export async function searchMovieTorrents({ title, year, imdbId }) {
     const aDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(a.name) ? -100 : 0;
     const bDubOnly = /\b(telugu-dub|tamil-dub|hindi-dub|bengali-dub)\b/i.test(b.name) ? -100 : 0;
 
+    const aDubPenalty = a.attributes?.audioBadge?.isDub ? -80 : 0;
+    const bDubPenalty = b.attributes?.audioBadge?.isDub ? -80 : 0;
+
+    const aMultiBonus = a.attributes?.hasMultiAudio || a.attributes?.audioBadge?.lang === 'multi' ? 40 : 0;
+    const bMultiBonus = b.attributes?.hasMultiAudio || b.attributes?.audioBadge?.lang === 'multi' ? 40 : 0;
+
     // Boost releases with embedded English or multi-subtitles
     const aSubBonus = /\b(esub|esubs|eng\.sub|english\.sub|multisubs?|multi-subs?|vostfr)\b/i.test(a.name) ? 25 : 0;
     const bSubBonus = /\b(esub|esubs|eng\.sub|english\.sub|multisubs?|multi-subs?|vostfr)\b/i.test(b.name) ? 25 : 0;
 
     const aWeight =
-      a.score * 30 + Math.min(a.seeders, 300) * 30 + resolutionBonus(a.attributes?.resolution) + aSizeBonus + aDubOnly + aSubBonus;
+      a.score * 30 +
+      Math.min(a.seeders, 300) * 30 +
+      resolutionBonus(a.attributes?.resolution) +
+      aSizeBonus +
+      aDubOnly +
+      aDubPenalty +
+      aMultiBonus +
+      aSubBonus;
     const bWeight =
-      b.score * 30 + Math.min(b.seeders, 300) * 30 + resolutionBonus(b.attributes?.resolution) + bSizeBonus + bDubOnly + bSubBonus;
+      b.score * 30 +
+      Math.min(b.seeders, 300) * 30 +
+      resolutionBonus(b.attributes?.resolution) +
+      bSizeBonus +
+      bDubOnly +
+      bDubPenalty +
+      bMultiBonus +
+      bSubBonus;
     return bWeight - aWeight;
   });
 

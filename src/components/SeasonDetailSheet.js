@@ -111,6 +111,7 @@ export function SeasonDetailSheetContent({
       setSeasonPackLoading(true);
       searchSeasonPackTorrents({
         seriesTitle,
+        originalTitle,
         seasonNumber: season.seasonNumber,
         imdbId,
       }).then((packs) => {
@@ -123,7 +124,7 @@ export function SeasonDetailSheetContent({
     return () => {
       cancelled = true;
     };
-  }, [seriesTitle, season?.seasonNumber, imdbId]);
+  }, [seriesTitle, originalTitle, season?.seasonNumber, imdbId]);
 
   const topSeasonPack = seasonPacks[0] || null;
   const seasonDownloads = getSeasonDownloads({
@@ -211,6 +212,7 @@ export function SeasonDetailSheetContent({
       setSeasonPackLoading(true);
       searchSeasonPackTorrents({
         seriesTitle,
+        originalTitle,
         seasonNumber: season.seasonNumber,
         imdbId,
       }).then((packs) => {
@@ -221,7 +223,7 @@ export function SeasonDetailSheetContent({
     } else {
       setShowSeasonPackDrawer((prev) => !prev);
     }
-  }, [seasonPacks.length, seasonPackLoading, seriesTitle, season?.seasonNumber, imdbId]);
+  }, [seasonPacks.length, seasonPackLoading, seriesTitle, originalTitle, season?.seasonNumber, imdbId]);
 
   // Fetch and expand sources for an episode
   const handleStreamEpisode = useCallback(
@@ -245,6 +247,7 @@ export function SeasonDetailSheetContent({
       try {
         const sources = await searchEpisodeTorrents({
           seriesTitle,
+          originalTitle,
           seasonNumber: season.seasonNumber,
           episodeNumber: epNum,
           imdbId,
@@ -262,7 +265,7 @@ export function SeasonDetailSheetContent({
         setLoadingEpisodes((prev) => ({ ...prev, [epNum]: false }));
       }
     },
-    [expandedEpisodeSources, episodeSources, seriesTitle, season?.seasonNumber, imdbId],
+    [expandedEpisodeSources, episodeSources, seriesTitle, originalTitle, season?.seasonNumber, imdbId],
   );
 
   if (!season) return null;
@@ -415,6 +418,35 @@ export function SeasonDetailSheetContent({
                           >
                             {pack.attributes.codec}
                           </Text>
+                        )}
+                        {pack.attributes?.audioBadge && (
+                          <View
+                            style={[
+                              styles.langBadgeWrap,
+                              {
+                                backgroundColor: pack.attributes.audioBadge.isDub
+                                  ? (colors.error || '#CF6679') + '22'
+                                  : GOLD_ACCENT + '20',
+                                borderColor: pack.attributes.audioBadge.isDub
+                                  ? (colors.error || '#CF6679') + '55'
+                                  : GOLD_ACCENT + '55',
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.langBadgeText,
+                                {
+                                  color: pack.attributes.audioBadge.isDub
+                                    ? colors.error || '#CF6679'
+                                    : GOLD_ACCENT,
+                                  ...typography.labelSm,
+                                },
+                              ]}
+                            >
+                              {pack.attributes.audioBadge.text}
+                            </Text>
+                          </View>
                         )}
                         <Text
                           style={[
@@ -948,6 +980,35 @@ export function SeasonDetailSheetContent({
                                     {source.attributes.codec}
                                   </Text>
                                 )}
+                                {source.attributes?.audioBadge && (
+                                  <View
+                                    style={[
+                                      styles.langBadgeWrap,
+                                      {
+                                        backgroundColor: source.attributes.audioBadge.isDub
+                                          ? (colors.error || '#CF6679') + '22'
+                                          : GOLD_ACCENT + '20',
+                                        borderColor: source.attributes.audioBadge.isDub
+                                          ? (colors.error || '#CF6679') + '55'
+                                          : GOLD_ACCENT + '55',
+                                      },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.langBadgeText,
+                                        {
+                                          color: source.attributes.audioBadge.isDub
+                                            ? colors.error || '#CF6679'
+                                            : GOLD_ACCENT,
+                                          ...typography.labelSm,
+                                        },
+                                      ]}
+                                    >
+                                      {source.attributes.audioBadge.text}
+                                    </Text>
+                                  </View>
+                                )}
                                 <Text
                                   style={[
                                     styles.seedBadge,
@@ -1342,6 +1403,17 @@ const styles = StyleSheet.create({
   },
   qualityBadge: {
     fontWeight: '800',
+  },
+  langBadgeWrap: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langBadgeText: {
+    fontWeight: '700',
   },
   attrBadge: {
     fontWeight: '600',
