@@ -109,6 +109,39 @@ export function isServiceAvailableInRegion(key, countryCode) {
   return !allowedRegions || allowedRegions.has(countryCode);
 }
 
+export const SERVICE_DEFAULT_REGION = {
+  paramount_plus: { code: 'US', label: 'United States' },
+  cbc_gem: { code: 'CA', label: 'Canada' },
+  bbc_iplayer: { code: 'GB', label: 'United Kingdom' },
+  channel_4: { code: 'GB', label: 'United Kingdom' },
+  itvx: { code: 'GB', label: 'United Kingdom' },
+  sbs_on_demand: { code: 'AU', label: 'Australia' },
+  abc_iview: { code: 'AU', label: 'Australia' },
+};
+
+export function isRegionLockedService(key) {
+  return Boolean(REGION_LOCKED_SERVICES[key]);
+}
+
+export const TMDB_SERVICE_PROVIDER_IDS = {
+  netflix: [8, 1796],
+  amazon_prime_video: [9, 119, 2100],
+  max: [1899, 1825],
+  paramount_plus: [2303, 2616, 531, 582, 633, 1853],
+  cbc_gem: [314],
+  bbc_iplayer: [38],
+  channel_4: [103, 2311],
+  itvx: [41, 2300],
+  sbs_on_demand: [132],
+  abc_iview: [135],
+};
+
+export function getProviderIdsForService(serviceKey, _regionCode = null) {
+  if (!serviceKey) return [];
+  const ids = TMDB_SERVICE_PROVIDER_IDS[serviceKey];
+  return Array.isArray(ids) ? ids : [];
+}
+
 /**
  * Fold a list of per-episode `watch/providers` payloads into one availability
  * map where a country only counts if *every* episode streams there. Logo paths

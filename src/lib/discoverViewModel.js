@@ -24,6 +24,7 @@ import {
 } from './tvAiringFilter';
 import { REGION_QUICK_PICK_FILTERS } from './smartFilters';
 import { matchesSeasonsRange } from './discoverRanges';
+import { getProviderIdsForService } from './providerAvailability';
 
 const REGION_SMART_TAG_KEYS = new Set(REGION_QUICK_PICK_FILTERS.map((f) => f.key));
 
@@ -89,6 +90,10 @@ const DEFAULT_FILTERS = {
   airingThisWeek: false,
   // TV only: exclude currently airing shows (keep only ended/completed series).
   excludeAiringThisWeek: false,
+  // ── Streaming service & region ─────────────────────────────────────────────
+  watchServiceKey: null,
+  watchRegion: null,
+  watchRegionLabel: null,
 };
 
 export function useDiscoverViewModel() {
@@ -557,6 +562,9 @@ export function useDiscoverViewModel() {
       activeCountryPreset: null,
       airingThisWeek: false,
       excludeAiringThisWeek: false,
+      watchServiceKey: null,
+      watchRegion: null,
+      watchRegionLabel: null,
     }));
     setPendingCountryLink(null);
     setValidationError(null);
@@ -707,6 +715,7 @@ export function useDiscoverViewModel() {
   }
 
   function buildDiscoverApiFilters(f) {
+    const watchProviders = f.watchServiceKey ? getProviderIdsForService(f.watchServiceKey, f.watchRegion) : [];
     return {
       ...f,
       minRating: appliedRating(f.minRating),
@@ -715,6 +724,8 @@ export function useDiscoverViewModel() {
       maxSeasons: f.mediaType === 'tv' ? appliedSeasons(f.maxSeasons) : null,
       originCountries: effectiveOriginCountries(f),
       sortBy: effectiveDiscoverSortBy(f.sortBy, f.mediaType),
+      watchRegion: f.watchServiceKey ? f.watchRegion : null,
+      watchProviders,
     };
   }
 

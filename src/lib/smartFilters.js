@@ -677,6 +677,7 @@ export function buildDiscoverQueryParams(filters = {}, now = new Date()) {
   if (watchRegion && watchProviders.length > 0) {
     params.watch_region = watchRegion;
     params.with_watch_providers = watchProviders.join('|');
+    params.with_watch_monetization_types = 'flatrate|free|ads';
   }
 
   // ── Include genres ──────────────────────────────────────────────────────────

@@ -91,6 +91,9 @@ import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, FADE_MS, GRID_COL_W } from '
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeHairline } from './ProgrammeHairline';
 import { GridPosterCard } from './GridPosterCard';
+import { useBottomSheet } from './StackBottomSheet';
+import { DiscoverStreamingSheet } from './DiscoverStreamingSheet';
+import { getServiceLabel, loadWhereToWatchPrefs, saveWhereToWatchPrefs } from '../lib/whereToWatch';
 
 // ─── Sort Options (media-type-aware) ──────────────────────────────────────────
 const SORT_OPTIONS_MOVIE = [
@@ -541,6 +544,8 @@ export function DiscoverScreen({
   const bottomNavScroll = useBottomNavScroll();
   const scrollRef = useRef(null);
 
+  const bottomSheet = useBottomSheet();
+
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
@@ -680,6 +685,63 @@ export function DiscoverScreen({
     if (parts.length === 0) return 'Any Country';
     return parts.join(' · ');
   }, [activeCountryScopedTags, excludeSmartTags, selectedOriginCountries, vm.countries]);
+
+  const [defaultCountry, setDefaultCountry] = useState(null);
+
+  // Load remembered country preference
+  useEffect(() => {
+    let alive = true;
+    loadWhereToWatchPrefs()
+      .then((prefs) => {
+        if (alive && prefs?.countryCode) {
+          setDefaultCountry({ code: prefs.countryCode, label: prefs.countryLabel });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const streamingActive = Boolean(vm.filters.watchServiceKey);
+  const streamingLabel = useMemo(() => {
+    if (!vm.filters.watchServiceKey) return 'Streaming: All';
+    const sName = getServiceLabel(vm.filters.watchServiceKey);
+    const rName = vm.filters.watchRegionLabel || vm.filters.watchRegion || '';
+    return rName ? `Streaming: ${sName} · ${rName}` : `Streaming: ${sName}`;
+  }, [vm.filters.watchServiceKey, vm.filters.watchRegion, vm.filters.watchRegionLabel]);
+
+  const openStreamingSheet = useCallback(() => {
+    bottomSheet.show(
+      (sheetId) => (
+        <DiscoverStreamingSheet
+          selectedServiceKey={vm.filters.watchServiceKey}
+          selectedRegionCode={vm.filters.watchRegion || defaultCountry?.code}
+          selectedRegionLabel={vm.filters.watchRegionLabel || defaultCountry?.label}
+          onSelect={({ serviceKey, regionCode, regionLabel }) => {
+            vm.updateFilter('watchServiceKey', serviceKey);
+            vm.updateFilter('watchRegion', regionCode);
+            vm.updateFilter('watchRegionLabel', regionLabel);
+            if (regionCode && regionLabel) {
+              saveWhereToWatchPrefs({
+                countryCode: regionCode,
+                countryLabel: regionLabel,
+                serviceKey: serviceKey || null,
+              });
+            }
+            bottomSheet.dismiss(sheetId);
+          }}
+        />
+      ),
+      {
+        title: 'Streaming',
+        centerTitle: true,
+        showCloseButton: false,
+        size: 'large',
+        scrollable: true,
+      },
+    );
+  }, [bottomSheet, vm]);
 
   const advancedCriteriaActive =
     !!vm.filters.fromYear ||
@@ -1053,6 +1115,55 @@ export function DiscoverScreen({
           typography={typography}
           radii={radii}
         />
+      </View>
+
+      {/* Streaming Service & Region */}
+      <FilterDivider />
+      <View style={styles.filterBand}>
+        <SectionLabel
+          label="Streaming"
+          value={streamingActive ? (vm.filters.watchRegionLabel || vm.filters.watchRegion) : null}
+          colors={c}
+          typography={typography}
+        />
+        <View style={styles.streamingTextButton}>
+          <TouchableOpacity
+            onPress={openStreamingSheet}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Streaming service, ${streamingLabel}`}
+            style={{ flex: 1 }}
+          >
+            <Text
+              style={[
+                styles.streamingTextLabel,
+                {
+                  color: streamingActive ? GOLD_ACCENT : c.onSurfaceVariant,
+                  ...typography.bodyMd,
+                  fontWeight: streamingActive ? '600' : '400',
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {streamingLabel}
+            </Text>
+          </TouchableOpacity>
+          {streamingActive ? (
+            <TouchableOpacity
+              onPress={() => {
+                vm.updateFilter('watchServiceKey', null);
+              }}
+              style={styles.streamingClearButton}
+              accessibilityRole="button"
+              accessibilityLabel="Clear streaming filter"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[{ color: c.onSurfaceVariant, ...typography.labelSm }]}>
+                Clear
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
       <FilterDivider />
@@ -2775,5 +2886,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontSize: scale(10),
     fontWeight: '700',
+  },
+  streamingTextButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+  },
+  streamingTextLabel: {
+    letterSpacing: 0.2,
+  },
+  streamingClearButton: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
   },
 });
