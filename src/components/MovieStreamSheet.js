@@ -76,6 +76,7 @@ export function MovieStreamSheetContent({
       setStreamsLoading(true);
       searchMovieTorrents({
         title: movieTitle,
+        originalTitle,
         year: movieYear,
         imdbId,
       }).then((results) => {
@@ -90,7 +91,7 @@ export function MovieStreamSheetContent({
     return () => {
       cancelled = true;
     };
-  }, [movieTitle, movieYear, imdbId]);
+  }, [movieTitle, originalTitle, movieYear, imdbId]);
 
   const topStream = streams[0] || null;
 
@@ -470,6 +471,35 @@ export function MovieStreamSheetContent({
                         {item.attributes.codec}
                       </Text>
                     )}
+                    {item.attributes?.audioBadge && (
+                      <View
+                        style={[
+                          styles.langBadgeWrap,
+                          {
+                            backgroundColor: item.attributes.audioBadge.isDub
+                              ? (colors.error || '#CF6679') + '22'
+                              : GOLD_ACCENT + '20',
+                            borderColor: item.attributes.audioBadge.isDub
+                              ? (colors.error || '#CF6679') + '55'
+                              : GOLD_ACCENT + '55',
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.langBadgeText,
+                            {
+                              color: item.attributes.audioBadge.isDub
+                                ? colors.error || '#CF6679'
+                                : GOLD_ACCENT,
+                              ...typography.labelSm,
+                            },
+                          ]}
+                        >
+                          {item.attributes.audioBadge.text}
+                        </Text>
+                      </View>
+                    )}
                     <Text
                       style={[
                         styles.seedBadge,
@@ -786,6 +816,17 @@ const styles = StyleSheet.create({
   },
   qualityBadge: {
     fontWeight: '800',
+  },
+  langBadgeWrap: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langBadgeText: {
+    fontWeight: '700',
   },
   attrBadge: {
     fontWeight: '600',
