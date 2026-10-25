@@ -73,6 +73,7 @@ const DEFAULT_FILTERS = {
   maxRuntime: '',
   minSeasons: '',
   maxSeasons: '',
+  tvStatus: '',
   sortBy: 'popularity.desc',
   // ── Language preset (region shortcut) ─────────────────────────────────────
   // Stores the active preset id ('europe', 'east_asia', 'exclude_english', …)
@@ -557,6 +558,7 @@ export function useDiscoverViewModel() {
       excludeOriginCountries: [],
       minSeasons: '',
       maxSeasons: '',
+      tvStatus: '',
       activePreset: null,
       excludeEnglish: false,
       activeCountryPreset: null,
@@ -722,6 +724,7 @@ export function useDiscoverViewModel() {
       maxRating: appliedRating(f.maxRating),
       minSeasons: f.mediaType === 'tv' ? appliedSeasons(f.minSeasons) : null,
       maxSeasons: f.mediaType === 'tv' ? appliedSeasons(f.maxSeasons) : null,
+      tvStatus: f.mediaType === 'tv' ? f.tvStatus : '',
       originCountries: effectiveOriginCountries(f),
       sortBy: effectiveDiscoverSortBy(f.sortBy, f.mediaType),
       watchRegion: f.watchServiceKey ? f.watchRegion : null,

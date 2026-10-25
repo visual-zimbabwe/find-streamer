@@ -78,6 +78,7 @@ import {
   formatRuntimeRange,
   formatSeasonsRange,
   formatSeasonsCountLabel,
+  formatTvStatus,
   RATING_DISTRIBUTION,
   YEAR_DISTRIBUTION,
 } from '../lib/discoverRanges';
@@ -85,6 +86,7 @@ import { RatingFilterControl } from './RatingFilterControl';
 import { YearFilterControl } from './YearFilterControl';
 import { RuntimeFilterControl } from './RuntimeFilterControl';
 import { SeasonsFilterControl } from './SeasonsFilterControl';
+import { TvStatusFilterControl } from './TvStatusFilterControl';
 import { shouldPrefetchNextPage } from '../lib/discoverPagination';
 import { scale } from '../utils/responsive';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD, GRID_GAP, FADE_MS, GRID_COL_W } from '../theme/programme';
@@ -787,6 +789,7 @@ export function DiscoverScreen({
         vm.updateFilter('excludeAiringThisWeek', false);
         vm.updateFilter('minSeasons', '');
         vm.updateFilter('maxSeasons', '');
+        vm.updateFilter('tvStatus', '');
       }
       const nextSort = translateSortByForMediaType(vm.filters.sortBy, nextMediaType);
       if (nextSort !== vm.filters.sortBy) {
@@ -1056,6 +1059,23 @@ export function DiscoverScreen({
 
       {vm.filters.mediaType === 'tv' && (
         <>
+          <FilterDivider />
+
+          <View style={styles.filterBand}>
+            <SectionLabel
+              label="Status"
+              value={formatTvStatus(vm.filters.tvStatus)}
+              colors={c}
+              typography={typography}
+            />
+            <TvStatusFilterControl
+              tvStatus={vm.filters.tvStatus}
+              onChange={(status) => vm.updateFilter('tvStatus', status)}
+              colors={c}
+              typography={typography}
+            />
+          </View>
+
           <FilterDivider />
 
           <View style={styles.filterBand}>
