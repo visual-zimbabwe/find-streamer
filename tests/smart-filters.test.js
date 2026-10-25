@@ -268,3 +268,28 @@ test('isExcludedBySmartFilters drops excluded languages, origin countries, or an
   );
   assert.equal(isExcludedBySmartFilters({ original_language: 'ko' }, []), false);
 });
+
+test('tvStatus: buildDiscoverQueryParams sets with_status for TV shows and ignores for movies', () => {
+  const tvRet = buildDiscoverQueryParams({ mediaType: 'tv', tvStatus: 'returning' });
+  assert.equal(tvRet.params.with_status, '0');
+
+  const tvEnded = buildDiscoverQueryParams({ mediaType: 'tv', tvStatus: 'ended' });
+  assert.equal(tvEnded.params.with_status, '3');
+
+  const tvAll = buildDiscoverQueryParams({ mediaType: 'tv', tvStatus: 'all' });
+  assert.equal(tvAll.params.with_status, undefined);
+
+  const tvEmpty = buildDiscoverQueryParams({ mediaType: 'tv', tvStatus: '' });
+  assert.equal(tvEmpty.params.with_status, undefined);
+
+  // Numeric codes
+  const tvCode0 = buildDiscoverQueryParams({ mediaType: 'tv', tvStatus: '0' });
+  assert.equal(tvCode0.params.with_status, '0');
+
+  const tvCode3 = buildDiscoverQueryParams({ mediaType: 'tv', tvStatus: '3' });
+  assert.equal(tvCode3.params.with_status, '3');
+
+  // Ignored on movies
+  const movieEnded = buildDiscoverQueryParams({ mediaType: 'movie', tvStatus: 'ended' });
+  assert.equal(movieEnded.params.with_status, undefined);
+});

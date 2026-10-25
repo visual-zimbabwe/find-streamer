@@ -32,6 +32,9 @@ import {
   getSeasonsMode,
   getSeasonsSubMode,
   matchesSeasonsRange,
+  TV_STATUS_PRESETS,
+  getTvStatusMode,
+  formatTvStatus,
 } from '../src/lib/discoverRanges.js';
 
 test('rating: reads the shipped default (7 – 10.0) as [7, 10]', () => {
@@ -236,4 +239,27 @@ test('seasons: matchesSeasonsRange filters TV show season counts accurately', ()
   assert.equal(matchesSeasonsRange(3, '2', '4'), true);
   assert.equal(matchesSeasonsRange(4, '2', '4'), true);
   assert.equal(matchesSeasonsRange(5, '2', '4'), false);
+});
+
+test('status: getTvStatusMode and formatTvStatus detect presets and formats', () => {
+  assert.equal(getTvStatusMode(''), 'ANY');
+  assert.equal(getTvStatusMode('all'), 'ANY');
+  assert.equal(getTvStatusMode(null), 'ANY');
+  assert.equal(getTvStatusMode('returning'), 'RETURNING');
+  assert.equal(getTvStatusMode('0'), 'RETURNING');
+  assert.equal(getTvStatusMode('ended'), 'ENDED');
+  assert.equal(getTvStatusMode('3'), 'ENDED');
+
+  assert.equal(formatTvStatus(''), 'Any status');
+  assert.equal(formatTvStatus('all'), 'Any status');
+  assert.equal(formatTvStatus('returning'), 'Returning series');
+  assert.equal(formatTvStatus('0'), 'Returning series');
+  assert.equal(formatTvStatus('ended'), 'Ended');
+  assert.equal(formatTvStatus('3'), 'Ended');
+
+  assert.equal(TV_STATUS_PRESETS.length, 3);
+  assert.deepEqual(
+    TV_STATUS_PRESETS.map((p) => p.id),
+    ['ANY', 'RETURNING', 'ENDED'],
+  );
 });

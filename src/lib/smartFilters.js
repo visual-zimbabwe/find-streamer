@@ -643,6 +643,7 @@ export function buildDiscoverQueryParams(filters = {}, now = new Date()) {
     watchProviders = [],
     minVoteCount = null,
     page = 1,
+    tvStatus = '',
   } = filters;
 
   const incTags = Array.isArray(includeSmartTags) ? includeSmartTags : [];
@@ -776,11 +777,18 @@ export function buildDiscoverQueryParams(filters = {}, now = new Date()) {
     if (fromYear) params['first_air_date.gte'] = `${fromYear}-01-01`;
     if (toYear) params['first_air_date.lte'] = `${toYear}-12-31`;
 
+    const statusNorm = String(tvStatus || '').toLowerCase();
+    if (statusNorm === 'ended' || statusNorm === '3') {
+      params.with_status = '3';
+    } else if (statusNorm === 'returning' || statusNorm === '0') {
+      params.with_status = '0';
+    }
+
     if (airingThisWeek) {
       const { start, end } = getAiringWindow(now);
       params['air_date.gte'] = formatLocalYmd(start);
       params['air_date.lte'] = formatLocalYmd(end);
-    } else if (excludeAiringThisWeek) {
+    } else if (excludeAiringThisWeek && !params.with_status) {
       // Ended series only (excludes returning/ongoing shows).
       params.with_status = '3';
     }

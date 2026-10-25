@@ -279,6 +279,26 @@ export const SEASONS_PRESETS = [
   { id: 'CUSTOM', label: 'Custom', min: null, max: null },
 ];
 
+export const TV_STATUS_PRESETS = [
+  { id: 'ANY', label: 'Any', value: '' },
+  { id: 'RETURNING', label: 'Returning', value: 'returning' },
+  { id: 'ENDED', label: 'Ended', value: 'ended' },
+];
+
+export function getTvStatusMode(tvStatus) {
+  const s = String(tvStatus || '').toLowerCase();
+  if (s === 'returning' || s === '0') return 'RETURNING';
+  if (s === 'ended' || s === '3') return 'ENDED';
+  return 'ANY';
+}
+
+export function formatTvStatus(tvStatus) {
+  const mode = getTvStatusMode(tvStatus);
+  if (mode === 'RETURNING') return 'Returning series';
+  if (mode === 'ENDED') return 'Ended';
+  return 'Any status';
+}
+
 export const SEASONS_SUB_MODES = [
   { id: 'EXACT', label: 'Exact' },
   { id: 'OVER', label: 'At least' },
