@@ -16,7 +16,13 @@ import {
   partitionFilmographyCredits,
   isNonActingSelfAppearance,
   sortFilmographyCredits,
+  isUpcomingOrUnreleased,
 } from '../src/lib/actorFilmographyModel.js';
+import {
+  getAnthologyCreditsForPerson,
+  getAnthologyEpisodeMeta,
+  findAnthologyMatchForQuery,
+} from '../src/lib/anthologyCatalog.js';
 
 test('resolvePrimaryRoleType maps raw roles to canonical types', () => {
   assert.equal(resolvePrimaryRoleType('cast'), ROLE_ACTING);
@@ -291,4 +297,69 @@ test('dedupeAndSortCredits filters out non-acting self and archive appearances f
   const byNewest = sortFilmographyCredits(acting, 'newest');
   assert.equal(byNewest[0].title, 'Mutiny');
 });
+
+test('isUpcomingOrUnreleased identifies unreleased, future, and in-production projects', () => {
+  assert.equal(isUpcomingOrUnreleased({ release_date: '2026-03-16' }), true);
+  assert.equal(isUpcomingOrUnreleased({ release_date: null }), true);
+  assert.equal(isUpcomingOrUnreleased({ status: 'In Production' }), true);
+  assert.equal(isUpcomingOrUnreleased({ isAnthologyInstallment: true }), true);
+  assert.equal(isUpcomingOrUnreleased({ release_date: '2015-05-01' }), false);
+});
+
+test('dedupeAndSortCredits preserves upcoming unreleased titles with 0 votes', () => {
+  const items = [
+    { id: 10, media_type: 'movie', title: 'Old Classic', vote_average: 8.5, vote_count: 500, release_date: '2010-01-01' },
+    { id: 11, media_type: 'movie', title: 'Mid Film', vote_average: 7.0, vote_count: 200, release_date: '2015-01-01' },
+    { id: 12, media_type: 'movie', title: 'Another Film', vote_average: 6.8, vote_count: 100, release_date: '2018-01-01' },
+    { id: 13, media_type: 'movie', title: 'Upcoming 2026 Movie', vote_average: 0, vote_count: 0, release_date: '2026-10-15' },
+    { id: 14, media_type: 'movie', title: 'In Production Project', vote_average: 0, vote_count: 0, status: 'In Production' },
+  ];
+
+  // Even if a positive minVoteCount is supplied, upcoming titles are never purged
+  const result = dedupeAndSortCredits(items, ROLE_ACTING, 5);
+  const titles = result.map((r) => r.title);
+  assert.ok(titles.includes('Upcoming 2026 Movie'));
+  assert.ok(titles.includes('In Production Project'));
+  assert.equal(result.length, 5);
+});
+
+test('partitionFilmographyCredits does not truncate at 30 when maxPerRail is null', () => {
+  const cast = Array.from({ length: 45 }, (_, i) => ({
+    id: i + 1,
+    media_type: 'movie',
+    title: `Movie ${i + 1}`,
+    vote_average: 7.0,
+    vote_count: 10,
+    release_date: '2020-01-01',
+  }));
+
+  const res = partitionFilmographyCredits({ cast, crew: [] }, 'cast');
+  assert.equal(res.rails[0].count, 45);
+  assert.equal(res.rails[0].data.length, 45);
+  assert.equal(res.totalCreditsCount, 45);
+});
+
+test('anthologyCatalog maps Joe Cole to I Am Helen and Black Mirror Hang the DJ', () => {
+  const joeCredits = getAnthologyCreditsForPerson(1081875, 'Joe Cole');
+  const helen = joeCredits.find((c) => c.title === 'I Am Helen');
+  assert.ok(helen, 'I Am Helen credit should be returned for Joe Cole');
+  assert.equal(helen.character, 'Steve');
+  assert.equal(helen.seriesTitle, 'I Am...');
+  assert.equal(helen.tmdbId, 91605);
+
+  const blackMirrorMeta = getAnthologyEpisodeMeta(42009, 'Frank', 1081875);
+  assert.equal(blackMirrorMeta?.episodeTitle, 'Hang the DJ');
+
+  const normalized = normalizeCreditItem(
+    { id: 42009, tmdbId: 42009, title: 'Black Mirror', media_type: 'tv', character: 'Frank', personId: 1081875 },
+    ROLE_ACTING,
+  );
+  assert.ok(normalized.roleMeta.includes('Hang the DJ'));
+
+  const searchMatch = findAnthologyMatchForQuery('I Am Helen');
+  assert.ok(searchMatch);
+  assert.equal(searchMatch.title, 'I Am Helen');
+  assert.equal(searchMatch.tmdbId, 91605);
+});
+
 

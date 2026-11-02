@@ -91,13 +91,13 @@ export function FilmographyScreen({
     if (rails && rails.length > 0) {
       baseRails = rails;
     } else if (!isCollection && !isCompany && results && results.length > 0) {
-      const { rails: derived } = partitionFilmographyCredits({ cast: results, crew: [] }, role, 30);
+      const { rails: derived } = partitionFilmographyCredits({ cast: results, crew: [] }, role);
       baseRails = derived;
     }
     if (!baseRails) return null;
     return baseRails.map((rail) => {
       const sourcePool = rail.allCredits || rail.data || rail.credits || [];
-      const sorted = sortFilmographyCredits(sourcePool, sortMode).slice(0, 30);
+      const sorted = sortFilmographyCredits(sourcePool, sortMode);
       return {
         ...rail,
         data: sorted,
