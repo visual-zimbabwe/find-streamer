@@ -4,6 +4,8 @@
  * prioritizing the talent's primary credit role.
  */
 
+import { getAnthologyEpisodeMeta } from './anthologyCatalog.js';
+
 export const ROLE_ACTING = 'acting';
 export const ROLE_DIRECTING = 'directing';
 export const ROLE_WRITING = 'writing';
@@ -187,10 +189,18 @@ export function normalizeCreditItem(item, roleType) {
   const character = (item.character || '').trim();
   const job = (item.job || '').trim();
 
+  const tmdbId = item.tmdbId ?? item.id;
+  const personId = item.personId;
+  const anthologyMeta = getAnthologyEpisodeMeta(tmdbId, character, personId);
+
   let roleMeta = item.roleMeta || null;
   if (!roleMeta) {
     if (roleType === ROLE_ACTING) {
-      roleMeta = character ? `as ${character}` : null;
+      if (anthologyMeta?.episodeTitle) {
+        roleMeta = character ? `as ${character} (${anthologyMeta.episodeTitle})` : anthologyMeta.episodeTitle;
+      } else {
+        roleMeta = character ? `as ${character}` : null;
+      }
     } else if (roleType === ROLE_DIRECTING) {
       roleMeta = job || 'Director';
     } else if (roleType === ROLE_WRITING) {
@@ -219,10 +229,13 @@ export function normalizeCreditItem(item, roleType) {
           : `https://image.tmdb.org/t/p/original${item.backdrop_path}`)
       : null;
 
-  const tmdbId = item.tmdbId ?? item.id;
-
   return {
-    id: item.id && String(item.id).includes(':') ? item.id : `${mediaType}:${tmdbId}`,
+    id:
+      item.id && String(item.id).includes(':')
+        ? item.id
+        : item.isAnthologyInstallment && item.episodeTitle
+          ? `${mediaType}:${tmdbId}:${item.episodeTitle}`
+          : `${mediaType}:${tmdbId}`,
     tmdbId,
     mediaType,
     title: item.title || item.name || '(Untitled)',
@@ -292,13 +305,32 @@ export function sortFilmographyCredits(credits, sortBy = 'rating') {
   return copy;
 }
 
+export function isUpcomingOrUnreleased(item) {
+  if (!item) return false;
+  if (item.isAnthologyInstallment) return true;
+  const status = String(item.status || '').toLowerCase();
+  if (
+    status.includes('production') ||
+    status.includes('planned') ||
+    status.includes('announced') ||
+    status.includes('upcoming')
+  ) {
+    return true;
+  }
+  const dateStr = item.release_date || item.first_air_date || item.releaseDate;
+  if (!dateStr) return true; // No release date specified -> in development / upcoming
+  const year = parseInt(String(dateStr).slice(0, 4), 10);
+  const currentYear = new Date().getFullYear();
+  return isNaN(year) || year >= currentYear - 1;
+}
+
 /**
  * Deduplicates and sorts credit items within a role bucket.
- * Drops obscure entries (vote_count < 5) unless the total is small.
- * Excludes non-acting "as Self" / "archive footage" appearances from Acting rails.
+ * Preserves upcoming/unreleased/recent works and excludes non-acting "as Self" /
+ * "archive footage" appearances from Acting rails.
  * Sorts primarily by rating descending, then vote count and release year.
  */
-export function dedupeAndSortCredits(items, roleType, minVoteCount = 5) {
+export function dedupeAndSortCredits(items, roleType, minVoteCount = 0) {
   if (!Array.isArray(items) || !items.length) return [];
 
   // Filter to valid movie/tv entries
@@ -320,16 +352,27 @@ export function dedupeAndSortCredits(items, roleType, minVoteCount = 5) {
       : validMedia;
   const valid = nonSelf.length >= 3 ? nonSelf : validMedia;
 
-  // If filtering by vote_count leaves enough items (>= 3), apply it; otherwise keep all
-  const filtered = valid.filter((item) => (item.vote_count ?? item.voteCount ?? 0) >= minVoteCount);
+  // Preserve upcoming/unreleased/recent titles regardless of vote count;
+  // only filter older titles if minVoteCount > 0
+  const filtered =
+    minVoteCount > 0
+      ? valid.filter(
+          (item) =>
+            (item.vote_count ?? item.voteCount ?? 0) >= minVoteCount ||
+            isUpcomingOrUnreleased(item),
+        )
+      : valid;
   const pool = filtered.length >= 3 ? filtered : valid;
 
-  // Deduplicate by mediaType:id
+  // Deduplicate by mediaType:id (keeping distinct anthology installments separate)
   const seen = new Map();
   for (const raw of pool) {
     const rawMediaType = raw.media_type || raw.mediaType || 'media';
     const rawId = raw.tmdbId ?? raw.id;
-    const key = `${rawMediaType}:${rawId}`;
+    const key =
+      raw.isAnthologyInstallment && raw.episodeTitle
+        ? `${rawMediaType}:${rawId}:${raw.episodeTitle}`
+        : `${rawMediaType}:${rawId}`;
     if (!seen.has(key)) {
       seen.set(key, raw);
     } else {
@@ -368,10 +411,10 @@ export function dedupeAndSortCredits(items, roleType, minVoteCount = 5) {
  *
  * @param {object} combinedData Combined credits payload { cast: [], crew: [] }
  * @param {string} [primaryRole='cast'] Role of the clicked card (used to prioritize ordering)
- * @param {number} [maxPerRail=30] Max credits per horizontal rail
+ * @param {number|null} [maxPerRail=null] Max credits per horizontal rail (null = no truncation)
  * @returns {{ rails: Array, totalCreditsCount: number, primaryRoleType: string }}
  */
-export function partitionFilmographyCredits(combinedData, primaryRole = 'cast', maxPerRail = 30) {
+export function partitionFilmographyCredits(combinedData, primaryRole = 'cast', maxPerRail = null) {
   const cast = Array.isArray(combinedData?.cast) ? combinedData.cast : [];
   const crew = Array.isArray(combinedData?.crew) ? combinedData.crew : [];
 
@@ -416,7 +459,10 @@ export function partitionFilmographyCredits(combinedData, primaryRole = 'cast', 
         count: credits.length,
         totalCount: credits.length,
         allCredits: credits,
-        data: credits.slice(0, maxPerRail),
+        data:
+          typeof maxPerRail === 'number' && maxPerRail > 0
+            ? credits.slice(0, maxPerRail)
+            : credits,
       });
     }
   }

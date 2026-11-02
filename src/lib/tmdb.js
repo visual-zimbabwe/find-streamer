@@ -36,6 +36,7 @@ import {
   serviceKey,
 } from './providerAvailability';
 import { partitionFilmographyCredits } from './actorFilmographyModel';
+import { getAnthologyCreditsForPerson, findAnthologyMatchForQuery } from './anthologyCatalog';
 import { getOffsetDateYmd, interleaveByPopularity, dedupeRailItems } from './searchRails';
 
 export { SERVICE_LABELS };
@@ -292,6 +293,7 @@ async function resolveCompoundPersonTitleCandidates(query) {
           language: 'en-US',
         });
         const allCredits = [
+          ...getAnthologyCreditsForPerson(topPersonRaw.id, topPersonRaw.name),
           ...(Array.isArray(credits?.cast) ? credits.cast : []),
           ...(Array.isArray(credits?.crew) ? credits.crew : []),
         ];
@@ -384,9 +386,11 @@ async function fetchAndRankSearchCandidates(query) {
   }
 
   const payloads = await Promise.all(requests);
-  const directCandidates = dedupeSearchCandidates(
-    payloads.flatMap((payload) => mapSearchPayload(payload)),
-  );
+  const anthologyCandidate = findAnthologyMatchForQuery(titleQuery || query);
+  const directCandidates = dedupeSearchCandidates([
+    ...(anthologyCandidate ? [anthologyCandidate] : []),
+    ...payloads.flatMap((payload) => mapSearchPayload(payload)),
+  ]);
 
   const normalizedCheck = normalizeSearchText(titleQuery || query);
   const hasStrongDirectMatch = directCandidates.some(
@@ -1911,14 +1915,33 @@ export async function fetchPersonFilmography(personId, personName, role) {
     ? `https://image.tmdb.org/t/p/w185${personData.profile_path}`
     : null;
 
-  const { rails, totalCreditsCount } = partitionFilmographyCredits(creditsData, role, 30);
+  // Enrich with known upcoming or anthology-specific credits
+  const anthologyCredits = getAnthologyCreditsForPerson(personId, personName || personData?.name);
+  const cast = Array.isArray(creditsData?.cast) ? [...creditsData.cast] : [];
+  for (const ac of anthologyCredits) {
+    const already = cast.some(
+      (c) =>
+        (c.id === ac.id || c.tmdbId === ac.tmdbId) &&
+        (c.episodeTitle === ac.episodeTitle || (!c.episodeTitle && !ac.episodeTitle)),
+    );
+    if (!already) {
+      cast.unshift(ac);
+    }
+  }
+
+  const enrichedCreditsData = {
+    ...creditsData,
+    cast,
+  };
+
+  const { rails, totalCreditsCount } = partitionFilmographyCredits(enrichedCreditsData, role);
 
   // Flatten unique credits across all rails for backward compatibility with results
   const results = [];
   const seen = new Set();
   for (const rail of rails) {
     for (const item of (rail.data || rail.credits || [])) {
-      const key = `${item.mediaType}:${item.tmdbId}`;
+      const key = `${item.mediaType}:${item.tmdbId}:${item.title || ''}`;
       if (!seen.has(key)) {
         seen.add(key);
         results.push(item);
