@@ -40,7 +40,7 @@ import { sortRailItems, toggleRailSortMode } from '../lib/railSort';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { HomeFeedSkeleton } from './SkeletonLoaders';
 import { useServiceLogos } from '../hooks/useServiceLogos';
-import { getAwardCeremonyRows } from '../lib/awardsCatalog';
+import { getAwardCeremonyRows, getAllAwardWinners } from '../lib/awardsCatalog';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { CinematicCardDeck } from './CinematicCardDeck';
 import { MediaArtwork } from './MediaArtwork';
@@ -160,9 +160,23 @@ export function HomeScreen({
   const serviceLogos = useServiceLogos();
   const serviceLogoUrl = homeServiceKey ? serviceLogos[homeServiceKey] || null : null;
 
+  const whereScopeItems = useMemo(() => {
+    const list = [...(watchlist || [])];
+    const seen = new Set(list.map(watchlistEntryKey).filter(Boolean));
+    const allWinners = getAllAwardWinners();
+    allWinners.forEach((w) => {
+      const key = watchlistEntryKey(w);
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        list.push(w);
+      }
+    });
+    return list;
+  }, [watchlist]);
+
   const { matches: whereMatches, checking: whereChecking, scopeCount } =
     useWhereToWatchFilter({
-      items: watchlist,
+      items: whereScopeItems,
       active: whereActive,
       country: homeCountry,
       serviceKey: homeServiceKey,
@@ -223,18 +237,20 @@ export function HomeScreen({
     // Hide award rails if user selected 'tv' filter since this is a feature film archive
     if (mediaFilter === 'tv') return [];
 
+    const matchedKeys = whereMatches?.keys || null;
     const rows = getAwardCeremonyRows();
-    const FEATURED_CEREMONIES = ['cannes', 'oscars_picture', 'venice', 'berlin', 'sundance', 'tiff'];
 
     return rows
-      .filter((r) => FEATURED_CEREMONIES.includes(r.category.ceremonyId))
       .map((r) => {
         let items = r.items;
+        if (matchedKeys) {
+          items = items.filter((item) => matchedKeys.has(watchlistEntryKey(item)));
+        }
         if (homeLanguage) {
           items = items.filter((item) => {
-            const langCode = typeof item.originalLanguage === 'string'
-              ? item.originalLanguage.toLowerCase().trim()
-              : '';
+            const langCode = (item.originalLanguageCode || item.originalLanguage || '')
+              .toLowerCase()
+              .trim();
             if (homeLanguage.code === 'other') {
               return !langCode;
             }
@@ -250,7 +266,7 @@ export function HomeScreen({
         };
       })
       .filter((r) => r.items.length > 0);
-  }, [mediaFilter, homeLanguage, railSortPrefs]);
+  }, [mediaFilter, homeLanguage, railSortPrefs, whereMatches]);
 
   const {
     downloads,
@@ -328,8 +344,8 @@ export function HomeScreen({
       list.push(downloadedRow);
     }
     list.push(...watchlistRows);
-    // If we have award ceremony rails and no restrictive availability filter hiding everything
-    if (awardCeremonyRows.length > 0 && !whereActive) {
+    // If we have award ceremony rails
+    if (awardCeremonyRows.length > 0) {
       list.push({
         id: 'awards_header_row',
         category: { id: 'awards_header_row' },
@@ -359,8 +375,17 @@ export function HomeScreen({
         }
       }),
     );
+    awardCeremonyRows.forEach((row) =>
+      row.items.forEach((item) => {
+        const key = watchlistEntryKey(item);
+        if (!seen.has(key)) {
+          seen.add(key);
+          pool.push(item);
+        }
+      }),
+    );
     return sortByRatingDesc(pool).slice(0, FILTERED_HERO_MAX);
-  }, [isFiltered, spotlight, watchlistRows]);
+  }, [isFiltered, spotlight, watchlistRows, awardCeremonyRows]);
 
   const hasHeroItems = heroPool.length > 0;
 
@@ -967,18 +992,16 @@ export function HomeScreen({
           <View style={styles.awardsHeaderSection}>
             <ProgrammeSectionHeader
               eyebrow="GLOBAL CINEMA HONORS"
-              title="Prestigious Awards & Laureates"
-              subtitle="Palme d'Or · Best Picture · Golden Lion · Grand Jury"
-              titleVariant="titleMd"
               align="left"
-              actionLabel="Explore Awards"
-              onAction={() => onOpenCollections?.('awards')}
+              style={styles.awardsProgrammeHeader}
             />
           </View>
         );
       }
 
       const { category, items } = item;
+      const isFirstAwardRail =
+        category.isAwardCeremony && awardCeremonyRows[0]?.category?.id === category.id;
       const subtitle =
         category.subtitle ||
         (category.awardName
@@ -1000,6 +1023,7 @@ export function HomeScreen({
           showCaption={false}
           showHairline={false}
           titleCase
+          style={isFirstAwardRail ? styles.firstAwardRail : undefined}
           onPress={isSortable ? () => handleToggleRailSort(sortId) : undefined}
           onSelectItem={category.isDownloadedRail ? openDownloadedItemSheet : onSelectItem}
           getItemRankBadge={
@@ -1050,11 +1074,10 @@ export function HomeScreen({
   }
   const filterContext = filterParts.join(' ');
 
-  // While a filter is crawling, the whole feed drops to skeleton and swaps to
-  // the fully-filtered result in one paint — no half-populated intermediate and,
-  // deliberately, no "121 of 796" progress readout. The scan stays in the
-  // background; the skeleton is the only thing that says "working".
-  const showFeedSkeleton = whereChecking || (!hasHeroItems && !isFiltered);
+  // While a filter is crawling, show skeleton only if no cached matches exist yet.
+  // As soon as matches are available, the feed renders immediately and updates smoothly.
+  const isWhereInitialCrawl = whereChecking && !whereMatches?.keys?.size;
+  const showFeedSkeleton = isWhereInitialCrawl || (!hasHeroItems && !isFiltered);
   const listHeader = (
     <View
       style={styles.spotlightSection}
@@ -1134,7 +1157,7 @@ export function HomeScreen({
 
       <FlatList
         style={styles.scroll}
-        data={whereChecking ? [] : feedRows}
+        data={isWhereInitialCrawl ? [] : feedRows}
         renderItem={renderRail}
         keyExtractor={railKeyExtractor}
         extraData={theme}
@@ -1178,7 +1201,13 @@ const styles = StyleSheet.create({
   awardsHeaderSection: {
     paddingHorizontal: GRID_PAD,
     marginTop: scale(28),
-    marginBottom: scale(6),
+    marginBottom: 0,
+  },
+  awardsProgrammeHeader: {
+    marginBottom: 0,
+  },
+  firstAwardRail: {
+    marginTop: scale(8),
   },
   skeletonWrap: {
     paddingHorizontal: GRID_PAD,

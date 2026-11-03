@@ -34,7 +34,7 @@ const PREFS_STORAGE_KEY = 'find-streamer/where-to-watch/prefs/v1';
 // Streaming catalogues shift on a weekly-to-monthly cadence; three days keeps
 // results honest without re-fetching an entire library every session.
 export const AVAILABILITY_TTL_MS = 3 * 24 * 60 * 60 * 1000;
-export const AVAILABILITY_CACHE_MAX_ENTRIES = 1500;
+export const AVAILABILITY_CACHE_MAX_ENTRIES = 5000;
 
 export const DEFAULT_WHERE_TO_WATCH_COUNTRY = { code: 'CA', label: 'Canada' };
 
