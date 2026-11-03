@@ -89,7 +89,13 @@ export function ProgrammeSectionHeader({
       ]}
     >
       <View style={[styles.headerRow, hasAction && styles.headerRowWithAction]}>
-        <View style={[styles.headerMainBlock, hasAction && styles.headerMainBlockWithAction]}>
+        <View
+          style={[
+            styles.headerMainBlock,
+            isLeft && styles.headerMainBlockLeft,
+            hasAction && styles.headerMainBlockWithAction,
+          ]}
+        >
           {fullEyebrowText ? (
             <Text
               style={[
@@ -102,29 +108,33 @@ export function ProgrammeSectionHeader({
               {fullEyebrowText}
             </Text>
           ) : null}
-          <View style={[styles.titleRow, isLeft && styles.titleRowLeft]}>
-            {icon ? (
-              <Ionicons
-                name={icon}
-                size={18}
-                color={GOLD_ACCENT}
-                style={styles.headerIcon}
-              />
-            ) : null}
-            <Text
-              style={[
-                styles.title,
-                !hasAction && styles.fullBleed,
-                isLeft && styles.titleLeft,
-                titleUppercase && styles.titleUppercase,
-                { color: colors.onSurface, textAlign, ...typography[titleVariant] },
-                titleStyle,
-              ]}
-              accessibilityRole="header"
-            >
-              {title}
-            </Text>
-          </View>
+          {icon || title ? (
+            <View style={[styles.titleRow, isLeft && styles.titleRowLeft]}>
+              {icon ? (
+                <Ionicons
+                  name={icon}
+                  size={18}
+                  color={GOLD_ACCENT}
+                  style={styles.headerIcon}
+                />
+              ) : null}
+              {title ? (
+                <Text
+                  style={[
+                    styles.title,
+                    !hasAction && styles.fullBleed,
+                    isLeft && styles.titleLeft,
+                    titleUppercase && styles.titleUppercase,
+                    { color: colors.onSurface, textAlign, ...typography[titleVariant] },
+                    titleStyle,
+                  ]}
+                  accessibilityRole="header"
+                >
+                  {title}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
           {subtitle ? (
             <Text
               style={[
@@ -352,6 +362,9 @@ const styles = StyleSheet.create({
   },
   headerMainBlock: {
     alignItems: 'center',
+  },
+  headerMainBlockLeft: {
+    alignItems: 'flex-start',
   },
   headerMainBlockWithAction: {
     flex: 1,

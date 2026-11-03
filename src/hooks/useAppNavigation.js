@@ -58,7 +58,7 @@ export function useAppNavigation({
     const tabRoute = rootState.routes.find((r) => r.name === tabId);
     const stackCanPop = Boolean(tabRoute?.state && tabRoute.state.index > 0);
 
-    if (focusedRoute === 'Collections' && (collectionsSubView === 'imdb' || collectionsSubView === 'awards')) {
+    if (focusedRoute === 'Collections' && collectionsSubView === 'imdb') {
       setCollectionsSubView('franchises');
       return;
     }

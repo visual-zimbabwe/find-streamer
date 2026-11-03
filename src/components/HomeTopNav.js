@@ -16,17 +16,10 @@ const NAV_SETS = {
   ],
   collectionsRoot: [
     { key: 'collections', label: 'Universes' },
-    { key: 'awards', label: 'Awards' },
-    { key: 'imdb_top100', label: 'Top 100 IMDb' },
-  ],
-  awardsRoot: [
-    { key: 'collections', label: 'Universes' },
-    { key: 'awards', label: 'Awards' },
     { key: 'imdb_top100', label: 'Top 100 IMDb' },
   ],
   imdbTop100: [
     { key: 'collections', label: 'Universes' },
-    { key: 'awards', label: 'Awards' },
     { key: 'movie', label: 'Movies' },
     { key: 'tv', label: 'Shows' },
   ],

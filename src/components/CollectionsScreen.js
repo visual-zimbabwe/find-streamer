@@ -12,7 +12,6 @@ import { MediaListRow } from './MediaListRow';
 import { GlassIconButton } from './GlassIconButton';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { FranchiseRailsView } from './FranchiseRailsView';
-import { AwardsRailsView } from './AwardsRailsView';
 import { HomeTopNav } from './HomeTopNav';
 import { useBottomSheet } from './StackBottomSheet';
 import { GOLD_ACCENT, GRID_PAD } from '../theme/programme';
@@ -156,7 +155,7 @@ export function CollectionsScreen({
       if (bottomSheet?.hasOpenSheet) {
         return bottomSheet.dismissTopSheet();
       }
-      if (subView === 'imdb' || subView === 'awards') {
+      if (subView === 'imdb') {
         onSubViewChange?.('franchises');
         return true;
       }
@@ -179,10 +178,6 @@ export function CollectionsScreen({
       onSubViewChange?.('franchises');
       return;
     }
-    if (key === 'awards') {
-      onSubViewChange?.('awards');
-      return;
-    }
     if (key === 'imdb_top100') {
       onSubViewChange?.('imdb');
       onImdbMediaTabChange?.('movie');
@@ -197,47 +192,9 @@ export function CollectionsScreen({
     handleHeaderScroll(event);
   });
 
-  const topNavSet =
-    subView === 'imdb'
-      ? 'imdbTop100'
-      : subView === 'awards'
-      ? 'awardsRoot'
-      : 'collectionsRoot';
+  const topNavSet = subView === 'imdb' ? 'imdbTop100' : 'collectionsRoot';
   const topNavSelected =
-    subView === 'imdb'
-      ? (imdbMediaTab === 'tv' ? 'tv' : 'movie')
-      : subView === 'awards'
-      ? 'awards'
-      : 'collections';
-
-  if (subView === 'awards') {
-    return (
-      <View style={[styles.rootWrap, { backgroundColor: colors.background }]}>
-        <LinearGradient
-          colors={atmosphereColors}
-          style={styles.atmosphereTop}
-          pointerEvents="none"
-        />
-        <HomeTopNav
-          navSet={topNavSet}
-          selectedKey={topNavSelected}
-          onSelect={handleNavSelect}
-          variant="programme"
-          headerScrolled={headerScrolled}
-        />
-        <AwardsRailsView
-          colors={colors}
-          typography={typography}
-          radii={radii}
-          savedKeys={savedKeys}
-          onSelectItem={onSelectItem}
-          onToggleWatchlist={onToggleWatchlist}
-          onSaveCollection={onSaveCollection}
-          onHeaderScroll={handleHeaderScroll}
-        />
-      </View>
-    );
-  }
+    subView === 'imdb' ? (imdbMediaTab === 'tv' ? 'tv' : 'movie') : 'collections';
 
   if (subView === 'imdb') {
     return (
