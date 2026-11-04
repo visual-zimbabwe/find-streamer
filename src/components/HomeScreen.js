@@ -40,7 +40,13 @@ import { sortRailItems, toggleRailSortMode } from '../lib/railSort';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { HomeFeedSkeleton } from './SkeletonLoaders';
 import { useServiceLogos } from '../hooks/useServiceLogos';
-import { getAwardCeremonyRows, getAllAwardWinners } from '../lib/awardsCatalog';
+import {
+  getAwardCeremonyRows,
+  getTvAwardCeremonyRows,
+  getAllAwardWinners,
+  getAllTvAwardWinners,
+  getAllHonorsWinners,
+} from '../lib/awardsCatalog';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { CinematicCardDeck } from './CinematicCardDeck';
 import { MediaArtwork } from './MediaArtwork';
@@ -141,19 +147,81 @@ export function HomeScreen({
     });
   }, []);
 
-  const availableLanguages = useMemo(
-    () => getAvailableWatchlistLanguages(watchlist, collections),
-    [watchlist, collections],
-  );
+  const availableLanguages = useMemo(() => {
+    const base = getAvailableWatchlistLanguages(watchlist, collections);
+    const byCode = new Map();
+    let otherCount = 0;
+    base.forEach((entry) => {
+      if (entry.isOther || entry.code === 'other') {
+        otherCount += entry.count || 0;
+      } else if (entry.code) {
+        byCode.set(entry.code, (byCode.get(entry.code) || 0) + (entry.count || 0));
+      }
+    });
+
+    const seenKeys = new Set(
+      (watchlist || []).map(watchlistEntryKey).filter(Boolean),
+    );
+    const honorsPool =
+      mediaFilter === 'movie'
+        ? getAllAwardWinners()
+        : mediaFilter === 'tv'
+        ? getAllTvAwardWinners()
+        : getAllHonorsWinners();
+
+    honorsPool.forEach((item) => {
+      const key = watchlistEntryKey(item);
+      if (!key || seenKeys.has(key)) return;
+      seenKeys.add(key);
+      const code = (item.originalLanguageCode || item.originalLanguage || '')
+        .toLowerCase()
+        .trim();
+      if (!code) {
+        otherCount += 1;
+      } else {
+        byCode.set(code, (byCode.get(code) || 0) + 1);
+      }
+    });
+
+    const results = [];
+    for (const [code, count] of byCode.entries()) {
+      results.push({
+        code,
+        label: resolveLanguageLabel(code),
+        count,
+      });
+    }
+    results.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    if (otherCount > 0) {
+      results.push({
+        code: 'other',
+        label: 'Other',
+        count: otherCount,
+        isOther: true,
+      });
+    }
+    return results;
+  }, [watchlist, collections, mediaFilter]);
 
   const totalLibraryTitlesCount = useMemo(() => {
     const seen = new Set();
     (watchlist || []).forEach((w) => {
+      if (mediaFilter && w.mediaType !== mediaFilter) return;
+      const key = watchlistEntryKey(w);
+      if (key && !seen.has(key)) seen.add(key);
+    });
+    const honorsPool =
+      mediaFilter === 'movie'
+        ? getAllAwardWinners()
+        : mediaFilter === 'tv'
+        ? getAllTvAwardWinners()
+        : getAllHonorsWinners();
+    honorsPool.forEach((w) => {
       const key = watchlistEntryKey(w);
       if (key && !seen.has(key)) seen.add(key);
     });
     return seen.size;
-  }, [watchlist]);
+  }, [watchlist, mediaFilter]);
 
   // Real provider logos for the service chip (the flag's counterpart), keyed by
   // service. Fetched once, cached; the chip falls back to no icon until present.
@@ -163,7 +231,7 @@ export function HomeScreen({
   const whereScopeItems = useMemo(() => {
     const list = [...(watchlist || [])];
     const seen = new Set(list.map(watchlistEntryKey).filter(Boolean));
-    const allWinners = getAllAwardWinners();
+    const allWinners = getAllHonorsWinners();
     allWinners.forEach((w) => {
       const key = watchlistEntryKey(w);
       if (key && !seen.has(key)) {
@@ -233,40 +301,48 @@ export function HomeScreen({
       .filter((row) => row.items.length > 0);
   }, [collections, watchlist, mediaFilter, whereMatches, homeLanguage, railSortPrefs]);
 
+  const filterAndSortHonorsRows = useCallback(
+    (rows) => {
+      const matchedKeys = whereMatches?.keys || null;
+      return rows
+        .map((r) => {
+          let items = r.items;
+          if (matchedKeys) {
+            items = items.filter((item) => matchedKeys.has(watchlistEntryKey(item)));
+          }
+          if (homeLanguage) {
+            items = items.filter((item) => {
+              const langCode = (item.originalLanguageCode || item.originalLanguage || '')
+                .toLowerCase()
+                .trim();
+              if (homeLanguage.code === 'other') {
+                return !langCode;
+              }
+              return langCode === homeLanguage.code;
+            });
+          }
+          const ceremonyId = r.category.ceremonyId || r.category.id;
+          const sortMode = railSortPrefs[ceremonyId] || 'rating';
+          const sorted = sortRailItems(items, sortMode);
+          return {
+            ...r,
+            items: sorted,
+          };
+        })
+        .filter((r) => r.items.length > 0);
+    },
+    [homeLanguage, railSortPrefs, whereMatches],
+  );
+
   const awardCeremonyRows = useMemo(() => {
-    // Hide award rails if user selected 'tv' filter since this is a feature film archive
     if (mediaFilter === 'tv') return [];
+    return filterAndSortHonorsRows(getAwardCeremonyRows('movie'));
+  }, [mediaFilter, filterAndSortHonorsRows]);
 
-    const matchedKeys = whereMatches?.keys || null;
-    const rows = getAwardCeremonyRows();
-
-    return rows
-      .map((r) => {
-        let items = r.items;
-        if (matchedKeys) {
-          items = items.filter((item) => matchedKeys.has(watchlistEntryKey(item)));
-        }
-        if (homeLanguage) {
-          items = items.filter((item) => {
-            const langCode = (item.originalLanguageCode || item.originalLanguage || '')
-              .toLowerCase()
-              .trim();
-            if (homeLanguage.code === 'other') {
-              return !langCode;
-            }
-            return langCode === homeLanguage.code;
-          });
-        }
-        const ceremonyId = r.category.ceremonyId || r.category.id;
-        const sortMode = railSortPrefs[ceremonyId] || 'rating';
-        const sorted = sortRailItems(items, sortMode);
-        return {
-          ...r,
-          items: sorted,
-        };
-      })
-      .filter((r) => r.items.length > 0);
-  }, [mediaFilter, homeLanguage, railSortPrefs, whereMatches]);
+  const tvAwardCeremonyRows = useMemo(() => {
+    if (mediaFilter === 'movie') return [];
+    return filterAndSortHonorsRows(getTvAwardCeremonyRows());
+  }, [mediaFilter, filterAndSortHonorsRows]);
 
   const {
     downloads,
@@ -344,20 +420,34 @@ export function HomeScreen({
       list.push(downloadedRow);
     }
     list.push(...watchlistRows);
-    // If we have award ceremony rails
+    // If we have movie award ceremony rails
     if (awardCeremonyRows.length > 0) {
       list.push({
         id: 'awards_header_row',
         category: { id: 'awards_header_row' },
         isAwardsHeader: true,
+        headerEyebrow: 'GLOBAL CINEMA HONORS',
         items: [],
       });
       awardCeremonyRows.forEach((r) => {
         list.push(r);
       });
     }
+    // If we have TV award ceremony rails
+    if (tvAwardCeremonyRows.length > 0) {
+      list.push({
+        id: 'tv_awards_header_row',
+        category: { id: 'tv_awards_header_row' },
+        isAwardsHeader: true,
+        headerEyebrow: 'GLOBAL TELEVISION HONORS',
+        items: [],
+      });
+      tvAwardCeremonyRows.forEach((r) => {
+        list.push(r);
+      });
+    }
     return list;
-  }, [downloadedRow, watchlistRows, awardCeremonyRows, whereActive]);
+  }, [downloadedRow, watchlistRows, awardCeremonyRows, tvAwardCeremonyRows, whereActive]);
 
   // The hero pool: the curated rotating spotlight when unfiltered; the matched
   // library titles themselves when a filter is on (so the hero can never feature
@@ -384,8 +474,17 @@ export function HomeScreen({
         }
       }),
     );
+    tvAwardCeremonyRows.forEach((row) =>
+      row.items.forEach((item) => {
+        const key = watchlistEntryKey(item);
+        if (!seen.has(key)) {
+          seen.add(key);
+          pool.push(item);
+        }
+      }),
+    );
     return sortByRatingDesc(pool).slice(0, FILTERED_HERO_MAX);
-  }, [isFiltered, spotlight, watchlistRows, awardCeremonyRows]);
+  }, [isFiltered, spotlight, watchlistRows, awardCeremonyRows, tvAwardCeremonyRows]);
 
   const hasHeroItems = heroPool.length > 0;
 
@@ -991,7 +1090,7 @@ export function HomeScreen({
         return (
           <View style={styles.awardsHeaderSection}>
             <ProgrammeSectionHeader
-              eyebrow="GLOBAL CINEMA HONORS"
+              eyebrow={item.headerEyebrow || 'GLOBAL CINEMA HONORS'}
               align="left"
               style={styles.awardsProgrammeHeader}
             />
@@ -1001,7 +1100,9 @@ export function HomeScreen({
 
       const { category, items } = item;
       const isFirstAwardRail =
-        category.isAwardCeremony && awardCeremonyRows[0]?.category?.id === category.id;
+        category.isAwardCeremony &&
+        (awardCeremonyRows[0]?.category?.id === category.id ||
+          tvAwardCeremonyRows[0]?.category?.id === category.id);
       const subtitle =
         category.subtitle ||
         (category.awardName
@@ -1055,6 +1156,8 @@ export function HomeScreen({
       onOpenCollections,
       openDownloadedItemSheet,
       handleToggleRailSort,
+      awardCeremonyRows,
+      tvAwardCeremonyRows,
     ],
   );
 

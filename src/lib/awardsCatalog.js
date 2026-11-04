@@ -1,9 +1,13 @@
 import awardsData from '../data/awards_catalog.js';
-import { watchlistEntryKey } from './watchlistModel.js';
+import tvAwardsData from '../data/tv_awards_catalog.js';
 
 let cachedCeremonies = null;
 let cachedWinnersMap = null;
 let cachedCeremonyRows = null;
+
+let cachedTvCeremonies = null;
+let cachedTvWinnersMap = null;
+let cachedTvCeremonyRows = null;
 
 function ensureLookup() {
   if (!cachedWinnersMap) {
@@ -22,8 +26,25 @@ function ensureLookup() {
   return cachedWinnersMap;
 }
 
+function ensureTvLookup() {
+  if (!cachedTvWinnersMap) {
+    const map = new Map();
+    const allWinners = tvAwardsData?.allWinners || [];
+    allWinners.forEach((item) => {
+      if (item.id != null) {
+        map.set(String(item.id), item);
+      }
+      if (item.tmdbId != null) {
+        map.set(String(item.tmdbId), item);
+      }
+    });
+    cachedTvWinnersMap = map;
+  }
+  return cachedTvWinnersMap;
+}
+
 /**
- * Returns all available award ceremonies and festivals with their metadata.
+ * Returns all available movie award ceremonies and festivals with their metadata.
  */
 export function getAwardsCeremonies() {
   if (!cachedCeremonies) {
@@ -33,16 +54,39 @@ export function getAwardsCeremonies() {
 }
 
 /**
+ * Returns all available TV show award ceremonies and festivals with their metadata.
+ */
+export function getTvAwardsCeremonies() {
+  if (!cachedTvCeremonies) {
+    cachedTvCeremonies = tvAwardsData?.ceremonies || [];
+  }
+  return cachedTvCeremonies;
+}
+
+/**
  * Returns ceremony details and full winner list by ceremony ID.
  */
 export function getCeremonyById(ceremonyId) {
   if (!ceremonyId) return null;
   const ceremonies = getAwardsCeremonies();
+  return (
+    ceremonies.find((c) => c.id === ceremonyId) ||
+    getTvAwardsCeremonies().find((c) => c.id === ceremonyId) ||
+    null
+  );
+}
+
+/**
+ * Returns TV ceremony details and full winner list by ceremony ID.
+ */
+export function getTvCeremonyById(ceremonyId) {
+  if (!ceremonyId) return null;
+  const ceremonies = getTvAwardsCeremonies();
   return ceremonies.find((c) => c.id === ceremonyId) || null;
 }
 
 /**
- * Returns winning films for a specific ceremony, optionally limited.
+ * Returns winning films/series for a specific ceremony, optionally limited.
  */
 export function getWinnersForCeremony(ceremonyId, limit = Infinity) {
   const ceremony = getCeremonyById(ceremonyId);
@@ -53,18 +97,51 @@ export function getWinnersForCeremony(ceremonyId, limit = Infinity) {
 }
 
 /**
- * Returns all unique award-winning films across all ceremonies.
+ * Returns winning TV series for a specific TV ceremony, optionally limited.
+ */
+export function getTvWinnersForCeremony(ceremonyId, limit = Infinity) {
+  const ceremony = getTvCeremonyById(ceremonyId);
+  if (!ceremony || !Array.isArray(ceremony.winners)) return [];
+  return Number.isFinite(limit) && limit > 0
+    ? ceremony.winners.slice(0, limit)
+    : ceremony.winners;
+}
+
+/**
+ * Returns all unique award-winning films across all movie ceremonies.
  */
 export function getAllAwardWinners() {
   return awardsData?.allWinners || [];
 }
 
 /**
- * Returns an award winner item by TMDb ID.
+ * Returns all unique award-winning TV series across all TV ceremonies.
+ */
+export function getAllTvAwardWinners() {
+  return tvAwardsData?.allWinners || [];
+}
+
+/**
+ * Returns all unique award-winning titles across both movie and TV ceremonies.
+ */
+export function getAllHonorsWinners() {
+  return [...getAllAwardWinners(), ...getAllTvAwardWinners()];
+}
+
+/**
+ * Returns a movie award winner item by TMDb ID.
  */
 export function getAwardWinnerItem(tmdbId) {
   if (tmdbId == null) return null;
   return ensureLookup().get(String(tmdbId)) || null;
+}
+
+/**
+ * Returns a TV award winner item by TMDb ID.
+ */
+export function getTvAwardWinnerItem(tmdbId) {
+  if (tmdbId == null) return null;
+  return ensureTvLookup().get(String(tmdbId)) || null;
 }
 
 /**
@@ -76,31 +153,61 @@ export function getAwardsForMovie(tmdbId) {
 }
 
 /**
+ * Returns all awards and television laurels won by a specific TV show.
+ */
+export function getAwardsForTv(tmdbId) {
+  const item = getTvAwardWinnerItem(tmdbId);
+  return item?.awards || [];
+}
+
+function mapCeremoniesToRows(ceremonies, defaultMediaType = 'movie') {
+  return ceremonies
+    .filter((c) => Array.isArray(c.winners) && c.winners.length > 0)
+    .map((ceremony) => ({
+      category: {
+        id: `award_${ceremony.id}`,
+        ceremonyId: ceremony.id,
+        label: ceremony.shortName ? `${ceremony.shortName} Laureates` : ceremony.name,
+        fullName: ceremony.name,
+        awardName: ceremony.awardName,
+        icon: ceremony.icon || 'ribbon-outline',
+        badgeColor: ceremony.badgeColor || '#E5A93C',
+        country: ceremony.country,
+        city: ceremony.city,
+        founded: ceremony.founded,
+        description: ceremony.description,
+        mediaType: ceremony.mediaType || defaultMediaType,
+        isAwardCeremony: true,
+        isTvAwardCeremony: (ceremony.mediaType || defaultMediaType) === 'tv',
+      },
+      items: ceremony.winners,
+    }));
+}
+
+/**
+ * Returns pre-structured TV award rails ready for ContentRail / HomeScreen.
+ */
+export function getTvAwardCeremonyRows() {
+  if (!cachedTvCeremonyRows) {
+    cachedTvCeremonyRows = mapCeremoniesToRows(getTvAwardsCeremonies(), 'tv');
+  }
+  return cachedTvCeremonyRows;
+}
+
+/**
  * Returns pre-structured rails ready for ContentRail / FranchiseRailsView,
  * matching Trova's standard `{ category: { id, label, icon, ... }, items: [...] }` shape.
+ * Defaults to 'movie' for backward compatibility; pass 'tv' or 'all' as needed.
  */
-export function getAwardCeremonyRows() {
+export function getAwardCeremonyRows(mediaType = 'movie') {
+  if (mediaType === 'tv') {
+    return getTvAwardCeremonyRows();
+  }
   if (!cachedCeremonyRows) {
-    const ceremonies = getAwardsCeremonies();
-    cachedCeremonyRows = ceremonies
-      .filter((c) => Array.isArray(c.winners) && c.winners.length > 0)
-      .map((ceremony) => ({
-        category: {
-          id: `award_${ceremony.id}`,
-          ceremonyId: ceremony.id,
-          label: ceremony.shortName ? `${ceremony.shortName} Laureates` : ceremony.name,
-          fullName: ceremony.name,
-          awardName: ceremony.awardName,
-          icon: ceremony.icon || 'ribbon-outline',
-          badgeColor: ceremony.badgeColor || '#E5A93C',
-          country: ceremony.country,
-          city: ceremony.city,
-          founded: ceremony.founded,
-          description: ceremony.description,
-          isAwardCeremony: true,
-        },
-        items: ceremony.winners,
-      }));
+    cachedCeremonyRows = mapCeremoniesToRows(getAwardsCeremonies(), 'movie');
+  }
+  if (mediaType === 'all') {
+    return [...cachedCeremonyRows, ...getTvAwardCeremonyRows()];
   }
   return cachedCeremonyRows;
 }

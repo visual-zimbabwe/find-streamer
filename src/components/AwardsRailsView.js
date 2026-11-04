@@ -18,7 +18,12 @@ import { ContentRail } from './ContentRail';
 import { GlassIconButton } from './GlassIconButton';
 import { ProgrammeSectionHeader } from './ProgrammeSectionHeader';
 import { ProgrammeBadge } from './ProgrammeBadge';
-import { getAwardCeremonyRows, getAwardsCeremonies, getAllAwardWinners } from '../lib/awardsCatalog';
+import {
+  getAwardCeremonyRows,
+  getAwardsCeremonies,
+  getTvAwardsCeremonies,
+  getAllHonorsWinners,
+} from '../lib/awardsCatalog';
 import { watchlistEntryKey } from '../lib/watchlistModel';
 import { GOLD_ACCENT, GOLD_DIM, GRID_PAD } from '../theme/programme';
 import { scale } from '../utils/responsive';
@@ -27,6 +32,7 @@ const CEREMONY_GROUPS = [
   { id: 'all', label: 'All Honors' },
   { id: 'big_three', label: 'The Big Three' },
   { id: 'academies', label: 'Academies' },
+  { id: 'television', label: 'Television' },
   { id: 'critics', label: 'Critics Circles' },
   { id: 'festivals', label: 'Festivals' },
   { id: 'world', label: 'World Cinema' },
@@ -56,7 +62,18 @@ const GROUP_CEREMONY_IDS = {
     'aacta',
     'national_film_awards_india',
   ]),
-  critics: new Set(['nyfcc', 'nbr', 'lafca', 'nsfc', 'spirit_awards', 'gotham_awards']),
+  television: new Set(getTvAwardsCeremonies().map((c) => c.id)),
+  critics: new Set([
+    'nyfcc',
+    'nbr',
+    'lafca',
+    'nsfc',
+    'spirit_awards',
+    'gotham_awards',
+    'critics_choice_tv',
+    'tca_program_of_year',
+    'acs_france',
+  ]),
   festivals: new Set([
     'sundance',
     'tiff',
@@ -71,6 +88,11 @@ const GROUP_CEREMONY_IDS = {
     'goteborg',
     'sitges',
     'annecy_animation',
+    'series_mania',
+    'canneseries',
+    'monte_carlo_tv',
+    'banff_rockie',
+    'annecy_annie_tv_animation',
   ]),
   world: new Set([
     'tokyo',
@@ -95,6 +117,17 @@ const GROUP_CEREMONY_IDS = {
     'goteborg',
     'sitges',
     'filmfest_munchen',
+    'baeksang_tv_drama',
+    'blue_dragon_series',
+    'seoul_drama_awards',
+    'tokyo_drama_awards',
+    'golden_bell_tv',
+    'grimme_preis',
+    'deutscher_fernsehpreis',
+    'premios_feroz_tv',
+    'premios_ondas_tv',
+    'premios_platino_tv',
+    'nastri_dargento_serie',
   ]),
 };
 
@@ -262,9 +295,12 @@ export function AwardsRailsView({
   const [navigatorVisible, setNavigatorVisible] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
 
-  const allCeremonyRows = useMemo(() => getAwardCeremonyRows(), []);
-  const allCeremoniesMeta = useMemo(() => getAwardsCeremonies(), []);
-  const allWinners = useMemo(() => getAllAwardWinners(), []);
+  const allCeremonyRows = useMemo(() => getAwardCeremonyRows('all'), []);
+  const allCeremoniesMeta = useMemo(
+    () => [...getAwardsCeremonies(), ...getTvAwardsCeremonies()],
+    [],
+  );
+  const allWinners = useMemo(() => getAllHonorsWinners(), []);
 
   // Filter rows by active group and search query
   const filteredRows = useMemo(() => {
