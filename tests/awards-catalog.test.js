@@ -3,12 +3,20 @@ const assert = require('node:assert/strict');
 
 const {
   getAwardsCeremonies,
+  getTvAwardsCeremonies,
   getCeremonyById,
+  getTvCeremonyById,
   getWinnersForCeremony,
+  getTvWinnersForCeremony,
   getAllAwardWinners,
+  getAllTvAwardWinners,
+  getAllHonorsWinners,
   getAwardWinnerItem,
+  getTvAwardWinnerItem,
   getAwardsForMovie,
+  getAwardsForTv,
   getAwardCeremonyRows,
+  getTvAwardCeremonyRows,
   getPrestigeTopWinners,
 } = require('../src/lib/awardsCatalog.js');
 
@@ -112,4 +120,39 @@ test('getPrestigeTopWinners returns multi-award winning titles', () => {
   assert.equal(top10.length, 10);
   // Multi-award winners should have at least 2 awards
   assert.ok(top10[0].awards.length >= 2);
+});
+
+test('getTvAwardsCeremonies returns 40 prestigious TV ceremonies with metadata', () => {
+  const tvCeremonies = getTvAwardsCeremonies();
+  assert.ok(Array.isArray(tvCeremonies));
+  assert.equal(tvCeremonies.length, 40);
+
+  const emmyDrama = tvCeremonies.find((c) => c.id === 'emmy_drama');
+  assert.ok(emmyDrama);
+  assert.equal(emmyDrama.awardName, 'Outstanding Drama Series');
+  assert.equal(emmyDrama.mediaType, 'tv');
+  assert.ok(emmyDrama.winnersCount >= 25);
+
+  const baeksang = tvCeremonies.find((c) => c.id === 'baeksang_tv_drama');
+  assert.ok(baeksang);
+  assert.equal(baeksang.country, 'South Korea');
+  assert.ok(baeksang.winnersCount >= 15);
+});
+
+test('getTvAwardCeremonyRows and getAllTvAwardWinners format TV series with originalLanguageCode', () => {
+  const tvRows = getTvAwardCeremonyRows();
+  assert.equal(tvRows.length, 40);
+  assert.equal(tvRows[0].category.isAwardCeremony, true);
+  assert.equal(tvRows[0].category.isTvAwardCeremony, true);
+  assert.equal(tvRows[0].items[0].mediaType, 'tv');
+  assert.ok(tvRows[0].items[0].originalLanguageCode);
+
+  const allTv = getAllTvAwardWinners();
+  assert.ok(allTv.length >= 400);
+
+  const allCombined = getAwardCeremonyRows('all');
+  assert.equal(allCombined.length, 87);
+
+  const allHonorsWinners = getAllHonorsWinners();
+  assert.equal(allHonorsWinners.length, getAllAwardWinners().length + allTv.length);
 });
