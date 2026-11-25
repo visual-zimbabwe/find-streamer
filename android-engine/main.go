@@ -2132,6 +2132,8 @@ func InitTorrentEngine(storageDir *C.char, port C.int) C.int {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/stream", streamHandler)
 		mux.HandleFunc("/preload", preloadHandler)
+		mux.HandleFunc("/swarm/scrape", swarmScrapeHandler)
+		mux.HandleFunc("/swarm/probe", swarmProbeHandler)
 		mux.HandleFunc("/download/start", downloadStartHandler)
 		mux.HandleFunc("/download/status", downloadStatusHandler)
 		mux.HandleFunc("/download/pause", downloadPauseHandler)

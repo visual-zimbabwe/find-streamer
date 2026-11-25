@@ -10,7 +10,10 @@ import {
 import * as Haptics from 'expo-haptics';
 import { GOLD_ACCENT } from '../theme/programme';
 import { MediaArtwork } from './MediaArtwork';
-import { searchMovieTorrents } from '../lib/torrentSearchEngine';
+import {
+  isDeadOrArchiveStream,
+  searchMovieTorrents,
+} from '../lib/torrentSearchEngine';
 import { launchStream } from '../lib/streamLauncher';
 import { useDownloads } from '../lib/downloadManager';
 import { trovaToast as toastiva } from '../lib/trovaToast';
@@ -48,6 +51,7 @@ export function MovieStreamSheetContent({
   const [streamsLoading, setStreamsLoading] = useState(true);
   const [launchingStreamKey, setLaunchingStreamKey] = useState(null);
   const [showReleases, setShowReleases] = useState(false);
+  const [showAllReleases, setShowAllReleases] = useState(false);
 
   const {
     usedBytes,
@@ -93,7 +97,10 @@ export function MovieStreamSheetContent({
     };
   }, [movieTitle, originalTitle, movieYear, imdbId]);
 
-  const topStream = streams[0] || null;
+  const healthyStreams = streams.filter((s) => !isDeadOrArchiveStream(s));
+  const hiddenDeadCount = streams.length - healthyStreams.length;
+  const visibleStreams = showAllReleases || !healthyStreams.length ? streams : healthyStreams;
+  const topStream = healthyStreams[0] || streams[0] || null;
 
   // Opportunistically warm up the top peer swarm while the sheet is open
   useEffect(() => {
@@ -368,9 +375,11 @@ export function MovieStreamSheetContent({
                 ? 'Searching peer swarms for verified releases...'
                 : !topStream
                 ? 'No releases found'
+                : topStream.health?.code === 'ARCHIVE'
+                ? 'Only archive (.rar/.zip) releases found'
                 : topStream.seeders === 0
                 ? 'No active seeders in peer swarm'
-                : `Opens in landscape · ${topStream.formattedSize} · ${topStream.seeders} seeds`}
+                : `${topStream.health?.badge ? `${topStream.health.badge} · ` : ''}${topStream.formattedSize} · ${topStream.scrapeVerified ? '' : '~'}${topStream.seeders} seeds`}
             </Text>
           </View>
           {(streamsLoading && movieDownload?.state !== 'completed') ||
@@ -433,7 +442,7 @@ export function MovieStreamSheetContent({
         </View>
       ) : showReleases ? (
         <View style={styles.streamsContainer}>
-          {streams.map((item) => {
+          {visibleStreams.map((item) => {
             const itemDownload = getForMedia({
               infoHash: item.infoHash,
               fileIdx: item.fileIdx,
@@ -453,6 +462,16 @@ export function MovieStreamSheetContent({
                     {item.name}
                   </Text>
                   <View style={styles.badgeRow}>
+                    {item.health?.badge && (
+                      <Text
+                        style={[
+                          styles.attrBadge,
+                          { color: item.health.color || GOLD_ACCENT, ...typography.labelSm },
+                        ]}
+                      >
+                        {item.health.badge}
+                      </Text>
+                    )}
                     <Text
                       style={[
                         styles.qualityBadge,
@@ -514,7 +533,7 @@ export function MovieStreamSheetContent({
                         },
                       ]}
                     >
-                      {item.seeders} seeds
+                      {item.scrapeVerified ? `${item.seeders} seeds` : `~${item.seeders} seeds`}
                     </Text>
                     <Text
                       style={[
@@ -668,6 +687,27 @@ export function MovieStreamSheetContent({
               </View>
             );
           })}
+          {hiddenDeadCount > 0 && healthyStreams.length > 0 && (
+            <TouchableOpacity
+              style={styles.streamSecondaryBtn}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setShowAllReleases((prev) => !prev);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.streamSecondaryText,
+                  { color: colors.onSurfaceVariant, ...typography.labelSm },
+                ]}
+              >
+                {showAllReleases
+                  ? 'Hide dead / low-seed releases'
+                  : `Show ${hiddenDeadCount} dead / low-seed release${hiddenDeadCount === 1 ? '' : 's'}`}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : null}
     </ScrollView>
