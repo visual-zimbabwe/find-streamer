@@ -42,6 +42,9 @@ export async function launchStream({
       if (typeof fileIdx === 'number') {
         streamUrl += `&fileIdx=${fileIdx}`;
       }
+      if (season != null && episode != null) {
+        streamUrl += `&season=${encodeURIComponent(String(season))}&episode=${encodeURIComponent(String(episode))}`;
+      }
     }
 
     // Provide immediate feedback so the user knows their tap registered while

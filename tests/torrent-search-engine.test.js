@@ -12,6 +12,13 @@ import {
   parseTorrentioSize,
   parseTorrentioSeeders,
   parseTorrentioSource,
+  parseSizeToBytes,
+  normalizeInfoHash,
+  isArchiveRelease,
+  classifyHealth,
+  isDeadOrArchiveStream,
+  deduplicateCandidates,
+  computeSwarmRankWeight,
 } from '../src/lib/torrentSearchEngine.js';
 
 test('sanitizeQuery removes punctuation and normalizes spaces', () => {
@@ -217,5 +224,90 @@ test('parseReleaseAttributes extracts audio badges for multi-audio, dubs, and fo
 
   const cleanRelease = parseReleaseAttributes('Severance.S01E01.1080p.WEB-DL.DDP5.1.H.264-NTb.mkv');
   assert.equal(cleanRelease.audioBadge, null);
+});
+
+test('normalizeInfoHash converts both 40-char hex and 32-char Base32 hashes to lowercase hex', () => {
+  assert.equal(
+    normalizeInfoHash('34FF1FAE9661D72152FB1FC31E27C15297072654'),
+    '34ff1fae9661d72152fb1fc31e27c15297072654',
+  );
+  // Base32 SubsPlease-style hash -> 40-char hex
+  const hex = normalizeInfoHash('7MQKREFLWT6YWI7ZNTB434YSGIXXTORD');
+  assert.match(hex, /^[0-9a-f]{40}$/);
+});
+
+test('parseSizeToBytes parses GB, GiB, MB, MiB strings', () => {
+  assert.equal(parseSizeToBytes('1.5 GiB'), Math.round(1.5 * 1024 ** 3));
+  assert.equal(parseSizeToBytes('750 MB'), 750_000_000);
+  assert.equal(parseSizeToBytes('2.00&nbsp;GB'), 2_000_000_000);
+  assert.equal(parseSizeToBytes('unknown'), 0);
+});
+
+test('isArchiveRelease flags rar/zip/7z releases and allows mkv/mp4 releases', () => {
+  assert.equal(isArchiveRelease('Movie.2018.1080p.BluRay.RAR'), true);
+  assert.equal(isArchiveRelease('Show.S01E01.720p.zip'), true);
+  assert.equal(isArchiveRelease('The.Purity.of.Vengeance.2018.1080p.BluRay.x264.mkv'), false);
+});
+
+test('classifyHealth mirrors watchtv health tiers', () => {
+  assert.equal(
+    classifyHealth({
+      liveSeeders: 5,
+      scrapeVerified: true,
+      probe: { checked: true, fullSeeds: 1, peersWithPieces: 1, handshakesOk: 1 },
+    }).code,
+    'READY',
+  );
+  assert.equal(classifyHealth({ liveSeeders: 25, scrapeVerified: true }).code, 'HIGH');
+  assert.equal(classifyHealth({ liveSeeders: 6, liveLeechers: 10, scrapeVerified: true }).code, 'FAIR');
+  assert.equal(classifyHealth({ liveSeeders: 1, scrapeVerified: true }).code, 'RISKY');
+  assert.equal(classifyHealth({ liveSeeders: 0, scrapeVerified: true }).code, 'DEAD');
+  assert.equal(classifyHealth({ liveSeeders: 50, isArchive: true, scrapeVerified: true }).code, 'ARCHIVE');
+  assert.equal(classifyHealth({ reportedSeeders: 12, scrapeVerified: false }).code, 'UNVERIFIED');
+});
+
+test('deduplicateCandidates merges highest seeders, fileIdx, and combined sources', () => {
+  const hash = '34ff1fae9661d72152fb1fc31e27c15297072654';
+  const merged = deduplicateCandidates([
+    { name: 'Journal 64 2018 1080p', infoHash: hash.toUpperCase(), seeders: 4, size: 0, source: 'apibay' },
+    { name: 'Journal 64 2018 1080p', infoHash: hash, seeders: 32, leechers: 5, size: 2_000_000_000, fileIdx: 1, source: 'torrentio (YTS)' },
+  ]);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].seeders, 32);
+  assert.equal(merged[0].fileIdx, 1);
+  assert.equal(merged[0].size, 2_000_000_000);
+  assert.ok(merged[0].source.includes('apibay') && merged[0].source.includes('torrentio (YTS)'));
+});
+
+test('computeSwarmRankWeight ranks probed READY swarms above dead/archive swarms', () => {
+  const ready = {
+    name: 'Journal 64 2018 1080p BluRay x265',
+    score: 180,
+    seeders: 20,
+    liveSeeders: 20,
+    scrapeVerified: true,
+    size: 2 * 1024 ** 3,
+    attributes: { resolution: '1080p', codec: 'x265' },
+    probe: { checked: true, fullSeeds: 1, peersWithPieces: 1, handshakesOk: 1 },
+    health: { code: 'READY' },
+  };
+  const archive = {
+    ...ready,
+    name: 'Journal 64 2018 1080p BluRay RAR',
+    isArchive: true,
+    health: { code: 'ARCHIVE' },
+  };
+  const dead = {
+    ...ready,
+    seeders: 0,
+    liveSeeders: 0,
+    probe: null,
+    health: { code: 'DEAD' },
+  };
+  assert.ok(computeSwarmRankWeight(ready, { isMovie: true }) > computeSwarmRankWeight(archive, { isMovie: true }));
+  assert.ok(computeSwarmRankWeight(ready, { isMovie: true }) > computeSwarmRankWeight(dead, { isMovie: true }));
+  assert.equal(isDeadOrArchiveStream(ready), false);
+  assert.equal(isDeadOrArchiveStream(archive), true);
+  assert.equal(isDeadOrArchiveStream(dead), true);
 });
 
